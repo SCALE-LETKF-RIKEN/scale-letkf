@@ -1,11 +1,3 @@
-TOPDIR    = ../../..
-SCALE_INC = -I$(TOPDIR)/include
-SCALE_LIB = -L$(TOPDIR)/lib -lscale 
-SCALE_RM_OBJDIR = $(TOPDIR)/scale-rm/src/.libs
-
-include $(TOPDIR)/sysdep/Makedef.$(SCALE_SYS)
-include $(TOPDIR)/Mkinclude
-
 NETCDF_INC = $(SCALE_NETCDF_INCLUDE)
 NETCDF_LIB = $(SCALE_NETCDF_LIBS)
 
@@ -23,7 +15,6 @@ FBYTESWAP = -convert little_endian
 FFREE     = -free
 FFIXED    = -fixed
 
-configure.user.Linux64-intel-mpt 
 # -- for Himawari-8 assimilatin on the K computer (T.Honda)
 # -- If you want to compile without RTTOV (Himawari assimilation),
 # -- you should set "H08 = F".
