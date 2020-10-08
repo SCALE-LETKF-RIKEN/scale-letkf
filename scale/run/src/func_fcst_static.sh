@@ -886,12 +886,7 @@ while ((time_s <= ETIME)); do
 
           mkdir -p $OUTDIR/$time/fcst/${name_m[$m]}
           RESTART_IN_BASENAME="${INDIR[$d]}/$time/anal/${name_m[$m]}/init"
-
-          if (( MAKEINIT == 1 )); then
-            RESTART_IN_POSTFIX_TIMELABEL=".true."
-          else
-            RESTART_IN_POSTFIX_TIMELABEL=".false."
-          fi
+          RESTART_IN_POSTFIX_TIMELABEL=".true."
 
           if ((d == 1)); then
             conf_file_src=$SCRP_DIR/config.nml.scale

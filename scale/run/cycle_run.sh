@@ -80,7 +80,7 @@ config_file_list $TMPS/config || exit $?
 
 cp ${SCRP_DIR}/config.rc ${TMP}/
 cp ${SCRP_DIR}/config.${job} ${TMP}/
-cp ${SCRP_DIR}/${job}.sh ${TMP}/
+cp ${SCRP_DIR}/src/${job}.sh ${TMP}/
 cp -r ${SCRP_DIR}/src ${TMP}/
 
 #===============================================================================
