@@ -8,7 +8,8 @@
 #  https://github.com/gylien/scale-letkf/blob/realtime_fcst_D1-3_ope/scale/run_d1-2/config/online_NRT_5.3.X/sno_bulk.sh
 #
 
-STIME=<STIME>
+#STIME=<STIME>
+STIME='20180701060000'
 
 . config.main || exit $?
 RUNDIR="${TMP}/../run_sno_<STIME>"
@@ -26,17 +27,19 @@ NP_OFILE_Y=1
 # Do not edit!
 NP_OFILE=$((${NP_OFILE_X} * ${NP_OFILE_Y})) # Output file (process number) for each member
 
-SNO_MEMBERS=${MEMBER}
+SNO_MEMBERS=$((${MEMBER} + 2))
+SNO_MEM_L=$(seq -f %04g ${MEMBER})" mean mdet" # All members + mean + mdet
 #SNO_MEMBERS=1
-SNO_MEM_L=$(seq -f %04g ${SNO_MEMBERS})" mean mdet" # All members + mean + mdet
-#SNO_MEM_L=$(seq -f %04g ${SNO_MEMBERS})" mean" # All members + mean
 #SNO_MEM_L="mdet"
+echo $SNO_MEMBERS
+echo $SNO_MEM_L
 
 # Total SNO processes  
 NP_TOTAL=$((${SNO_MEMBERS} * ${NP_OFILE}))
 
 # Convert variables (Other variables will NOT be included in converted files)
-VARS='"U", "V", "T", "QV", "QHYD", "DENS", "PREC", "MSLP", "Gprs", "PW", "ENGT", "ENGP", "ENGI", "ENGK", "MSE" , "Uprs", "Vprs", "Tprs", "Gprs", "QVprs","QHYDprs"'
+#VARS='"U", "V", "T", "QV", "QHYD", "DENS", "PREC", "MSLP", "Gprs", "PW", "ENGT", "ENGP", "ENGI", "ENGK", "MSE" , "Uprs", "Vprs", "Tprs", "Gprs", "QVprs","QHYDprs"'
+VARS='"U", "V", "T", "QV", "DENS", "PREC", "MSLP"'
 
 TOPO=0 # Process topography file? # 1: Yes, 0: No
 if (( TOPO > 0 )) ; then
@@ -127,7 +130,7 @@ EOF
 done # member loop
 
 
-
+NPIN=`expr 255 / \( $PPN \) + 1`
 jobsh="${RUNDIR}/job_sno.sh"
 
 cat << EOF >> $jobsh
@@ -138,15 +141,15 @@ cat << EOF >> $jobsh
 #PJM --mpi proc=${NP_TOTAL}
 #PJM --omp thread=1
 #PJM -g $(echo $(id -ng))
-rm -f machinefile
-for inode in \$(cat \$I_MPI_HYDRA_HOST_FILE); do
-  for ippn in \$(seq ${PPN}); do
-    echo "\$inode" >> machinefile
-  done
-done
-module load hdf5/1.8.17
-module load netcdf/4.4.1
-module load netcdf-fortran/4.4.3
+
+module unload impi
+module unload intel
+module load intel/2019.5.281
+
+module load hdf5/1.10.5
+module load netcdf/4.7.0
+module load netcdf-fortran/4.4.5
+
 export FORT_FMT_RECL=400
 export HFI_NO_CPUAFFINITY=1
 export I_MPI_PIN_PROCESSOR_EXCLUDE_LIST=0,1,68,69,136,137,204,205
@@ -158,8 +161,9 @@ export I_MPI_PIN_DOMAIN=${NPIN}
 export I_MPI_PERHOST=${PPN}
 export KMP_HW_SUBSET=1t
 ulimit -s unlimited
+
 echo "[\$(date "+%Y/%m/%d %H:%M:%S")] Start SNO"
-mpirun -np ${NP_OFILE} ${SNOBIN} ${conf_bulk}.\${PJM_BULKNUM}
+mpiexec.hydra -n ${NP_OFILE} ${SNOBIN} ${conf_bulk}.\${PJM_BULKNUM}
 echo "[\$(date "+%Y/%m/%d %H:%M:%S")] End SNO"
 EOF
 

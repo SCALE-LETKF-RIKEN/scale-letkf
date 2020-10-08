@@ -5,16 +5,14 @@ SCALE_RM_OBJDIR = $(TOPDIR)/scale-rm/src/.libs
 
 include $(TOPDIR)/sysdep/Makedef.$(SCALE_SYS)
 
-SCALE_ENABLE_OPENMP = T
-
 include $(TOPDIR)/Mkinclude
 
 #------
 
-LETKF_SYS = $(SCALE_SYS)
-include ../arch/configure.user.$(LETKF_SYS)
+include ../arch/configure.user.$(SCALE_SYS)
 
-#------
+NETCDF_INC = $(SCALE_NETCDF_INCLUDE)
+NETCDF_LIB = $(SCALE_NETCDF_LIBS)
 
 ifeq ($(SCALE_USER_VER),T)
 FOPTS     += -DSCALEUV

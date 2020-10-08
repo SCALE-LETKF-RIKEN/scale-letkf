@@ -28,9 +28,7 @@ program scaleles_init_ens
      PRC_MPIfinish, &
      PRC_MPIsplit, &
      PRC_UNIVERSAL_myrank, &
-     PRC_DOMAIN_nlim, &
-     PRC_GLOBAL_COMM_WORLD, &
-     PRC_LOCAL_COMM_WORLD
+     PRC_DOMAIN_nlim
   use mod_rm_prep
 
   implicit none
@@ -71,7 +69,7 @@ program scaleles_init_ens
   nprocs = universal_nprocs
   myrank = universal_myrank
 
-  WRITE(6,'(A,I6.6,A,I6.6)') 'Hello from MYRANK ',universal_myrank,'/',universal_nprocs-1
+!  WRITE(6,'(A,I6.6,A,I6.6)') 'Hello from MYRANK ',universal_myrank,'/',universal_nprocs-1
 
   if (command_argument_count() >= 3) then
     write (myranks, '(I10)') universal_myrank
@@ -109,7 +107,7 @@ program scaleles_init_ens
 
 !-----------------------------------------------------------------------
 
-  call set_common_conf(universal_nprocs)
+  call set_common_conf
   if (DET_RUN) then
     call set_mem_node_proc(MEMBER+2)
   else

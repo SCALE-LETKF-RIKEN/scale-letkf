@@ -105,7 +105,7 @@ subroutine initialize_mpi_scale
   nprocs = universal_nprocs
   myrank = PRC_UNIVERSAL_myrank
 
-  write(6,'(A,I6.6,A,I6.6)') 'Hello from MYRANK ', myrank, '/', nprocs-1
+!  write(6,'(A,I6.6,A,I6.6)') 'Hello from MYRANK ', myrank, '/', nprocs-1
   if (r_size == r_dble) then
     MPI_r_size = MPI_DOUBLE_PRECISION
   else if (r_size == r_sngl) then
@@ -534,9 +534,6 @@ subroutine set_scalelib(execname)
   use scale_io, only: &
     IO_setup, &
     IO_LOG_setup, &
-    IO_FID_CONF, &
-    IO_FID_LOG, &
-    IO_L, &
     H_LONG
   use scale_prc, only: &
     PRC_mpi_alive, &
@@ -562,15 +559,10 @@ subroutine set_scalelib(execname)
     RANDOM_setup
 !  use scale_time, only: &
 !    TIME_setup
-  use scale_time, only: &
-    TIME_DTSEC,       &
-    TIME_STARTDAYSEC
   use scale_atmos_grid_cartesC, only: &
     ATMOS_GRID_CARTESC_setup, &
     ATMOS_GRID_CARTESC_DOMAIN_CENTER_X, &
-    ATMOS_GRID_CARTESC_DOMAIN_CENTER_Y, &
-    DX, &
-    DY
+    ATMOS_GRID_CARTESC_DOMAIN_CENTER_Y
   use scale_atmos_grid_cartesC_index
 !  use scale_atmos_grid_cartesC_nest, only: &
 !    NEST_setup
@@ -635,9 +627,6 @@ subroutine set_scalelib(execname)
 
   integer :: color, key, idom, ierr
   integer :: rankidx(2)
-
-  integer :: HIST_item_limit    ! dummy
-  integer :: HIST_variant_limit ! dummy
 
   character(len=7) :: execname_ = ''
 
