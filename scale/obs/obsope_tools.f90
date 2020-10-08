@@ -15,13 +15,13 @@ MODULE obsope_tools
   USE common_mpi_scale
   USE common_obs_scale
   use common_nml
-!  use scale_process, only: &
+!  use scale_prc, only: &
 !    PRC_myrank
 !    MPI_COMM_d => LOCAL_COMM_WORLD
-  use scale_grid_index, only: &
+  use scale_atmos_grid_cartesC_index, only: &
     KHALO, IHALO, JHALO
 #ifdef H08
-  use scale_grid, only: &
+  use scale_atmos_grid_cartesC, only: &
     DX, DY,    &
     BUFFER_DX, &
     BUFFER_DY
@@ -1061,13 +1061,14 @@ end subroutine obsmake_cal
 ! Model-to-observation simulator calculation
 !-------------------------------------------------------------------------------
 subroutine obssim_cal(v3dgh, v2dgh, v3dgsim, v2dgsim, stggrd)
-  use scale_grid, only: &
-      GRID_CX, GRID_CY, &
+  use scale_atmos_grid_cartesC, only: &
+      CX => ATMOS_GRID_CARTESC_CX, &
+      CY => ATMOS_GRID_CARTESC_CY, &
       DX, DY
-  use scale_grid_index, only: &
+  use scale_atmos_grid_cartesC_index, only: &
       IHALO, JHALO, KHALO
-  use scale_mapproj, only: &
-      MPRJ_xy2lonlat
+  use scale_mapprojection, only: &
+      MAPPROJECTION_xy2lonlat
 
   implicit none
 
@@ -1081,6 +1082,7 @@ subroutine obssim_cal(v3dgh, v2dgh, v3dgsim, v2dgsim, stggrd)
   real(r_size) :: ri, rj, rk
   real(r_size) :: lon, lat, lev
   real(r_size) :: tmpobs
+  real(RP) :: lon_RP, lat_RP
   integer :: tmpqc
 
 !-------------------------------------------------------------------------------
@@ -1092,9 +1094,11 @@ subroutine obssim_cal(v3dgh, v2dgh, v3dgsim, v2dgsim, stggrd)
 
     do i = 1, nlon
       ri = real(i + IHALO, r_size)
-      call MPRJ_xy2lonlat((ri-1.0_r_size) * DX + GRID_CX(1), (rj-1.0_r_size) * DY + GRID_CY(1), lon, lat)
-      lon = lon * rad2deg
-      lat = lat * rad2deg
+      call MAPPROJECTION_xy2lonlat( real(ri - 1.0_r_size, kind=RP)*DX + CX(1), &
+                                    real(rj - 1.0_r_size, kind=RP)*DY + CY(1), &
+                                    lon_RP, lat_RP )
+      lon = real(lon_RP, kind=r_size)*rad2deg
+      lat = real(lat_RP, kind=r_size)*rad2deg
 
       do k = 1, nlev
         rk = real(k + KHALO, r_size)

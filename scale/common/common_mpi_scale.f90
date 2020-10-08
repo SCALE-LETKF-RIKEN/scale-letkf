@@ -23,9 +23,9 @@ module common_mpi_scale
   use common_obs_scale
 
   use scale_precision, only: RP
-  use scale_comm, only: COMM_datatype
+  use scale_comm_cartesC, only: COMM_datatype
 #ifdef PNETCDF
-  use scale_stdio, only: IO_AGGREGATE
+  use scale_file, only: FILE_AGGREGATE
 #endif
 
   implicit none
@@ -85,7 +85,7 @@ contains
 ! initialize_mpi_scale
 !-------------------------------------------------------------------------------
 subroutine initialize_mpi_scale
-  use scale_process, only: &
+  use scale_prc, only: &
      PRC_MPIstart, &
      PRC_UNIVERSAL_setup, &
      PRC_UNIVERSAL_myrank
@@ -119,7 +119,7 @@ end subroutine initialize_mpi_scale
 ! finalize_mpi_scale
 !-------------------------------------------------------------------------------
 subroutine finalize_mpi_scale
-!  use scale_process, only: PRC_MPIfinish
+!  use scale_prc, only: PRC_MPIfinish
   implicit none
   integer :: ierr
 
@@ -133,13 +133,14 @@ end subroutine finalize_mpi_scale
 ! set_common_mpi_scale
 !-------------------------------------------------------------------------------
 subroutine set_common_mpi_scale
-  use scale_grid, only: &
-      GRID_CX, GRID_CY, &
+  use scale_atmos_grid_cartesC, only: &
+      CX => ATMOS_GRID_CARTESC_CX, &
+      CY => ATMOS_GRID_CARTESC_CY, &
       DX, DY
-  use scale_grid_index, only: &
+  use scale_atmos_grid_cartesC_index, only: &
       IHALO, JHALO
-  use scale_mapproj, only: &
-      MPRJ_xy2lonlat
+  use scale_mapprojection, only: &
+      MAPPROJECTION_xy2lonlat
   implicit none
   integer :: color, key
   integer :: ierr
@@ -147,6 +148,10 @@ subroutine set_common_mpi_scale
   real(r_size), allocatable :: height3dtmp(:,:,:)
   real(r_size), allocatable :: lon2dtmp(:,:)
   real(r_size), allocatable :: lat2dtmp(:,:)
+  real(RP), allocatable :: lon2dtmp_RP(:,:)
+  real(RP), allocatable :: lat2dtmp_RP(:,:)
+  real(RP), allocatable :: height3dtmp_RP(:,:,:)
+  real(RP) :: lon_RP, lat_RP
   integer :: i, j
   real(r_size) :: ri, rj
 
@@ -183,6 +188,9 @@ subroutine set_common_mpi_scale
       allocate (height3dtmp(nlev,nlon,nlat))
       allocate (lon2dtmp(nlon,nlat))
       allocate (lat2dtmp(nlon,nlat))
+      allocate (lon2dtmp_RP(nlon,nlat))
+      allocate (lat2dtmp_RP(nlon,nlat))
+      allocate (height3dtmp_RP(nlev,nlon,nlat))
 
       if (.not. allocated(topo2d)) then
         allocate (topo2d(nlon,nlat))
@@ -195,16 +203,24 @@ subroutine set_common_mpi_scale
         do i = 1, nlon
           ri = real(i + IHALO, r_size)
           rj = real(j + JHALO, r_size)
-          call MPRJ_xy2lonlat((ri-1.0_r_size) * DX + GRID_CX(1), (rj-1.0_r_size) * DY + GRID_CY(1), lon2d(i,j), lat2d(i,j))
-          lon2d(i,j) = lon2d(i,j) * rad2deg
-          lat2d(i,j) = lat2d(i,j) * rad2deg
+          call MAPPROJECTION_xy2lonlat( real(ri-1.0_r_size, kind=RP)*DX + CX(1), &
+                                        real(rj-1.0_r_size, kind=RP)*DY + CY(1), &
+                                        lon_RP, lat_RP )
+!                                        lon2d(i,j), lat2d(i,j))
+
+          lon2d(i,j) = real(lon_RP, kind=r_size)*rad2deg
+          lat2d(i,j) = real(lat_RP, kind=r_size)*rad2deg
         end do
       end do
 !$OMP END PARALLEL DO
 
       filename = GUES_IN_BASENAME
       call filename_replace_mem(filename, myrank_to_mem(1))
-      call read_restart_coor(filename, lon2dtmp, lat2dtmp, height3dtmp)
+      call read_restart_coor( filename, lon2dtmp_RP, lat2dtmp_RP, height3dtmp_RP )
+     
+      lon2dtmp = real(lon2dtmp_RP, kind=r_size)
+      lat2dtmp = real(lat2dtmp_RP, kind=r_size)
+      height3dtmp = real(height3dtmp_RP, kind=r_size)
 
       if (maxval(abs(lon2dtmp - lon2d)) > 1.0d-6 .or. maxval(abs(lat2dtmp - lat2d)) > 1.0d-6) then
         write (6, '(A,F15.7,A,F15.7)') '[Error] Map projection settings are incorrect! -- maxdiff(lon) = ', &
@@ -242,10 +258,10 @@ end subroutine unset_common_mpi_scale
 ! set_common_mpi_grid
 !-------------------------------------------------------------------------------
 subroutine set_common_mpi_grid
-  use scale_grid_index, only: &
+  use scale_atmos_grid_cartesC_index, only: &
     IHALO, &
     JHALO
-  use scale_process, only: &
+  use scale_prc, only: &
     PRC_myrank
 
   implicit none
@@ -313,7 +329,7 @@ subroutine set_common_mpi_grid
       write (6, '(1x,A,A15,A)') '*** Read 2D var: ', trim(topo2d_name), ' -- skipped because it was read previously'
 #ifdef DEBUG
 #ifdef PNETCDF
-      if (IO_AGGREGATE) then
+      if (FILE_AGGREGATE) then
         call read_topo_par(LETKF_TOPO_IN_BASENAME, topo2dtmp, MPI_COMM_d)
       else
 #endif
@@ -329,7 +345,7 @@ subroutine set_common_mpi_grid
     else
       allocate (topo2d(nlon,nlat))
 #ifdef PNETCDF
-      if (IO_AGGREGATE) then
+      if (FILE_AGGREGATE) then
         call read_topo_par(LETKF_TOPO_IN_BASENAME, topo2d, MPI_COMM_d)
       else
 #endif
@@ -515,22 +531,18 @@ END SUBROUTINE
 ! Start using SCALE library
 !-------------------------------------------------------------------------------
 subroutine set_scalelib(execname)
-  use gtool_history, only: &
-    HistoryInit
-  use dc_log, only: &
-    LogInit
-  use scale_stdio, only: &
+  use scale_io, only: &
     IO_setup, &
     IO_LOG_setup, &
     IO_FID_CONF, &
     IO_FID_LOG, &
     IO_L, &
     H_LONG
-  use scale_process, only: &
+  use scale_prc, only: &
     PRC_mpi_alive, &
 !    PRC_MPIstart, &
 !    PRC_UNIVERSAL_setup, &
-    PRC_MPIsplit_letkf, &
+!    PRC_MPIsplit_letkf, &
     PRC_MPIsplit, &
     PRC_GLOBAL_setup, &
     PRC_LOCAL_setup, &
@@ -539,9 +551,9 @@ subroutine set_scalelib(execname)
     PRC_myrank, &
     PRC_masterrank, &
     PRC_DOMAIN_nlim
-  use scale_rm_process, only: &
-    PRC_setup, &
-    PRC_2Drank
+  use scale_prc_cartesC, only: &
+    PRC_2Drank, &
+    PRC_CARTESC_setup
   use scale_const, only: &
     CONST_setup
   use scale_calendar, only: &
@@ -553,36 +565,38 @@ subroutine set_scalelib(execname)
   use scale_time, only: &
     TIME_DTSEC,       &
     TIME_STARTDAYSEC
-  use scale_grid, only: &
-    GRID_setup, &
-    GRID_DOMAIN_CENTER_X, &
-    GRID_DOMAIN_CENTER_Y
-  use scale_grid_index
-!  use scale_grid_nest, only: &
+  use scale_atmos_grid_cartesC, only: &
+    ATMOS_GRID_CARTESC_setup, &
+    ATMOS_GRID_CARTESC_DOMAIN_CENTER_X, &
+    ATMOS_GRID_CARTESC_DOMAIN_CENTER_Y, &
+    DX, &
+    DY
+  use scale_atmos_grid_cartesC_index
+!  use scale_atmos_grid_cartesC_nest, only: &
 !    NEST_setup
 #ifdef PNETCDF
-  use scale_land_grid_index, only: &
-    LAND_GRID_INDEX_setup
+  use scale_land_grid_cartesC_index, only: &
+    LAND_GRID_CARTESC_INDEX_setup
 #endif
 !  use scale_land_grid, only: &
 !    LAND_GRID_setup
 #ifdef PNETCDF
-  use scale_urban_grid_index, only: &
-    URBAN_GRID_INDEX_setup
+  use scale_urban_grid_cartesC_index, only: &
+    URBAN_GRID_CARTESC_INDEX_setup
 #endif
 !  use scale_urban_grid, only: &
 !    URBAN_GRID_setup
-  use scale_fileio, only: &
-    FILEIO_setup
-  use scale_comm, only: &
+  use scale_file, only: &
+    FILE_setup
+  use scale_comm_cartesC, only: &
     COMM_setup
 !  use scale_topography, only: &
 !    TOPO_setup
 !  use scale_landuse, only: &
 !    LANDUSE_setup
-!  use scale_grid_real, only: &
+!  use scale_atmos_grid_cartesC_real, only: &
 !    REAL_setup
-!  use scale_gridtrans, only: &
+!  use scale_atmos_grid_cartesCtrans, only: &
 !    GTRANS_setup
 !  use scale_atmos_hydrostatic, only: &
 !    ATMOS_HYDROSTATIC_setup
@@ -592,8 +606,8 @@ subroutine set_scalelib(execname)
     ATMOS_HYDROMETEOR_setup
 !  use mod_atmos_driver, only: &
 !    ATMOS_driver_config
-  use scale_atmos_phy_mp, only: &
-    ATMOS_PHY_MP_config
+!  use scale_atmos_phy_mp, only: &
+!    ATMOS_PHY_MP_config
 !  use mod_atmos_admin, only: &
 !    ATMOS_PHY_MP_TYPE, &
 !    ATMOS_sw_phy_mp
@@ -601,8 +615,8 @@ subroutine set_scalelib(execname)
 !    USER_config
 !  use mod_admin_time, only: &
 !    ADMIN_TIME_setup
-  use scale_mapproj, only: &
-    MPRJ_setup
+  use scale_mapprojection, only: &
+    MAPPROJECTION_setup
   implicit none
 
   character(len=*), intent(in), optional :: execname
@@ -724,7 +738,7 @@ subroutine set_scalelib(execname)
   !-----------------------------------------------------------------------------
 
   if (mydom >= 2) then ! In d01, keep using the original launcher config file; skip re-opening config files here
-    call IO_setup( modelname, .true., confname_mydom )
+    call IO_setup( modelname, confname_mydom )
 
 !    call read_nml_log
 !    call read_nml_model
@@ -787,7 +801,7 @@ subroutine set_scalelib(execname)
 
   ! setup Log
   call IO_LOG_setup( local_myrank, PRC_UNIVERSAL_IsMaster )
-  call LogInit( IO_FID_CONF, IO_FID_LOG, IO_L )
+!  call LogInit( IO_FID_CONF, IO_FID_LOG, IO_L )
 
   call mpi_timer('set_scalelib:log_setup_init:', 2)
 
@@ -795,7 +809,7 @@ subroutine set_scalelib(execname)
   !-----------------------------------------------------------------------------
 
   ! setup process
-  call PRC_setup
+  call PRC_CARTESC_setup
 
   ! setup PROF
 !  call PROF_setup
@@ -817,20 +831,20 @@ subroutine set_scalelib(execname)
 !  call ADMIN_TIME_setup( setup_TimeIntegration = .true. )
 
   ! setup horizontal/vertical grid coordinates
-  call GRID_INDEX_setup
-  call GRID_setup
+  call ATMOS_GRID_CARTESC_INDEX_setup
+  call ATMOS_GRID_CARTESC_setup
 #ifdef PNETCDF
-  call LAND_GRID_INDEX_setup
+  call LAND_GRID_CARTESC_INDEX_setup
 #endif
 !  call LAND_GRID_setup
 #ifdef PNETCDF
-  call URBAN_GRID_INDEX_setup
+  call URBAN_GRID_CARTESC_INDEX_setup
 #endif
 !  call URBAN_GRID_setup
 
   ! setup tracer index
   call ATMOS_HYDROMETEOR_setup
-    call ATMOS_PHY_MP_config('TOMITA08') !!!!!!!!!!!!!!! tentative
+!    call ATMOS_PHY_MP_config('TOMITA08') !!!!!!!!!!!!!!! tentative
 !    if ( ATMOS_sw_phy_mp ) then
 !       call ATMOS_PHY_MP_config( ATMOS_PHY_MP_TYPE )
 !    end if
@@ -838,7 +852,7 @@ subroutine set_scalelib(execname)
 !  call USER_config
 
   ! setup file I/O
-  call FILEIO_setup
+  call FILE_setup( PRC_myrank )
 
   ! setup mpi communication
   call COMM_setup
@@ -852,7 +866,7 @@ subroutine set_scalelib(execname)
   ! setup grid coordinates (real world)
 !  call REAL_setup
     ! setup map projection [[ in REAL_setup ]]
-    call MPRJ_setup( GRID_DOMAIN_CENTER_X, GRID_DOMAIN_CENTER_Y )
+     call MAPPROJECTION_setup( ATMOS_GRID_CARTESC_DOMAIN_CENTER_X, ATMOS_GRID_CARTESC_DOMAIN_CENTER_Y )
 
   ! setup grid transfer metrics (uses in ATMOS_dynamics)
 !  call GTRANS_setup
@@ -872,21 +886,23 @@ subroutine set_scalelib(execname)
     rankidx(1) = PRC_2Drank(PRC_myrank, 1)
     rankidx(2) = PRC_2Drank(PRC_myrank, 2)
 
-    call HistoryInit( HIST_item_limit,                  & ! [OUT]
-                      HIST_variant_limit,               & ! [OUT]
-                      IMAX, JMAX, KMAX,                 & ! [IN]
-                      PRC_masterrank,                   & ! [IN]
-                      PRC_myrank,                       & ! [IN]
-                      rankidx,                          & ! [IN]
-                      '',                               & ! [IN]
-                      '',                               & ! [IN]
-                      '',                               & ! [IN]
-                      0.0d0,                            & ! [IN]
-                      1.0d0,                            & ! [IN]
-                      default_basename='history',       & ! [IN]
-                      default_zcoord = 'model',         & ! [IN]
-                      default_tinterval = 1.0d0,        & ! [IN]
-                      namelist_fid=IO_FID_CONF          ) ! [IN]
+! tentative 11/26/2018 TH
+!  call FILE_HISTORY_setup
+!    call HistoryInit( HIST_item_limit,                  & ! [OUT]
+!                      HIST_variant_limit,               & ! [OUT]
+!                      IMAX, JMAX, KMAX,                 & ! [IN]
+!                      PRC_masterrank,                   & ! [IN]
+!                      PRC_myrank,                       & ! [IN]
+!                      rankidx,                          & ! [IN]
+!                      '',                               & ! [IN]
+!                      '',                               & ! [IN]
+!                      '',                               & ! [IN]
+!                      0.0d0,                            & ! [IN]
+!                      1.0d0,                            & ! [IN]
+!                      default_basename='history',       & ! [IN]
+!                      default_zcoord = 'model',         & ! [IN]
+!                      default_tinterval = 1.0d0,        & ! [IN]
+!                      namelist_fid=IO_FID_CONF          ) ! [IN]
 
   ! setup monitor I/O
 !  call MONIT_setup
@@ -924,9 +940,9 @@ end subroutine set_scalelib
 ! Finish using SCALE library
 !-------------------------------------------------------------------------------
 subroutine unset_scalelib
-  use gtool_file, only: &
-    FileCloseAll
-  use scale_stdio, only: &
+  use scale_file, only: &
+     FILE_Close_All
+  use scale_io, only: &
     IO_FID_CONF, &
     IO_FID_LOG, &
     IO_L, &
@@ -936,7 +952,7 @@ subroutine unset_scalelib
 
   if (myrank_use) then
 !    call MONIT_finalize
-    call FileCloseAll
+    call FILE_Close_All
 
     ! Close logfile, configfile
     if ( IO_L ) then
@@ -1080,7 +1096,7 @@ subroutine read_ens_history_iter(iter, step, v3dg, v2dg)
     end if
 
 #ifdef PNETCDF
-    if (IO_AGGREGATE) then
+    if (FILE_AGGREGATE) then
       call read_history_par(trim(filename), step, v3dg, v2dg, MPI_COMM_d)
     else
 #endif
@@ -1124,7 +1140,7 @@ subroutine read_ens_mpi(v3d, v2d)
 
 !      write (6,'(A,I6.6,3A,I6.6,A)') 'MYRANK ',myrank,' is reading a file ',filename,'.pe',myrank_d,'.nc'
 #ifdef PNETCDF
-      if (IO_AGGREGATE) then
+      if (FILE_AGGREGATE) then
         call read_restart_par(filename, v3dg, v2dg, MPI_COMM_d)
       else
 #endif
@@ -1180,7 +1196,7 @@ subroutine read_ens_mpi_addiinfl(v3d, v2d)
 
 !      write (6,'(A,I6.6,3A,I6.6,A)') 'MYRANK ',myrank,' is reading a file ',filename,'.pe',myrank_d,'.nc'
 #ifdef PNETCDF
-      if (IO_AGGREGATE) then
+      if (FILE_AGGREGATE) then
         call read_restart_par(filename, v3dg, v2dg, MPI_COMM_d)
       else
 #endif
@@ -1257,7 +1273,7 @@ subroutine write_ens_mpi(v3d, v2d, monit_step)
       call mpi_timer('write_ens_mpi:state_trans_inv:', 2)
 
 #ifdef PNETCDF
-      if (IO_AGGREGATE) then
+      if (FILE_AGGREGATE) then
         call write_restart_par(filename, v3dg, v2dg, MPI_COMM_d)
       else
 #endif
@@ -1683,7 +1699,7 @@ subroutine write_ensmean(filename, v3d, v2d, calced, monit_step)
     call mpi_timer('write_ensmean:state_trans_inv:', 2)
 
 #ifdef PNETCDF
-    if (IO_AGGREGATE) then
+    if (FILE_AGGREGATE) then
       call write_restart_par(filename, v3dg, v2dg, MPI_COMM_d)
     else
 #endif
@@ -1724,7 +1740,7 @@ subroutine write_enssprd(filename, v3d, v2d)
   if (myrank_e == msprd_rank_e) then
 !    call state_trans_inv(v3dg)              !! do not transform the spread output
 #ifdef PNETCDF
-    if (IO_AGGREGATE) then
+    if (FILE_AGGREGATE) then
       call write_restart_par(filename, v3dg, v2dg, MPI_COMM_d)
     else
 #endif
