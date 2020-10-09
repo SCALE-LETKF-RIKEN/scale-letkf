@@ -284,7 +284,6 @@ SUBROUTINE set_letkf_obs
       ! mark (elm, typ) combinations for which observations exist
       ctype_use(uid_obs(obs(iof)%elm(n)), obs(iof)%typ(n)) = .true.
     end do ! [ n = 1, obs(iof)%nobs ]
-!$OMP END DO
   end do ! [ iof = 1, OBS_IN_NUM ]
 !$OMP END PARALLEL
 
@@ -596,7 +595,6 @@ SUBROUTINE set_letkf_obs
 
 
   END DO ! [ n = 1, obsda%nobs ]
-!$OMP END DO
 !$OMP END PARALLEL
 
   call mpi_timer('set_letkf_obs:departure_cal_qc:', 2)
