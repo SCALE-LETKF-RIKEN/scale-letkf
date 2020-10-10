@@ -598,6 +598,7 @@ SUBROUTINE set_letkf_obs
 
 
   END DO ! [ n = 1, obsda%nobs ]
+!$OMP END DO
 !$OMP END PARALLEL
 
   call mpi_timer('set_letkf_obs:departure_cal_qc:', 2)
