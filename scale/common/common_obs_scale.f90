@@ -1455,6 +1455,7 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step)
 !  obs_idx_TCP = -1
 
 !$OMP PARALLEL PRIVATE(n,nn,iset,iidx,ril,rjl,rk,rkz)
+!$OMP DO
   do n = 1, nnobs
 
     if (use_key) then

@@ -527,11 +527,11 @@ if [ "$TOPO_FORMAT" != "prep" ] || [ "$LAND_FORMAT" != "prep" ] ; then
                -e "/!--CONVERT_TOPO--/a CONVERT_TOPO = $CONVERT_TOPO," \
                -e "/!--CONVERT_LANDUSE--/a CONVERT_LANDUSE = $CONVERT_LANDUSE," \
                -e "/!--CNVTOPO_name--/a CNVTOPO_name = \"$TOPO_FORMAT\"," \
-               -e "/!--GTOPO30_IN_DIR--/a GTOPO30_IN_DIR = \"${SCALE_DB}/topo/GTOPO30/Products\"," \
-               -e "/!--DEM50M_IN_DIR--/a DEM50M_IN_DIR = \"${SCALE_DB}/topo/DEM50M/Products\"," \
+               -e "/!--GTOPO30_IN_DIR--/a GTOPO30_IN_DIR = \"${DATADIR}/topo/GTOPO30/Products\"," \
+               -e "/!--DEM50M_IN_DIR--/a DEM50M_IN_DIR = \"${DATADIR}/topo/DEM50M/Products\"," \
                -e "/!--CNVLANDUSE_name--/a CNVLANDUSE_name = '$LANDUSE_FORMAT'," \
-               -e "/!--GLCCv2_IN_DIR--/a GLCCv2_IN_DIR = \"${SCALE_DB}/landuse/GLCCv2/Products\"," \
-               -e "/!--LU100M_IN_DIR--/a LU100M_IN_DIR = \"${SCALE_DB}/landuse/LU100M/Products\"," \
+               -e "/!--GLCCv2_IN_DIR--/a GLCCv2_IN_DIR = \"${DATADIR}/landuse/GLCCv2/Products\"," \
+               -e "/!--LU100M_IN_DIR--/a LU100M_IN_DIR = \"${DATADIR}/landuse/LU100M/Products\"," \
                -e "/!--COPYTOPO_IN_BASENAME--/a COPYTOPO_IN_BASENAME = \"${BDYTOPO}\"," \
                -e "/!--LATLON_CATALOGUE_FNAME--/a LATLON_CATALOGUE_FNAME = \"${BDYCATALOGUE}\"," \
                -e "/!--OFFLINE_PARENT_BASENAME--/a OFFLINE_PARENT_BASENAME = \"${OFFLINE_PARENT_BASENAME}\"," \

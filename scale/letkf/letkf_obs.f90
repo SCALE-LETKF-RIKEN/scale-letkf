@@ -254,6 +254,7 @@ SUBROUTINE set_letkf_obs
   ctype_use(:,:) = .false.
 !$OMP PARALLEL PRIVATE(iof,n) REDUCTION(.or.:ctype_use)
   do iof = 1, OBS_IN_NUM
+!$OMP DO
     do n = 1, obs(iof)%nobs
       select case (obs(iof)%elm(n))
       case (id_radar_ref_obs)
@@ -335,6 +336,7 @@ SUBROUTINE set_letkf_obs
   allocate(tmpelm(obsda%nobs))
 
 !$OMP PARALLEL PRIVATE(n,i,iof,iidx,mem_ref,ch_num)
+!$OMP DO
   do n = 1, obsda%nobs
     IF(obsda%qc(n) > 0) CYCLE
 

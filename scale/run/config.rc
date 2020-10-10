@@ -34,6 +34,8 @@ elif [ "$PRESET" = 'Linux' ]; then
   NODELIST_TYPE='machinefile'
 elif [ "$PRESET" = 'Linux_torque' ]; then
   NODELIST_TYPE='machinefile'
+elif [ "$PRESET" = 'FUGAKU' ]; then
+  :
 else
   echo "[Error] Preset '$PRESET' not found" 1>&2
   exit 1
