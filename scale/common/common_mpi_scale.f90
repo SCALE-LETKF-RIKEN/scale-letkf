@@ -200,7 +200,7 @@ subroutine set_common_mpi_scale
       end if
 !      call scale_calc_z(topo2d, height3d)
 
-!$OMP PARALLEL DO PRIVATE(i,j,ri,rj) COLLAPSE(2)
+!$OMP PARALLEL DO PRIVATE(i,j,ri,rj) 
       do j = 1, nlat
         do i = 1, nlon
           ri = real(i + IHALO, r_size)

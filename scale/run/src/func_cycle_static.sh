@@ -47,6 +47,11 @@ done
 repeat_mems=$((mtot*SCALE_NP_TOTAL/totalnp))
 nitmax=$((mtot*SCALE_NP_TOTAL/totalnp))
 
+if [ "$TOPO_FORMAT" != 'prep' ] || [ "$LANDUSE_FORMAT" != 'prep' ]; then
+  echo "[Error] $0: Prepare topo and landuse data by fcst before running DA cycle" >&2
+  exit 1
+fi
+
 #-------------------------------------------------------------------------------
 # executable files
 

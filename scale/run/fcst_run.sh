@@ -1,12 +1,12 @@
 #!/bin/bash
 #===============================================================================
 #
-#  Wrap fcst.sh in a OFP job script and run it.
+#  Wrap fcst.sh in OFP/FUGAKU/Linux and run it.
 #
 #-------------------------------------------------------------------------------
 #
 #  Usage:
-#    fcst_ofp.sh [..]
+#    fcst_run.sh [..]
 #
 #===============================================================================
 
@@ -170,7 +170,7 @@ EOF
   job_end_check_PJM $jobid
   res=$?
 
-# OFP
+# FUGAKU
 elif [ "$PRESET" = 'FUGAKU' ]; then
 
   if [ "$RSCGRP" == "" ] ; then
@@ -210,6 +210,7 @@ EOF
   echo
   
   job_end_check_PJM $jobid
+  res=$?
 
 else
 

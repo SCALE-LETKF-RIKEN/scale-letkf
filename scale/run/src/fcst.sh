@@ -221,6 +221,7 @@ while ((time <= ETIME)); do
 
       ######
       if ((s == 1)); then
+        logd=$OUTDIR/$time/log/fcst_scale_pp
         if [ "$TOPO_FORMAT" == 'prep' ] && [ "$LANDUSE_FORMAT" == 'prep' ]; then
           echo "[$(datetime_now)] ${time}: ${stepname[$s]} ...skipped (use prepared topo and landuse files)" >&2
           continue
@@ -233,6 +234,7 @@ while ((time <= ETIME)); do
         fi
       fi
       if ((s == 2)); then
+        logd=$OUTDIR/$time/log/fcst_scale_init
         if ((BDY_FORMAT == 0)); then
           echo "[$(datetime_now)] ${time}: ${stepname[$s]} ...skipped (use prepared boundary files)" >&2
           continue
@@ -249,18 +251,22 @@ while ((time <= ETIME)); do
         enable_iter=1
       fi
 
+      if ((s == 3)); then
+        logd=$OUTDIR/$time/log/fcst_scale
+      fi
+
       nodestr=proc
 
       if ((enable_iter == 1 && nitmax > 1)); then
         for it in $(seq $nitmax); do
           echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: start" >&2
 
-          mpirunf ${nodestr} ./${stepexecname[$s]} fcst_${stepexecname[$s]}_${stimes[1]}_${it}.conf log/${stepexecname[$s]}.NOUT_${stimes[1]}_${it} || exit $?
+          mpirunf ${nodestr} ./${stepexecname[$s]} fcst_${stepexecname[$s]}_${stimes[1]}_${it}.conf ${logd}/${stepexecname[$s]}.NOUT_${stimes[1]}_${it} || exit $?
 
           echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: end" >&2
         done
       else
-        mpirunf ${nodestr} ./${stepexecname[$s]} fcst_${stepexecname[$s]}_${stimes[1]}.conf log/${stepexecname[$s]}.NOUT_${stimes[1]} || exit $?
+        mpirunf ${nodestr} ./${stepexecname[$s]} fcst_${stepexecname[$s]}_${stimes[1]}.conf ${logd}/${stepexecname[$s]}.NOUT_${stimes[1]} || exit $?
       fi
 
     fi

@@ -1,12 +1,12 @@
 #!/bin/bash
 #===============================================================================
 #
-#  Wrap cycle.sh in an OFP job script and run it.
+#  Wrap cycle.sh in OFP/FUGAKU/Linux and run it.
 #
 #-------------------------------------------------------------------------------
 #
 #  Usage:
-#    cycle_ofp.sh [..]
+#    cycle_run.sh [..]
 #
 #===============================================================================
 
@@ -162,6 +162,48 @@ EOF
   job_submit_PJM $jobscrp
   echo
 
+  job_end_check_PJM $jobid
+  res=$?
+
+# FUGAKU
+elif [ "$PRESET" = 'FUGAKU' ]; then
+
+  if [ "$RSCGRP" == "" ] ; then
+    RSCGRP="eap-small"
+  fi
+
+cat > $jobscrp << EOF
+#!/bin/sh 
+#
+#
+#PJM -L "rscgrp=${RSCGRP}"
+#PJM -L "node=${NNODES}"
+#PJM -L "elapse=${TIME_LIMIT}"
+#PJM --mpi "max-proc-per-node=${PPN}"
+#PJM -j
+#PJM -s
+#
+#
+export PARALLEL=${THREADS}
+export OMP_NUM_THREADS=${THREADS}
+export FORT90L=-Wl,-T
+export PLE_MPI_STD_EMPTYFILE=off
+
+. /vol0001/apps/oss/spack/share/spack/setup-env.sh
+spack load netcdf-c%fj
+spack load netcdf-fortran%fj
+#spack load parallel-netcdf%fj
+
+
+./${job}.sh "$STIME" "$ETIME" "$MEMBERS" "$CYCLE" "$CYCLE_SKIP" "$IF_VERF" "$IF_EFSO" "$ISTEP" "$FSTEP" "$CONF_MODE" || exit \$?
+EOF
+
+  echo "[$(datetime_now)] Run ${job} job on PJM"
+  echo
+  
+  job_submit_PJM $jobscrp
+  echo
+  
   job_end_check_PJM $jobid
   res=$?
 

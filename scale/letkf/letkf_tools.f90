@@ -215,7 +215,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
       END DO
     END DO
   END DO
-!$OMP END DO NOWAIT
+!$OMP END DO
 !$OMP DO SCHEDULE(STATIC) COLLAPSE(2)
   DO n=1,nv2d
     DO m=1,MEMBER
@@ -284,7 +284,8 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
 
   call mpi_timer('das_letkf:allocation_shared_vars:', 2)
 
-!$OMP PARALLEL PRIVATE(ilev,ij,n,m,k,hdxf,rdiag,rloc,dep,depd,nobsl,nobsl_t,cutd_t,parm,beta,n2n,n2nc,trans,transm,transmd,transrlx,pa,trans_done,tmpinfl,q_mean,q_sprd,q_anal,timer_str)
+! This loop cannot use OpenMP on FUGAKU (T. Honda, as of 10/16/2020)
+!#$OMP PARALLEL PRIVATE(ilev,ij,n,m,k,hdxf,rdiag,rloc,dep,depd,nobsl,nobsl_t,cutd_t,parm,beta,n2n,n2nc,trans,transm,transmd,transrlx,pa,trans_done,tmpinfl,q_mean,q_sprd,q_anal,timer_str)
   allocate (hdxf (nobstotal,MEMBER))
   allocate (rdiag(nobstotal))
   allocate (rloc (nobstotal))
@@ -298,11 +299,11 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
   allocate (pa     (MEMBER,MEMBER,var_local_n2nc_max))
 
 
-!$OMP MASTER
+!#$OMP MASTER
   call mpi_timer('das_letkf:allocation_private_vars:', 2)
   call mpi_timer('', 3)
 
-!$OMP END MASTER
+!#$OMP END MASTER
   !
   ! MAIN ASSIMILATION LOOP
   !
@@ -311,7 +312,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
       call mpi_timer('', 4)
     end if
 
-!$OMP DO 
+!#$OMP DO 
     DO ij=1,nij1
 
       trans_done(:) = .false.                                                          !GYL
@@ -477,12 +478,15 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
             q_anal(m) = anal3d(ij,ilev,m,n) - q_mean                                   !GYL
             q_sprd = q_sprd + q_anal(m)**2                                             !GYL
           END DO                                                                       !GYL
-          q_sprd = SQRT(q_sprd / REAL(MEMBER-1,r_size)) / q_mean                       !GYL
-          IF(q_sprd > Q_SPRD_MAX) THEN                                                 !GYL
-            DO m=1,MEMBER                                                              !GYL
-              anal3d(ij,ilev,m,n) = q_mean + q_anal(m) * Q_SPRD_MAX / q_sprd           !GYL
-            END DO                                                                     !GYL
-          END IF                                                                       !GYL
+          
+          if ( q_mean > 0.0_r_size ) then
+            q_sprd = SQRT(q_sprd / REAL(MEMBER-1,r_size)) / q_mean                       !GYL
+            IF(q_sprd > Q_SPRD_MAX) THEN                                                 !GYL
+              DO m=1,MEMBER                                                              !GYL
+                anal3d(ij,ilev,m,n) = q_mean + q_anal(m) * Q_SPRD_MAX / q_sprd           !GYL
+              END DO                                                                     !GYL
+            END IF                                                                       !GYL
+          endif
         END IF                                                                         !GYL
 
         if (LOG_LEVEL >= 3) then
@@ -614,28 +618,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
       END IF ! [ ilev == 1 ]
 
     END DO ! [ ij=1,nij1 ]
-!$OMP END DO
-
-!$OMP MASTER
-!    if (LOG_LEVEL >= 3) then
-!      if (maxval(MAX_NOBS_PER_GRID(:)) > 0 .and. MAX_NOBS_PER_GRID_CRITERION == 1) then
-!        do ic = 1, nctype
-!          write (6, '(A,I4,A)') 'ic=', ic, ': search_q0='
-!          write (6, *) search_q0(ic,1,:)
-!        end do
-!        if (ilev == 1) then
-!          write (6, '(A)') 'For 2d variables:'
-!          do ic = 1, nctype
-!            write (6, '(A,I4,A)') 'ic=', ic, ': search_q0='
-!            write (6, *) search_q0(ic,nv3d+1,:)
-!          end do
-!        end if
-!      end if
-!    end if
-!
-!    write (timer_str, '(A25,I4,A2)') 'das_letkf:letkf_core(lev=', ilev, '):'
-!    call mpi_timer(trim(timer_str), 3)
-!$OMP END MASTER
+!#$OMP END DO
 
   END DO ! [ ilev=1,nlev ]
 
@@ -644,7 +627,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
     deallocate (depd)
   end if
   deallocate (trans,transm,transmd,pa)
-!$OMP END PARALLEL
+!#$OMP END PARALLEL
 
   call mpi_timer('das_letkf:letkf_core:', 2)
 
@@ -814,7 +797,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
     write (6,'(A)') '========================================='
 
 !$OMP PARALLEL PRIVATE(n,m,k,i,mshuf)
-!$OMP DO SCHEDULE(STATIC) COLLAPSE(2) 
+!$OMP DO SCHEDULE(STATIC) COLLAPSE(3) 
     DO n=1,nv3d
       DO m=1,MEMBER
         DO k=1,nlev
@@ -824,7 +807,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
         END DO
       END DO
     END DO
-!$OMP END DO NOWAIT
+!$OMP END DO 
 !$OMP DO SCHEDULE(STATIC) COLLAPSE(2)
     DO n=1,nv2d
       DO m=1,MEMBER
@@ -860,7 +843,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
         end if
       END DO
     END DO
-!$OMP END DO NOWAIT
+!$OMP END DO 
 !$OMP DO SCHEDULE(STATIC) COLLAPSE(2)
     DO n=1,nv2d
       DO m=1,MEMBER

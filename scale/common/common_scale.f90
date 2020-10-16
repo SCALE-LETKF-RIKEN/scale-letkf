@@ -935,6 +935,8 @@ subroutine read_history(filename,step,v3dg,v2dg)
   use scale_atmos_grid_cartesC_metric, only: &
       ROTC => ATMOS_GRID_CARTESC_METRIC_ROTC
   use common_mpi, only: myrank
+  use scale_const, only: &
+      UNDEF => CONST_UNDEF
   implicit none
 
   character(*), intent(in) :: filename
@@ -955,6 +957,7 @@ subroutine read_history(filename,step,v3dg,v2dg)
 
   ! 3D variables
   !-------------
+  v3dg_RP(:,:,:,:) = UNDEF
   do iv3d = 1, nv3dd
     if (LOG_LEVEL >= 1) then
       write(6,'(1x,A,A15)') '*** Read 3D var: ', trim(v3dd_name(iv3d))
@@ -977,6 +980,7 @@ subroutine read_history(filename,step,v3dg,v2dg)
 
   ! 2D variables
   !-------------
+  v2dg_RP(:,:,:) = UNDEF
   do iv2d = 1, nv2dd
     if (LOG_LEVEL >= 1) then
       write(6,'(1x,A,A15)') '*** Read 2D var: ', trim(v2dd_name(iv2d))
@@ -1001,6 +1005,7 @@ subroutine read_history(filename,step,v3dg,v2dg)
   !-------------
   if ( trim( v3dd_name(iv3dd_u) ) == "U" .and. &
        trim( v3dd_name(iv3dd_v) ) == "V" ) then
+!$omp parallel do private(k,i,j,utmp,vtmp) schedule(static) collapse(2)
     do j = JS, JE
     do i = IS, IE
       do k = KS, KE
@@ -1012,11 +1017,12 @@ subroutine read_history(filename,step,v3dg,v2dg)
       enddo
     enddo
     enddo
+!$omp end parallel do
   endif
 
   ! Communicate halo
   !-------------
-!$OMP PARALLEL DO PRIVATE(i,j,iv3d) SCHEDULE(STATIC) COLLAPSE(2)
+!$omp parallel do private(i,j,iv3d) schedule(static) collapse(2)
   do iv3d = 1, nv3dd
     do j = JS, JE
       do i = IS, IE
@@ -1025,7 +1031,7 @@ subroutine read_history(filename,step,v3dg,v2dg)
       end do
     end do
   end do
-!$OMP END PARALLEL DO
+!$omp end parallel do
 
   do iv3d = 1, nv3dd
     call COMM_vars8( v3dg_RP(:,:,:,iv3d), iv3d )
@@ -1193,7 +1199,7 @@ subroutine read_history_par(filename,step,v3dg,v2dg,comm)
   do iv3d = 1, nv3dd
     forall (i=1:nlon, j=1:nlat, k=1:nlev) v3dg(k+KHALO,i+IHALO,j+JHALO,iv3d) = real(var3D(i,j,k,iv3d), r_size) ! use FORALL to change order of dimensions
   end do
-!$OMP END DO NOWAIT
+!$OMP END DO 
 
 !$OMP DO SCHEDULE(STATIC)
   do iv2d = 1, nv2dd
@@ -1362,6 +1368,8 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
       COMM_wait
   use scale_atmos_grid_cartesC_metric, only: &
       ROTC => ATMOS_GRID_CARTESC_METRIC_ROTC
+  use scale_const, only: &
+      UNDEF => CONST_UNDEF
   implicit none
 
   real(RP), intent(in) :: v3dg(nlev,nlon,nlat,nv3d)
@@ -1379,6 +1387,8 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
 
   ! Variables that can be directly copied
   !---------------------------------------------------------
+  v3dgh_RP(:,:,:,:) = UNDEF
+  v2dgh_RP(:,:,:) = UNDEF
 
   v3dgh_RP(KS:KE,IS:IE,JS:JE,iv3dd_u) = v3dg(:,:,:,iv3d_u)
   v3dgh_RP(KS:KE,IS:IE,JS:JE,iv3dd_v) = v3dg(:,:,:,iv3d_v)
@@ -1394,6 +1404,7 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
 
   ! Rotate U/V (model coord. wind) and obtain Umet/Vmet (true zonal/meridional wind)
   !-------------
+!$omp parallel do private(k,i,j,utmp,vtmp) schedule(static) collapse(2)
   do j = JS, JE
   do i = IS, IE
     do k = KS, KE
@@ -1405,45 +1416,45 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
     enddo
   enddo
   enddo
+!$omp end parallel do
 
   ! RH
   !---------------------------------------------------------
 
-!  v3dgh_RP(KS:KE,IS:IE,JS:JE,iv3dd_rh) = [[RH calculator]]
+  !v3dgh_RP(KS:KE,IS:IE,JS:JE,iv3dd_rh) = 0.0_RP ! tentative [[RH calculator]]
 
   ! Calculate height based the the topography and vertical coordinate
   !---------------------------------------------------------
 
   call scale_calc_z(topo, height)
-  v3dgh_RP(KS:KE,IS:IE,JS:JE,iv3dd_hgt) = height
+  v3dgh_RP(KS:KE,IS:IE,JS:JE,iv3dd_hgt) = height(1:nlev,1:nlon,1:nlat)
 
   ! Surface variables: use the 1st level as the surface (although it is not)
   !---------------------------------------------------------
 
-  v2dgh_RP(IS:IE,JS:JE,iv2dd_topo) = v3dgh(KS,:,:,iv3dd_hgt)                ! Use the first model level as topography (is this good?)
-!  v2dgh(IS:IE,JS:JE,iv2dd_topo) = topo(:,:) ! Use the real topography
+  v2dgh_RP(IS:IE,JS:JE,iv2dd_topo) = topo2d(1:nlon,1:nlat)
 
-  v2dgh_RP(IS:IE,JS:JE,iv2dd_ps) = v3dg(1,:,:,iv3d_p)
-  v2dgh_RP(IS:IE,JS:JE,iv2dd_u10m) = v3dg(1,:,:,iv3d_u)
-  v2dgh_RP(IS:IE,JS:JE,iv2dd_v10m) = v3dg(1,:,:,iv3d_v)
-  v2dgh_RP(IS:IE,JS:JE,iv2dd_t2m) = v3dg(1,:,:,iv3d_t)
-  v2dgh_RP(IS:IE,JS:JE,iv2dd_q2m) = v3dg(1,:,:,iv3d_q)
+  v2dgh_RP(IS:IE,JS:JE,iv2dd_ps)   = v3dg(1,1:nlon,1:nlat,iv3d_p)
+  v2dgh_RP(IS:IE,JS:JE,iv2dd_u10m) = v3dg(1,1:nlon,1:nlat,iv3d_u)
+  v2dgh_RP(IS:IE,JS:JE,iv2dd_v10m) = v3dg(1,1:nlon,1:nlat,iv3d_v)
+  v2dgh_RP(IS:IE,JS:JE,iv2dd_t2m)  = v3dg(1,1:nlon,1:nlat,iv3d_t)
+  v2dgh_RP(IS:IE,JS:JE,iv2dd_q2m)  = v3dg(1,1:nlon,1:nlat,iv3d_q)
 
 !  v2dgh_RP(IS:IE,JS:JE,iv2dd_rain) = [[No way]]
 
 #ifdef H08
-  v2dgh_RP(IS:IE,JS:JE,iv2dd_skint) = v3dg(1,:,:,iv3d_t)
+  v2dgh_RP(IS:IE,JS:JE,iv2dd_skint) = v3dg(1,1:nlon,1:nlat,iv3d_t)
 
   ! Assume the point where terrain height is less than 10 m is the ocean. T.Honda (02/09/2016)
   !---------------------------------------------------------
 
-!$OMP PARALLEL DO PRIVATE(j,i)
+!$omp parallel do private(j,i) 
   do j = 1, nlat
     do i = 1, nlon
       v2dgh_RP(i+IHALO,j+JHALO,iv2dd_lsmask) = min(max(topo(i,j) - 10.0d0, 0.0d0), 1.0d0)
     enddo
   enddo
-!$OMP END PARALLEL DO
+!$omp end parallel do
 #endif
 
   ! Pad the upper and lower halo areas
@@ -1618,8 +1629,8 @@ subroutine ensmean_grd(mem, nens, nij, v3d, v2d)
       end do
     end do
   end do
-!$OMP END DO NOWAIT
-!$OMP DO SCHEDULE(STATIC) COLLAPSE(2)
+!$OMP END DO 
+!$OMP DO SCHEDULE(STATIC) 
   do n = 1, nv2d
     do i = 1, nij
       v2d(i,mmean,n) = v2d(i,1,n)
@@ -1665,7 +1676,7 @@ subroutine enssprd_grd(mem, nens, nij, v3d, v2d, v3ds, v2ds)
   mmean = mem + 1
 
 !$OMP PARALLEL PRIVATE(i,k,m,n)
-!$OMP DO SCHEDULE(STATIC) COLLAPSE(2)
+!$OMP DO SCHEDULE(STATIC) COLLAPSE(3)
   do n = 1, nv3d
     do k = 1, nlev
       do i = 1, nij
@@ -1677,8 +1688,8 @@ subroutine enssprd_grd(mem, nens, nij, v3d, v2d, v3ds, v2ds)
       end do
     end do
   end do
-!$OMP END DO NOWAIT
-!$OMP DO SCHEDULE(STATIC) COLLAPSE(2)
+!$OMP END DO 
+!$OMP DO SCHEDULE(STATIC) 
   do n = 1, nv2d
     do i = 1, nij
       v2ds(i,n) = (v2d(i,1,n) - v2d(i,mmean,n)) ** 2

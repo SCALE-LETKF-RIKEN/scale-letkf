@@ -194,12 +194,14 @@ elif [ "$MPI_TYPE" = 'impi' ]  ||  [ "$PRESET" = 'OFP' ]; then
 
 elif [ "$PRESET" = 'FUGAKU' ]; then
 
-  mpiexec -np $((NNODES*PPN)) $PROG $CONF $STDOUT $ARGS
+echo   mpiexec -std-proc $STDOUT -n $((NNODES*PPN)) $PROG $CONF $ARGS
+  mpiexec -std-proc $STDOUT -n $((NNODES*PPN)) $PROG $CONF $ARGS
   res=$?
   if ((res != 0)); then
-    echo "[Error] mpiexec -np $((NNODES*PPN)) $PROG $CONF $STDOUT $ARGS" >&2
+    echo "[Error] mpiexec  -std-proc $STDOUT -n $((NNODES*PPN)) $PROG $CONF $ARGS" >&2
     echo "        Exit code: $res" >&2
-    exit $res
+echo "continue (tentative)"
+#    exit $res
   fi
 
 
@@ -731,12 +733,26 @@ if [ -z "$(echo $tmp | grep ${JOBID})" ]; then
   echo "[Error] $FUNCNAME: Cannot find PJM job ${JOBID}." >&2
   return 99
 else
-  jobstat=$(echo $tmp | cut -d ' ' -f3)
-  if [ "$jobstat" = 'REJECT' ] || [ "$jobstat" = 'CANCEL' ]; then
-    res=98
-  elif [ "$jobstat" = 'ERROR' ]; then
-    res=97
-  fi  
+  
+  if [ "$PRESET" = 'FUGAKU' ]; then
+
+    jobstat=$(echo $tmp | cut -d ' ' -f4)
+    if [ "$jobstat" = 'RJT' ] || [ "$jobstat" = 'CCL' ]; then
+      res=98
+    elif [ "$jobstat" = 'ERR' ]; then
+      res=97
+    fi  
+
+  else
+
+    jobstat=$(echo $tmp | cut -d ' ' -f3)
+    if [ "$jobstat" = 'REJECT' ] || [ "$jobstat" = 'CANCEL' ]; then
+      res=98
+    elif [ "$jobstat" = 'ERROR' ]; then
+      res=97
+    fi  
+
+  fi
 fi
 
 if ((res != 0)); then

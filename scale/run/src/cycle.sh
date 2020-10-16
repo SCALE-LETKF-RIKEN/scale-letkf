@@ -226,6 +226,9 @@ while ((time <= ETIME)); do
           continue
         fi
       fi
+      if ((s == 3)); then
+        logd=$OUTDIR/$time/log/scale
+      fi
       if ((s == 4)); then
         logd=$OUTDIR/$atime/log/letkf
         if ((OBSOPE_RUN == 0)); then
@@ -262,16 +265,21 @@ while ((time <= ETIME)); do
         for it in $(seq $nit); do
           echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: start" >&2
 
+          rm -rf  $logd
           mkdir -p $logd
           mpirunf ${nodestr} ./${stepexecname[$s]} ${stepexecname[$s]}_${conf_time}_${it}.conf ${logd}/NOUT_${conf_time}_${it} || exit $?
          
           echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: end" >&2
         done
+
       else
+
+        rm -rf  $logd
+        mkdir -p $logd
         mpirunf ${nodestr} ./${stepexecname[$s]} ${stepexecname[$s]}_${conf_time}.conf ${logd}/NOUT_${conf_time} || exit $?
       fi
 
-      rm -f  $logd/NOUT_*????[1-9]
+#      rm -f  $logd/NOUT_*????[1-9]
 
     fi
   done

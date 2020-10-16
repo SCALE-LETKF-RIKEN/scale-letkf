@@ -1084,7 +1084,6 @@ SUBROUTINE phys2ijk(p_full,elem,ri,rj,rlev,rk,qc)
 !print *, plev
 !print *, elem, ri, rj, rlev, rk, qc
 
-
       RETURN
     END IF
     !
@@ -1454,8 +1453,8 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step)
 !  obs_idx_TCY = -1
 !  obs_idx_TCP = -1
 
-!$OMP PARALLEL PRIVATE(n,nn,iset,iidx,ril,rjl,rk,rkz)
-!$OMP DO
+! This loop cannot use OpenMP on FUGAKU (T. Honda, as of 10/16/2020)
+!#$OMP PARALLEL DO PRIVATE(n,nn,iset,iidx,ril,rjl,rk,rkz)
   do n = 1, nnobs
 
     if (use_key) then
@@ -1589,8 +1588,7 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step)
            !   abs(obs(iset)%dif(iidx)) <= DEPARTURE_STAT_T_RANGE ]
 
   end do ! [ n = 1, nnobs ]
-!$OMP END DO
-!$OMP END PARALLEL
+!#$OMP END PARALLEL DO
 
 
 #ifdef H08
