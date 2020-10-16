@@ -188,6 +188,8 @@ export PARALLEL=${THREADS}
 export OMP_NUM_THREADS=${THREADS}
 export FORT90L=-Wl,-T
 export PLE_MPI_STD_EMPTYFILE=off
+export OMP_WAIT_POLICY=active
+export FLIB_BARRIER=HARD
 
 . /vol0001/apps/oss/spack/share/spack/setup-env.sh
 spack load netcdf-c%fj
