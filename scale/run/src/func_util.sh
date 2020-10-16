@@ -194,14 +194,12 @@ elif [ "$MPI_TYPE" = 'impi' ]  ||  [ "$PRESET" = 'OFP' ]; then
 
 elif [ "$PRESET" = 'FUGAKU' ]; then
 
-echo   mpiexec -std-proc $STDOUT -n $((NNODES*PPN)) $PROG $CONF $ARGS
   mpiexec -std-proc $STDOUT -n $((NNODES*PPN)) $PROG $CONF $ARGS
   res=$?
   if ((res != 0)); then
     echo "[Error] mpiexec  -std-proc $STDOUT -n $((NNODES*PPN)) $PROG $CONF $ARGS" >&2
     echo "        Exit code: $res" >&2
-echo "continue (tentative)"
-#    exit $res
+    exit $res
   fi
 
 
