@@ -28,10 +28,6 @@ INCS    = $(SCALE_INC) $(NETCDF_INC)
 
 LIBS    = $(SCALE_LIB) $(NETCDF_LIB) $(LAPACK_LIB)
 
-ifeq ($(H08),T)
-COMMON_OBJS += $(COMMON_DIR)/scale_H08_fwd.o
-LIBS    += $(RT_INCLUDE) $(RT_LDFLAGS)
-endif
 
 .PHONY:	all clean FORCE
 

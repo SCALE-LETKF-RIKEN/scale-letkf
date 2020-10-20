@@ -20,7 +20,6 @@ MODULE common_nml
   integer, parameter :: nv2d = 0     ! number of 2D state variables (in SCALE restart files)
   integer, parameter :: nid_obs = 16 ! number of variable types
   integer, parameter :: nobtype = 24 ! number of observation report types
-  integer, parameter :: nch = 10     ! H08 Num of Himawari-8 (IR) channels
 
   integer, parameter :: nobsfilemax = 10
   integer, parameter :: obsformatlenmax = 10
@@ -131,7 +130,6 @@ MODULE common_nml
   real(r_size) :: GROSS_ERROR_RADAR_REF = -1.0d0 ! < 0: same as GROSS_ERROR
   real(r_size) :: GROSS_ERROR_RADAR_VR = -1.0d0  ! < 0: same as GROSS_ERROR
   real(r_size) :: GROSS_ERROR_RADAR_PRH = -1.0d0 ! < 0: same as GROSS_ERROR
-  real(r_size) :: GROSS_ERROR_H08 = -1.0d0      ! < 0: same as GROSS_ERROR
   real(r_size) :: GROSS_ERROR_TCX = -1.0d0 ! debug ! < 0: same as GROSS_ERROR 
   real(r_size) :: GROSS_ERROR_TCY = -1.0d0 ! debug ! < 0: same as GROSS_ERROR
   real(r_size) :: GROSS_ERROR_TCP = -1.0d0 ! debug ! < 0: same as GROSS_ERROR
@@ -226,12 +224,10 @@ MODULE common_nml
   real(r_size) :: VAR_LOCAL_TC(nv3d+nv2d)        = 1.0d0
   real(r_size) :: VAR_LOCAL_RADAR_REF(nv3d+nv2d) = 1.0d0
   real(r_size) :: VAR_LOCAL_RADAR_VR(nv3d+nv2d)  = 1.0d0
-  real(r_size) :: VAR_LOCAL_H08(nv3d+nv2d)       = 1.0d0 ! H08
 
   !--- PARAM_LETKF_MONITOR
   logical :: DEPARTURE_STAT = .true.
   logical :: DEPARTURE_STAT_RADAR = .false.
-  logical :: DEPARTURE_STAT_H08 = .false.
   real(r_size) :: DEPARTURE_STAT_T_RANGE = 0.0d0   ! time range within which observations are considered in the departure statistics.
                                                    ! 0: no limit
   logical :: DEPARTURE_STAT_ALL_PROCESSES = .true. ! print the departure statistics by all processes?
@@ -274,26 +270,6 @@ MODULE common_nml
   ! PARAMETERS FOR RADAR DATA ASSIMILATION
   INTEGER :: NRADARTYPE = 1  !Currently PAWR (1) and LIDAR (2) ... not used?
 
-  !---PARAM_LETKF_H08
-  logical :: H08_REJECT_LAND = .false. ! true: reject Himawari-8 radiance over the land
-  logical :: H08_RTTOV_CLD = .true. ! true: all-sky, false: CSR in RTTOV fwd model
-  real(r_size) :: H08_RTTOV_MINQ = 0.10d0 ! Threshold of water/ice contents for diagnosing cloud fraction (g m-3)
-  real(r_size) :: H08_LIMIT_LEV = 20000.0d0 ! (Pa) Upper limit level of the sensitive height for Himawari-8 IR
-  real(r_size) :: H08_RTTOV_CFRAC_CNST = 0.10d0 ! Denominator constant for diagnosing SEQUENTIAL(0-1) cloud fraction (g m-3)
-                                                ! Negative values indicate DISCRETE (0/1) cloud fraction 
-  real(r_size) :: H08_BT_MIN = 0.0d0 ! Lower limit of the BT for Himawari-8 IR
-  real(r_size) :: H08_CLDSKY_THRS = -5.0d0 ! Threshold for diagnosing the sky condition using [BT(all-sky) - BT(clr)].
-                                           ! Negative values: turn off
-  integer :: H08_MIN_CLD_MEMBER = 1       ! If the number of the cloudy members is larger than H08_MIN_CLD_MEMBER,
-                                           ! the first guess is diagnosed as cloudy. ! Not finished yet!
-  integer :: H08_CH_USE(nch) = (/0,0,1,0,0,0,0,0,0,0/)
-                        !! ch = (1,2,3,4,5,6,7,8,9,10)
-                        !! (B07,B08,B09,B10,B11,B12,B13,B14,B15,B16)
-                        !! ==1: Assimilate
-                        !! ==0: NOT assimilate (rejected by QC in trans_XtoY_H08)
-                        !! It is better to reject B11(ch=5) & B12(ch=6) obs because these bands are 
-                        !! sensitive to chemicals.
-
   !--- PARAM_OBS_ERROR
   real(r_size) :: OBSERR_U = 1.0d0
   real(r_size) :: OBSERR_V = 1.0d0
@@ -306,8 +282,6 @@ MODULE common_nml
   real(r_size) :: OBSERR_TCX = 50.0d3 ! (m)
   real(r_size) :: OBSERR_TCY = 50.0d3 ! (m)
   real(r_size) :: OBSERR_TCP = 5.0d2 ! (Pa)
-  real(r_size) :: OBSERR_H08(nch) = (/5.0d0,5.0d0,5.0d0,5.0d0,5.0d0,&
-                                      5.0d0,5.0d0,5.0d0,5.0d0,5.0d0/) ! H08
 
   !--- PARAM_OBSSIM
   character(filelenmax) :: OBSSIM_IN_TYPE = 'history'
@@ -587,7 +561,6 @@ subroutine read_nml_letkf
     GROSS_ERROR_RADAR_REF, &
     GROSS_ERROR_RADAR_VR, &
     GROSS_ERROR_RADAR_PRH, &
-    GROSS_ERROR_H08, &
     GROSS_ERROR_TCX, &
     GROSS_ERROR_TCY, &
     GROSS_ERROR_TCP, &
@@ -627,9 +600,6 @@ subroutine read_nml_letkf
   end if
   if (GROSS_ERROR_RADAR_PRH < 0.0d0) then
     GROSS_ERROR_RADAR_PRH = GROSS_ERROR
-  end if
-  if (GROSS_ERROR_H08 < 0.0d0) then ! H08
-    GROSS_ERROR_H08 = GROSS_ERROR
   end if
   if (GROSS_ERROR_TCX < 0.0d0) then
     GROSS_ERROR_TCX = GROSS_ERROR
@@ -801,8 +771,7 @@ subroutine read_nml_letkf_var_local
     VAR_LOCAL_RAIN, &
     VAR_LOCAL_TC, &
     VAR_LOCAL_RADAR_REF, &
-    VAR_LOCAL_RADAR_VR, &
-    VAR_LOCAL_H08 ! H08
+    VAR_LOCAL_RADAR_VR
 
   rewind(IO_FID_CONF)
   read(IO_FID_CONF,nml=PARAM_LETKF_VAR_LOCAL,iostat=ierr)
@@ -831,7 +800,6 @@ subroutine read_nml_letkf_monitor
   namelist /PARAM_LETKF_MONITOR/ &
     DEPARTURE_STAT, &
     DEPARTURE_STAT_RADAR, &
-    DEPARTURE_STAT_H08, &
     DEPARTURE_STAT_T_RANGE, &
     DEPARTURE_STAT_ALL_PROCESSES, &
     OBSDEP_OUT, &
@@ -906,41 +874,6 @@ subroutine read_nml_letkf_radar
 end subroutine read_nml_letkf_radar
 
 !-------------------------------------------------------------------------------
-! PARAM_LETKF_H08
-!-------------------------------------------------------------------------------
-subroutine read_nml_letkf_h08
-  implicit none
-  integer :: ierr
-
-  namelist /PARAM_LETKF_H08/ &
-    H08_REJECT_LAND, &
-    H08_RTTOV_CLD, &
-    H08_MIN_CLD_MEMBER, &
-    H08_CLDSKY_THRS, &
-    H08_RTTOV_MINQ, &
-    H08_RTTOV_CFRAC_CNST, &
-    H08_LIMIT_LEV, &
-    H08_BT_MIN, &
-    H08_CH_USE
-
-  rewind(IO_FID_CONF)
-  read(IO_FID_CONF,nml=PARAM_LETKF_H08,iostat=ierr)
-  if (ierr < 0) then !--- missing
-    write(6,*) '[Warning] /PARAM_LETKF_H08/ is not found in namelist.'
-!    stop
-  elseif (ierr > 0) then !--- fatal error
-    write(6,*) '[Error] xxx Not appropriate names in namelist PARAM_LETKF_H08. Check!'
-    stop
-  endif
-
-  if (LOG_LEVEL >= 2) then
-    write(6, nml=PARAM_LETKF_H08)
-  end if
-
-  return
-end subroutine read_nml_letkf_h08
-
-!-------------------------------------------------------------------------------
 ! PARAM_OBS_ERROR
 !-------------------------------------------------------------------------------
 subroutine read_nml_obs_error
@@ -955,11 +888,7 @@ subroutine read_nml_obs_error
     OBSERR_RH, &
     OBSERR_PS, &
     OBSERR_RADAR_REF, &
-    OBSERR_RADAR_VR, &
-    OBSERR_TCX, &
-    OBSERR_TCY, &
-    OBSERR_TCP, &
-    OBSERR_H08    ! H08
+    OBSERR_RADAR_VR
 
   rewind(IO_FID_CONF)
   read(IO_FID_CONF,nml=PARAM_OBS_ERROR,iostat=ierr)

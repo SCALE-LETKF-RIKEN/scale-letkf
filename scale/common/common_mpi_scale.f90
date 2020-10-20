@@ -805,16 +805,13 @@ subroutine set_scalelib(execname)
     call read_nml_letkf_var_local
     call read_nml_letkf_monitor
     call read_nml_letkf_radar
-    call read_nml_letkf_h08
   case ('OBSOPE ', 'OBSMAKE')
     call read_nml_obs_error
     call read_nml_obsope
     call read_nml_letkf_radar
-    call read_nml_letkf_h08
   case ('OBSSIM ')
     call read_nml_obssim
     call read_nml_letkf_radar
-    call read_nml_letkf_h08
   end select
 
   ! Communicator for all processes for single domains
@@ -1850,11 +1847,7 @@ subroutine get_nobs_da_mpi(nobs)
 !      obsdafile = OBSDA_MDET_IN_BASENAME
 !    end if
 !    write (obsda_suffix(2:7), '(I6.6)') myrank_d
-!#ifdef H08
-!    call get_nobs(trim(obsdafile) // obsda_suffix, 6, nobs) ! H08
-!#else
 !    call get_nobs(trim(obsdafile) // obsda_suffix, 4, nobs)
-!#endif
 !  end if
 
 ! read by process 0 and broadcast
@@ -1863,11 +1856,7 @@ subroutine get_nobs_da_mpi(nobs)
     obsdafile = OBSDA_IN_BASENAME
     call filename_replace_mem(obsdafile, 1)
     write (obsda_suffix(2:7), '(I6.6)') myrank_d
-#ifdef H08
-    call get_nobs(trim(obsdafile) // obsda_suffix, 6, nobs) ! H08
-#else
     call get_nobs(trim(obsdafile) // obsda_suffix, 4, nobs)
-#endif
   end if
   call MPI_BCAST(nobs, 1, MPI_INTEGER, 0, MPI_COMM_e, ierr)
 !-----------------------------
@@ -1878,11 +1867,7 @@ end subroutine get_nobs_da_mpi
 !-------------------------------------------------------------------------------
 ! Partially reduce observations processed in the same processes in the iteration
 !-------------------------------------------------------------------------------
-#ifdef H08
-subroutine obs_da_value_partial_reduce_iter(obsda, iter, nstart, nobs, ensval, qc, lev, val2)
-#else
 subroutine obs_da_value_partial_reduce_iter(obsda, iter, nstart, nobs, ensval, qc)
-#endif
   implicit none
   type(obs_da_value), intent(inout) :: obsda
   integer, intent(in)      :: iter
@@ -1890,10 +1875,6 @@ subroutine obs_da_value_partial_reduce_iter(obsda, iter, nstart, nobs, ensval, q
   integer, intent(in)      :: nobs
   real(r_size), intent(in) :: ensval(nobs)
   integer, intent(in)      :: qc(nobs)
-#ifdef H08
-  real(r_size), intent(in) :: lev(nobs)
-  real(r_size), intent(in) :: val2(nobs)
-#endif
   integer :: nend
   integer :: im
 
@@ -1911,12 +1892,6 @@ subroutine obs_da_value_partial_reduce_iter(obsda, iter, nstart, nobs, ensval, q
 
   ! variables without an ensemble dimension
   obsda%qc(nstart:nend) = max(obsda%qc(nstart:nend), qc)
-#ifdef H08
-  if (im <= MEMBER) then ! only consider lev, val2 from members, not from the means
-    obsda%lev(nstart:nend) = obsda%lev(nstart:nend) + lev
-    obsda%val2(nstart:nend) = obsda%val2(nstart:nend) + val2
-  end if
-#endif
 
   return
 end subroutine obs_da_value_partial_reduce_iter
@@ -1999,14 +1974,6 @@ subroutine obs_da_value_allreduce(obsda)
   if (nprocs_e > 1) then
     call MPI_ALLREDUCE(MPI_IN_PLACE, obsda%qc(:), obsda%nobs, MPI_INTEGER, MPI_MAX, MPI_COMM_e, ierr)
   end if
-#ifdef H08
-  if (nprocs_e > 1) then
-    call MPI_ALLREDUCE(MPI_IN_PLACE, obsda%lev(:), obsda%nobs, MPI_r_size, MPI_SUM, MPI_COMM_e, ierr)
-    call MPI_ALLREDUCE(MPI_IN_PLACE, obsda%val2(:), obsda%nobs, MPI_r_size, MPI_SUM, MPI_COMM_e, ierr)
-  end if
-  obsda%lev(:) = obsda%lev(:) / real(MEMBER, r_size)
-  obsda%val2(:) = obsda%val2(:) / real(MEMBER, r_size)
-#endif
 
   call mpi_timer('obs_da_value_allreduce:mpi_allreduce:', 3)
 
