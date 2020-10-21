@@ -1,4 +1,4 @@
-MODULE common_mtx
+module common_mtx
 !=======================================================================
 !
 ! [PURPOSE:] Matrix Functions
@@ -18,298 +18,288 @@ MODULE common_mtx
 !  07/20/2003 Takemasa Miyoshi  Created at University of Maryland, College Park
 !
 !=======================================================================
-  USE common
+  use common
 
-  IMPLICIT NONE
+  implicit none
 
-  PRIVATE
-  PUBLIC :: mtx_eigen, mtx_inv, mtx_sqrt, mtx_inv_rg
+  real(r_size), private, allocatable :: b    (:,:)
+  real(r_size), private, allocatable :: w    (:)
+  real(r_size), private, allocatable :: work (:)
+  integer,      private, allocatable :: iwork(:)
+  
+  integer, private :: lda
+  integer, private :: lwork
+  integer, private :: liwork
 
-CONTAINS
-!=======================================================================
-!  Eigenvalue decomposition using subroutine rs
-!    INPUT
-!      INTEGER :: imode           : mode switch (0: only eiven values)
-!      INTEGER :: n               : dimension of matrix
-!      REAL(r_size) :: a(n,n)     : input matrix
-!    OUTPUT
-!      REAL(r_size) :: eival(n)   : eiven values in decending order
-!                                   i.e. eival(1) is the largest
-!      REAL(r_size) :: eivec(n,n) : eiven vectors
-!      INTEGER :: nrank_eff       : number of positive eivenvalues
-!=======================================================================
-SUBROUTINE mtx_eigen(imode,n,a,eival,eivec,nrank_eff)
-  IMPLICIT NONE
+  public :: mtx_eigen !, mtx_inv, mtx_inv_rg
 
-  INTEGER,INTENT(IN) :: imode ! 0: calculate only eigen values
-  INTEGER,INTENT(IN) :: n
-  REAL(r_size),INTENT(IN) :: a(1:n,1:n)
-  REAL(r_size),INTENT(OUT) :: eival(1:n)
-  REAL(r_size),INTENT(OUT) :: eivec(1:n,1:n)
-  INTEGER,INTENT(OUT) :: nrank_eff
+contains
+  !-----------------------------------------------------------------------------
+  !  eigenvalue decomposition using subroutine dsyevd
+  !    input
+  !      integer   :: n          : dimension of matrix
+  !      real(4/8) :: a(n,n)     : input matrix
+  !    output
+  !      real(4/8) :: eival(n)   : eiven values in decending order. i.e.
+  !      eival(1) is the largest
+  !      real(4/8) :: eivec(n,n) : eiven vectors
+  !    work
+  !      real(4/8) :: work(lwork)   : working array, size is lwork  = 2*n*n +
+  !      6*n + 1
+  !      integer   :: iwork(liwork) : working array, size is liwork = 5*n + 3
+  !-----------------------------------------------------------------------------
+  subroutine mtx_eigen(n,a,eival,eivec)
+    implicit none
 
-  REAL(r_dble) :: a8(n,n)
-  REAL(r_dble) :: eival8(n)
-  REAL(r_dble) :: eivec8(n,n)
-  REAL(r_dble) :: wrk1(n)
-  REAL(r_dble) :: wrk2(n)
-  INTEGER :: ierr,i,j
+    integer, intent(in)  :: n
+    real(r_size), intent(in)  :: a    (n,n)
+    real(r_size), intent(out) :: eival(n)
+    real(r_size), intent(out) :: eivec(n,n)
 
-  a8 = a
-  eivec8 = 0.0d0
-  CALL rs(n,n,a8,eival8,imode,eivec8,wrk1,wrk2,ierr)
-  IF( ierr/=0 ) THEN
-    WRITE(6,'(A,I4)') '!!! ERROR (mtx_eigen): rs error code is ',ierr
-    STOP 2
-  END IF
+    integer :: nrank_eff
 
-  nrank_eff = n
-  IF( eival8(n) > 0 ) THEN
-    DO i=1,n
-      IF( eival8(i) < ABS(eival8(n))*SQRT(EPSILON(eival8)) ) THEN
-        nrank_eff = nrank_eff - 1
-        eival8(i) = 0.0d0
-        eivec8(:,i) = 0.0d0
-      END IF
-    END DO
-  ELSE
-    WRITE(6,'(A)') '!!! ERROR (mtx_eigen): All Eigenvalues are below 0'
-    STOP 2
-  END IF
+    real(r_size) :: eival_inc
 
-  IF( nrank_eff<n .AND. eival8(1)/=0 ) THEN
-    j = 0
-    DO i=n,1,-1
-      IF( eival8(i) == 0 ) THEN
-        eival8(i) = eival8(n-nrank_eff-j)
-        eivec(:,i) = eivec8(:,n-nrank_eff-j)
-        eival8(n-nrank_eff-j) = 0.0d0
-        eivec8(:,n-nrank_eff-j) = 0.0d0
-        j = j+1
-      END IF
-    END DO
-  END IF
+    integer, parameter :: simdlen = 64
+    integer :: iblk, jblk
+    integer :: imax, jmax
+    integer :: ivec, jvec
 
-  DO i=1,n
-    eival(i) = eival8(n+1-i)
-    eivec(:,i) = eivec8(:,n+1-i)
-  END DO
+    integer :: ierr
+    integer :: i, j
+    !---------------------------------------------------------------------------
 
-  RETURN
-END SUBROUTINE mtx_eigen
-!=======================================================================
-!  Real symmetric matrix inversion using subroutine dspdi
-!    INPUT
-!      INTEGER :: n               : dimension of matrix
-!      REAL(r_size) :: a(n,n)     : input matrix (real symmetric)
-!    OUTPUT
-!      REAL(r_size) :: ainv(n,n)  : inverse of a
-!=======================================================================
-SUBROUTINE mtx_inv(n,a,ainv)
-  IMPLICIT NONE
+    lda = n
 
-  INTEGER,INTENT(IN) :: n
-  REAL(r_size),INTENT(IN) :: a(1:n,1:n)
-  REAL(r_size),INTENT(OUT) :: ainv(1:n,1:n)
+    lwork  = 2*n*n + 6*n + 1
+    liwork = 5*n + 3
 
-  REAL(r_dble) :: acmp(n*(n+1)/2)
-  REAL(r_dble) :: det(2)
-  REAL(r_dble) :: work(n)
-  INTEGER :: kpvt(n)
-  INTEGER :: inert(3)
-  INTEGER :: info
-  INTEGER :: i,j,k
+    allocate( b    (lda,n)  )
+    allocate( w    (lda)    )
+    allocate( work (lwork)  )
+    allocate( iwork(liwork) )
 
-  IF(n==1) THEN
-    ainv(1,1) = 1.0d0 / a(1,1)
-  ELSE
+    do jblk = 1, n, simdlen
+       jmax = min( n-jblk+1, simdlen )
+       do iblk = 1, n, simdlen
+          imax = min( n-iblk+1, simdlen )
 
-!-----------------------------------------------------------------------
-!  Packed form of matrix
-!-----------------------------------------------------------------------
-  k=0
-  DO j=1,n
-    DO i=1,j
-      k = k+1
-      acmp(k) = a(i,j)
-    END DO
-  END DO
-!-----------------------------------------------------------------------
-!  dspfa
-!-----------------------------------------------------------------------
-  CALL dspfa(acmp,n,kpvt,info)
-  IF(info /= 0) THEN
-    WRITE(6,'(A,I4)') '!!! ERROR (mtx_inv): dspfa error code is ',info
-    STOP 3
-  END IF
-!-----------------------------------------------------------------------
-!  dspdi
-!-----------------------------------------------------------------------
-  CALL dspdi(acmp,n,kpvt,det,inert,work,001)
-!-----------------------------------------------------------------------
-!  unpack matrix
-!-----------------------------------------------------------------------
-  k=0
-  DO j=1,n
-    DO i=1,j
-      k = k+1
-      ainv(i,j) = acmp(k)
-    END DO
-  END DO
+          do jvec = 1, jmax
+             j = jblk + jvec - 1
+             do ivec = 1, imax
+                i = iblk + ivec - 1
 
-  DO j=1,n
-    DO i=j+1,n
-      ainv(i,j) = ainv(j,i)
-    END DO
-  END DO
+                b(i,j) = 0.5_r_size * ( a(i,j) + a(j,i) )
+             enddo
+          enddo
+       enddo
+    enddo
 
-  END IF
+#ifdef LETKFSINGLE
+    call ssyevd ("V","L",n,b,lda,w,work,lwork,iwork,liwork,ierr)
+#else
+    call dsyevd ("V","L",n,b,lda,w,work,lwork,iwork,liwork,ierr)
+#endif
 
-  RETURN
-END SUBROUTINE mtx_inv
-!=======================================================================
-!  Compute square root of real symmetric matrix
-!    INPUT
-!      INTEGER :: n                : dimension of matrix
-!      REAL(r_size) :: a(n,n)      : input matrix (real symmetric)
-!    OUTPUT
-!      REAL(r_size) :: a_sqrt(n,n) : square root of a
-!=======================================================================
-SUBROUTINE mtx_sqrt(n,a,a_sqrt)
-  IMPLICIT NONE
+    if ( ierr /= 0 ) then
+       write(*,*) 'xxx [mtx_eigen/LAPACK] LAPACK/DSYEVD error code is ', ierr,'! STOP.'
+       write(*,*) 'input a'
+       do j = 1, n
+          write(*,*) j ,a(:,j)
+       enddo
+       write(*,*) 'output eival'
+       write(*,*) w(:)
+       write(*,*) 'output eivec'
+       do j = 1, n
+          write(*,*) j, b(:,j)
+       enddo
 
-  INTEGER,INTENT(IN) :: n
-  REAL(r_size),INTENT(IN) :: a(1:n,1:n)
-  REAL(r_size),INTENT(OUT) :: a_sqrt(1:n,1:n)
+       ! Temporary treatment because of the instability of SYEVD
+       do jblk = 1, n, simdlen
+          jmax = min( n-jblk+1, simdlen )
+          do iblk = 1, n, simdlen
+             imax = min( n-iblk+1, simdlen )
 
-  REAL(r_size) :: eival(n)   ! holds eivenvalue of a
-  REAL(r_size) :: eivec(n,n) ! holds eivenvector of a
-  REAL(r_size) :: wk(n,n)
-  INTEGER :: i,j,k
+             do jvec = 1, jmax
+                j = jblk + jvec - 1
+                do ivec = 1, imax
+                   i = iblk + ivec - 1
 
-  CALL mtx_eigen(1,n,a,eival,eivec,i)
+                   b(i,j) = 0.5_r_size * ( a(i,j) + a(j,i) )
+                enddo
+             enddo
+          enddo
+       enddo
 
-  DO i=1,n
-    wk(:,i) = eivec(:,i) * SQRT( eival(i) )
-  END DO
+#ifdef LETKFSINGLE
+       call ssyev ("V","L",n,b,lda,w,work,lwork,ierr)
+#else
+       call dsyev ("V","L",n,b,lda,w,work,lwork,ierr)
+#endif
 
-!  a_sqrt = matmul(wk,transpose(eivec))
-  DO j=1,n
-    DO i=1,n
-      a_sqrt(i,j) = wk(i,1)*eivec(j,1)
-      DO k=2,n
-        a_sqrt(i,j) = a_sqrt(i,j) + wk(i,k)*eivec(j,k)
-      END DO
-    END DO
-  END DO
+       if ( ierr /= 0 ) then
+          write(*,*) 'xxx [mtx_eigen/LAPACK] LAPACK/SYEV error code is ', ierr,'! STOP.'
+          stop
+       endif
+    endif
 
-  RETURN
-END SUBROUTINE mtx_sqrt
-!=======================================================================
-!  Compute inverse of a real matrix (not necessarily symmetric)
-!    INPUT
-!      INTEGER :: n            : dimension of matrix
-!      REAL(r_size) :: aa(n,n) : input matrix (real symmetric)
-!    OUTPUT
-!      REAL(r_size) :: ff(n,n) : square root of a
-!*** COPIED FROM 'A0568.NEW.FORT(MTXINV)' ON 1989.10.1
-!    changed to free format by H.Yoshimura 2000.06.27
-!    adapted by T.Miyoshi on 2005.10.31
-!=======================================================================
-SUBROUTINE mtx_inv_rg(n,aa,ff)
+    if ( w(1) < 0.0_r_size ) then
+       eival_inc = w(n) / ( 1.E+5_r_size - 1.0_r_size )
+       do i = 1, n
+          w(i) = w(i) + eival_inc
+       enddo
+    elseif( w(n)/1.E+5_r_size > w(1) ) then
+       eival_inc = ( w(n) - w(1)*1.E+5_r_size ) / ( 1.E+5_r_size - 1.0_r_size )
+       do i = 1, n
+          w(i) = w(i) + eival_inc
+       enddo
+    endif
+
+    ! reverse order
+    do i = 1, n
+       eival(i) = w(i) 
+    enddo
+    do j = 1, n
+    do i = 1, n
+       eivec(i,j) = b(i,j)
+    enddo
+    enddo
+
+    ! check zero
+    if ( eival(n) <= 0.0_r_size ) then
+       write(*,*) 'xxx [mtx_eigen/LAPACK] All eigenvalues are below 0! STOP.'
+       stop
+    endif
+
+    nrank_eff = n
+    if( eival(n) > 0.0_r_size ) then
+      do i = 1, n
+        if( eival(i) < abs(eival(n))*sqrt(epsilon(eival)) ) then
+          nrank_eff = nrank_eff - 1
+          eival(i) = 0.0_r_size
+          eivec(:,i) = 0.0_r_size
+        endif
+      enddo
+    else
+      write(6,'(A)') '!!! ERROR (mtx_eigen): All Eigenvalues are below 0'
+      stop 2
+    endif
+
+    deallocate( b )
+    deallocate( w )
+    deallocate( work )
+    deallocate( iwork )
+
+    return
+  end subroutine mtx_eigen
+
+!!=======================================================================
+!!  Real symmetric matrix inversion using subroutine dspdi
+!!    INPUT
+!!      INTEGER :: n               : dimension of matrix
+!!      REAL(r_size) :: a(n,n)     : input matrix (real symmetric)
+!!    OUTPUT
+!!      REAL(r_size) :: ainv(n,n)  : inverse of a
+!!=======================================================================
+!SUBROUTINE mtx_inv(n,a,ainv)
+!  IMPLICIT NONE
 !
-!##  MATRIX INVERSION
-!##  AA IS THE MATRIX TO BE INVERTED
-!##  FF IS THE INVERSE OF AA
+!  INTEGER,INTENT(IN) :: n
+!  REAL(r_size),INTENT(IN) :: a(1:n,1:n)
+!  REAL(r_size),INTENT(OUT) :: ainv(1:n,1:n)
 !
-  INTEGER,INTENT(IN) :: n
-  REAL(r_size),INTENT(IN) :: aa(n,n)
-  REAL(r_size),INTENT(OUT) :: ff(n,n)
+!  REAL(r_dble) :: acmp(n*(n+1)/2)
+!  REAL(r_dble) :: det(2)
+!  REAL(r_dble) :: work(n)
+!  INTEGER :: kpvt(n)
+!  INTEGER :: inert(3)
+!  INTEGER :: info
+!  INTEGER :: i,j,k
 !
-  REAL(r_size) :: a(n,n)
-  REAL(r_size) :: b(n,n)
-  REAL(r_size) :: x(n,n)
+!  IF(n==1) THEN
+!    ainv(1,1) = 1.0d0 / a(1,1)
+!  ELSE
 !
-  REAL(r_size) :: c,cc,xx
-  INTEGER :: i,j,n1,k,kp,jx,ii,jr,jp
-!-------------------------------------------------------
-  n1=n-1
+!!-----------------------------------------------------------------------
+!!  Packed form of matrix
+!!-----------------------------------------------------------------------
+!  k=0
+!  DO j=1,n
+!    DO i=1,j
+!      k = k+1
+!      acmp(k) = a(i,j)
+!    END DO
+!  END DO
+!!-----------------------------------------------------------------------
+!!  dspfa
+!!-----------------------------------------------------------------------
+!  CALL dspfa(acmp,n,kpvt,info)
+!  IF(info /= 0) THEN
+!    WRITE(6,'(A,I4)') '!!! ERROR (mtx_inv): dspfa error code is ',info
+!    STOP 3
+!  END IF
+!!-----------------------------------------------------------------------
+!!  dspdi
+!!-----------------------------------------------------------------------
+!  CALL dspdi(acmp,n,kpvt,det,inert,work,001)
+!!-----------------------------------------------------------------------
+!!  unpack matrix
+!!-----------------------------------------------------------------------
+!  k=0
+!  DO j=1,n
+!    DO i=1,j
+!      k = k+1
+!      ainv(i,j) = acmp(k)
+!    END DO
+!  END DO
 !
-  do i=1,n
-    do j=1,n
-      a(i,j)=aa(i,j)
-    end do
-  end do
+!  DO j=1,n
+!    DO i=j+1,n
+!      ainv(i,j) = ainv(j,i)
+!    END DO
+!  END DO
 !
-  do i=1,n
-    do j=1,n
-      b(i,j)=0.d0
-      if( i == j ) b(i,j)=1.d0
-    end do
-  end do
+!  END IF
 !
-  do j=1,n
-    c=abs(a(1,j))
-    do i=2,n
-      c=max(c,abs(a(i,j)))
-    end do
-    c=1.d0/c
-    do i=1,n
-      a(i,j)=a(i,j)*c
-    end do
-    b(j,j)=b(j,j)*c
-  end do
+!  RETURN
+!END SUBROUTINE mtx_inv
+!!=======================================================================
+!!  Compute square root of real symmetric matrix
+!!    INPUT
+!!      INTEGER :: n                : dimension of matrix
+!!      REAL(r_size) :: a(n,n)      : input matrix (real symmetric)
+!!    OUTPUT
+!!      REAL(r_size) :: a_sqrt(n,n) : square root of a
+!!=======================================================================
+!SUBROUTINE mtx_sqrt(n,a,a_sqrt)
+!  IMPLICIT NONE
 !
-  do k=1,n1
-    c=abs(a(k,k))
-    kp=k+1
-    jx=k
-    do j=kp,n
-      cc=abs(a(k,j))
-      if ( cc < c ) cycle
-      c=cc
-      jx=j
-    end do
-    do i=k,n
-      c=a(i,k)
-      a(i,k)=a(i,jx)
-      a(i,jx)=c
-    end do
-    do i=1,n
-      c=b(i,k)
-      b(i,k)=b(i,jx)
-      b(i,jx)=c
-    end do
-    do j=kp,n
-      c=a(k,j)/a(k,k)
-      do ii=1,n
-        b(ii,j)=b(ii,j)-c*b(ii,k)
-      end do
-      do i=k,n
-        a(i,j)=a(i,j)-c*a(i,k)
-      end do
-    end do
-  end do
+!  INTEGER,INTENT(IN) :: n
+!  REAL(r_size),INTENT(IN) :: a(1:n,1:n)
+!  REAL(r_size),INTENT(OUT) :: a_sqrt(1:n,1:n)
 !
-  do ii=1,n
-    x(ii,n)=b(ii,n)/a(n,n)
-    do j=1,n1
-      jr=n-j
-      jp=jr+1
-      xx=0.d0
-      do i=jp,n
-        xx=xx+a(i,jr)*x(ii,i)
-      end do
-      x(ii,jr)=(b(ii,jr)-xx)/a(jr,jr)
-    end do
-  end do
+!  REAL(r_size) :: eival(n)   ! holds eivenvalue of a
+!  REAL(r_size) :: eivec(n,n) ! holds eivenvector of a
+!  REAL(r_size) :: wk(n,n)
+!  INTEGER :: i,j,k
 !
-  do i=1,n
-    do j=1,n
-      ff(i,j)=x(i,j)
-    end do
-  end do
+!  CALL mtx_eigen(1,n,a,eival,eivec,i)
 !
-END SUBROUTINE mtx_inv_rg
+!  DO i=1,n
+!    wk(:,i) = eivec(:,i) * SQRT( eival(i) )
+!  END DO
+!
+!!  a_sqrt = matmul(wk,transpose(eivec))
+!  DO j=1,n
+!    DO i=1,n
+!      a_sqrt(i,j) = wk(i,1)*eivec(j,1)
+!      DO k=2,n
+!        a_sqrt(i,j) = a_sqrt(i,j) + wk(i,k)*eivec(j,k)
+!      END DO
+!    END DO
+!  END DO
+!
+!  RETURN
+!END SUBROUTINE mtx_sqrt
 
-END MODULE common_mtx
+end module common_mtx

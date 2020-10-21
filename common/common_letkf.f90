@@ -144,7 +144,7 @@ SUBROUTINE letkf_core(ne,nobs,nobsl,hdxb,rdiag,rloc,dep,parm_infl,trans,transm,p
 !-----------------------------------------------------------------------
 !  eigenvalues and eigenvectors of [ hdxb^T Rinv hdxb + (m-1) I ]
 !-----------------------------------------------------------------------
-  CALL mtx_eigen(1,ne,work1,eival,eivec,i)
+  call mtx_eigen(ne,work1,eival,eivec)
 !-----------------------------------------------------------------------
 !  Pa = [ hdxb^T Rinv hdxb + (m-1) I ]inv
 !-----------------------------------------------------------------------
