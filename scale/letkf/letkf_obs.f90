@@ -331,7 +331,7 @@ SUBROUTINE set_letkf_obs
 
   allocate(tmpelm(obsda%nobs))
 
-!$OMP PARALLEL PRIVATE(n,i,iof,iidx,mem_ref,ch_num)
+!$OMP PARALLEL PRIVATE(n,i,iof,iidx,mem_ref)
 !$OMP DO
   do n = 1, obsda%nobs
     IF(obsda%qc(n) > 0) CYCLE
