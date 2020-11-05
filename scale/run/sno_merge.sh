@@ -8,29 +8,20 @@ GRADS=F
 PLEV=T
 
 
-INPUT_FROM_SNOW=T
+INPUT_FROM_SNOW=F
 INPUT_SNOW_NP=16
 
 
-SEXP=BAIU2018_5.3.6
-
 
 tint=21600 # [second]
-tstart='2018-06-30 0:00:00'
-tstart='2018-06-28 0:00:00'
-tstart='2018-07-01 0:00:00'
-
 tstart='2018-07-05 0:00:00'
 tend=$tstart
 
-#. config/${SEXP}/config.main.ofp || exit $?
 . config.main
-#EXP=BAIU2018_5.3.6
-EXP=${SEXP}
 RUNDIR="${TMP}_sno"
 
 
-SCALEDIR=/work/hp150019/share/honda/SCALE-LETKF/scale-5.4.0/scale
+SCALEDIR=/vol0004/ra000007/a04042/SCALE-LETKF/scale-5.4.1/scale
 #PPN=$PPN # Process per node
 
 TYPE=fcst
@@ -64,8 +55,8 @@ SNO_MEM_L="mean "$(seq -f %04g ${SNO_MEMBERS})
 SNO_MEMBERS=0
 SNO_MEM_L="mean "
 
-SNO_MEM_L=" mean 0001 0002 0003 "
-SNO_MEMBERS=4
+#SNO_MEM_L=" mean 0001 0002 0003 "
+#SNO_MEMBERS=4
 
 
 # Convert variables (Other variables will NOT be included in converted files)
@@ -90,9 +81,9 @@ fi
 
 VARS="'Gprs', 'MSLP', 'Tprs', 'Uprs', 'Vprs', 'QVprs', 'QHYDprs', 'DENSprs',"
 
-TOPO=0 # Process topography file? # 1: Yes, 0: No
+TOPO=1 # Process topography file? # 1: Yes, 0: No
 if (( TOPO > 0 )) ; then
-  VARS='"TOPO"'
+  VARS='"topo"'
   SNO_MEM_L="mean"
 fi
 
@@ -187,7 +178,7 @@ while (($(date -ud "$time" '+%s') <= $(date -ud "$tend" '+%s'))); do # time loop
     if (( TOPO > 0 )) ; then
       SNO_OUTPUT_PATH=${OUTDIR}/const/topo_sno_np$(printf %05d ${NP_OFILE})
       SNO_BASENAME_IN="${OUTDIR}/const/topo/topo"
-      SNO_BASENAME_OUT="${SNO_OUTPUT_PATH}/topo"
+      SNO_BASENAME_OUT="topo"
     fi
   
     if [ ! -e ${SNO_OUTPUT_PATH} ] ; then
@@ -261,6 +252,9 @@ fi
 #NPIN=`expr 255 / \( $PPN \) + 1`
 jobsh="${RUNDIR}/job_sno.sh"
 
+# OFP
+if [ "$PRESET" = 'OFP' ]; then
+
 cat << EOF >> $jobsh
 #!/bin/sh
 #PJM -L rscgrp=debug-cache
@@ -299,6 +293,45 @@ echo "[\$(date "+%Y/%m/%d %H:%M:%S")] Start SNO"
 mpiexec.hydra -n $((NP_OFILE)) ${SNOBIN} ${conf_bulk}.\${PJM_BULKNUM}
 echo "[\$(date "+%Y/%m/%d %H:%M:%S")] End SNO"
 EOF
+
+# FUGAKU
+elif [ "$PRESET" = 'FUGAKU' ]; then
+
+#  if (( SNO_NODE < 12 )) ; then
+#    SNO_NODE=12
+#  fi
+
+cat << EOF >> $jobsh
+#!/bin/sh 
+#
+#
+#PJM -L "rscgrp=eap-small"
+#PJM -L "node=${SNO_NODE}"
+#PJM -L "elapse=00:30:00"
+#PJM --mpi "max-proc-per-node=${PPN}"
+#PJM -j
+#PJM -s
+#
+#
+export PARALLEL=${THREADS}
+export OMP_NUM_THREADS=${THREADS}
+export FORT90L=-Wl,-T
+export PLE_MPI_STD_EMPTYFILE=off
+export OMP_WAIT_POLICY=active
+export FLIB_BARRIER=HARD
+
+. /vol0001/apps/oss/spack/share/spack/setup-env.sh
+spack load netcdf-c%fj
+spack load netcdf-fortran%fj
+#spack load parallel-netcdf%fj
+
+echo "[\$(date "+%Y/%m/%d %H:%M:%S")] Start SNO"
+mpiexec -std-proc log/NOUT -n $((NP_OFILE)) ${SNOBIN} ${conf_bulk}.\${PJM_BULKNUM}
+echo "[\$(date "+%Y/%m/%d %H:%M:%S")] End SNO"
+EOF
+
+
+fi
 
 cd ${RUNDIR}
 pjsub --bulk --sparam 1-${cnt} job_sno.sh 
