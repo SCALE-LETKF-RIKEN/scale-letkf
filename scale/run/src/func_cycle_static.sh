@@ -747,7 +747,7 @@ while ((time <= ETIME)); do
 
       if ((BDY_FORMAT == 1)); then
         FILETYPE_ORG='SCALE-RM'
-        LATLON_CATALOGUE_FNAME="${TMPROOT_BDYDATA}/latlon_domain_catalogue.bdy.txt"
+        LATLON_CATALOGUE_FNAME="${DATA_BDY_SCALE}/const/log/latlon_domain_catalogue.txt"
       elif ((BDY_FORMAT == 2)); then
         FILETYPE_ORG='WRF-ARW'
         LATLON_CATALOGUE_FNAME=

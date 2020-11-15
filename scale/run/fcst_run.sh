@@ -177,12 +177,13 @@ elif [ "$PRESET" = 'FUGAKU' ]; then
     RSCGRP="eap-small"
   fi
 
+  TPROC=$((NNODES*PPN))
 cat > $jobscrp << EOF
 #!/bin/sh 
 #
 #
 #PJM -L "rscgrp=${RSCGRP}"
-#PJM -L "node=${NNODES}"
+#PJM -L "node=$(((TPROC+3)/4))"
 #PJM -L "elapse=${TIME_LIMIT}"
 #PJM --mpi "max-proc-per-node=${PPN}"
 #PJM -j
@@ -190,7 +191,7 @@ cat > $jobscrp << EOF
 #
 #
 export PARALLEL=${THREADS}
-export OMP_NUM_THREADS=${THREADS}
+export OMP_NUM_THREADS=\${PARALLEL}
 export FORT90L=-Wl,-T
 export PLE_MPI_STD_EMPTYFILE=off
 export OMP_WAIT_POLICY=active

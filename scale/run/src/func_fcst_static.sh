@@ -45,7 +45,8 @@ repeat_mems=$((fmember*SCALE_NP_TOTAL/totalnp))
 nitmax=$((fmember*SCALE_NP_TOTAL/totalnp))
 if (( nitmax < 1 )) ; then
   echo "Make sure nitmax " >&2
-  exit 1
+  nitmax=1
+#  exit 1
 fi
 
 mkdir -p ${TMPROOT}/topo
@@ -237,48 +238,48 @@ while ((time_s <= ETIME)); do
       # stage-out
       #-------------------
 
-      # anal
-      #-------------------
-      if ((MAKEINIT == 1)); then
-        for mm in $(seq $fmember); do
-          m=$(((c-1) * fmember + mm))
-          for d in $(seq $DOMNUM); do
-            for q in $(seq ${SCALE_NP[$d]}); do
-              path="${name_m[$m]}/init.d$(printf $DOMAIN_FMT $d)_$(datetime_scale $time)$(scale_filename_sfx $((q-1)))"
-              pathout="${OUTDIR[$d]}/${time}/anal/${name_m[$m]}${CONNECTOR}init$(scale_filename_sfx $((q-1)))"
-#              echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${mem2node[$(((m-1)*mem_np+${SCALE_NP_S[$d]}+q))]}
-              echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST_NOLINK}.${mem2node[$(((m-1)*mem_np+${SCALE_NP[$d]}+q))]}
-            done
-          done
-        done
-      fi
-
-      # topo
-      #-------------------
-      if ((loop == 1 && c == 1 && TOPOOUT_OPT <= 1)) && [ "$TOPO_FORMAT" != 'prep' ]; then
-        for d in $(seq $DOMNUM); do
-          for q in $(seq ${SCALE_NP[$d]}); do
-            path="topo/topo.d$(printf $DOMAIN_FMT $d)$(scale_filename_sfx $((q-1)))"
-            pathout="${OUTDIR[$d]}/const/${CONNECTOR_TOPO}topo$(scale_filename_sfx $((q-1)))"
-#            echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${mem2node[$((${SCALE_NP_S[$d]}+q))]}
-            echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST_NOLINK}.${mem2node[$((${SCALE_NP[$d]}+q))]}
-          done
-        done
-      fi
-
-      # landuse
-      #-------------------
-      if ((loop == 1 && c == 1 && LANDUSEOUT_OPT <= 1)) && [ "$LANDUSE_FORMAT" != 'prep' ]; then
-        for d in $(seq $DOMNUM); do
-          for q in $(seq ${SCALE_NP[$d]}); do
-            path="llanduse/anduse.d$(printf $DOMAIN_FMT $d)$(scale_filename_sfx $((q-1)))"
-            pathout="${OUTDIR[$d]}/const/${CONNECTOR_LANDUSE}landuse$(scale_filename_sfx $((q-1)))"
-#            echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${mem2node[$((${SCALE_NP_S[$d]}+q))]}
-            echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST_NOLINK}.${mem2node[$((${SCALE_NP[$d]}+q))]}
-          done
-        done
-      fi
-
+#      # anal
+#      #-------------------
+#      if ((MAKEINIT == 1)); then
+#        for mm in $(seq $fmember); do
+#          m=$(((c-1) * fmember + mm))
+#          for d in $(seq $DOMNUM); do
+#            for q in $(seq ${SCALE_NP[$d]}); do
+#              path="${name_m[$m]}/init.d$(printf $DOMAIN_FMT $d)_$(datetime_scale $time)$(scale_filename_sfx $((q-1)))"
+#              pathout="${OUTDIR[$d]}/${time}/anal/${name_m[$m]}${CONNECTOR}init$(scale_filename_sfx $((q-1)))"
+##              echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${mem2node[$(((m-1)*mem_np+${SCALE_NP_S[$d]}+q))]}
+#              echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST_NOLINK}.${mem2node[$(((m-1)*mem_np+${SCALE_NP[$d]}+q))]}
+#            done
+#          done
+#        done
+#      fi
+#
+#      # topo
+#      #-------------------
+#      if ((loop == 1 && c == 1 && TOPOOUT_OPT <= 1)) && [ "$TOPO_FORMAT" != 'prep' ]; then
+#        for d in $(seq $DOMNUM); do
+#          for q in $(seq ${SCALE_NP[$d]}); do
+#            path="topo/topo.d$(printf $DOMAIN_FMT $d)$(scale_filename_sfx $((q-1)))"
+#            pathout="${OUTDIR[$d]}/const/${CONNECTOR_TOPO}topo$(scale_filename_sfx $((q-1)))"
+##            echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${mem2node[$((${SCALE_NP_S[$d]}+q))]}
+#            echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST_NOLINK}.${mem2node[$((${SCALE_NP[$d]}+q))]}
+#          done
+#        done
+#      fi
+#
+#      # landuse
+#      #-------------------
+#      if ((loop == 1 && c == 1 && LANDUSEOUT_OPT <= 1)) && [ "$LANDUSE_FORMAT" != 'prep' ]; then
+#        for d in $(seq $DOMNUM); do
+#          for q in $(seq ${SCALE_NP[$d]}); do
+#            path="llanduse/anduse.d$(printf $DOMAIN_FMT $d)$(scale_filename_sfx $((q-1)))"
+#            pathout="${OUTDIR[$d]}/const/${CONNECTOR_LANDUSE}landuse$(scale_filename_sfx $((q-1)))"
+##            echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${mem2node[$((${SCALE_NP_S[$d]}+q))]}
+#            echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST_NOLINK}.${mem2node[$((${SCALE_NP[$d]}+q))]}
+#          done
+#        done
+#      fi
+#
 #      # bdy
 #      #-------------------
 #      if ((BDY_FORMAT != 0)); then
@@ -912,6 +913,7 @@ while ((time_s <= ETIME)); do
                   -e "/!--RESTART_IN_POSTFIX_TIMELABEL--/a RESTART_IN_POSTFIX_TIMELABEL = ${RESTART_IN_POSTFIX_TIMELABEL}," \
                   -e "/!--RESTART_OUTPUT--/a RESTART_OUTPUT = ${RESTART_OUTPUT}," \
                   -e "/!--RESTART_OUT_BASENAME--/a RESTART_OUT_BASENAME = \"${OUTDIR[$d]}/$time/fcst/${name_m[$m]}/init\"," \
+                  -e "/!--RESTART_OUT_POSTFIX_TIMELABEL--/a RESTART_OUT_POSTFIX_TIMELABEL = .true.," \
                   -e "/!--TOPOGRAPHY_IN_BASENAME--/a TOPOGRAPHY_IN_BASENAME = \"${INDIR[$d]}/const/topo/topo\"," \
                   -e "/!--LANDUSE_IN_BASENAME--/a LANDUSE_IN_BASENAME = \"${INDIR[$d]}/const/landuse/landuse\"," \
                   -e "/!--FILE_HISTORY_DEFAULT_BASENAME--/a FILE_HISTORY_DEFAULT_BASENAME = \"${OUTDIR[$d]}/$time/fcst/${name_m[$m]}/history\"," \
