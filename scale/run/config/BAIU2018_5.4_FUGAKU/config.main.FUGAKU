@@ -12,7 +12,7 @@ RSCGRP="eap-small"
 
 DIR="$(cd "$(pwd)/.." && pwd)"    # Root directory of the SCALE-LETKF
 
-OUTDIR=/vol0004/ra000007/data/honda/SCALE-LETKF/scale-5.4.1/OUTPUT/TEST
+OUTDIR=/vol0004/ra000007/data/honda/SCALE-LETKF/scale-5.4.2/OUTPUT/TEST
 INDIR=$OUTDIR
 
 #===============================================================================
@@ -31,9 +31,9 @@ DATA_BDY_SCALE_PREP=         # Directory of the prepared SCALE boundary files
 DATA_BDY_WRF=                # Directory of the boundary data in WRF format
 DATA_BDY_NICAM=              # Directory of the boundary data in NICAM format (not finished)
 
-DATA_BDY_GRADS="/vol0004/ra000007/data/honda/SCALE-LETKF/scale-5.4.1/OUTPUT/TEST/grads_test"
+DATA_BDY_GRADS="/vol0004/ra000007/data/honda/SCALE-LETKF/scale-5.4.2/OUTPUT/TEST/grads_test"
 
-OBS="/vol0004/ra000007/data/honda/SCALE-LETKF/scale-5.4.1/OUTPUT/TEST/obs"
+OBS="/vol0004/ra000007/data/honda/SCALE-LETKF/scale-5.4.2/OUTPUT/TEST/obs"
 OBSNCEP=
 
 #===============================================================================
