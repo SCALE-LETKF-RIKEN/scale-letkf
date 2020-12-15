@@ -197,7 +197,18 @@ spack load netcdf-c%fj
 spack load netcdf-fortran%fj
 #spack load parallel-netcdf%fj
 
+EOF
 
+if [ "$PRESET" = 'FUGAKU' ] && (( USE_RAMDISK == 1 )) && (( OUT_OPT >= 2 )); then
+  hdir_l="/worktmp/hist/mean /worktmp/hist/mdet "$(seq -f '/worktmp/hist/%04g' -s ' ' ${MEMBER})
+cat << EOF >>  $jobscrp 
+
+mpiexec -std-proc mkdir_log mkdir -p ${hdir_l}
+
+EOF
+fi
+
+cat << EOF >>  $jobscrp 
 ./${job}.sh "$STIME" "$ETIME" "$MEMBERS" "$CYCLE" "$CYCLE_SKIP" "$IF_VERF" "$IF_EFSO" "$ISTEP" "$FSTEP" "$CONF_MODE" || exit \$?
 EOF
 

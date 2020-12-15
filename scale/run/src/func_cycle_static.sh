@@ -925,6 +925,10 @@ while ((time <= ETIME)); do
       fi
  
       mkdir -p ${OUTDIR[$d]}/$time/log/scale
+      HISTORY_PATH=${OUTDIR[$d]}/$time
+      if [ "$PRESET" = 'FUGAKU' ] && (( USE_RAMDISK == 1 )) && (( OUT_OPT >= 2 )); then
+        HISTORY_PATH=/worktmp
+      fi 
 
       conf="$(cat $conf_file_src | \
           sed -e "/!--IO_LOG_BASENAME--/a IO_LOG_BASENAME = \"${OUTDIR[$d]}/$time/log/scale/${name_m[$m]}_LOG\"," \
@@ -945,7 +949,7 @@ while ((time <= ETIME)); do
               -e "/!--RESTART_OUT_POSTFIX_TIMELABEL--/a RESTART_OUT_POSTFIX_TIMELABEL = ${RESTART_OUT_POSTFIX_TIMELABEL_TF}," \
               -e "/!--TOPOGRAPHY_IN_BASENAME--/a TOPOGRAPHY_IN_BASENAME = \"${INDIR[$d]}/const/topo/topo\"," \
               -e "/!--LANDUSE_IN_BASENAME--/a LANDUSE_IN_BASENAME = \"${INDIR[$d]}/const/landuse/landuse\"," \
-              -e "/!--FILE_HISTORY_DEFAULT_BASENAME--/a FILE_HISTORY_DEFAULT_BASENAME = \"${OUTDIR[$d]}/$time/hist/${name_m[$m]}/history\"," \
+              -e "/!--FILE_HISTORY_DEFAULT_BASENAME--/a FILE_HISTORY_DEFAULT_BASENAME = \"${HISTORY_PATH}/hist/${name_m[$m]}/history\"," \
               -e "/!--FILE_HISTORY_DEFAULT_TINTERVAL--/a FILE_HISTORY_DEFAULT_TINTERVAL = ${CYCLEFOUT}.D0," \
               -e "/!--MONITOR_OUT_BASENAME--/a MONITOR_OUT_BASENAME = \"log/scale.${name_m[$m]}.d${dfmt}.monitor_${time}\"," \
               -e "/!--LAND_PROPERTY_IN_FILENAME--/a LAND_PROPERTY_IN_FILENAME = \"${TMPROOT_CONSTDB}/dat/land/param.bucket.conf\"," \
@@ -1067,6 +1071,11 @@ while ((time <= ETIME)); do
       OBSDEP_OUT_BASENAME="${OUTDIR[$d]}/$atime/obs/obsdep"
     fi
 
+    HISTORY_PATH=${OUTDIR[$d]}/$time
+    if [ "$PRESET" = 'FUGAKU' ] && (( USE_RAMDISK == 1 )) && (( OUT_OPT >= 2 )); then
+      HISTORY_PATH=/worktmp
+    fi
+
     cat $SCRP_DIR/config.nml.ensmodel | \
         sed -e "/!--MEMBER--/a MEMBER = $MEMBER," \
             -e "/!--CONF_FILES--/a CONF_FILES = \"letkf.d<domain>_${atime}.conf\"," \
@@ -1083,7 +1092,7 @@ while ((time <= ETIME)); do
             -e "/!--OBSDA_RUN--/a OBSDA_RUN = $OBSDA_RUN_LIST" \
             -e "/!--OBSDA_OUT--/a OBSDA_OUT = $OBSDA_OUT" \
             -e "/!--OBSDA_OUT_BASENAME--/a OBSDA_OUT_BASENAME = \"<member>/obsgues.d${dfmt}_${atime}\"," \
-            -e "/!--HISTORY_IN_BASENAME--/a HISTORY_IN_BASENAME = \"${OUTDIR[$d]}/$time/hist/<member>/history\"," \
+            -e "/!--HISTORY_IN_BASENAME--/a HISTORY_IN_BASENAME = \"${HISTORY_PATH}/hist/<member>/history\"," \
             -e "/!--SLOT_START--/a SLOT_START = $slot_s," \
             -e "/!--SLOT_END--/a SLOT_END = $slot_e," \
             -e "/!--SLOT_BASE--/a SLOT_BASE = $slot_b," \

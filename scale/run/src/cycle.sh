@@ -284,6 +284,9 @@ while ((time <= ETIME)); do
     fi
   done
 
+  if [ "$PRESET" = 'FUGAKU' ] && (( USE_RAMDISK == 1 )) && (( OUT_OPT >= 2 )); then
+    mpiexec -std-proc rm_log rm -rf /worktmp/hist/*/hist*.nc
+  fi
 
 #-------------------------------------------------------------------------------
 # Online stage out
