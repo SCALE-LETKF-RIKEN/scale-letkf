@@ -782,12 +782,17 @@ while ((time <= ETIME)); do
         mkdir -p ${OUTDIR[$d]}/$time/log/scale_init
         mkdir -p ${OUTDIR[$d]}/$time/bdy/$mem_bdy
 
+        BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time
+        if [ "$PRESET" = 'FUGAKU' ] && (( USE_RAMDISK == 1 && BDY_ENS != 0 )) ; then
+          BOUNDARY_PATH[$d]=/worktmp
+        fi
+
         conf="$(cat $conf_file_src | \
             sed -e "/!--IO_LOG_BASENAME--/a IO_LOG_BASENAME = \"${OUTDIR[$d]}/$time/log/scale_init/${name_m[$m]}_LOG\"," \
                 -e "/!--FILE_AGGREGATE--/a FILE_AGGREGATE = ${FILE_AGGREGATE}," \
                 -e "/!--TIME_STARTDATE--/a TIME_STARTDATE = ${time:0:4}, ${time:4:2}, ${time:6:2}, ${time:8:2}, ${time:10:2}, ${time:12:2}," \
                 -e "/!--RESTART_OUTPUT--/a RESTART_OUTPUT = ${RESTART_OUTPUT}," \
-                -e "/!--RESTART_OUT_BASENAME--/a RESTART_OUT_BASENAME = \"${OUTDIR[$d]}/$time/bdy/${mem_bdy}/init_bdy\"," \
+                -e "/!--RESTART_OUT_BASENAME--/a RESTART_OUT_BASENAME = \"${BOUNDARY_PATH[$d]}/bdy/${mem_bdy}/init_bdy\"," \
                 -e "/!--RESTART_OUT_POSTFIX_TIMELABEL--/a RESTART_OUT_POSTFIX_TIMELABEL = ${RESTART_OUT_POSTFIX_TIMELABEL_TF}," \
                 -e "/!--TOPOGRAPHY_IN_BASENAME--/a TOPOGRAPHY_IN_BASENAME = \"${INDIR[$d]}/const/topo/topo\"," \
                 -e "/!--LANDUSE_IN_BASENAME--/a LANDUSE_IN_BASENAME = \"${INDIR[$d]}/const/landuse/landuse\"," \
@@ -803,7 +808,7 @@ while ((time <= ETIME)); do
           sed -e "/!--BASENAME_ORG--/a BASENAME_ORG = \"${BASENAME_ORG}\"," \
               -e "/!--FILETYPE_ORG--/a FILETYPE_ORG = \"${FILETYPE_ORG}\"," \
               -e "/!--BOUNDARY_UPDATE_DT--/a BOUNDARY_UPDATE_DT = ${BDYINT}.D0,"\
-              -e "/!--BASENAME_BOUNDARY--/a BASENAME_BOUNDARY = \"${OUTDIR[$d]}/$time/bdy/${mem_bdy}/boundary\"," \
+              -e "/!--BASENAME_BOUNDARY--/a BASENAME_BOUNDARY = \"${BOUNDARY_PATH[$d]}/bdy/${mem_bdy}/boundary\"," \
               -e "/!--NUMBER_OF_FILES--/a NUMBER_OF_FILES = ${nbdy}," \
               -e "/!--NUMBER_OF_TSTEPS--/a NUMBER_OF_TSTEPS = ${ntsteps}," \
               -e "/!--NUMBER_OF_SKIP_TSTEPS--/a NUMBER_OF_SKIP_TSTEPS = ${ntsteps_skip},")"
@@ -873,7 +878,6 @@ while ((time <= ETIME)); do
 #      else
 #        RESTART_IN_BASENAME="${name_m[$m]}/anal.d${dfmt}"
 #      fi
-      RESTART_IN_BASENAME="${INDIR[$d]}/$time/anal/${name_m[$m]}/init"
       RESTART_IN_POSTFIX_TIMELABEL_TF=".true."
       RESTART_OUT_POSTFIX_TIMELABEL_TF=".true."
 
@@ -886,17 +890,36 @@ while ((time <= ETIME)); do
       mkdir -p ${OUTDIR[$d]}/$atime/anal/${name_m[$m]}
       mkdir -p ${OUTDIR[$d]}/$time/hist/${name_m[$m]}
 
+      HISTORY_PATH[$d]=${OUTDIR[$d]}/$time
+      RESTART_IN_PATH[$d]=${INDIR[$d]}/$time
+      RESTART_OUT_PATH[$d]=${OUTDIR[$d]}/${atime}
+      if [ "$PRESET" = 'FUGAKU' ] && (( USE_RAMDISK == 1 )) && (( OUT_OPT >= 2 )); then
+        HISTORY_PATH[$d]=/worktmp
+
+        loop_p=$((loop + 1))
+        loop_m=$((loop - 1))
+        if (( loop > 1 && loop_m % OUT_CYCLE_SKIP != 0 )); then
+          RESTART_IN_PATH[$d]=/worktmp
+        fi
+
+        if (( OUT_OPT >= 5 &&  loop % OUT_CYCLE_SKIP != 0  ))  ; then
+          RESTART_OUT_PATH[$d]=/worktmp
+        fi 
+
+      fi 
+      RESTART_IN_BASENAME[$d]="${RESTART_IN_PATH[$d]}/anal/${name_m[$m]}/init"
+
       if [ "${name_m[$m]}" = 'mean' ]; then ###### using a variable for 'mean', 'mdet', 'sprd'
         mkdir -p ${OUTDIR[$d]}/$atime/gues/mean
         mkdir -p ${OUTDIR[$d]}/$atime/gues/sprd
         mkdir -p ${OUTDIR[$d]}/$atime/anal/sprd
 
         RESTART_OUT_ADDITIONAL_COPIES=1
-        RESTART_OUT_ADDITIONAL_BASENAME="\"${OUTDIR[$d]}/$atime/gues/mean/init\", "
+        RESTART_OUT_ADDITIONAL_BASENAME="\"${RESTART_OUT_PATH[$d]}/gues/mean/init\", "
         if ((SPRD_OUT == 1)); then
           RESTART_OUT_ADDITIONAL_COPIES=$((RESTART_OUT_ADDITIONAL_COPIES+2))
-          RESTART_OUT_ADDITIONAL_BASENAME="$RESTART_OUT_ADDITIONAL_BASENAME\"${OUTDIR[$d]}/$atime/anal/sprd/init\", "
-          RESTART_OUT_ADDITIONAL_BASENAME="$RESTART_OUT_ADDITIONAL_BASENAME\"${OUTDIR[$d]}/$atime/gues/sprd/init\", "
+          RESTART_OUT_ADDITIONAL_BASENAME="$RESTART_OUT_ADDITIONAL_BASENAME\"${RESTART_OUT_PATH[$d]}/anal/sprd/init\", "
+          RESTART_OUT_ADDITIONAL_BASENAME="$RESTART_OUT_ADDITIONAL_BASENAME\"${RESTART_OUT_PATH[$d]}/gues/sprd/init\", "
         fi
 #        if ((RTPS_INFL_OUT == 1)); then
 #          RESTART_OUT_ADDITIONAL_COPIES=$((RESTART_OUT_ADDITIONAL_COPIES+1))
@@ -909,10 +932,10 @@ while ((time <= ETIME)); do
       elif [ "${name_m[$m]}" = 'mdet' ]; then
         mkdir -p ${OUTDIR[$d]}/$atime/anal/mdet
         RESTART_OUT_ADDITIONAL_COPIES=1
-        RESTART_OUT_ADDITIONAL_BASENAME="\"${OUTDIR[$d]}/$atime/gues/mdet/init\", "
+        RESTART_OUT_ADDITIONAL_BASENAME="\"${RESTART_OUT_PATH[$d]}/gues/mdet/init\", "
       elif ((OUT_OPT <= 3)); then
         RESTART_OUT_ADDITIONAL_COPIES=1
-        RESTART_OUT_ADDITIONAL_BASENAME="\"${OUTDIR[$d]}/$atime/gues/${name_m[$m]}/init\", "
+        RESTART_OUT_ADDITIONAL_BASENAME="\"${RESTART_OUT_PATH[$d]}/gues/${name_m[$m]}/init\", "
       else
         RESTART_OUT_ADDITIONAL_COPIES=0
         RESTART_OUT_ADDITIONAL_BASENAME=
@@ -925,10 +948,6 @@ while ((time <= ETIME)); do
       fi
  
       mkdir -p ${OUTDIR[$d]}/$time/log/scale
-      HISTORY_PATH=${OUTDIR[$d]}/$time
-      if [ "$PRESET" = 'FUGAKU' ] && (( USE_RAMDISK == 1 )) && (( OUT_OPT >= 2 )); then
-        HISTORY_PATH=/worktmp
-      fi 
 
       conf="$(cat $conf_file_src | \
           sed -e "/!--IO_LOG_BASENAME--/a IO_LOG_BASENAME = \"${OUTDIR[$d]}/$time/log/scale/${name_m[$m]}_LOG\"," \
@@ -942,14 +961,14 @@ while ((time <= ETIME)); do
               -e "/!--ONLINE_DOMAIN_NUM--/a ONLINE_DOMAIN_NUM = ${d}," \
               -e "/!--ONLINE_IAM_PARENT--/a ONLINE_IAM_PARENT = ${ONLINE_IAM_PARENT}," \
               -e "/!--ONLINE_IAM_DAUGHTER--/a ONLINE_IAM_DAUGHTER = ${ONLINE_IAM_DAUGHTER}," \
-              -e "/!--RESTART_IN_BASENAME--/a RESTART_IN_BASENAME = \"${RESTART_IN_BASENAME}\"," \
+              -e "/!--RESTART_IN_BASENAME--/a RESTART_IN_BASENAME = \"${RESTART_IN_BASENAME[$d]}\"," \
               -e "/!--RESTART_IN_POSTFIX_TIMELABEL--/a RESTART_IN_POSTFIX_TIMELABEL = ${RESTART_IN_POSTFIX_TIMELABEL_TF}," \
               -e "/!--RESTART_OUTPUT--/a RESTART_OUTPUT = .true.," \
-              -e "/!--RESTART_OUT_BASENAME--/a RESTART_OUT_BASENAME = \"${OUTDIR[$d]}/${atime}/anal/${name_m[$m]}/init\"," \
+              -e "/!--RESTART_OUT_BASENAME--/a RESTART_OUT_BASENAME = \"${RESTART_OUT_PATH[$d]}/anal/${name_m[$m]}/init\"," \
               -e "/!--RESTART_OUT_POSTFIX_TIMELABEL--/a RESTART_OUT_POSTFIX_TIMELABEL = ${RESTART_OUT_POSTFIX_TIMELABEL_TF}," \
               -e "/!--TOPOGRAPHY_IN_BASENAME--/a TOPOGRAPHY_IN_BASENAME = \"${INDIR[$d]}/const/topo/topo\"," \
               -e "/!--LANDUSE_IN_BASENAME--/a LANDUSE_IN_BASENAME = \"${INDIR[$d]}/const/landuse/landuse\"," \
-              -e "/!--FILE_HISTORY_DEFAULT_BASENAME--/a FILE_HISTORY_DEFAULT_BASENAME = \"${HISTORY_PATH}/hist/${name_m[$m]}/history\"," \
+              -e "/!--FILE_HISTORY_DEFAULT_BASENAME--/a FILE_HISTORY_DEFAULT_BASENAME = \"${HISTORY_PATH[$d]}/hist/${name_m[$m]}/history\"," \
               -e "/!--FILE_HISTORY_DEFAULT_TINTERVAL--/a FILE_HISTORY_DEFAULT_TINTERVAL = ${CYCLEFOUT}.D0," \
               -e "/!--MONITOR_OUT_BASENAME--/a MONITOR_OUT_BASENAME = \"log/scale.${name_m[$m]}.d${dfmt}.monitor_${time}\"," \
               -e "/!--LAND_PROPERTY_IN_FILENAME--/a LAND_PROPERTY_IN_FILENAME = \"${TMPROOT_CONSTDB}/dat/land/param.bucket.conf\"," \
@@ -966,7 +985,7 @@ while ((time <= ETIME)); do
               -e "/!--RESTART_OUT_ADDITIONAL_BASENAME--/a RESTART_OUT_ADDITIONAL_BASENAME = ${RESTART_OUT_ADDITIONAL_BASENAME}")"
       if ((d == 1)); then
         conf="$(echo "$conf" | \
-            sed -e "/!--ATMOS_BOUNDARY_IN_BASENAME--/a ATMOS_BOUNDARY_IN_BASENAME = \"${INDIR[$d]}/$time/bdy/${mem_bdy}/boundary\"," \
+            sed -e "/!--ATMOS_BOUNDARY_IN_BASENAME--/a ATMOS_BOUNDARY_IN_BASENAME = \"${BOUNDARY_PATH[$d]}/bdy/${mem_bdy}/boundary\"," \
                 -e "/!--ATMOS_BOUNDARY_START_DATE--/a ATMOS_BOUNDARY_START_DATE = ${bdy_start_time:0:4}, ${bdy_start_time:4:2}, ${bdy_start_time:6:2}, ${bdy_start_time:8:2}, ${bdy_start_time:10:2}, ${bdy_start_time:12:2}," \
                 -e "/!--ATMOS_BOUNDARY_UPDATE_DT--/a ATMOS_BOUNDARY_UPDATE_DT = $BDYINT.D0,")"
       fi
@@ -974,13 +993,13 @@ while ((time <= ETIME)); do
         if ((OCEAN_INPUT == 1)); then
           if ((OCEAN_FORMAT == 99)); then
             conf="$(echo "$conf" | \
-                sed -e "/!--OCEAN_RESTART_IN_BASENAME--/a OCEAN_RESTART_IN_BASENAME = \"${INDIR[$d]}/$time/bdy/${mem_bdy}/init\",")"
+                sed -e "/!--OCEAN_RESTART_IN_BASENAME--/a OCEAN_RESTART_IN_BASENAME = \"${BOUNDARY_PATH[$d]}/bdy/${mem_bdy}/init\",")"
           fi
         fi
         if ((LAND_INPUT == 1)); then
           if ((LAND_FORMAT == 99)); then
             conf="$(echo "$conf" | \
-                sed -e "/!--LAND_RESTART_IN_BASENAME--/a LAND_RESTART_IN_BASENAME = \"${INDIR[$d]}/$time/bdy/${mem_bdy}/init\",")"
+                sed -e "/!--LAND_RESTART_IN_BASENAME--/a LAND_RESTART_IN_BASENAME = \"${BOUNDARY_PATH[$d]}/bdy/${mem_bdy}/init\",")"
           fi
         fi
       fi
@@ -992,13 +1011,13 @@ while ((time <= ETIME)); do
         if ((OCEAN_INPUT == 1)); then
           if ((OCEAN_FORMAT == 99)); then
             conf="$(echo "$conf" | \
-                sed -e "/!--OCEAN_RESTART_IN_BASENAME--/a OCEAN_RESTART_IN_BASENAME = \"${INDIR[$d]}/$time/bdy/${mem_bdy}/init_bdy_$(datetime_scale $time)\",")"
+                sed -e "/!--OCEAN_RESTART_IN_BASENAME--/a OCEAN_RESTART_IN_BASENAME = \"${BOUNDARY_PATH[$d]}/bdy/${mem_bdy}/init_bdy_$(datetime_scale $time)\",")"
           fi
         fi
         if ((LAND_INPUT == 1)); then
           if ((LAND_FORMAT == 99)); then
             conf="$(echo "$conf" | \
-                sed -e "/!--LAND_RESTART_IN_BASENAME--/a LAND_RESTART_IN_BASENAME = \"${INDIR[$d]}/$time/bdy/${mem_bdy}/init_bdy_$(datetime_scale $time)\",")"
+                sed -e "/!--LAND_RESTART_IN_BASENAME--/a LAND_RESTART_IN_BASENAME = \"${BOUNDARY_PATH[$d]}/bdy/${mem_bdy}/init_bdy_$(datetime_scale $time)\",")"
           fi
         fi
         echo "$conf" >> ${conf_file}
@@ -1071,11 +1090,6 @@ while ((time <= ETIME)); do
       OBSDEP_OUT_BASENAME="${OUTDIR[$d]}/$atime/obs/obsdep"
     fi
 
-    HISTORY_PATH=${OUTDIR[$d]}/$time
-    if [ "$PRESET" = 'FUGAKU' ] && (( USE_RAMDISK == 1 )) && (( OUT_OPT >= 2 )); then
-      HISTORY_PATH=/worktmp
-    fi
-
     cat $SCRP_DIR/config.nml.ensmodel | \
         sed -e "/!--MEMBER--/a MEMBER = $MEMBER," \
             -e "/!--CONF_FILES--/a CONF_FILES = \"letkf.d<domain>_${atime}.conf\"," \
@@ -1092,17 +1106,17 @@ while ((time <= ETIME)); do
             -e "/!--OBSDA_RUN--/a OBSDA_RUN = $OBSDA_RUN_LIST" \
             -e "/!--OBSDA_OUT--/a OBSDA_OUT = $OBSDA_OUT" \
             -e "/!--OBSDA_OUT_BASENAME--/a OBSDA_OUT_BASENAME = \"<member>/obsgues.d${dfmt}_${atime}\"," \
-            -e "/!--HISTORY_IN_BASENAME--/a HISTORY_IN_BASENAME = \"${HISTORY_PATH}/hist/<member>/history\"," \
+            -e "/!--HISTORY_IN_BASENAME--/a HISTORY_IN_BASENAME = \"${HISTORY_PATH[$d]}/hist/<member>/history\"," \
             -e "/!--SLOT_START--/a SLOT_START = $slot_s," \
             -e "/!--SLOT_END--/a SLOT_END = $slot_e," \
             -e "/!--SLOT_BASE--/a SLOT_BASE = $slot_b," \
             -e "/!--SLOT_TINTERVAL--/a SLOT_TINTERVAL = ${LTIMESLOT}.D0," \
             -e "/!--OBSDA_IN--/a OBSDA_IN = .false.," \
-            -e "/!--GUES_IN_BASENAME--/a GUES_IN_BASENAME = \"${OUTDIR[$d]}/$atime/anal/<member>/init_$(datetime_scale $atime)\"," \
-            -e "/!--GUES_MEAN_INOUT_BASENAME--/a GUES_MEAN_INOUT_BASENAME = \"${OUTDIR[$d]}/$atime/gues/mean/init_$(datetime_scale $atime)\"," \
-            -e "/!--GUES_SPRD_OUT_BASENAME--/a GUES_SPRD_OUT_BASENAME = \"${OUTDIR[$d]}/$atime/gues/sprd/init_$(datetime_scale $atime)\"," \
+            -e "/!--GUES_IN_BASENAME--/a GUES_IN_BASENAME = \"${RESTART_OUT_PATH[$d]}/anal/<member>/init_$(datetime_scale $atime)\"," \
+            -e "/!--GUES_MEAN_INOUT_BASENAME--/a GUES_MEAN_INOUT_BASENAME = \"${RESTART_OUT_PATH[$d]}/gues/mean/init_$(datetime_scale $atime)\"," \
+            -e "/!--GUES_SPRD_OUT_BASENAME--/a GUES_SPRD_OUT_BASENAME = \"${RESTART_OUT_PATH[$d]}/gues/sprd/init_$(datetime_scale $atime)\"," \
             -e "/!--GUES_SPRD_OUT--/a GUES_SPRD_OUT = ${SPRD_OUT_TF}," \
-            -e "/!--ANAL_OUT_BASENAME--/a ANAL_OUT_BASENAME = \"${OUTDIR[$d]}/$atime/anal/<member>/init_$(datetime_scale $atime)\"," \
+            -e "/!--ANAL_OUT_BASENAME--/a ANAL_OUT_BASENAME = \"${RESTART_OUT_PATH[$d]}/anal/<member>/init_$(datetime_scale $atime)\"," \
             -e "/!--ANAL_SPRD_OUT--/a ANAL_SPRD_OUT = ${SPRD_OUT_TF}," \
             -e "/!--LETKF_TOPOGRAPHY_IN_BASENAME--/a LETKF_TOPOGRAPHY_IN_BASENAME = \"${INDIR[$d]}/const/topo/topo\"," \
             -e "/!--INFL_ADD_IN_BASENAME--/a INFL_ADD_IN_BASENAME = \"<member>/addi.d${dfmt}\"," \

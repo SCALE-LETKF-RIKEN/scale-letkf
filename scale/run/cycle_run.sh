@@ -201,9 +201,12 @@ EOF
 
 if [ "$PRESET" = 'FUGAKU' ] && (( USE_RAMDISK == 1 )) && (( OUT_OPT >= 2 )); then
   hdir_l="/worktmp/hist/mean /worktmp/hist/mdet "$(seq -f '/worktmp/hist/%04g' -s ' ' ${MEMBER})
+  adir_l=" /worktmp/anal/mean /worktmp/anal/mdet /worktmp/anal/sprd "$(seq -f '/worktmp/anal/%04g' -s ' ' ${MEMBER})
+  gdir_l=" /worktmp/gues/mean /worktmp/gues/mdet /worktmp/gues/sprd "$(seq -f '/worktmp/gues/%04g' -s ' ' ${MEMBER})
+  bdir_l=" /worktmp/bdy/mean /worktmp/bdy/mdet "$(seq -f '/worktmp/bdy/%04g' -s ' ' ${MEMBER})
 cat << EOF >>  $jobscrp 
 
-mpiexec -std-proc mkdir_log mkdir -p ${hdir_l}
+mpiexec -std-proc mkdir_log mkdir -p ${hdir_l} ${adir_l} ${gdir_l} ${bdir_l}
 
 EOF
 fi

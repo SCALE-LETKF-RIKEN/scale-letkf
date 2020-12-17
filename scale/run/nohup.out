@@ -1,0 +1,80 @@
+[2020-12-17 16:20:33] Start cycle_run.sh 
+
+  DIR                  = /vol0004/ra000007/a04042/SCALE-LETKF/scale-5.4.2/scale_fast/scale-letkf/scale
+  DOMAIN               = 
+  INDIR[1]             = /vol0004/ra000007/data/honda/SCALE-LETKF/scale-5.4.2/OUTPUT/TEST
+  OUTDIR[1]            = /vol0004/ra000007/data/honda/SCALE-LETKF/scale-5.4.2/OUTPUT/TEST
+  DATA_TOPO[1]         = /vol0004/ra000007/data/honda/SCALE-LETKF/scale-5.4.2/OUTPUT/TEST
+  DATA_TOPO_BDY_SCALE  = 
+  DATA_LANDUSE[1]      = /vol0004/ra000007/data/honda/SCALE-LETKF/scale-5.4.2/OUTPUT/TEST
+  DATA_BDY_SCALE       = 
+  DATA_BDY_SCALE_PREP  = /vol0004/ra000007/data/honda/SCALE-LETKF/scale-5.4.2/OUTPUT/TEST
+  DATA_BDY_WRF         = 
+  DATA_BDY_NICAM       = 
+  OBS                  = /vol0004/ra000007/data/honda/SCALE-LETKF/scale-5.4.2/OUTPUT/TEST/obs
+  OBSNCEP              = 
+  DET_RUN              = 0
+  TOPO_FORMAT          = prep
+  LANDUSE_FORMAT       = prep
+  LANDUSE_UPDATE       = 0
+  BDY_FORMAT           = 4
+  BDY_ENS              = 0
+  BDYINT               = 21600
+  BDYCYCLE_INT         = 21600
+  PARENT_REF_TIME      = 20180705000000
+  ENABLE_PARAM_USER    = 1
+  OCEAN_INPUT          = 1
+  OCEAN_FORMAT         = 99
+  LAND_INPUT           = 1
+  LAND_FORMAT          = 99
+  OBSNUM               = 1
+  WINDOW_S             = 600
+  WINDOW_E             = 600
+  LCYCLE               = 600
+  LTIMESLOT            = 600
+  MEMBER               = 3
+  NNODES               = 48
+  NNODES_APPAR         = 48
+  PPN                  = 4
+  PPN_APPAR            = 4
+  THREADS              = 12
+  SCALE_NP[1]          = 48
+  STIME                = 20180705000000
+  ETIME                = 20180705010000
+  ISTEP                = 1
+  FSTEP                = 5
+  CONF_MODE            = static
+  FCSTOUT              = 
+  MAKEINIT             = 0
+  OUT_OPT              = 5
+  TOPOOUT_OPT          = 2
+  LANDUSEOUT_OPT       = 2
+  BDYOUT_OPT           = 3
+  OBSOUT_OPT           = 3
+  LOG_OPT              = 2
+  LOG_TYPE             = 1
+
+[2020-12-17 16:20:33] Create and clean the temporary directory
+[2020-12-17 16:20:33] Determine the distibution schemes
+[2020-12-17 16:20:33] Determine the staging list
+
+Generate configration files...
+  scale-rm_init_ens_20180705000000.conf
+  scale-rm_ens_20180705000000.conf
+  scale-rm_init_ens_20180705001000.conf
+  scale-rm_ens_20180705001000.conf
+  scale-rm_init_ens_20180705002000.conf
+  scale-rm_ens_20180705002000.conf
+  scale-rm_init_ens_20180705003000.conf
+  scale-rm_ens_20180705003000.conf
+  scale-rm_init_ens_20180705004000.conf
+  scale-rm_ens_20180705004000.conf
+  scale-rm_init_ens_20180705005000.conf
+  scale-rm_ens_20180705005000.conf
+  scale-rm_init_ens_20180705010000.conf
+  scale-rm_ens_20180705010000.conf
+
+[2020-12-17 16:20:41] Initialization (stage in)
+[2020-12-17 16:20:41] Create a job script '/vol0004/ra000007/a04042/SCALE-LETKF/scale-5.4.2/scale_fast/scale-letkf/scale/tmp/scale-letkf_TEST/cycle_job.sh'
+[2020-12-17 16:20:41] Run cycle job on PJM
+
