@@ -192,14 +192,27 @@ export PLE_MPI_STD_EMPTYFILE=off
 export OMP_WAIT_POLICY=active
 export FLIB_BARRIER=HARD
 
+
+EOF
+
+if (( CP_BIN_TMP == 1 )) ; then
+
+cat << EOF >>  $jobscrp 
+export LD_LIBRARY_PATH=/tmp/`id -u -n`:\${LD_LIBRARY_PATH}
+EOF
+
+else
+
+cat << EOF >>  $jobscrp 
 . /vol0001/apps/oss/spack/share/spack/setup-env.sh
 spack load netcdf-c%fj
 spack load netcdf-fortran%fj
 #spack load parallel-netcdf%fj
-
 EOF
 
-if [ "$PRESET" = 'FUGAKU' ] && (( USE_RAMDISK == 1 )) && (( OUT_OPT >= 2 )); then
+fi
+
+if (( USE_RAMDISK == 1 )) && (( OUT_OPT >= 2 )); then
   hdir_l="/worktmp/hist/mean /worktmp/hist/mdet "$(seq -f '/worktmp/hist/%04g' -s ' ' ${MEMBER})
   adir_l=" /worktmp/anal/mean /worktmp/anal/mdet /worktmp/anal/sprd "$(seq -f '/worktmp/anal/%04g' -s ' ' ${MEMBER})
   gdir_l=" /worktmp/gues/mean /worktmp/gues/mdet /worktmp/gues/sprd "$(seq -f '/worktmp/gues/%04g' -s ' ' ${MEMBER})

@@ -138,7 +138,7 @@ loop=0
 exedir=./
 if [ "$PRESET" = 'FUGAKU' ] && (( CP_BIN_TMP == 1 )) ; then
   mpiexec /work/system/bin/my_clean.sh
-  mpiexec /work/system/bin/my_cpy.sh ${ENSMODEL_DIR}/scale-rm_pp_ens ${ENSMODEL_DIR}/scale-rm_init_ens ${ENSMODEL_DIR}/scale-rm_ens ${COMMON_DIR}/pdbash ${COMMON_DIR}/datetime ${OBSUTIL_DIR}/obsope ${LETKF_DIR}/letkf
+  mpiexec /work/system/bin/my_cpy.sh ${ENSMODEL_DIR}/scale-rm_pp_ens ${ENSMODEL_DIR}/scale-rm_init_ens ${ENSMODEL_DIR}/scale-rm_ens ${COMMON_DIR}/pdbash ${COMMON_DIR}/datetime ${OBSUTIL_DIR}/obsope ${LETKF_DIR}/letkf ${TMPROOT}/lib*.so* 
   exedir=/tmp/$(id -u -n)/
 fi
 
@@ -259,11 +259,12 @@ while ((time <= ETIME)); do
       fi
 
 
+#      logd=/worktmp
       for it in $(seq $nit); do
         echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: start" >&2
 
-        rm -rf  $logd
-        mkdir -p $logd
+#        rm -rf  $logd
+#        mkdir -p $logd
         mpirunf ${nodestr} ${exedir}${stepexecname[$s]} ${stepexecname[$s]}_${conf_time}_${it}.conf ${logd}/NOUT_${conf_time}_${it} || exit $?
        
         echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: end" >&2

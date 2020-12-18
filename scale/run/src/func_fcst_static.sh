@@ -64,6 +64,25 @@ cp ${ENSMODEL_DIR}/scale-rm_init_ens ${TMPROOT}/scale-rm_init_ens
 cp ${ENSMODEL_DIR}/scale-rm_ens ${TMPROOT}/scale-rm_ens
 
 #-------------------------------------------------------------------------------
+# dynamic library
+if [ "$PRESET" = 'FUGAKU' ] && (( CP_BIN_TMP == 1 )) ; then
+  # Get netcdf path
+  . /vol0001/apps/oss/spack/share/spack/setup-env.sh
+  spack load netcdf-c%fj
+  spack load netcdf-fortran%fj
+  NETCDFF_PATH=$(which nf-config)
+  NETCDFF_PATH=${NETCDFF_PATH:0:-14}/lib
+  NETCDF_PATH=$(which nc-config)
+  NETCDF_PATH=${NETCDF_PATH:0:-14}/lib
+  HDF5_PATH=$(which h5dump)
+  HDF5_PATH=${HDF5_PATH:0:-11}/lib
+
+  cp ${NETCDFF_PATH}/lib* ${TMPROOT}/
+  cp ${NETCDF_PATH}/lib* ${TMPROOT}/
+  cp ${HDF5_PATH}/lib* ${TMPROOT}/
+fi
+
+#-------------------------------------------------------------------------------
 # database
 
 cp -r ${SCALEDIR}/scale-rm/test/data/rad ${TMPROOT}/dat/rad

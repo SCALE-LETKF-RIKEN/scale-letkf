@@ -16,3 +16,6 @@
 ! COLOR_REORDER = .true.,
 /
 
+&PARAM_LOG
+ LOG_LEVEL = 1,
+/

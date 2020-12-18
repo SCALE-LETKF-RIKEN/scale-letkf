@@ -62,7 +62,7 @@ MODULE common_nml
 !  integer :: IO_AGGREGATE = .false.
 
   !--- PARAM_LOG
-  integer :: LOG_LEVEL = 2                        ! Log message output level:
+  integer :: LOG_LEVEL = 1                        ! Log message output level:
                                                   !  0: Minimum log output
                                                   !  1: Reduced log output
                                                   !  2: Normal  log output

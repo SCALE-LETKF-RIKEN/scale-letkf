@@ -65,6 +65,25 @@ cp ${OBSUTIL_DIR}/obsope ${TMPROOT}/obsope
 cp ${LETKF_DIR}/letkf ${TMPROOT}/letkf
 
 #-------------------------------------------------------------------------------
+# dynamic library
+if [ "$PRESET" = 'FUGAKU' ] && (( CP_BIN_TMP == 1 )) ; then
+  # Get netcdf path
+  . /vol0001/apps/oss/spack/share/spack/setup-env.sh
+  spack load netcdf-c%fj
+  spack load netcdf-fortran%fj
+  NETCDFF_PATH=$(which nf-config)
+  NETCDFF_PATH=${NETCDFF_PATH:0:-14}/lib
+  NETCDF_PATH=$(which nc-config)
+  NETCDF_PATH=${NETCDF_PATH:0:-14}/lib
+  HDF5_PATH=$(which h5dump)
+  HDF5_PATH=${HDF5_PATH:0:-11}/lib
+
+  cp ${NETCDFF_PATH}/lib* ${TMPROOT}/
+  cp ${NETCDF_PATH}/lib* ${TMPROOT}/
+  cp ${HDF5_PATH}/lib* ${TMPROOT}/
+fi
+
+#-------------------------------------------------------------------------------
 # database
 
 cp -r ${SCALEDIR}/scale-rm/test/data/rad ${TMPROOT}/dat/rad
@@ -779,7 +798,9 @@ while ((time <= ETIME)); do
         fi
 
         RESTART_OUT_POSTFIX_TIMELABEL_TF=".true."
+        rm -rf  ${OUTDIR[$d]}/$time/log/scale_init
         mkdir -p ${OUTDIR[$d]}/$time/log/scale_init
+        rm -rf ${OUTDIR[$d]}/$time/bdy/$mem_bdy
         mkdir -p ${OUTDIR[$d]}/$time/bdy/$mem_bdy
 
         BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time
@@ -947,6 +968,7 @@ while ((time <= ETIME)); do
         conf_file_src=$SCRP_DIR/config.nml.scale.d$d
       fi
  
+      rm -rf ${OUTDIR[$d]}/$time/log/scale
       mkdir -p ${OUTDIR[$d]}/$time/log/scale
 
       conf="$(cat $conf_file_src | \
@@ -1081,6 +1103,8 @@ while ((time <= ETIME)); do
     fi
     conf_file_src2="$TMP/${name_m[$m]}/run.d${dfmt}_${time}.conf"
 
+    rm -rf ${OUTDIR[$d]}/$atime/log/letkf
+    rm -rf ${OUTDIR[$d]}/$atime/obs
     mkdir -p ${OUTDIR[$d]}/$atime/log/letkf
     mkdir -p ${OUTDIR[$d]}/$atime/obs
 
