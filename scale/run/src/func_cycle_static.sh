@@ -45,7 +45,7 @@ for d in `seq $DOMNUM`; do
 done
 
 repeat_mems=$((mtot*SCALE_NP_TOTAL/totalnp))
-nitmax=$((mtot*SCALE_NP_TOTAL/totalnp))
+nitmax=$(( ( mtot - 1) * SCALE_NP_TOTAL / totalnp + 1 ))
 
 if [ "$TOPO_FORMAT" != 'prep' ] || [ "$LANDUSE_FORMAT" != 'prep' ]; then
   echo "[Error] $0: Prepare topo and landuse data by fcst before running DA cycle" >&2
@@ -1073,11 +1073,11 @@ while ((time <= ETIME)); do
     if ((d == 1)); then
       conf_file_src=$SCRP_DIR/config.nml.letkf
 #      conf_file_src2=$SCRP_DIR/config.nml.scale
-      conf_file="$TMP/letkf_${atime}.conf"
+      conf_file="$TMP/letkf_${atime}_1.conf"
     else
       conf_file_src=$SCRP_DIR/config.nml.letkf.d$d
       #conf_file_src2=$SCRP_DIR/config.nml.scale.d$d
-      conf_file="$TMP/letkf.d${dfmt}_${atime}.conf"
+      conf_file="$TMP/letkf.d${dfmt}_${atime}_1.conf"
     fi
     conf_file_src2="$TMP/${name_m[$m]}/run.d${dfmt}_${time}.conf"
 

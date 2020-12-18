@@ -45,10 +45,8 @@ echo "[$(datetime_now)] Start $myname $@" >&2
 
 setting "$@" || exit $?
 
-if [ "$CONF_MODE" = 'static' ]; then
-  . src/func_common_static.sh || exit $?
-  . src/func_${job}_static.sh || exit $?
-fi
+. src/func_common_static.sh || exit $?
+. src/func_${job}_static.sh || exit $?
 
 echo
 print_setting || exit $?
@@ -80,15 +78,11 @@ if ((RUN_LEVEL <= 1)) && ((ISTEP == 1)); then
   echo "[$(datetime_now)] Initialization (stage in)" >&2
 
   safe_init_tmpdir $STAGING_DIR || exit $?
-  if [ "$CONF_MODE" = 'static' ]; then
-    staging_list_static || exit $?
-    if ((DISK_MODE == 3)); then
-      config_file_list $TMP/config || exit $?
-    else
-      config_file_list || exit $?
-    fi
+  staging_list_static || exit $?
+  if ((DISK_MODE == 3)); then
+    config_file_list $TMP/config || exit $?
   else
-    staging_list || exit $?
+    config_file_list || exit $?
   fi
 
   stage_in node || exit $?
@@ -132,7 +126,7 @@ for d in `seq $DOMNUM`; do
 done
 
 repeat_mems=$((mtot*SCALE_NP_TOTAL/totalnp))
-nitmax=$((mtot*SCALE_NP_TOTAL/totalnp))
+nitmax=$(( ( mtot - 1) * SCALE_NP_TOTAL / totalnp + 1 ))
 
 
 s_flag=1
@@ -240,15 +234,12 @@ while ((time <= ETIME)); do
 
       echo "[$(datetime_now)] ${time}: ${stepname[$s]}" >&2
 
-      enable_iter=0
       nit=1
       if ((s == 2)); then
-        enable_iter=1
         if ((BDY_ENS == 1)); then
           nit=$nitmax
         fi
       elif ((s == 3)); then
-        enable_iter=1
         nit=$nitmax
       fi
 
@@ -261,25 +252,15 @@ while ((time <= ETIME)); do
       fi
 
 
-      if ((enable_iter == 1 && nitmax > 1)); then
-        for it in $(seq $nit); do
-          echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: start" >&2
-
-          rm -rf  $logd
-          mkdir -p $logd
-          mpirunf ${nodestr} ./${stepexecname[$s]} ${stepexecname[$s]}_${conf_time}_${it}.conf ${logd}/NOUT_${conf_time}_${it} || exit $?
-         
-          echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: end" >&2
-        done
-
-      else
+      for it in $(seq $nit); do
+        echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: start" >&2
 
         rm -rf  $logd
         mkdir -p $logd
-        mpirunf ${nodestr} ./${stepexecname[$s]} ${stepexecname[$s]}_${conf_time}.conf ${logd}/NOUT_${conf_time} || exit $?
-      fi
-
-#      rm -f  $logd/NOUT_*????[1-9]
+        mpirunf ${nodestr} ./${stepexecname[$s]} ${stepexecname[$s]}_${conf_time}_${it}.conf ${logd}/NOUT_${conf_time}_${it} || exit $?
+       
+        echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: end" >&2
+      done
 
     fi
   done
@@ -333,12 +314,10 @@ if ((RUN_LEVEL <= 3)); then
 fi
 
 if ((RUN_LEVEL <= 1)); then
-  if [ "$CONF_MODE" = 'static' ]; then
-    if ((DISK_MODE == 3)); then
-      config_file_save $TMP/config || exit $?
-    else
-      config_file_save || exit $?
-    fi
+  if ((DISK_MODE == 3)); then
+    config_file_save $TMP/config || exit $?
+  else
+    config_file_save || exit $?
   fi
 fi
 

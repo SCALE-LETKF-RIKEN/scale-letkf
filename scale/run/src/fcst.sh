@@ -143,7 +143,7 @@ if (( CYCLE < 1 )) ; then
 fi
 
 repeat_mems=$((fmember*SCALE_NP_TOTAL/totalnp))
-nitmax=$((fmember*SCALE_NP_TOTAL/totalnp))
+nitmax=$(( ( fmember - 1) * SCALE_NP_TOTAL / totalnp + 1 ))
 
 #-------------------------------------------------------------------------------
 while ((time <= ETIME)); do
@@ -192,9 +192,9 @@ while ((time <= ETIME)); do
   echo
   echo "  Nodes used:               $NNODES_APPAR"
 #  if ((MTYPE == 1)); then
-    for n in $(seq $NNODES_APPAR); do
-      echo "    ${node[$n]}"
-    done
+#    for n in $(seq $NNODES_APPAR); do
+#      echo "    ${node[$n]}"
+#    done
 #  fi
   echo
   echo "  Processes per node:       $PPN_APPAR"
@@ -244,11 +244,13 @@ while ((time <= ETIME)); do
 
       echo "[$(datetime_now)] ${time}: ${stepname[$s]}" >&2
 
-      enable_iter=0
-      if ((s == 2 && BDY_ENS == 1)); then
-        enable_iter=1
+      nit=1
+      if (( s == 2 )); then
+        if ((BDY_ENS == 1)); then
+          nit=$nitmax
+        fi
       elif ((s == 3)); then
-        enable_iter=1
+        nit=$nitmax
       fi
 
       if ((s == 3)); then
@@ -257,17 +259,13 @@ while ((time <= ETIME)); do
 
       nodestr=proc
 
-      if ((enable_iter == 1 && nitmax > 1)); then
-        for it in $(seq $nitmax); do
-          echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: start" >&2
+      for it in $(seq $nit); do
+        echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: start" >&2
 
-          mpirunf ${nodestr} ./${stepexecname[$s]} fcst_${stepexecname[$s]}_${stimes[1]}_${it}.conf ${logd}/${stepexecname[$s]}.NOUT_${stimes[1]}_${it} || exit $?
+        mpirunf ${nodestr} ./${stepexecname[$s]} fcst_${stepexecname[$s]}_${stimes[1]}_${it}.conf ${logd}/${stepexecname[$s]}.NOUT_${stimes[1]}_${it} || exit $?
 
-          echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: end" >&2
-        done
-      else
-        mpirunf ${nodestr} ./${stepexecname[$s]} fcst_${stepexecname[$s]}_${stimes[1]}.conf ${logd}/${stepexecname[$s]}.NOUT_${stimes[1]} || exit $?
-      fi
+        echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: end" >&2
+      done
 
     fi
   done

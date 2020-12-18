@@ -171,11 +171,9 @@ if ((DET_RUN == 1)); then
 fi
 
 for it in $(seq $nitmax); do
-  if ((nitmax == 1)); then
-    conf_file="${MODEL_NAME}_${time}.conf"
-  else
-    conf_file="${MODEL_NAME}_${time}_${it}.conf"
-  fi
+
+  conf_file="${MODEL_NAME}_${time}_${it}.conf"
+
   echo "  $conf_file"
   cat $SCRP_DIR/config.nml.ensmodel | \
       sed -e "/!--MEMBER--/a MEMBER = $MEMBER," \
@@ -189,9 +187,6 @@ for it in $(seq $nitmax); do
           -e "/!--NUM_DOMAIN--/a NUM_DOMAIN = $DOMNUM," \
           -e "/!--PRC_DOMAINS--/a PRC_DOMAINS = $PRC_DOMAINS_LIST" \
       > $TMP/${conf_file}
-#  if ((stage_config == 1)); then
-#    echo "$CONFIG_DIR/${conf_file}|${conf_file}" >> ${STAGING_DIR}/${STGINLIST}
-#  fi
 done
 
 #-------------------------------------------------------------------------------

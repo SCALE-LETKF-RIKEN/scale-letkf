@@ -42,7 +42,7 @@ if (( CYCLE < 1 )) ; then
 fi
 
 repeat_mems=$((fmember*SCALE_NP_TOTAL/totalnp))
-nitmax=$((fmember*SCALE_NP_TOTAL/totalnp))
+nitmax=$(( ( fmember - 1) * SCALE_NP_TOTAL / totalnp + 1 ))
 if (( nitmax < 1 )) ; then
   echo "Make sure nitmax " >&2
   nitmax=1
