@@ -135,6 +135,13 @@ time=$STIME
 atime=$(datetime $time $LCYCLE s)
 loop=0
 
+exedir=./
+if [ "$PRESET" = 'FUGAKU' ] && (( CP_BIN_TMP == 1 )) ; then
+  mpiexec /work/system/bin/my_clean.sh
+  mpiexec /work/system/bin/my_cpy.sh ${ENSMODEL_DIR}/scale-rm_pp_ens ${ENSMODEL_DIR}/scale-rm_init_ens ${ENSMODEL_DIR}/scale-rm_ens ${COMMON_DIR}/pdbash ${COMMON_DIR}/datetime ${OBSUTIL_DIR}/obsope ${LETKF_DIR}/letkf
+  exedir=/tmp/$(id -u -n)/
+fi
+
 #-------------------------------------------------------------------------------
 while ((time <= ETIME)); do
 #-------------------------------------------------------------------------------
@@ -257,7 +264,7 @@ while ((time <= ETIME)); do
 
         rm -rf  $logd
         mkdir -p $logd
-        mpirunf ${nodestr} ./${stepexecname[$s]} ${stepexecname[$s]}_${conf_time}_${it}.conf ${logd}/NOUT_${conf_time}_${it} || exit $?
+        mpirunf ${nodestr} ${exedir}${stepexecname[$s]} ${stepexecname[$s]}_${conf_time}_${it}.conf ${logd}/NOUT_${conf_time}_${it} || exit $?
        
         echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: end" >&2
       done
@@ -295,6 +302,10 @@ while ((time <= ETIME)); do
 #-------------------------------------------------------------------------------
 done
 #-------------------------------------------------------------------------------
+
+if [ "$PRESET" = 'FUGAKU' ] && (( CP_BIN_TMP == 1 )) ; then
+  mpiexec /work/system/bin/my_clean.sh
+fi
 
 #===============================================================================
 # Stage out

@@ -134,6 +134,8 @@ TMPL="$TMP"
 
 USE_RAMDISK=1   # 1: Use RAM disk on FUGAKU
                 # 0: Not use RAM disk
+CP_BIN_TMP=1   # 1: Copy executable binary to /tmp on FUGAKU
+               # 0: Not copy
 
 CLEAR_TMP=0                 # Clear temporary directories after the completion of job?
                             #  0: No
