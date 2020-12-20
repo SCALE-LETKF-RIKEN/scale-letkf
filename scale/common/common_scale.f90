@@ -1415,7 +1415,7 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
   ! Surface variables: use the 1st level as the surface (although it is not)
   !---------------------------------------------------------
 
-  v2dgh_RP(IS:IE,JS:JE,iv2dd_topo) = topo(1:nlon,1:nlat)
+  v2dgh_RP(IS:IE,JS:JE,iv2dd_topo) = height(1,1:nlon,1:nlat)      ! Use the first model level as topography (is this good?)
 
   v2dgh_RP(IS:IE,JS:JE,iv2dd_ps)   = v3dg(1,1:nlon,1:nlat,iv3d_p)
   v2dgh_RP(IS:IE,JS:JE,iv2dd_u10m) = v3dg(1,1:nlon,1:nlat,iv3d_u)
