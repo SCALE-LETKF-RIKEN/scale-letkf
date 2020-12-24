@@ -954,7 +954,7 @@ mkdir -p $OUTDIR/exp/${JOB_ID}_${JOBNAME}_${STIME}
 cp -f $SCRP_DIR/config.main $OUTDIR/exp/${JOB_ID}_${JOBNAME}_${STIME}
 cp -f $SCRP_DIR/config.${JOBNAME} $OUTDIR/exp/${JOB_ID}_${JOBNAME}_${STIME}
 cp -f $SCRP_DIR/config.nml.* $OUTDIR/exp/${JOB_ID}_${JOBNAME}_${STIME}
-cp -f $JOB_DIR/${JOBNAME}_job.sh $OUTDIR/exp/${JOB_ID}_${JOBNAME}_${STIME}
+cp -f $JOB_DIR/${JOBNAME}_job.sh* $OUTDIR/exp/${JOB_ID}_${JOBNAME}_${STIME}
 for p in ${JOB_LOG_TYPES}; do
   if [ -f "$JOB_DIR/${JOB_LOG_PREFIX}.${p}${JOB_ID}" ]; then
     cp -f $JOB_DIR/${JOB_LOG_PREFIX}.${p}${JOB_ID} $OUTDIR/exp/${JOB_ID}_${JOBNAME}_${STIME}/job.${p}
@@ -963,6 +963,7 @@ done
 
 ( cd $SCRP_DIR && git log -1 --format="SCALE-LETKF version %h (%ai)" > $OUTDIR/exp/${JOB_ID}_${JOBNAME}_${STIME}/version )
 ( cd $SCALEDIR/scale-rm && git log -1 --format="SCALE       version %h (%ai)" >> $OUTDIR/exp/${JOB_ID}_${JOBNAME}_${STIME}/version )
+( pwd >> $OUTDIR/exp/${JOB_ID}_${JOBNAME}_${STIME}/version )
 
 return 0
 
