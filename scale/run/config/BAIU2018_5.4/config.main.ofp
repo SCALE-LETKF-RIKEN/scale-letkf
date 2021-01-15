@@ -111,8 +111,8 @@ MEMBER=50          # Ensemble size
 
 NNODES=153
 
-MEMBER=3          # Ensemble size
-NNODES=12
+MEMBER=5          # Ensemble size
+NNODES=18
 #NNODES=3
 
 PPN=64              # Number of processes per node
