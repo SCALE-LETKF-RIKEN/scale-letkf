@@ -88,6 +88,7 @@ fi
 cp -r ${SCALEDIR}/scale-rm/test/data/rad ${TMPROOT}/dat/rad
 cp -r ${SCALEDIR}/scale-rm/test/data/land ${TMPROOT}/dat/land
 cp -r ${SCALEDIR}/scale-rm/test/data/urban ${TMPROOT}/dat/urban
+cp -r ${SCALEDIR}/scale-rm/test/data/lightning ${TMPROOT}/dat/lightning
 
 #-------------------------------------------------------------------------------
 # time-variant outputs
@@ -946,7 +947,8 @@ while ((time_s <= ETIME)); do
                   -e "/!--ATMOS_PHY_RD_MSTRN_AEROPARA_IN_FILENAME--/a ATMOS_PHY_RD_MSTRN_AEROPARA_IN_FILENAME = \"${TMPROOT_CONSTDB}/dat/rad/PARAPC.29\"," \
                   -e "/!--ATMOS_PHY_RD_MSTRN_HYGROPARA_IN_FILENAME--/a ATMOS_PHY_RD_MSTRN_HYGROPARA_IN_FILENAME = \"${TMPROOT_CONSTDB}/dat/rad/VARDATA.RM29\"," \
                   -e "/!--ATMOS_PHY_RD_PROFILE_CIRA86_IN_FILENAME--/a ATMOS_PHY_RD_PROFILE_CIRA86_IN_FILENAME = \"${TMPROOT_CONSTDB}/dat/rad/cira.nc\"," \
-                  -e "/!--ATMOS_PHY_RD_PROFILE_MIPAS2001_IN_BASENAME--/a ATMOS_PHY_RD_PROFILE_MIPAS2001_IN_BASENAME = \"${TMPROOT_CONSTDB}/dat/rad/MIPAS\",")"
+                  -e "/!--ATMOS_PHY_RD_PROFILE_MIPAS2001_IN_BASENAME--/a ATMOS_PHY_RD_PROFILE_MIPAS2001_IN_BASENAME = \"${TMPROOT_CONSTDB}/dat/rad/MIPAS\"," \
+                  -e "/!--ATMOS_PHY_LT_LUT_FILENAME--/a ATMOS_PHY_LT_LUT_FILENAME = \"${TMPROOT_CONSTDB}/dat/lightning/LUT_TK1978_v.txt\",")"
           if ((d == 1)); then
             conf="$(echo "$conf" | \
                 sed -e "/!--ATMOS_BOUNDARY_IN_BASENAME--/a ATMOS_BOUNDARY_IN_BASENAME = \"bdy/${mem_bdy}/bdy_$(datetime_scale $time)\"," \

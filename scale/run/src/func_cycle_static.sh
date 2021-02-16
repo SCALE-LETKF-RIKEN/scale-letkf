@@ -89,6 +89,7 @@ fi
 cp -r ${SCALEDIR}/scale-rm/test/data/rad ${TMPROOT}/dat/rad
 cp -r ${SCALEDIR}/scale-rm/test/data/land ${TMPROOT}/dat/land
 cp -r ${SCALEDIR}/scale-rm/test/data/urban ${TMPROOT}/dat/urban
+cp -r ${SCALEDIR}/scale-rm/test/data/lightning ${TMPROOT}/dat/lightning
 
 #-------------------------------------------------------------------------------
 # time-variant outputs
@@ -1002,6 +1003,7 @@ while ((time <= ETIME)); do
               -e "/!--ATMOS_PHY_RD_MSTRN_HYGROPARA_IN_FILENAME--/a ATMOS_PHY_RD_MSTRN_HYGROPARA_IN_FILENAME = \"${TMPROOT_CONSTDB}/dat/rad/VARDATA.RM29\"," \
               -e "/!--ATMOS_PHY_RD_PROFILE_CIRA86_IN_FILENAME--/a ATMOS_PHY_RD_PROFILE_CIRA86_IN_FILENAME = \"${TMPROOT_CONSTDB}/dat/rad/cira.nc\"," \
               -e "/!--ATMOS_PHY_RD_PROFILE_MIPAS2001_IN_BASENAME--/a ATMOS_PHY_RD_PROFILE_MIPAS2001_IN_BASENAME = \"${TMPROOT_CONSTDB}/dat/rad/MIPAS\"," \
+              -e "/!--ATMOS_PHY_LT_LUT_FILENAME--/a ATMOS_PHY_LT_LUT_FILENAME = \"${TMPROOT_CONSTDB}/dat/lightning/LUT_TK1978_v.txt\"," \
               -e "/!--TIME_END_RESTART_OUT--/a TIME_END_RESTART_OUT = .false.," \
               -e "/!--RESTART_OUT_ADDITIONAL_COPIES--/a RESTART_OUT_ADDITIONAL_COPIES = ${RESTART_OUT_ADDITIONAL_COPIES}," \
               -e "/!--RESTART_OUT_ADDITIONAL_BASENAME--/a RESTART_OUT_ADDITIONAL_BASENAME = ${RESTART_OUT_ADDITIONAL_BASENAME}")"
