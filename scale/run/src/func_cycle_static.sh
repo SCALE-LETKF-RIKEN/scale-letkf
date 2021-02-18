@@ -100,6 +100,7 @@ cp -r ${SCALEDIR}/scale-rm/test/data/lightning ${TMPROOT}/dat/lightning
 # time-variant outputs
 
 time=$STIME
+btime=$STIME
 atime=$(datetime $time $LCYCLE s)
 loop=0
 while ((time <= ETIME)); do
@@ -809,7 +810,16 @@ while ((time <= ETIME)); do
         rm -rf ${OUTDIR[$d]}/$time/bdy/$mem_bdy
         mkdir -p ${OUTDIR[$d]}/$time/bdy/$mem_bdy
 
-        BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time
+        # Update boundary time
+        if (( SKIP_BDYINIT == 1 )); then
+          if (( $(datetime $btime $BDYINT s) <= time )) ; then
+            btime=$(datetime $btime $BDYINT s)
+          fi
+        else
+          btime=$time
+        fi
+
+        BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$btime
         if [ "$PRESET" = 'FUGAKU' ] && (( USE_RAMDISK == 1 && BDY_ENS != 0 )) ; then
           BOUNDARY_PATH[$d]=/worktmp
         fi
