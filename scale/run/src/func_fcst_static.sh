@@ -1177,7 +1177,7 @@ if ((BDY_FORMAT >= 1)); then
     PARENT_REF_TIME=$STIME
     for bdy_startframe in $(seq $BDY_STARTFRAME_MAX); do
       if ((BDY_FORMAT == 1)); then
-        BFILE="$DATA_BDY_SCALE/${PARENT_REF_TIME}/hist/${BDY_MEAN}/history${SCALE_SFX_0}"
+        BFILE="$DATA_BDY_SCALE/${PARENT_REF_TIME}/${BDY_SCALE_DIR}/${BDY_MEAN}/history${SCALE_SFX_0}"
       elif ((BDY_FORMAT == 2 && BDY_ROTATING == 1)); then
         BFILE="$DATA_BDY_WRF/${PARENT_REF_TIME}/${BDY_MEAN}/wrfout_${PARENT_REF_TIME}" 
       elif ((BDY_FORMAT == 2 && BDY_ROTATING != 1)); then
