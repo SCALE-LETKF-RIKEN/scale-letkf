@@ -70,16 +70,21 @@ if [ "$PRESET" = 'FUGAKU' ] && (( CP_BIN_TMP == 1 )) ; then
   . /vol0001/apps/oss/spack/share/spack/setup-env.sh
   spack load netcdf-c%fj
   spack load netcdf-fortran%fj
+  spack load parallel-netcdf%fj
   NETCDFF_PATH=$(which nf-config)
-  NETCDFF_PATH=${NETCDFF_PATH:0:-14}/lib
+  NETCDFF_PATH=${NETCDFF_PATH:0:-14}
   NETCDF_PATH=$(which nc-config)
-  NETCDF_PATH=${NETCDF_PATH:0:-14}/lib
+  NETCDF_PATH=${NETCDF_PATH:0:-14}
+  PNETCDF_PATH=$(which pnetcdf-config)
+  PNETCDF_PATH=${PNETCDF_PATH:0:-19}
   HDF5_PATH=$(which h5dump)
-  HDF5_PATH=${HDF5_PATH:0:-11}/lib
+  HDF5_PATH=${HDF5_PATH:0:-11}
 
-  cp ${NETCDFF_PATH}/lib* ${TMPROOT}/
-  cp ${NETCDF_PATH}/lib* ${TMPROOT}/
-  cp ${HDF5_PATH}/lib* ${TMPROOT}/
+  cp ${NETCDFF_PATH}/lib/libnetcdff.so.7 ${TMPROOT}/
+  cp ${NETCDF_PATH}/lib/libnetcdf.so.15  ${TMPROOT}/
+  cp ${PNETCDF_PATH}/lib/libpnetcdf.so.4 ${TMPROOT}/
+  cp ${HDF5_PATH}/lib/libhdf5_hl.so.100  ${TMPROOT}/
+  cp ${HDF5_PATH}/lib/libhdf5.so.103  ${TMPROOT}/
 fi
 
 #-------------------------------------------------------------------------------
