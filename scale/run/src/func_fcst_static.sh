@@ -501,6 +501,8 @@ fi
 echo
 echo "Generate configration files..."
 
+time=$STIME
+
 mkdir -p $CONFIG_DIR
 
 FILE_AGGREGATE=".false"
