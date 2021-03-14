@@ -21,7 +21,7 @@ tend=$tstart
 RUNDIR="${TMP}_sno"
 
 
-SCALEDIR=/vol0004/ra000007/a04042/SCALE-LETKF/scale-5.4.1/scale
+SCALEDIR="$(cd "$(pwd)/../../.." && pwd)"  
 #PPN=$PPN # Process per node
 
 TYPE=fcst
@@ -320,10 +320,10 @@ export PLE_MPI_STD_EMPTYFILE=off
 export OMP_WAIT_POLICY=active
 export FLIB_BARRIER=HARD
 
-. /vol0001/apps/oss/spack/share/spack/setup-env.sh
+. /vol0004/apps/oss/spack/share/spack/setup-env.sh
 spack load netcdf-c%fj
 spack load netcdf-fortran%fj
-#spack load parallel-netcdf%fj
+spack load parallel-netcdf%fj
 
 echo "[\$(date "+%Y/%m/%d %H:%M:%S")] Start SNO"
 mpiexec -std-proc log/NOUT -n $((NP_OFILE)) ${SNOBIN} ${conf_bulk}.\${PJM_BULKNUM}
