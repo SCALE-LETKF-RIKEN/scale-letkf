@@ -35,6 +35,16 @@ module common_mtx
 
 contains
   !-----------------------------------------------------------------------------
+  subroutine mtx_setup(m)
+    implicit none
+    !---------------------------------------------------------------------------
+    integer, intent(in) :: m
+
+    ! nothing to do
+
+    return
+  end subroutine mtx_setup
+  !-----------------------------------------------------------------------------
   !  eigenvalue decomposition using subroutine dsyevd
   !    input
   !      integer   :: n          : dimension of matrix

@@ -9,8 +9,6 @@ COMMON_DIR = ../common
 COMMON_OBJS = $(COMMON_DIR)/SFMT.o           \
               $(COMMON_DIR)/common.o         \
               $(COMMON_DIR)/common_mpi.o     \
-              $(COMMON_DIR)/common_mtx.o     \
-              $(COMMON_DIR)/common_letkf.o   \
               $(COMMON_DIR)/common_ncio.o    \
               $(COMMON_DIR)/common_scale.o     \
               $(COMMON_DIR)/common_obs_scale.o \

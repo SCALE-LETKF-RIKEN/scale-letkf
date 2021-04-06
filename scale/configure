@@ -34,3 +34,12 @@ FOPTS     += -DH08
 FOPTS_SCALE += -DH08
 endif
 
+ifeq ($(SINGLE_EVP),T)
+FOPTS     += -DSINGLE_EVP
+endif
+
+ifeq ($(USE_MTX_KEVD),T)
+  common_mtx = common_mtx_kevd
+else
+  common_mtx = common_mtx_lapack
+endif

@@ -3,13 +3,15 @@ SCALE_USER_VER = T
 
 # Precision
 LETKF_SINGLE_FP = F
-SCALE_SINGLE_FP = T
 
 
 # Libraries
 #-----------------
 
 LAPACK_LIB = -SSL2BLAMP -SCALAPACK
+
+USE_MTX_KEVD = T
+KEVD_LIB = -L/vol0003/hp150019/u01161/kevd200710 -lkevd -lstdc++
 
 BUFR_LIB   = -L/data/opt/bufrlib/10.1.0_intel/lib -lbufrlib
 

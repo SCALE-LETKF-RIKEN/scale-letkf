@@ -9,7 +9,7 @@ COMMON_DIR = ../common
 COMMON_OBJS = $(COMMON_DIR)/SFMT.o           \
               $(COMMON_DIR)/common.o         \
               $(COMMON_DIR)/common_mpi.o     \
-              $(COMMON_DIR)/common_mtx.o     \
+              $(COMMON_DIR)/$(common_mtx).o     \
               $(COMMON_DIR)/common_sort.o    \
               $(COMMON_DIR)/common_rand.o    \
               $(COMMON_DIR)/common_letkf.o   \
@@ -25,7 +25,7 @@ OBS_OBJS = $(OBS_DIR)/obsope_tools.o
 
 INCS    = $(SCALE_INC) $(NETCDF_INC)
 
-LIBS    = $(SCALE_LIB) $(NETCDF_LIB) $(LAPACK_LIB)
+LIBS    = $(SCALE_LIB) $(NETCDF_LIB) $(LAPACK_LIB) $(KEVD_LIB)
 
 
 .PHONY:	all clean FORCE
