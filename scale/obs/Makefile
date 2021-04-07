@@ -48,9 +48,6 @@ dec_prepbufr.o:	dec_prepbufr.f90 $(COMMON_DIR)
 obsope_tools.o:	obsope_tools.f90 $(COMMON_DIR)
 	$(FC) $(FOPTS) -c $< -I$(COMMON_DIR) $(INCS)
 
-$(COMMON_DIR):	FORCE
-	$(MAKE) -C $@
-
 clean:
 	rm -f *.o *.mod *.lst $(PROGS) obsope
 

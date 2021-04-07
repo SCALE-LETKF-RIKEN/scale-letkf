@@ -44,9 +44,6 @@ letkf_obs.o:	letkf_obs.f90 $(COMMON_DIR)
 letkf_tools.o:	letkf_tools.f90 letkf_obs.o $(COMMON_DIR)
 	$(FC) $(FOPTS) -c $< -I$(COMMON_DIR) $(INCS)
 
-$(COMMON_DIR):	FORCE
-	$(MAKE) -C $@
-
 $(OBS_DIR):	FORCE
 	$(MAKE) -C $@ obsope_tools.o
 

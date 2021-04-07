@@ -10,8 +10,9 @@ LETKF_SINGLE_FP = F
 
 LAPACK_LIB = -SSL2BLAMP -SCALAPACK
 
-USE_MTX_KEVD = T
-KEVD_LIB = -L/vol0003/hp150019/u01161/kevd200710 -lkevd -lstdc++
+USE_MTX_KEVD = F
+SINGLE_EVP = F
+KEVD_LIB = -L/share/hp150019/honda/kevd200710 -lkevd -lstdc++
 
 BUFR_LIB   = -L/data/opt/bufrlib/10.1.0_intel/lib -lbufrlib
 

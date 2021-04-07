@@ -49,9 +49,6 @@ scale-rm_ens:	scale-rm_ens.o $(OBJS) $(COMMON_DIR)
 scale-rm_ens.o:	scale-rm_ens.f90 $(OBJS) $(COMMON_DIR)
 	$(FC) $(FOPTS_SCALE) -c $< -I$(COMMON_DIR) $(INCS)
 
-$(COMMON_DIR):	FORCE
-	$(MAKE) -C $@
-
 clean:
 	rm -f *.o *.mod *.lst $(PROGS)
 
