@@ -67,20 +67,18 @@ cp ${LETKF_DIR}/letkf ${TMPROOT}/letkf
 #-------------------------------------------------------------------------------
 # dynamic library
 if [ "$PRESET" = 'FUGAKU' ] && (( CP_BIN_TMP == 1 )) ; then
-  # Get netcdf path
-  . /vol0001/apps/oss/spack/share/spack/setup-env.sh
-  spack load netcdf-c%fj
-  spack load netcdf-fortran%fj
-  NETCDFF_PATH=$(which nf-config)
-  NETCDFF_PATH=${NETCDFF_PATH:0:-14}/lib
-  NETCDF_PATH=$(which nc-config)
-  NETCDF_PATH=${NETCDF_PATH:0:-14}/lib
-  HDF5_PATH=$(which h5dump)
-  HDF5_PATH=${HDF5_PATH:0:-11}/lib
 
-  cp ${NETCDFF_PATH}/lib* ${TMPROOT}/
-  cp ${NETCDF_PATH}/lib* ${TMPROOT}/
-  cp ${HDF5_PATH}/lib* ${TMPROOT}/
+  if [ -z "$SCALE_NETCDF_F" ] | [ -z "$SCALE_NETCDF_C" ] | \
+     [ -z "$SCALE_PNETCDF" ] | [ -z "$SCALE_HDF" ] ; then
+    echo "Set SCALE_NETCDF_F/SCALE_NETCDF_C/SCALE_PNETCDF/SCALE_HDF"
+    exit
+  fi
+
+  cp ${SCALE_NETCDF_F}/lib/lib*.so* ${TMPROOT}/
+  cp ${SCALE_NETCDF_C}/lib/libnetcdf*.so*  ${TMPROOT}/
+  cp ${SCALE_PNETCDF}/lib/lib*.so* ${TMPROOT}/
+  cp ${SCALE_HDF}/lib/libhdf5*.so*  ${TMPROOT}/
+
 fi
 
 #-------------------------------------------------------------------------------
@@ -89,11 +87,13 @@ fi
 cp -r ${SCALEDIR}/scale-rm/test/data/rad ${TMPROOT}/dat/rad
 cp -r ${SCALEDIR}/scale-rm/test/data/land ${TMPROOT}/dat/land
 cp -r ${SCALEDIR}/scale-rm/test/data/urban ${TMPROOT}/dat/urban
+cp -r ${SCALEDIR}/scale-rm/test/data/lightning ${TMPROOT}/dat/lightning
 
 #-------------------------------------------------------------------------------
 # time-variant outputs
 
 time=$STIME
+btime=$STIME
 atime=$(datetime $time $LCYCLE s)
 loop=0
 while ((time <= ETIME)); do
@@ -803,7 +803,16 @@ while ((time <= ETIME)); do
         rm -rf ${OUTDIR[$d]}/$time/bdy/$mem_bdy
         mkdir -p ${OUTDIR[$d]}/$time/bdy/$mem_bdy
 
-        BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time
+        # Update boundary time
+        if (( SKIP_BDYINIT == 1 )); then
+          if (( $(datetime $btime $BDYINT s) <= time )) ; then
+            btime=$(datetime $btime $BDYINT s)
+          fi
+        else
+          btime=$time
+        fi
+
+        BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$btime
         if [ "$PRESET" = 'FUGAKU' ] && (( USE_RAMDISK == 1 && BDY_ENS != 0 )) ; then
           BOUNDARY_PATH[$d]=/worktmp
         fi
@@ -1002,6 +1011,7 @@ while ((time <= ETIME)); do
               -e "/!--ATMOS_PHY_RD_MSTRN_HYGROPARA_IN_FILENAME--/a ATMOS_PHY_RD_MSTRN_HYGROPARA_IN_FILENAME = \"${TMPROOT_CONSTDB}/dat/rad/VARDATA.RM29\"," \
               -e "/!--ATMOS_PHY_RD_PROFILE_CIRA86_IN_FILENAME--/a ATMOS_PHY_RD_PROFILE_CIRA86_IN_FILENAME = \"${TMPROOT_CONSTDB}/dat/rad/cira.nc\"," \
               -e "/!--ATMOS_PHY_RD_PROFILE_MIPAS2001_IN_BASENAME--/a ATMOS_PHY_RD_PROFILE_MIPAS2001_IN_BASENAME = \"${TMPROOT_CONSTDB}/dat/rad/MIPAS\"," \
+              -e "/!--ATMOS_PHY_LT_LUT_FILENAME--/a ATMOS_PHY_LT_LUT_FILENAME = \"${TMPROOT_CONSTDB}/dat/lightning/LUT_TK1978_v.txt\"," \
               -e "/!--TIME_END_RESTART_OUT--/a TIME_END_RESTART_OUT = .false.," \
               -e "/!--RESTART_OUT_ADDITIONAL_COPIES--/a RESTART_OUT_ADDITIONAL_COPIES = ${RESTART_OUT_ADDITIONAL_COPIES}," \
               -e "/!--RESTART_OUT_ADDITIONAL_BASENAME--/a RESTART_OUT_ADDITIONAL_BASENAME = ${RESTART_OUT_ADDITIONAL_BASENAME}")"
@@ -1316,20 +1326,27 @@ if ((BDY_FORMAT >= 1)); then
   if [ -z "$PARENT_REF_TIME" ]; then
     PARENT_REF_TIME=$STIME
     for bdy_startframe in $(seq $BDY_STARTFRAME_MAX); do
-      if ((BDY_FORMAT == 1)) && [ -s "$DATA_BDY_SCALE/${PARENT_REF_TIME}/hist/${BDY_MEAN}/history${SCALE_SFX_0}" ]; then
+      if ((BDY_FORMAT == 1)); then
+        BFILE="$DATA_BDY_SCALE/${PARENT_REF_TIME}/${BDY_SCALE_DIR}/${BDY_MEAN}/history${SCALE_SFX_0}"
+      elif ((BDY_FORMAT == 2 && BDY_ROTATING == 1)); then
+        BFILE="$DATA_BDY_WRF/${PARENT_REF_TIME}/${BDY_MEAN}/wrfout_${PARENT_REF_TIME}" 
+      elif ((BDY_FORMAT == 2 && BDY_ROTATING != 1)); then
+        BFILE="$DATA_BDY_WRF/${BDY_MEAN}/wrfout_${PARENT_REF_TIME}"
+      elif ((BDY_FORMAT == 4 && BDY_ROTATING == 1)); then
+        BFILE="$DATA_BDY_GRADS/${PARENT_REF_TIME}/${BDY_MEAN}/atm_${PARENT_REF_TIME}.grd"
+      elif ((BDY_FORMAT == 4 && BDY_ROTATING != 1)); then 
+        BFILE="$DATA_BDY_GRADS/${BDY_MEAN}/atm_${PARENT_REF_TIME}.grd"
+      fi
+
+      if [ -s "$BFILE" ] ; then
         break
-      elif ((BDY_FORMAT == 2 && BDY_ROTATING == 1)) && [ -s "$DATA_BDY_WRF/${PARENT_REF_TIME}/${BDY_MEAN}/wrfout_${PARENT_REF_TIME}" ]; then
-        break
-      elif ((BDY_FORMAT == 2 && BDY_ROTATING != 1)) && [ -s "$DATA_BDY_WRF/${BDY_MEAN}/wrfout_${PARENT_REF_TIME}" ]; then
-        break
-      elif ((BDY_FORMAT == 4 && BDY_ROTATING == 1)) && [ -s "$DATA_BDY_GRADS/${PARENT_REF_TIME}/${BDY_MEAN}/atm_${PARENT_REF_TIME}.grd" ]; then
-        break
-      elif ((BDY_FORMAT == 4 && BDY_ROTATING != 1)) && [ -s "$DATA_BDY_GRADS/${BDY_MEAN}/atm_${PARENT_REF_TIME}.grd" ]; then
-        break
-      elif ((bdy_startframe == BDY_STARTFRAME_MAX)); then
-        echo "[Error] Cannot find boundary files." >&2
+      fi 
+
+      if ((bdy_startframe == BDY_STARTFRAME_MAX)); then
+        echo "[Error] Cannot find boundary files. "$BFILE >&2
         exit 1
       fi
+
       PARENT_REF_TIME=$(datetime $PARENT_REF_TIME -${BDYINT} s)
     done
   fi

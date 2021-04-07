@@ -204,10 +204,11 @@ EOF
 else
 
 cat << EOF >>  $jobscrp 
-. /vol0001/apps/oss/spack/share/spack/setup-env.sh
-spack load netcdf-c%fj
-spack load netcdf-fortran%fj
-#spack load parallel-netcdf%fj
+SPACK_FJVER=${SPACK_FJVER}
+. /vol0004/apps/oss/spack/share/spack/setup-env.sh
+spack load netcdf-c%fj@\${SPACK_FJVER}
+spack load netcdf-fortran%fj@\${SPACK_FJVER}
+spack load parallel-netcdf%fj@\${SPACK_FJVER}
 EOF
 
 fi

@@ -66,20 +66,12 @@ cp ${ENSMODEL_DIR}/scale-rm_ens ${TMPROOT}/scale-rm_ens
 #-------------------------------------------------------------------------------
 # dynamic library
 if [ "$PRESET" = 'FUGAKU' ] && (( CP_BIN_TMP == 1 )) ; then
-  # Get netcdf path
-  . /vol0001/apps/oss/spack/share/spack/setup-env.sh
-  spack load netcdf-c%fj
-  spack load netcdf-fortran%fj
-  NETCDFF_PATH=$(which nf-config)
-  NETCDFF_PATH=${NETCDFF_PATH:0:-14}/lib
-  NETCDF_PATH=$(which nc-config)
-  NETCDF_PATH=${NETCDF_PATH:0:-14}/lib
-  HDF5_PATH=$(which h5dump)
-  HDF5_PATH=${HDF5_PATH:0:-11}/lib
 
-  cp ${NETCDFF_PATH}/lib* ${TMPROOT}/
-  cp ${NETCDF_PATH}/lib* ${TMPROOT}/
-  cp ${HDF5_PATH}/lib* ${TMPROOT}/
+  cp ${SCALE_NETCDF_F}/lib/libnetcdff.so* ${TMPROOT}/
+  cp ${SCALE_NETCDF_C}/lib/libnetcdf.so*  ${TMPROOT}/
+  cp ${SCALE_PNETCDF}/lib/libpnetcdf.so* ${TMPROOT}/
+  cp ${SCALE_HDF}/lib/libhdf5*so*  ${TMPROOT}/
+
 fi
 
 #-------------------------------------------------------------------------------
@@ -88,6 +80,7 @@ fi
 cp -r ${SCALEDIR}/scale-rm/test/data/rad ${TMPROOT}/dat/rad
 cp -r ${SCALEDIR}/scale-rm/test/data/land ${TMPROOT}/dat/land
 cp -r ${SCALEDIR}/scale-rm/test/data/urban ${TMPROOT}/dat/urban
+cp -r ${SCALEDIR}/scale-rm/test/data/lightning ${TMPROOT}/dat/lightning
 
 #-------------------------------------------------------------------------------
 # time-variant outputs
@@ -494,6 +487,8 @@ fi
 
 echo
 echo "Generate configration files..."
+
+time=$STIME
 
 mkdir -p $CONFIG_DIR
 
@@ -946,7 +941,8 @@ while ((time_s <= ETIME)); do
                   -e "/!--ATMOS_PHY_RD_MSTRN_AEROPARA_IN_FILENAME--/a ATMOS_PHY_RD_MSTRN_AEROPARA_IN_FILENAME = \"${TMPROOT_CONSTDB}/dat/rad/PARAPC.29\"," \
                   -e "/!--ATMOS_PHY_RD_MSTRN_HYGROPARA_IN_FILENAME--/a ATMOS_PHY_RD_MSTRN_HYGROPARA_IN_FILENAME = \"${TMPROOT_CONSTDB}/dat/rad/VARDATA.RM29\"," \
                   -e "/!--ATMOS_PHY_RD_PROFILE_CIRA86_IN_FILENAME--/a ATMOS_PHY_RD_PROFILE_CIRA86_IN_FILENAME = \"${TMPROOT_CONSTDB}/dat/rad/cira.nc\"," \
-                  -e "/!--ATMOS_PHY_RD_PROFILE_MIPAS2001_IN_BASENAME--/a ATMOS_PHY_RD_PROFILE_MIPAS2001_IN_BASENAME = \"${TMPROOT_CONSTDB}/dat/rad/MIPAS\",")"
+                  -e "/!--ATMOS_PHY_RD_PROFILE_MIPAS2001_IN_BASENAME--/a ATMOS_PHY_RD_PROFILE_MIPAS2001_IN_BASENAME = \"${TMPROOT_CONSTDB}/dat/rad/MIPAS\"," \
+                  -e "/!--ATMOS_PHY_LT_LUT_FILENAME--/a ATMOS_PHY_LT_LUT_FILENAME = \"${TMPROOT_CONSTDB}/dat/lightning/LUT_TK1978_v.txt\",")"
           if ((d == 1)); then
             conf="$(echo "$conf" | \
                 sed -e "/!--ATMOS_BOUNDARY_IN_BASENAME--/a ATMOS_BOUNDARY_IN_BASENAME = \"bdy/${mem_bdy}/bdy_$(datetime_scale $time)\"," \
@@ -1170,7 +1166,7 @@ if ((BDY_FORMAT >= 1)); then
     PARENT_REF_TIME=$STIME
     for bdy_startframe in $(seq $BDY_STARTFRAME_MAX); do
       if ((BDY_FORMAT == 1)); then
-        BFILE="$DATA_BDY_SCALE/${PARENT_REF_TIME}/hist/${BDY_MEAN}/history${SCALE_SFX_0}"
+        BFILE="$DATA_BDY_SCALE/${PARENT_REF_TIME}/${BDY_SCALE_DIR}/${BDY_MEAN}/history${SCALE_SFX_0}"
       elif ((BDY_FORMAT == 2 && BDY_ROTATING == 1)); then
         BFILE="$DATA_BDY_WRF/${PARENT_REF_TIME}/${BDY_MEAN}/wrfout_${PARENT_REF_TIME}" 
       elif ((BDY_FORMAT == 2 && BDY_ROTATING != 1)); then

@@ -16,6 +16,8 @@ PROGRAM letkf
   USE common_mpi_scale
   USE common_obs_scale
   USE common_nml
+  use common_mtx, only: &
+    mtx_setup
   USE letkf_obs
   USE letkf_tools
   use obsope_tools, only: &
@@ -105,6 +107,8 @@ PROGRAM letkf
     call set_common_scale
     call set_common_mpi_scale
     call set_common_obs_scale
+
+    call mtx_setup( MEMBER )
 
     call mpi_timer('INITIALIZE', 1, barrier=MPI_COMM_a)
 

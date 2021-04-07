@@ -3,7 +3,6 @@ SCALE_USER_VER = T
 
 # Precision
 LETKF_SINGLE_FP = F
-SCALE_SINGLE_FP = T
 
 
 # Libraries
