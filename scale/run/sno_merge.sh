@@ -14,7 +14,7 @@ INPUT_SNOW_NP=16
 
 
 tint=21600 # [second]
-tstart='2018-07-05 0:00:00'
+tstart='2017-07-05 0:00:00'
 tend=$tstart
 
 . config.main
@@ -81,7 +81,7 @@ fi
 
 VARS="'Gprs', 'MSLP', 'Tprs', 'Uprs', 'Vprs', 'QVprs', 'QHYDprs', 'DENSprs',"
 
-TOPO=1 # Process topography file? # 1: Yes, 0: No
+TOPO=0 # Process topography file? # 1: Yes, 0: No
 if (( TOPO > 0 )) ; then
   VARS='"topo"'
   SNO_MEM_L="mean"
@@ -305,7 +305,7 @@ cat << EOF >> $jobsh
 #!/bin/sh 
 #
 #
-#PJM -L "rscgrp=eap-small"
+#PJM -L "rscgrp=small"
 #PJM -L "node=${SNO_NODE}"
 #PJM -L "elapse=00:30:00"
 #PJM --mpi "max-proc-per-node=${PPN}"
@@ -320,10 +320,11 @@ export PLE_MPI_STD_EMPTYFILE=off
 export OMP_WAIT_POLICY=active
 export FLIB_BARRIER=HARD
 
+SPACK_FJVER=${SPACK_FJVER}
 . /vol0004/apps/oss/spack/share/spack/setup-env.sh
-spack load netcdf-c%fj
-spack load netcdf-fortran%fj
-spack load parallel-netcdf%fj
+spack load netcdf-c%fj@\${SPACK_FJVER}
+spack load netcdf-fortran%fj@\${SPACK_FJVER}
+spack load parallel-netcdf%fj@\${SPACK_FJVER}
 
 echo "[\$(date "+%Y/%m/%d %H:%M:%S")] Start SNO"
 mpiexec -std-proc log/NOUT -n $((NP_OFILE)) ${SNOBIN} ${conf_bulk}.\${PJM_BULKNUM}
