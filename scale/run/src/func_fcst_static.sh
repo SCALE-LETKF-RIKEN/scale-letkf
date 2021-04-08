@@ -109,11 +109,11 @@ while ((time_s <= ETIME)); do
           for d in $(seq $DOMNUM); do
             pathin="${INDIR[$d]}/${time}/anal/${name_m[$m]}"
             path="$TMPROOT/${name_m[$m]}_d$(printf $DOMAIN_FMT $d)"
+            ln -sf $pathin $path
           done
 #            for q in $(seq ${SCALE_NP[$d]}); do
 #              pathin="${INDIR[$d]}/${time}/anal/${name_m[$m]}${CONNECTOR}init$(scale_filename_sfx $((q-1)))"
 #              path="$TMPROOT/${name_m[$m]}/init.d$(printf $DOMAIN_FMT $d)_$(datetime_scale $time)$(scale_filename_sfx $((q-1)))"
-              ln -sf $pathin $path
 #              echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST}.${mem2node[$(((m-1)*mem_np+${SCALE_NP[$d]}+q))]}
 #            done
         done
@@ -185,63 +185,17 @@ while ((time_s <= ETIME)); do
       #-------------------
       if ((BDY_FORMAT == 0)); then
         if ((BDY_ENS == 0)); then
-          if ((DISK_MODE == 3)); then
-            for mm in $(seq $fmember); do
-              m=$(((c-1) * fmember + mm))
-              for q in $(seq ${SCALE_NP[1]}); do
-                pathin="${DATA_BDY_SCALE_PREP[1]}/${time}/bdy/${BDY_MEAN}${CONNECTOR}boundary$(scale_filename_sfx $((q-1)))"
-                path="${TMPROOT}/mean/bdy_$(datetime_scale $time)$(scale_filename_sfx $((q-1)))"
-                ln -sf $pathin $path
-#                echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST}.${mem2node[$(((m-1)*mem_np+q))]}
-              done
-              if ((USE_INIT_FROM_BDY == 1)); then
-                for d in $(seq $DOMNUM); do
-                  for q in $(seq ${SCALE_NP[$d]}); do
-                    pathin="${DATA_BDY_SCALE_PREP[$d]}/${time}/bdy/${BDY_MEAN}${CONNECTOR}init_bdy$(scale_filename_sfx $((q-1)))"
-                    path="${TMPROOT}/mean/init.d$(printf $DOMAIN_FMT $d)_$(datetime_scale $time)$(scale_filename_sfx $((q-1)))"
-                    ln -sf $pathin $path
-#                    echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST}.${mem2node[$(((m-1)*mem_np+${SCALE_NP[$d]}+q))]}
-                  done
-                done
-              fi
-            done
-          else
-            for q in $(seq ${SCALE_NP[1]}); do
-              pathin="${DATA_BDY_SCALE_PREP[1]}/${time}/bdy/${BDY_MEAN}${CONNECTOR}boundary$(scale_filename_sfx $((q-1)))"
-              path="${TMPROOT}/mean/bdy_$(datetime_scale $time)$(scale_filename_sfx $((q-1)))"
-              ln -sf $pathin $path
-#              echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST}
-            done
-            if ((USE_INIT_FROM_BDY == 1)); then
-              for d in $(seq $DOMNUM); do
-                for q in $(seq ${SCALE_NP[$d]}); do
-                  pathin="${DATA_BDY_SCALE_PREP[$d]}/${time}/bdy/${BDY_MEAN}${CONNECTOR}init_bdy$(scale_filename_sfx $((q-1)))"
-                  path="${TMPROOT}/mean/init.d$(printf $DOMAIN_FMT $d)_$(datetime_scale $time)$(scale_filename_sfx $((q-1)))"
-                  ln -sf $pathin $path
-#                  echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST}
-                done
-              done
-            fi
-          fi
+          pathin="${DATA_BDY_SCALE_PREP[1]}/${time}/bdy/${BDY_MEAN}"
+          path="${TMPROOT}/bdy/mean"
+          rm -rf $path
+          ln -sf $pathin $path
         elif ((BDY_ENS == 1)); then
           for mm in $(seq $fmember); do
             m=$(((c-1) * fmember + mm))
-            for q in $(seq ${SCALE_NP[1]}); do
-              pathin="${DATA_BDY_SCALE_PREP[1]}/${time}/bdy/${name_m[$m]}${CONNECTOR}boundary$(scale_filename_sfx $((q-1)))"
-              path="${TMPROOT}/${name_m[$m]}/bdy_$(datetime_scale $time)$(scale_filename_sfx $((q-1)))"
-              ln -sf $pathin $path
-#              echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST}.${mem2node[$(((m-1)*mem_np+q))]}
-            done
-            if ((USE_INIT_FROM_BDY == 1)); then
-              for d in $(seq $DOMNUM); do
-                for q in $(seq ${SCALE_NP[$d]}); do
-                  pathin="${DATA_BDY_SCALE_PREP[$d]}/${time}/bdy/${name_m[$m]}${CONNECTOR}init_bdy$(scale_filename_sfx $((q-1)))"
-                  path="${TMPROOT}/${name_m[$m]}/init.d$(printf $DOMAIN_FMT $d)_$(datetime_scale $time)$(scale_filename_sfx $((q-1)))"
-                  ln -sf $pathin $path
-#                  echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST}.${mem2node[$(((m-1)*mem_np+${SCALE_NP[$d]}+q))]}
-                done
-              done
-            fi
+            pathin="${DATA_BDY_SCALE_PREP[1]}/${time}/bdy/${name_m[$m]}"
+            path="${TMPROOT}/bdy/${name_m[$m]}"
+            rm -rf $path
+            ln -sf $pathin $path
           done
         fi
       fi
