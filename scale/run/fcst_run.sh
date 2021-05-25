@@ -214,6 +214,8 @@ SPACK_FJVER=${SPACK_FJVER}
 spack load netcdf-c%fj@\${SPACK_FJVER}
 spack load netcdf-fortran%fj@\${SPACK_FJVER}
 spack load parallel-netcdf%fj@\${SPACK_FJVER}
+
+export LD_LIBRARY_PATH=/opt/FJSVxtclanga/tcsds-1.2.31/lib64:/opt/FJSVxtclanga/tcsds-1.2.31/lib:\$LD_LIBRARY_PATH
 EOF
 
 fi
