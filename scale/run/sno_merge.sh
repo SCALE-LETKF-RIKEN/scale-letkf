@@ -55,9 +55,6 @@ SNO_MEM_L="mean "$(seq -f %04g ${SNO_MEMBERS})
 SNO_MEMBERS=0
 SNO_MEM_L="mean "
 
-#SNO_MEM_L=" mean 0001 0002 0003 "
-#SNO_MEMBERS=4
-
 
 # Convert variables (Other variables will NOT be included in converted files)
 #VARS='"Umet", "Vmet", "W", "T", "QV", "QHYD", "PRES", "RAIN", "MSLP"'
@@ -236,15 +233,15 @@ done # time loop
 
 
 # Total SNO processes  
-NP_TOTAL=$((${NP_OFILE} * ${cnt}))
+echo "Total number of nodes: $(( NP_OFILE * cnt / PPN ))"
 
 # Get total SNO NODEs
-if (( NP_TOTAL < PPN )) ; then
+if (( NP_OFILE < PPN )) ; then
   SNO_NODE=1
 else
-  SNO_NODE=$((${NP_TOTAL} / ${PPN}))
-  if (( SNO_NODE*PPN < NP_TOTAL )) ; then
-    SNO_NODE=$((SNO_NODE + 1))
+  SNO_NODE=$(( NP_OFILE / PPN ))
+  if (( SNO_NODE*PPN < NP_OFILE )) ; then
+    SNO_NODE=$(( SNO_NODE + 1 ))
   fi
 fi
 
@@ -260,7 +257,7 @@ cat << EOF >> $jobsh
 #PJM -L rscgrp=debug-cache
 #PJM -L node=${SNO_NODE}
 #PJM -L elapse="00:30:00"
-#PJM --mpi proc=${NP_TOTAL}
+#PJM --mpi proc=${NP_OFILE}
 #PJM --omp thread=1
 #PJM -g $(echo $(id -ng))
 #PJM -s
