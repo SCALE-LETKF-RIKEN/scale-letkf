@@ -12,7 +12,7 @@ RSCGRP="small"
 
 DIR="$(cd "$(pwd)/.." && pwd)"    # Root directory of the SCALE-LETKF
 
-OUTDIR=/vol0003/hp150019/u01161/SCALE-LETKF/scale-5.4.3/OUTPUT/TEST
+OUTDIR=/vol0004/ra000007/a04042/SCALE-LETKF/scale-5.4.3/OUTPUT/TEST
 INDIR=$OUTDIR
 
 #===============================================================================
@@ -31,9 +31,9 @@ DATA_BDY_SCALE_PREP=         # Directory of the prepared SCALE boundary files
 DATA_BDY_WRF=                # Directory of the boundary data in WRF format
 DATA_BDY_NICAM=              # Directory of the boundary data in NICAM format (not finished)
 
-DATA_BDY_GRADS="/vol0003/hp150019/u01161/SCALE-LETKF/scale-5.4.3/OUTPUT/TEST/grads_test"
+DATA_BDY_GRADS="/vol0004/ra000007/a04042/SCALE-LETKF/scale-5.4.3/OUTPUT/TEST/grads_test"
 
-OBS="/vol0003/hp150019/u01161/SCALE-LETKF/scale-5.4.3/OUTPUT/TEST/obs"
+OBS="/vol0004/ra000007/a04042/SCALE-LETKF/scale-5.4.3/OUTPUT/TEST/obs"
 OBSNCEP=
 
 #===============================================================================
