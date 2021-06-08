@@ -129,8 +129,13 @@ SUBROUTINE letkf_core(ne,nobs,nobsl,hdxb,rdiag,rloc,dep,parm_infl,trans,transm,p
 !-----------------------------------------------------------------------
 !  hdxb^T Rinv hdxb
 !-----------------------------------------------------------------------
+#ifdef SINGLELETKF
+  CALL sgemm('t','n',ne,ne,nobsl,1.0e0,hdxb_rinv,nobsl,hdxb(1:nobsl,:),&
+    & nobsl,0.0e0,work1,ne)
+#else
   CALL dgemm('t','n',ne,ne,nobsl,1.0d0,hdxb_rinv,nobsl,hdxb(1:nobsl,:),&
     & nobsl,0.0d0,work1,ne)
+#endif
 !  DO j=1,ne
 !    DO i=1,ne
 !      work1(i,j) = hdxb_rinv(1,i) * hdxb(1,j)
@@ -161,8 +166,13 @@ SUBROUTINE letkf_core(ne,nobs,nobsl,hdxb,rdiag,rloc,dep,parm_infl,trans,transm,p
       work1(i,j) = eivec(i,j) / eival(j)
     END DO
   END DO
+#ifdef SINGLELETKF
+  CALL sgemm('n','t',ne,ne,ne,1.0e0,work1,ne,eivec,&
+    & ne,0.0e0,pa,ne)
+#else
   CALL dgemm('n','t',ne,ne,ne,1.0d0,work1,ne,eivec,&
     & ne,0.0d0,pa,ne)
+#endif
 !  DO j=1,ne
 !    DO i=1,ne
 !      pa(i,j) = work1(i,1) * eivec(j,1)
@@ -174,8 +184,13 @@ SUBROUTINE letkf_core(ne,nobs,nobsl,hdxb,rdiag,rloc,dep,parm_infl,trans,transm,p
 !-----------------------------------------------------------------------
 !  Pa hdxb_rinv^T
 !-----------------------------------------------------------------------
+#ifdef SINGLELETKF
+  CALL sgemm('n','t',ne,nobsl,ne,1.0e0,pa,ne,hdxb_rinv,&
+    & nobsl,0.0e0,work2,ne)
+#else
   CALL dgemm('n','t',ne,nobsl,ne,1.0d0,pa,ne,hdxb_rinv,&
     & nobsl,0.0d0,work2,ne)
+#endif
 !  DO j=1,nobsl
 !    DO i=1,ne
 !      work2(i,j) = pa(i,1) * hdxb_rinv(j,1)
@@ -210,8 +225,13 @@ SUBROUTINE letkf_core(ne,nobs,nobsl,hdxb,rdiag,rloc,dep,parm_infl,trans,transm,p
       work1(i,j) = eivec(i,j) * rho
     END DO
   END DO
+#ifdef SINGLELETKF
+  CALL sgemm('n','t',ne,ne,ne,1.0e0,work1,ne,eivec,&
+    & ne,0.0e0,trans,ne)
+#else
   CALL dgemm('n','t',ne,ne,ne,1.0d0,work1,ne,eivec,&
     & ne,0.0d0,trans,ne)
+#endif
 !  DO j=1,ne
 !    DO i=1,ne
 !      trans(i,j) = work1(i,1) * eivec(j,1)
