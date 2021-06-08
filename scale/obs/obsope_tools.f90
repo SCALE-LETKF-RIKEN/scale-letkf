@@ -387,8 +387,7 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
         write (timer_str, '(A30,I4,A7,I4,A2)') 'obsope_cal:read_ens_history(t=', it, ', slot=', islot, '):'
         call mpi_timer(trim(timer_str), 2)
 
-! This loop cannot use OpenMP on FUGAKU (T. Honda, as of 10/16/2020)
-!#$omp parallel do private(nn,n,iof,ril,rjl,rk,rkz)
+!$omp parallel do private(nn,n,iof,ril,rjl,rk,rkz)
         do nn = n1, n2
           iof = obsda%set(nn)
           n = obsda%idx(nn)
@@ -435,7 +434,7 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
 
 
         end do ! [ nn = n1, n2 ]
-!#$omp end parallel do
+!$omp end parallel do
  
         write (timer_str, '(A30,I4,A7,I4,A2)') 'obsope_cal:obsope_step_2   (t=', it, ', slot=', islot, '):'
         call mpi_timer(trim(timer_str), 2)

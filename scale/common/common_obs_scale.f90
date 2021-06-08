@@ -983,6 +983,7 @@ END SUBROUTINE calc_ref_vr
 !
 ! rk = 0.0d0  : surface observation
 !-----------------------------------------------------------------------
+!OCL SERIAL
 SUBROUTINE phys2ijk(p_full,elem,ri,rj,rlev,rk,qc)
   use scale_atmos_grid_cartesC_index, only: &
       KHALO
@@ -1099,6 +1100,7 @@ END SUBROUTINE phys2ijk
 !
 ! rk = 0.0d0  : surface observation
 !-----------------------------------------------------------------------
+!OCL SERIAL
 SUBROUTINE phys2ijkz(z_full,ri,rj,rlev,rk,qc)
   use scale_atmos_grid_cartesC_index, only: &
       KHALO
@@ -1418,8 +1420,7 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step)
 !  obs_idx_TCY = -1
 !  obs_idx_TCP = -1
 
-! This loop cannot use OpenMP on FUGAKU (T. Honda, as of 10/16/2020)
-!#$OMP PARALLEL DO PRIVATE(n,nn,iset,iidx,ril,rjl,rk,rkz)
+!$omp parallel do private(n,nn,iset,iidx,ril,rjl,rk,rkz)
   do n = 1, nnobs
 
     if (use_key) then
@@ -1532,7 +1533,7 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step)
            !   abs(obs(iset)%dif(iidx)) <= DEPARTURE_STAT_T_RANGE ]
 
   end do ! [ n = 1, nnobs ]
-!#$OMP END PARALLEL DO
+!$omp end parallel do
 
 
   call monit_dep(nnobs,oelm,ohx,oqc,nobs,bias,rmse)
