@@ -49,6 +49,7 @@ CONTAINS
 !     pao(ne,ne)       : (optional) analysis covariance matrix in ensemble space !GYL
 !     transmd(ne)      : (optional) transformation matrix mean for deterministic run !GYL
 !=======================================================================
+!OCL SERIAL
 SUBROUTINE letkf_core(ne,nobs,nobsl,hdxb,rdiag,rloc,dep,parm_infl,trans,transm,pao,rdiag_wloc,infl_update,depd,transmd)
   IMPLICIT NONE
   INTEGER,INTENT(IN) :: ne                      !GYL

@@ -31,9 +31,9 @@ DATA_BDY_SCALE_PREP=         # Directory of the prepared SCALE boundary files
 DATA_BDY_WRF=                # Directory of the boundary data in WRF format
 DATA_BDY_NICAM=              # Directory of the boundary data in NICAM format (not finished)
 
-DATA_BDY_GRADS="/vol0004/ra000007/a04042/SCALE-LETKF/scale-5.4.3/OUTPUT/TEST/grads_test"
+DATA_BDY_GRADS="/vol0004/ra000007/a04042/SCALE-LETKF/scale-5.4.3/OUTPUT/TEST_REF/grads_test"
 
-OBS="/vol0004/ra000007/a04042/SCALE-LETKF/scale-5.4.3/OUTPUT/TEST/obs"
+OBS="/vol0004/ra000007/a04042/SCALE-LETKF/scale-5.4.3/OUTPUT/TEST_REF/obs"
 OBSNCEP=
 
 #===============================================================================

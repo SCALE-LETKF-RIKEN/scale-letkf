@@ -22,11 +22,6 @@ module common_mtx
 
   implicit none
 
-  real(r_size), private, allocatable :: b    (:,:)
-  real(r_size), private, allocatable :: w    (:)
-  real(r_size), private, allocatable :: work (:)
-  integer,      private, allocatable :: iwork(:)
-  
   integer, private :: lda
   integer, private :: lwork
   integer, private :: liwork
@@ -35,13 +30,16 @@ module common_mtx
 
 contains
   !-----------------------------------------------------------------------------
-  subroutine mtx_setup(m)
+  subroutine mtx_setup(n)
     implicit none
     !---------------------------------------------------------------------------
-    integer, intent(in) :: m
+    integer, intent(in) :: n
 
-    ! nothing to do
+    lda = n
 
+    lwork  = 2*n*n + 6*n + 1
+    liwork = 5*n + 3
+  
     return
   end subroutine mtx_setup
   !-----------------------------------------------------------------------------
@@ -58,6 +56,7 @@ contains
   !      6*n + 1
   !      integer   :: iwork(liwork) : working array, size is liwork = 5*n + 3
   !-----------------------------------------------------------------------------
+!OCL SERIAL
   subroutine mtx_eigen(n,a,eival,eivec)
     implicit none
 
@@ -65,6 +64,11 @@ contains
     real(r_size), intent(in)  :: a    (n,n)
     real(r_size), intent(out) :: eival(n)
     real(r_size), intent(out) :: eivec(n,n)
+
+    real(r_size) :: b    (lda,n)
+    real(r_size) :: w    (lda)
+    real(r_size) :: work (lwork)
+    integer      :: iwork(liwork)
 
     integer :: nrank_eff
 
@@ -78,16 +82,6 @@ contains
     integer :: ierr
     integer :: i, j
     !---------------------------------------------------------------------------
-
-    lda = n
-
-    lwork  = 2*n*n + 6*n + 1
-    liwork = 5*n + 3
-
-    allocate( b    (lda,n)  )
-    allocate( w    (lda)    )
-    allocate( work (lwork)  )
-    allocate( iwork(liwork) )
 
     do jblk = 1, n, simdlen
        jmax = min( n-jblk+1, simdlen )
@@ -194,11 +188,6 @@ contains
       write(6,'(A)') '!!! ERROR (mtx_eigen): All Eigenvalues are below 0'
       stop 2
     endif
-
-    deallocate( b )
-    deallocate( w )
-    deallocate( work )
-    deallocate( iwork )
 
     return
   end subroutine mtx_eigen

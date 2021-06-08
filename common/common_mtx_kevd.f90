@@ -30,11 +30,6 @@ module common_mtx
   public :: mtx_finalize
   public :: mtx_eigen
 
-  real(RP_EVP), private, allocatable :: b    (:,:)
-  real(RP_EVP), private, allocatable :: w    (:)
-  real(RP_EVP), private, allocatable :: work (:)
-  integer,      private, allocatable :: iwork(:)
-
   integer, private :: lda
   integer, private :: lwork
   integer, private :: liwork
@@ -62,11 +57,6 @@ contains
     call dsyevdt_worksizes('V', 'U', n, lda, lwork, liwork);
 #endif
 
-    allocate( b    (lda,n)  )
-    allocate( w    (lda)    )
-    allocate( work (lwork)  )
-    allocate( iwork(liwork) )
-
     return
   end subroutine mtx_setup
 
@@ -89,6 +79,7 @@ contains
   !      real(4/8) :: eival(n)   : eiven values in decending order. i.e. eival(1) is the largest
   !      real(4/8) :: eivec(n,n) : eiven vectors
   !-----------------------------------------------------------------------------
+!OCL SERIAL
   subroutine mtx_eigen(n,a,eival,eivec)
     implicit none
 
@@ -96,6 +87,11 @@ contains
     real(RP_EVP), intent(in)  :: a    (n,n)
     real(RP_EVP), intent(out) :: eival(n)
     real(RP_EVP), intent(out) :: eivec(n,n)
+
+    real(RP_EVP) :: b    (lda,n)
+    real(RP_EVP) :: w    (lda)
+    real(RP_EVP) :: work (lwork)
+    integer      :: iwork(liwork)
 
     real(RP_EVP) :: eival_inc
 

@@ -1071,6 +1071,7 @@ end subroutine obs_choose
 ! Choose observations in a rectangle using the bucket sort results
 ! in the extended subdomain
 !-----------------------------------------------------------------------
+!OCL SERIAL
 subroutine obs_choose_ext(ctype, imin, imax, jmin, jmax, nn, nobs_use)
   implicit none
   integer, intent(in) :: ctype

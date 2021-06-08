@@ -102,7 +102,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
   real(r_size) :: rdx,rdy,rdxy,ref_min_dist      !GYL
   integer :: ic,ic2,iob                          !GYL
 
-  integer,allocatable :: search_q0(:,:,:)
+  integer,allocatable :: search_q0(:,:,:,:)
 
   character(len=timer_name_width) :: timer_str
 
@@ -188,8 +188,8 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
   end do ! [ ic = 1, nctype ]
   n_merge_max = maxval(n_merge)
 
-  allocate (search_q0(nctype,nv3d+1,nij1))
-  search_q0(:,:,:) = 1
+  allocate (search_q0(nctype,nv3d+1,nij1,nlev))
+  search_q0(:,:,:,:) = 1
   !
   radar_only = .true.
   do ic = 1, nctype
@@ -214,7 +214,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
       END DO
     END DO
   END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP DO SCHEDULE(STATIC) COLLAPSE(2)
   DO n=1,nv2d
     DO m=1,MEMBER
@@ -283,8 +283,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
 
   call mpi_timer('das_letkf:allocation_shared_vars:', 2)
 
-! This loop cannot use OpenMP on FUGAKU (T. Honda, as of 10/16/2020)
-!#$OMP PARALLEL PRIVATE(ilev,ij,n,m,k,hdxf,rdiag,rloc,dep,depd,nobsl,nobsl_t,cutd_t,parm,beta,n2n,n2nc,trans,transm,transmd,transrlx,pa,trans_done,tmpinfl,q_mean,q_sprd,q_anal,timer_str)
+!$OMP PARALLEL PRIVATE(ilev,ij,n,m,k,hdxf,rdiag,rloc,dep,depd,nobsl,nobsl_t,cutd_t,parm,beta,n2n,n2nc,trans,transm,transmd,transrlx,pa,trans_done,tmpinfl,q_mean,q_sprd,q_anal,timer_str)
   allocate (hdxf (nobstotal,MEMBER))
   allocate (rdiag(nobstotal))
   allocate (rloc (nobstotal))
@@ -297,21 +296,12 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
   allocate (transmd(MEMBER,       var_local_n2nc_max))
   allocate (pa     (MEMBER,MEMBER,var_local_n2nc_max))
 
-
-!#$OMP MASTER
-  call mpi_timer('das_letkf:allocation_private_vars:', 2)
-  call mpi_timer('', 3)
-
-!#$OMP END MASTER
   !
   ! MAIN ASSIMILATION LOOP
   !
+!$OMP DO SCHEDULE(DYNAMIC) COLLAPSE(2)
   DO ilev=1,nlev
-    if (LOG_LEVEL >= 3) then
-      call mpi_timer('', 4)
-    end if
 
-!#$OMP DO 
     DO ij=1,nij1
 
       trans_done(:) = .false.                                                          !GYL
@@ -341,10 +331,6 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
         end if
 
         cycle
-      end if
-
-      if (LOG_LEVEL >= 3) then
-        call mpi_timer('', 5)
       end if
 
       ! update 3D variables
@@ -385,10 +371,10 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
           ! compute weights with localized observations
           if (DET_RUN) then                                                            !GYL
             CALL obs_local(rig1(ij),rjg1(ij),gues3d(ij,ilev,mmean,iv3d_p),hgt1(ij,ilev),n, & !GYL
-                           hdxf,rdiag,rloc,dep,nobsl,depd=depd,nobsl_t=nobsl_t,cutd_t=cutd_t,srch_q0=search_q0(:,n,ij)) !GYL
+                           hdxf,rdiag,rloc,dep,nobsl,depd=depd,nobsl_t=nobsl_t,cutd_t=cutd_t,srch_q0=search_q0(:,n,ij,ilev)) !GYL
           else                                                                         !GYL
             CALL obs_local(rig1(ij),rjg1(ij),gues3d(ij,ilev,mmean,iv3d_p),hgt1(ij,ilev),n, & !GYL
-                           hdxf,rdiag,rloc,dep,nobsl,nobsl_t=nobsl_t,cutd_t=cutd_t,srch_q0=search_q0(:,n,ij)) !GYL
+                           hdxf,rdiag,rloc,dep,nobsl,nobsl_t=nobsl_t,cutd_t=cutd_t,srch_q0=search_q0(:,n,ij,ilev)) !GYL
           end if                                                                       !GYL
           IF(RELAX_ALPHA_SPREAD /= 0.0d0) THEN                                         !GYL
             if (DET_RUN) then                                                          !GYL
@@ -488,11 +474,6 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
           endif
         END IF                                                                         !GYL
 
-        if (LOG_LEVEL >= 3) then
-          write (timer_str, '(A30,I4,A4,I4,A3,I2,A2)') 'das_letkf:letkf_core_anal(lev=', ilev, ',ij=', ij, ',n=', n, '):'
-          call mpi_timer(trim(timer_str), 5)
-        end if
-
       END DO ! [ n=1,nv3d ]
 
       ! update 2D variables at ilev = 1
@@ -531,9 +512,9 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
           ELSE
             ! compute weights with localized observations
             if (DET_RUN) then                                                          !GYL
-              CALL obs_local(rig1(ij),rjg1(ij),gues3d(ij,ilev,mmean,iv3d_p),hgt1(ij,ilev),nv3d+n,hdxf,rdiag,rloc,dep,nobsl,depd=depd,nobsl_t=nobsl_t,cutd_t=cutd_t,srch_q0=search_q0(:,nv3d+1,ij))
+              CALL obs_local(rig1(ij),rjg1(ij),gues3d(ij,ilev,mmean,iv3d_p),hgt1(ij,ilev),nv3d+n,hdxf,rdiag,rloc,dep,nobsl,depd=depd,nobsl_t=nobsl_t,cutd_t=cutd_t,srch_q0=search_q0(:,nv3d+1,ij,ilev))
             else                                                                       !GYL
-              CALL obs_local(rig1(ij),rjg1(ij),gues3d(ij,ilev,mmean,iv3d_p),hgt1(ij,ilev),nv3d+n,hdxf,rdiag,rloc,dep,nobsl,nobsl_t=nobsl_t,cutd_t=cutd_t,srch_q0=search_q0(:,nv3d+1,ij))
+              CALL obs_local(rig1(ij),rjg1(ij),gues3d(ij,ilev,mmean,iv3d_p),hgt1(ij,ilev),nv3d+n,hdxf,rdiag,rloc,dep,nobsl,nobsl_t=nobsl_t,cutd_t=cutd_t,srch_q0=search_q0(:,nv3d+1,ij,ilev))
             end if                                                                     !GYL
             IF(RELAX_ALPHA_SPREAD /= 0.0d0) THEN                                       !GYL
               if (DET_RUN) then                                                        !GYL
@@ -563,10 +544,6 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
               work2dn(:,ij,n) = real(sum(nobsl_t,dim=1),r_size)                        !GYL !!! NOBS: sum over all variables for each report type
             END IF                                                                     !GYL
 
-            if (LOG_LEVEL >= 3) then
-              write (timer_str, '(A32,I4,A3,I2,A2)') 'das_letkf:letkf_core_calc(2d,ij=', ij, ',n=', n, '):'
-              call mpi_timer(trim(timer_str), 5)
-            end if
           END IF
 
           ! relaxation via LETKF weight
@@ -617,16 +594,16 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
       END IF ! [ ilev == 1 ]
 
     END DO ! [ ij=1,nij1 ]
-!#$OMP END DO
-
   END DO ! [ ilev=1,nlev ]
+!$OMP END DO
+
 
   deallocate (hdxf,rdiag,rloc,dep)
   if (DET_RUN) then
     deallocate (depd)
   end if
   deallocate (trans,transm,transmd,pa)
-!#$OMP END PARALLEL
+!$OMP END PARALLEL
 
   call mpi_timer('das_letkf:letkf_core:', 2)
 
@@ -1258,6 +1235,7 @@ END SUBROUTINE das_letkf
 !   cutd_t  : (optional) cutoff distance of assimilated observations wrt. observation variables/types
 !   srch_q0 : (optional) revised first guess of the multiplier of incremental search distances for the next call
 !-------------------------------------------------------------------------------
+!OCL SERIAL
 subroutine obs_local(ri, rj, rlev, rz, nvar, hdxf, rdiag, rloc, dep, nobsl, depd, nobsl_t, cutd_t, srch_q0)
   use common_sort
   use scale_atmos_grid_cartesC, only: &
@@ -1276,11 +1254,11 @@ subroutine obs_local(ri, rj, rlev, rz, nvar, hdxf, rdiag, rloc, dep, nobsl, depd
   real(r_size), intent(out), optional :: cutd_t(nid_obs,nobtype)
   integer, intent(inout), optional :: srch_q0(nctype)
 
-  integer, allocatable :: nobs_use(:)
-  integer, allocatable :: nobs_use2(:)
-  real(r_size), allocatable :: dist_tmp(:)
-  real(r_size), allocatable :: rloc_tmp(:)
-  real(r_size), allocatable :: rdiag_tmp(:)
+  integer :: nobs_use(max(nobstotal,maxnobs_per_ctype))
+  integer :: nobs_use2(nobstotal)
+  real(r_size) :: dist_tmp(nobstotal)
+  real(r_size) :: rloc_tmp(nobstotal)
+  real(r_size) :: rdiag_tmp(nobstotal)
 
   real(r_size) :: nrloc, nrdiag
   real(r_size) :: ndist_dummy
@@ -1333,21 +1311,6 @@ subroutine obs_local(ri, rj, rlev, rz, nvar, hdxf, rdiag, rloc, dep, nobsl, depd
 
   if (nobstotal == 0) then
     return
-  end if
-
-  if (maxval(MAX_NOBS_PER_GRID(:)) > 0) then
-    allocate (nobs_use (nobstotal))
-    allocate (nobs_use2(nobstotal))
-    allocate (rloc_tmp (nobstotal))
-    allocate (rdiag_tmp(nobstotal))
-    if (MAX_NOBS_PER_GRID_CRITERION == 1) then
-      allocate (dist_tmp (nobstotal))
-    end if
-!    dist_tmp(:) = -1.0d6
-    rloc_tmp(:) = -1.0d6
-!    rdiag_tmp(:) = -1.0d6
-  else
-    allocate (nobs_use(maxnobs_per_ctype))
   end if
 
   !-----------------------------------------------------------------------------
@@ -1678,16 +1641,6 @@ subroutine obs_local(ri, rj, rlev, rz, nvar, hdxf, rdiag, rloc, dep, nobsl, depd
   end if
 #endif
 
-  deallocate (nobs_use)
-  if (maxval(MAX_NOBS_PER_GRID(:)) > 0) then
-    deallocate (nobs_use2)
-    deallocate (rloc_tmp)
-    deallocate (rdiag_tmp)
-    if (MAX_NOBS_PER_GRID_CRITERION == 1) then
-      deallocate (dist_tmp)
-    end if
-  end if
-
   return
 end subroutine obs_local
 
@@ -1695,6 +1648,7 @@ end subroutine obs_local
 ! Calculate the range of the rectangle that covers the (horizontal) localization
 ! cut-off length in the extended subdomain, given the observation type
 !-------------------------------------------------------------------------------
+!OCL SERIAL
 subroutine obs_local_range(ctype, ri, rj, imin, imax, jmin, jmax)
   use scale_atmos_grid_cartesC, only: &
     DX, DY
@@ -1879,6 +1833,7 @@ end subroutine relax_beta
 !-------------------------------------------------------------------------------
 ! Relaxation via LETKF weight - RTPP method
 !-------------------------------------------------------------------------------
+!OCL SERIAL
 subroutine weight_RTPP(w, infl, wrlx)
   implicit none
   real(r_size), intent(in) :: w(MEMBER,MEMBER)
@@ -1897,6 +1852,7 @@ end subroutine weight_RTPP
 !-------------------------------------------------------------------------------
 ! Relaxation via LETKF weight - RTPS method
 !-------------------------------------------------------------------------------
+!OCL SERIAL
 subroutine weight_RTPS(w, pa, xb, infl, wrlx, infl_out)
   implicit none
   real(r_size), intent(in) :: w(MEMBER,MEMBER)
