@@ -73,7 +73,8 @@ SUBROUTINE letkf_core(ne,nobs,nobsl,hdxb,rdiag,rloc,dep,parm_infl,trans,transm,p
   REAL(r_size) :: eival(ne)
   REAL(r_size) :: pa(ne,ne)
   REAL(r_size) :: work1(ne,ne)
-  REAL(r_size) :: work2(ne,nobsl)
+  REAL(r_size) :: work2(ne)
+  REAL(r_size) :: work2d(ne)
   REAL(r_size) :: work3(ne)
   REAL(r_size) :: rho
   REAL(r_size) :: parm(4),sigma_o,gain
@@ -182,40 +183,32 @@ SUBROUTINE letkf_core(ne,nobs,nobsl,hdxb,rdiag,rloc,dep,parm_infl,trans,transm,p
 !    END DO
 !  END DO
 !-----------------------------------------------------------------------
-!  Pa hdxb_rinv^T
+!  hdxb_rinv^T dep
 !-----------------------------------------------------------------------
 #ifdef SINGLELETKF
-  CALL sgemm('n','t',ne,nobsl,ne,1.0e0,pa,ne,hdxb_rinv,&
-    & nobsl,0.0e0,work2,ne)
+  call sgemv('t',nobsl,ne,1.0e0,hdxb_rinv,nobsl,dep,1,0.0e0,work2,1)
 #else
-  CALL dgemm('n','t',ne,nobsl,ne,1.0d0,pa,ne,hdxb_rinv,&
-    & nobsl,0.0d0,work2,ne)
+  call dgemv('t',nobsl,ne,1.0d0,hdxb_rinv,nobsl,dep,1,0.0d0,work2,1)
 #endif
-!  DO j=1,nobsl
-!    DO i=1,ne
-!      work2(i,j) = pa(i,1) * hdxb_rinv(j,1)
-!      DO k=2,ne
-!        work2(i,j) = work2(i,j) + pa(i,k) * hdxb_rinv(j,k)
-!      END DO
-!    END DO
-!  END DO
 !-----------------------------------------------------------------------
 !  Pa hdxb_rinv^T dep
 !-----------------------------------------------------------------------
-  DO i=1,ne
-    work3(i) = work2(i,1) * dep(1)
-    DO j=2,nobsl
-      work3(i) = work3(i) + work2(i,j) * dep(j)
-    END DO
-  END DO
-  IF (PRESENT(depd) .AND. PRESENT(transmd)) THEN       !GYL
-    DO i=1,ne                                          !GYL
-      transmd(i) = work2(i,1) * depd(1)                !GYL
-      DO j=2,nobsl                                     !GYL
-        transmd(i) = transmd(i) + work2(i,j) * depd(j) !GYL
-      END DO                                           !GYL
-    END DO                                             !GYL
-  END IF                                               !GYL
+#ifdef SINGLELETKF
+  call sgemv('n',ne,ne,1.0e0,pa,ne,work2,1,0.0e0,work3,1)
+#else
+  call dgemv('n',ne,ne,1.0d0,pa,ne,work2,1,0.0d0,work3,1)
+#endif
+
+  IF (PRESENT(depd) .AND. PRESENT(transmd)) THEN 
+#ifdef SINGLELETKF
+    call sgemv('t',nobsl,ne,1.0e0,hdxb_rinv,nobsl,depd,1,0.0e0,work2d,1)
+    call sgemv('n',ne,ne,1.0e0,pa,ne,work2d,1,0.0e0,transmd,1)
+#else
+    call dgemv('t',nobsl,ne,1.0d0,hdxb_rinv,nobsl,depd,1,0.0d0,work2d,1)
+    call dgemv('n',ne,ne,1.0d0,pa,ne,work2d,1,0.0d0,transmd,1)
+#endif
+
+  END IF
 !-----------------------------------------------------------------------
 !  T = sqrt[(m-1)Pa]
 !-----------------------------------------------------------------------
