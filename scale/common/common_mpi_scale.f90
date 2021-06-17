@@ -1656,9 +1656,19 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
       end if
 
       if (myrank_d == 0) then
-        write (6,'(A,I6.6,2A)') 'MYRANK ', myrank,' is writing an obsda file ', trim(OBSDEP_OUT_BASENAME)//'.dat'
-        call write_obs_dep(trim(OBSDEP_OUT_BASENAME)//'.dat', &
-                           obsdep_g_nobs, obsdep_g_set, obsdep_g_idx, obsdep_g_qc, obsdep_g_omb, obsdep_g_oma)
+        if ( OBSDEP_OUT_NC ) then
+          write (6,'(A,I6.6,2A)') 'MYRANK ', myrank,' is writing an obsda file ', trim(OBSDEP_OUT_BASENAME)//'.nc'
+          call write_obs_dep_nc( trim(OBSDEP_OUT_BASENAME)//'.nc', &
+                                 obsdep_g_nobs, obsdep_g_set, &
+                                 obsdep_g_idx, obsdep_g_qc, &
+                                 obsdep_g_omb, obsdep_g_oma )
+        else
+          write (6,'(A,I6.6,2A)') 'MYRANK ', myrank,' is writing an obsda file ', trim(OBSDEP_OUT_BASENAME)//'.dat'
+          call write_obs_dep( trim(OBSDEP_OUT_BASENAME)//'.dat', &
+                              obsdep_g_nobs, obsdep_g_set, &
+                              obsdep_g_idx, obsdep_g_qc, &
+                              obsdep_g_omb, obsdep_g_oma )
+        end if
       end if
       deallocate (obsdep_g_set)
       deallocate (obsdep_g_idx)

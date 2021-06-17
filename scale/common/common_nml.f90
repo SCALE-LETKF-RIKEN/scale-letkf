@@ -235,6 +235,7 @@ MODULE common_nml
 
   LOGICAL               :: OBSDEP_OUT = .true.
   character(filelenmax) :: OBSDEP_OUT_BASENAME = 'obsdep'
+  LOGICAL               :: OBSDEP_OUT_NC = .false.
   LOGICAL               :: OBSGUES_OUT = .false.                  !XXX not implemented yet...
   character(filelenmax) :: OBSGUES_OUT_BASENAME = 'obsgues.@@@@'  !XXX not implemented yet...
   LOGICAL               :: OBSANAL_OUT = .false.                  !XXX not implemented yet...
@@ -804,6 +805,7 @@ subroutine read_nml_letkf_monitor
     DEPARTURE_STAT_ALL_PROCESSES, &
     OBSDEP_OUT, &
     OBSDEP_OUT_BASENAME, &
+    OBSDEP_OUT_NC, &
     OBSGUES_OUT, &
     OBSGUES_OUT_BASENAME, &
     OBSANAL_OUT, &
