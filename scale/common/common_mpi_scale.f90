@@ -1013,36 +1013,46 @@ SUBROUTINE scatter_grd_mpi(nrank,v3dg,v2dg,v3d,v2d)
   ns = nij1max * nlevall
   nr = ns
   IF(myrank_e == nrank) THEN
-    j=0
+    !omp parallel
+    !omp do private(n,k,j)
     DO n=1,nv3d
       DO k=1,nlev
-        j = j+1
+        j = ( n - 1 ) * nlev + k
         CALL grd_to_buf(nprocs_e,v3dg(k,:,:,n),bufs(:,j,:))
       END DO
     END DO
+    !omp end do
 
+    !omp do private(n,j)
     DO n=1,nv2d
-      j = j+1
+      j = nv3d * nlev + n
       CALL grd_to_buf(nprocs_e,v2dg(:,:,n),bufs(:,j,:))
     END DO
+    !omp end do
+    !omp end parallel
   END IF
 
 !  CALL MPI_BARRIER(MPI_COMM_e,ierr)
   CALL MPI_SCATTER(bufs,ns,COMM_datatype,&
                  & bufr,nr,COMM_datatype,nrank,MPI_COMM_e,ierr)
 
-  j=0
+  !omp parallel
+  !omp do private(n,k,j)
   DO n=1,nv3d
     DO k=1,nlev
-      j = j+1
+      j = ( n - 1 ) * nlev + k
       v3d(:,k,n) = REAL(bufr(1:nij1,j),r_size)
     END DO
   END DO
+  !omp end do
 
+  !omp do private(n,j)
   DO n=1,nv2d
-    j = j+1
+    j = nv3d * nlev + n
     v2d(:,n) = REAL(bufr(1:nij1,j),r_size)
   END DO
+  !omp end do
+  !omp end parallel
 
 !  CALL MPI_BARRIER(MPI_COMM_e,ierr)
 
@@ -1064,36 +1074,46 @@ SUBROUTINE gather_grd_mpi(nrank,v3d,v2d,v3dg,v2dg)
 
   ns = nij1max * nlevall
   nr = ns
-  j=0
+  !omp parallel
+  !omp do private(n,k,j)
   DO n=1,nv3d
     DO k=1,nlev
-      j = j+1
+      j = ( n - 1 ) * nlev + k
       bufs(1:nij1,j) = REAL(v3d(:,k,n),RP)
     END DO
   END DO
+  !omp end do
 
+  !omp do private(n,j)
   DO n=1,nv2d
-    j = j+1
+    j = nv3d * nlev + n
     bufs(1:nij1,j) = REAL(v2d(:,n),RP)
   END DO
+  !omp end do
+  !omp end parallel
 
 !  CALL MPI_BARRIER(MPI_COMM_e,ierr)
   CALL MPI_GATHER(bufs,ns,COMM_datatype,&
                 & bufr,nr,COMM_datatype,nrank,MPI_COMM_e,ierr)
 
   IF(myrank_e == nrank) THEN
-    j=0
+    !omp parallel
+    !omp do private(n,k,j)
     DO n=1,nv3d
       DO k=1,nlev
-        j = j+1
+        j = ( n - 1 ) * nlev + k
         CALL buf_to_grd(nprocs_e,bufr(:,j,:),v3dg(k,:,:,n))
       END DO
     END DO
+    !omp end do
 
+    !omp do private(n,j)
     DO n=1,nv2d
-      j = j+1
+      j = nv3d * nlev + n
       CALL buf_to_grd(nprocs_e,bufr(:,j,:),v2dg(:,:,n))
     END DO
+    !omp end do
+    !omp end parallel
   END IF
 
 !  CALL MPI_BARRIER(MPI_COMM_e,ierr)
@@ -1338,17 +1358,22 @@ SUBROUTINE scatter_grd_mpi_alltoall(mstart,mend,v3dg,v2dg,v3d,v2d)
 #endif
 
   IF(myrank_e < mcount) THEN
-    j=0
+    !omp parallel
+    !omp do private(n,k,j)
     DO n=1,nv3d
       DO k=1,nlev
-        j = j+1
+        j = ( n - 1 ) * nlev + k
         CALL grd_to_buf(nprocs_e,v3dg(k,:,:,n),bufs(:,j,:))
       END DO
     END DO
+    !omp end do
+    !omp do private(n,j)
     DO n=1,nv2d
-      j = j+1
+      j = nv3d * nlev + n
       CALL grd_to_buf(nprocs_e,v2dg(:,:,n),bufs(:,j,:))
     END DO
+    !omp end do
+    !omp end parallel
   END IF
 
 !  CALL MPI_BARRIER(MPI_COMM_e,ierr)
@@ -1361,19 +1386,22 @@ SUBROUTINE scatter_grd_mpi_alltoall(mstart,mend,v3dg,v2dg,v3d,v2d)
                        bufr, nr, nrt, COMM_datatype, MPI_COMM_e, ierr)
   END IF
 
+  !omp parallel
+  !omp do private(m,n,k,j)
   DO m = mstart,mend
-    j=0
     DO n=1,nv3d
       DO k=1,nlev
-        j = j+1
+        j = ( n - 1 ) * nlev + k
         v3d(:,k,m,n) = REAL(bufr(1:nij1,j,m-mstart+1),r_size)
       END DO
     END DO
     DO n=1,nv2d
-      j = j+1
+      j = nv3d * nlev + n
       v2d(:,m,n) = REAL(bufr(1:nij1,j,m-mstart+1),r_size)
     END DO
   END DO
+  !omp end do
+  !omp end parallel
 
 !  CALL MPI_BARRIER(MPI_COMM_e,ierr)
   RETURN
@@ -1398,19 +1426,22 @@ SUBROUTINE gather_grd_mpi_alltoall(mstart,mend,v3d,v2d,v3dg,v2dg)
   IF(mcount > nprocs_e .OR. mcount <= 0) STOP
 #endif
 
+  !omp parallel
+  !omp do private(m,n,k,j)
   DO m = mstart,mend
-    j=0
     DO n=1,nv3d
       DO k=1,nlev
-        j = j+1
+        j = ( n - 1 ) * nlev + k
         bufs(1:nij1,j,m-mstart+1) = REAL(v3d(:,k,m,n),RP)
       END DO
     END DO
     DO n=1,nv2d
-      j = j+1
+      j = nv3d * nlev + n
       bufs(1:nij1,j,m-mstart+1) = REAL(v2d(:,m,n),RP)
     END DO
   END DO
+  !omp end do
+  !omp end parallel
 
 !  CALL MPI_BARRIER(MPI_COMM_e,ierr)
   IF(mcount == nprocs_e) THEN
@@ -1423,17 +1454,22 @@ SUBROUTINE gather_grd_mpi_alltoall(mstart,mend,v3d,v2d,v3dg,v2dg)
   END IF
 
   IF(myrank_e < mcount) THEN
-    j=0
+    !omp parallel 
+    !omp do private(n,k,j)
     DO n=1,nv3d
       DO k=1,nlev
-        j = j+1
+        j = ( n - 1 ) * nlev + k
         CALL buf_to_grd(nprocs_e,bufr(:,j,:),v3dg(k,:,:,n))
       END DO
     END DO
+    !omp end do
+    !omp do private(n,j)
     DO n=1,nv2d
-      j = j+1
+      j = nv3d * nlev + n
       CALL buf_to_grd(nprocs_e,bufr(:,j,:),v2dg(:,:,n))
     END DO
+    !omp end do
+    !omp end parallel 
   END IF
 
 !  CALL MPI_BARRIER(MPI_COMM_e,ierr)
