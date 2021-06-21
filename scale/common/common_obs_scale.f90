@@ -2395,6 +2395,17 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma )
   character(len=*), parameter :: OMB_NAME = "omb"
   character(len=*), parameter :: OMA_NAME = "oma"
 
+  character(len=*), parameter :: ELM_LONGNAME = "observation id"
+  character(len=*), parameter :: LON_LONGNAME = "longitude"
+  character(len=*), parameter :: LAT_LONGNAME = "latitude"
+  character(len=*), parameter :: LEV_LONGNAME = "level"
+  character(len=*), parameter :: DAT_LONGNAME = "observation data"
+  character(len=*), parameter :: QC_LONGNAME  = "observation QC flag"
+  character(len=*), parameter :: DIF_LONGNAME = "time difference"
+  character(len=*), parameter :: ERR_LONGNAME = "observation error"
+  character(len=*), parameter :: OMB_LONGNAME = "observation-minus-background"
+  character(len=*), parameter :: OMA_LONGNAME = "observation-minus-analysis"
+
   integer :: nobs_l(nobs)
   integer :: n
 
@@ -2436,6 +2447,19 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma )
 
   call ncio_check( nf90_def_var(ncid, OMB_NAME, NF90_REAL, dimid, omb_varid) )
   call ncio_check( nf90_def_var(ncid, OMA_NAME, NF90_REAL, dimid, oma_varid) )
+
+  ! Add long names for the netCDF variables
+  call ncio_check( nf90_put_att(ncid, elm_varid, "long_name", ELM_LONGNAME ) )
+  call ncio_check( nf90_put_att(ncid, lon_varid, "long_name", LON_LONGNAME ) )
+  call ncio_check( nf90_put_att(ncid, lat_varid, "long_name", LAT_LONGNAME ) )
+  call ncio_check( nf90_put_att(ncid, lev_varid, "long_name", LEV_LONGNAME ) )
+  call ncio_check( nf90_put_att(ncid, dat_varid, "long_name", DAT_LONGNAME ) )
+  call ncio_check( nf90_put_att(ncid, qc_varid,  "long_name", QC_LONGNAME  ) )
+  call ncio_check( nf90_put_att(ncid, dif_varid, "long_name", DIF_LONGNAME ) )
+  call ncio_check( nf90_put_att(ncid, err_varid, "long_name", ERR_LONGNAME ) )
+
+  call ncio_check( nf90_put_att(ncid, omb_varid, "long_name", OMB_LONGNAME ) )
+  call ncio_check( nf90_put_att(ncid, oma_varid, "long_name", OMA_LONGNAME ) )
 
   ! End define mode.
   call ncio_check( nf90_enddef(ncid) )
