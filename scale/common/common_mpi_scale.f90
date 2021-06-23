@@ -1716,6 +1716,9 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
       write(6,'(2A)') 'OBSERVATIONAL DEPARTURE STATISTICS [ANALYSIS] (GLOBAL):'
     end if
     call monit_print(nobs_g, bias_g, rmse_g, monit_type)
+    if ( DEPARTURE_STAT_OUT_NC .and. myrank_e == mmean_rank_e .and. myrank_d == 0 ) then
+      call write_monit_nc( nobs_g, bias_g, rmse_g, monit_step, monit_type )
+    endif
 
     call mpi_timer('monit_obs_mpi:monit_print:', 2)
   end if

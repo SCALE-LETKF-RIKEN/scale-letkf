@@ -2496,4 +2496,131 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma )
   return
 end subroutine write_obs_dep_nc
 
+subroutine write_monit_nc( nobs, bias, rmse, step, monit_type )
+  use netcdf
+  use common_ncio
+  implicit none
+
+  integer, intent(in) :: nobs(nid_obs)
+  real(r_size), intent(in) :: bias(nid_obs)
+  real(r_size), intent(in) :: rmse(nid_obs)
+  logical, intent(in), optional :: monit_type(nid_obs)
+  integer, intent(in) :: step
+
+  real(r_size) :: bias_
+  real(r_size) :: rmse_
+
+  integer :: ncid
+  integer :: dimid
+  integer :: dim_varid
+
+  integer :: nvarids(nid_obs) ! var id for the number of observations
+  integer :: rvarids(nid_obs) ! var id for RMSE
+  integer :: bvarids(nid_obs) ! var id for bias
+
+  real, parameter :: undef_monit = -9.9999e+30
+
+  character(len=*), parameter :: DIM_NAME = "type" ! 0: guess 
+                                                   ! 1: analysis
+
+  logical :: monit_type_(nid_obs)
+
+  integer :: i
+
+  monit_type_ = .true.
+  if ( present(monit_type) ) monit_type_ = monit_type
+
+  if ( step == 1 ) then
+    ! Create the file. 
+    call ncio_check( nf90_create( trim( DEPARTURE_STAT_OUT_BASENAME )//'.nc', nf90_clobber, ncid) )
+
+    ! Define the dimensions. 
+    call ncio_check( nf90_def_dim(ncid, DIM_NAME, 2, dimid) ) 
+  
+    ! Define the coordinate variables. 
+    call ncio_check( nf90_def_var(ncid, DIM_NAME, NF90_INT, dimid, dim_varid) )
+    call ncio_check( nf90_put_att(ncid, dim_varid, "long_name", "type (1: guess, 2: analysis)" ) )
+
+    ! Define the netCDF variables
+    do i = 1, nid_obs
+      if ( .not. monit_type_(i) .or. i == uid_obs(id_tv_obs) &
+           .or. i == uid_obs(id_radar_ref_zero_obs) ) then
+        cycle
+      endif
+
+      call ncio_check( nf90_def_var(ncid, 'NOBS_'//trim(adjustl(obelmlist(i))), &
+                       NF90_INT,  dimid, nvarids(i) ) )
+      call ncio_check( nf90_def_var(ncid, 'RMSE_'//trim(adjustl(obelmlist(i))), &
+                       NF90_REAL, dimid, rvarids(i) ) )
+      call ncio_check( nf90_def_var(ncid, 'BIAS_'//trim(adjustl(obelmlist(i))), &
+                       NF90_REAL, dimid, bvarids(i) ) )
+
+      call ncio_check( nf90_put_att(ncid, rvarids(i) , "missing_value", undef_monit ) )
+      call ncio_check( nf90_put_att(ncid, bvarids(i) , "missing_value", undef_monit ) )
+
+      call ncio_check( nf90_put_att(ncid, rvarids(i) , "_FillValue", undef_monit ) )
+      call ncio_check( nf90_put_att(ncid, bvarids(i) , "_FillValue", undef_monit ) )
+
+    enddo
+
+    ! Add global attribute
+    call ncio_check( nf90_put_att(ncid, NF90_GLOBAL, "title", "Global RMSE and bias scores" ) )
+
+    ! End define mode.
+    call ncio_check( nf90_enddef(ncid) )
+
+    ! Write the coordinate variable data. 
+    call ncio_check( nf90_put_var(ncid, dim_varid, (/1, 2/) ) )
+
+  else if( step == 2 ) then
+    ! Open the file. 
+    call ncio_check( nf90_open( trim( DEPARTURE_STAT_OUT_BASENAME )//'.nc', nf90_write, ncid) )
+
+    ! Get variable id.
+    do i = 1, nid_obs
+      if ( .not. monit_type_(i) .or. i == uid_obs(id_tv_obs) &
+           .or. i == uid_obs(id_radar_ref_zero_obs) ) then
+        cycle
+      endif
+
+      call ncio_check( nf90_inq_varid(ncid, 'NOBS_'//trim(adjustl(obelmlist(i))), &
+                       nvarids(i) ) )
+      call ncio_check( nf90_inq_varid(ncid, 'RMSE_'//trim(adjustl(obelmlist(i))), &
+                       rvarids(i) ) )
+      call ncio_check( nf90_inq_varid(ncid, 'BIAS_'//trim(adjustl(obelmlist(i))), &
+                       bvarids(i) ) )
+    enddo
+
+  endif
+
+  ! Write the data.
+  do i = 1, nid_obs
+    if ( .not. monit_type_(i) .or. i == uid_obs(id_tv_obs) &
+         .or. i == uid_obs(id_radar_ref_zero_obs) ) then
+      cycle
+    endif
+  
+    if ( nobs(i) < 0 ) then
+      rmse_ = undef_monit
+      bias_ = undef_monit
+    else
+      rmse_ = real( rmse(i), kind=r_sngl )
+      bias_ = real( bias(i), kind=r_sngl )
+    endif
+
+    call ncio_check( nf90_put_var(ncid, nvarids(i), (/nobs(i)/), &
+                     start=(/step/), count=(/1/) ) )
+    call ncio_check( nf90_put_var(ncid, rvarids(i), (/rmse_/), &
+                     start=(/step/), count=(/1/) ) )
+    call ncio_check( nf90_put_var(ncid, bvarids(i), (/bias_/), &
+                     start=(/step/), count=(/1/) ) )
+
+  end do
+
+  ! Close the file. 
+  call ncio_check( nf90_close(ncid) )
+
+  return
+end subroutine write_monit_nc
+
 END MODULE common_obs_scale

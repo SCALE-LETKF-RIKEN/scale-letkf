@@ -233,6 +233,8 @@ MODULE common_nml
   logical :: DEPARTURE_STAT_ALL_PROCESSES = .true. ! print the departure statistics by all processes?
                                                    ! if set to .false., the statistics are only printed by the ensemble mean group, which may save time
 
+  logical :: DEPARTURE_STAT_OUT_NC = .false.
+  character(filelenmax) :: DEPARTURE_STAT_OUT_BASENAME = 'stat'
   LOGICAL               :: OBSDEP_OUT = .true.
   character(filelenmax) :: OBSDEP_OUT_BASENAME = 'obsdep'
   LOGICAL               :: OBSDEP_OUT_NC = .false.
@@ -803,6 +805,8 @@ subroutine read_nml_letkf_monitor
     DEPARTURE_STAT_RADAR, &
     DEPARTURE_STAT_T_RANGE, &
     DEPARTURE_STAT_ALL_PROCESSES, &
+    DEPARTURE_STAT_OUT_NC,        &
+    DEPARTURE_STAT_OUT_BASENAME,  &
     OBSDEP_OUT, &
     OBSDEP_OUT_BASENAME, &
     OBSDEP_OUT_NC, &
