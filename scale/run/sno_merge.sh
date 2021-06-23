@@ -14,7 +14,7 @@ INPUT_SNOW_NP=16
 
 
 tint=21600 # [second]
-tstart='2017-07-05 0:00:00'
+tstart='2018-07-05 0:10:00'
 tend=$tstart
 
 . config.main
@@ -141,6 +141,7 @@ while (($(date -ud "$time" '+%s') <= $(date -ud "$tend" '+%s'))); do # time loop
   DTIME=${YYYYs}${MMs}${DDs}${HHs}${MNs}${SSs}
   echo $DTIME
 
+  SCALE_TIME=$(date -ud "$timef" '+%Y%m%d-%H%M%S.000')
 
   for mem in  ${SNO_MEM_L} # member loop
   do 
@@ -158,7 +159,7 @@ while (($(date -ud "$time" '+%s') <= $(date -ud "$tend" '+%s'))); do # time loop
   
     if [ "$TYPE" != "fcst" ] && [ "$TYPE" != "hist" ]  ; then
       SNO_BASENAME_OUT="$TYPE"
-      SNO_BASENAME_IN="${OUTDIR}/${DTIME}/${TYPE}/${mem}/init"
+      SNO_BASENAME_IN="${OUTDIR}/${DTIME}/${TYPE}/${mem}/init_${SCALE_TIME}"
     fi
   
   
