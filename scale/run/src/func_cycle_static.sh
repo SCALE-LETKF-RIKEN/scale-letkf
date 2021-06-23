@@ -1126,6 +1126,7 @@ while ((time <= ETIME)); do
       OBSDEP_OUT_BASENAME="${OUTDIR[$d]}/$atime/obs/obsdep"
     fi
     DEPARTURE_STAT_OUT_BASENAME="${OUTDIR[$d]}/score/score_${atime}"
+    OBSNUM_OUT_NC_BASENAME="${OUTDIR[$d]}/score/obsnum_${atime}"
 
     cat $SCRP_DIR/config.nml.ensmodel | \
         sed -e "/!--MEMBER--/a MEMBER = $MEMBER," \
@@ -1165,6 +1166,7 @@ while ((time <= ETIME)); do
             -e "/!--DEPARTURE_STAT_OUT_BASENAME--/a DEPARTURE_STAT_OUT_BASENAME = \"${DEPARTURE_STAT_OUT_BASENAME}\"," \
             -e "/!--OBSDEP_OUT--/a OBSDEP_OUT = ${OBSDEP_OUT_TF}," \
             -e "/!--OBSDEP_OUT_BASENAME--/a OBSDEP_OUT_BASENAME = \"${OBSDEP_OUT_BASENAME}\"," \
+            -e "/!--OBSNUM_OUT_NC_BASENAME--/a OBSNUM_OUT_NC_BASENAME = \"${OBSNUM_OUT_NC_BASENAME}\"," \
         >> ${conf_file}
 
     # Most of these parameters are not important for letkf

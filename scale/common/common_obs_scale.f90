@@ -2623,4 +2623,73 @@ subroutine write_monit_nc( nobs, bias, rmse, step, monit_type )
   return
 end subroutine write_monit_nc
 
+subroutine write_obsnum_nc( filename, nctype, typ_ctype, elm_u_ctype, num_bqc, num_aqc, tnum_bqc, tnum_aqc )
+  use netcdf
+  use common_ncio
+  implicit none
+
+  character(len=*), intent(in) :: filename
+  integer, intent(in) :: nctype
+  integer, intent(in) :: typ_ctype(nctype)
+  integer, intent(in) :: elm_u_ctype(nctype)
+  integer, intent(in) :: num_bqc(nctype)    ! number of each obs
+  integer, intent(in) :: num_aqc(nctype)    ! number of each obs
+  integer, intent(in) :: tnum_bqc, tnum_aqc ! total numer
+
+  integer :: ncid
+  integer :: dimid
+
+  integer :: dim_varid
+
+  character(len=*), parameter :: DIM_NAME = "type" ! 0: before QC
+                                                   ! 1: after QC
+  integer :: ictype
+  integer :: ityp, ielm_u
+  integer :: varids(nctype), tvarid
+
+  ! Create the file. 
+  call ncio_check( nf90_create(trim(filename), nf90_clobber, ncid) )
+
+  ! Define the dimensions. 
+  call ncio_check( nf90_def_dim(ncid, DIM_NAME, 2, dimid) ) 
+
+  ! Define the coordinate variables. 
+  call ncio_check( nf90_def_var(ncid, DIM_NAME, NF90_INT, dimid, dim_varid) )
+  call ncio_check( nf90_put_att(ncid, dim_varid, "long_name", "type (1: before QC, 2: after QC)" ) )
+
+  ! Define the netCDF variables
+  do ictype = 1, nctype
+    ityp = typ_ctype(ictype)
+    ielm_u = elm_u_ctype(ictype)
+
+    call ncio_check( nf90_def_var(ncid, obtypelist(ityp)//'_'//trim(adjustl(obelmlist(ielm_u))), &
+                     NF90_INT,  dimid, varids(ictype) ) )
+  end do
+
+  call ncio_check( nf90_def_var(ncid, "TOTAL", &
+                   NF90_INT,  dimid, tvarid ) )
+
+  ! Add global attribute
+  call ncio_check( nf90_put_att(ncid, NF90_GLOBAL, "title", "Number of observations in the computational domain" ) )
+
+  ! End define mode.
+  call ncio_check( nf90_enddef(ncid) )
+
+  ! Write the coordinate variable data. 
+  call ncio_check( nf90_put_var(ncid, dim_varid, (/1, 2/) ) )
+
+  ! Write the data.
+  do ictype = 1, nctype
+    call ncio_check( nf90_put_var(ncid, varids(ictype), (/num_bqc(ictype), num_aqc(ictype)/), &
+                     start=(/1/), count=(/2/) ) )
+  end do
+  call ncio_check( nf90_put_var(ncid, tvarid, (/tnum_bqc, tnum_aqc/), &
+                   start=(/1/), count=(/2/) ) )
+
+  ! Close the file. 
+  call ncio_check( nf90_close(ncid) )
+
+  return
+end subroutine write_obsnum_nc
+
 END MODULE common_obs_scale

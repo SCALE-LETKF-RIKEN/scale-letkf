@@ -59,6 +59,8 @@
 !--OBSDEP_OUT--
 OBSDEP_OUT_NC = T,
 !--OBSDEP_OUT_BASENAME--
+ OBSNUM_OUT_NC = T,
+!--OBSNUM_OUT_NC_BASENAME--
 /
 
 !*** Attach SCALE configuration below ***

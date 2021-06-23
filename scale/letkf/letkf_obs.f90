@@ -990,6 +990,13 @@ SUBROUTINE set_letkf_obs
     call mpi_timer('set_letkf_obs:obs_count_print_qc_extdomain:', 2)
   end if
 
+  if ( OBSNUM_OUT_NC .and. myrank_e == mmean_rank_e .and. myrank_d == 0 ) then
+    call write_obsnum_nc( trim( OBSNUM_OUT_NC_BASENAME )//'.nc', nctype, typ_ctype, elm_u_ctype, &
+                         obsgrd(1:nctype)%tot_g(i_before_qc), obsgrd(1:nctype)%tot_g(i_after_qc), &
+                         nobs_g(i_before_qc), nobs_g(i_after_qc)  )
+  endif
+  call mpi_timer('set_letkf_obs:write_obs_count_nc:', 2)
+
   RETURN
 END SUBROUTINE set_letkf_obs
 
