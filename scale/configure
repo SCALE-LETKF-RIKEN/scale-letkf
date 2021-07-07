@@ -42,4 +42,5 @@ ifeq ($(USE_MTX_KEVD),T)
   common_mtx = common_mtx_kevd
 else
   common_mtx = common_mtx_lapack
+  KEVD_LIB = 
 endif
