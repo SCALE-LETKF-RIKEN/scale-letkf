@@ -34,7 +34,6 @@ program scaleles_ens
   implicit none
 
   integer :: it, its, ite, im, idom, color, key, ierr
-  character(7) :: stdoutf='-000000'
 
   integer :: universal_comm
   integer :: universal_nprocs
@@ -48,10 +47,6 @@ program scaleles_ens
   character(len=H_LONG) :: confname_domains(PRC_DOMAIN_nlim)
   character(len=H_LONG) :: confname_mydom
   character(len=H_LONG) :: confname
-
-  character(len=6400) :: cmd1, cmd2, icmd
-  character(len=10) :: myranks
-  integer :: iarg
 
 !-----------------------------------------------------------------------
 ! Initial settings
@@ -71,42 +66,6 @@ program scaleles_ens
   myrank = universal_myrank
 
   call set_common_conf( myrank )
-
-!  WRITE(6,'(A,I6.6,A,I6.6)') 'Hello from MYRANK ',universal_myrank,'/',universal_nprocs-1
-
-  if (command_argument_count() >= 3) then
-    write (myranks, '(I10)') universal_myrank
-    call get_command_argument(3, icmd)
-    cmd1 = 'bash ' // trim(icmd) // ' ensfcst_1' // ' ' // trim(myranks)
-    cmd2 = 'bash ' // trim(icmd) // ' ensfcst_2' // ' ' // trim(myranks)
-    do iarg = 4, command_argument_count()
-      call get_command_argument(iarg, icmd)
-      cmd1 = trim(cmd1) // ' ' // trim(icmd)
-      cmd2 = trim(cmd2) // ' ' // trim(icmd)
-    end do
-  end if
-
-  if (command_argument_count() >= 2) then
-    call get_command_argument(2, icmd)
-    if (trim(icmd) /= '') then
-      WRITE(stdoutf(2:7), '(I6.6)') universal_myrank
-!      WRITE(6,'(3A,I6.6)') 'STDOUT goes to ',trim(icmd)//stdoutf,' for MYRANK ', universal_myrank
-      OPEN(6,FILE=trim(icmd)//stdoutf)
-      WRITE(6,'(A,I6.6,2A)') 'MYRANK=',universal_myrank,', STDOUTF=',trim(icmd)//stdoutf
-    end if
-  end if
-
-!-----------------------------------------------------------------------
-! Pre-processing scripts
-!-----------------------------------------------------------------------
-
-  if (command_argument_count() >= 3) then
-    write (6,'(A)') 'Run pre-processing scripts'
-    write (6,'(A,I6.6,3A)') 'MYRANK ',universal_myrank,' is running a script: [', trim(cmd1), ']'
-    call system(trim(cmd1))
-  end if
-
-  call mpi_timer('PRE_SCRIPT', 1, barrier=universal_comm)
 
 !-----------------------------------------------------------------------
 
@@ -200,18 +159,6 @@ program scaleles_ens
   close(IO_FID_CONF)
 
   call mpi_timer('SCALE_RM', 1, barrier=universal_comm)
-
-!-----------------------------------------------------------------------
-! Post-processing scripts
-!-----------------------------------------------------------------------
-
-  if (command_argument_count() >= 3) then
-    write (6,'(A)') 'Run post-processing scripts'
-    write (6,'(A,I6.6,3A)') 'MYRANK ',universal_myrank,' is running a script: [', trim(cmd2), ']'
-    call system(trim(cmd2))
-  end if
-
-  call mpi_timer('POST_SCRIPT', 1, barrier=universal_comm)
 
 !-----------------------------------------------------------------------
 ! Finalize
