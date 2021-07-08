@@ -68,6 +68,9 @@ MODULE common_nml
                                                   !  2: Normal  log output
                                                   !  3: Verbose log output
   logical :: USE_MPI_BARRIER = .true.             ! Whether enabling some MPI_Barrier for better timing measurement?
+  logical :: LOG_ALL_PRC = .false.      ! Output from all MPI processes
+  logical :: LOG_OUT     = .false.  ! Standard output myrank
+                                    ! overwritten in set_log_out called from initialize_mpi_scale
 
   !--- PARAM_OBSOPE
   integer               :: OBS_IN_NUM = 1
@@ -362,7 +365,7 @@ subroutine read_nml_model
   rewind(IO_FID_CONF)
   read(IO_FID_CONF,nml=PARAM_MODEL,iostat=ierr)
   if (ierr < 0) then !--- missing
-    write(6,*) '[Warning] /PARAM_MODEL/ is not found in namelist.'
+    if ( LOG_OUT ) write(6,*) '[Warning] /PARAM_MODEL/ is not found in namelist.'
 !    stop
   elseif (ierr > 0) then !--- fatal error
     write(6,*) '[Error] xxx Not appropriate names in namelist PARAM_MODEL. Check!'
@@ -395,7 +398,7 @@ subroutine read_nml_process
   rewind(IO_FID_CONF)
   read(IO_FID_CONF,nml=PARAM_PROCESS,iostat=ierr)
   if (ierr < 0) then !--- missing
-    write(6,*) '[Warning] /PARAM_PROCESS/ is not found in namelist.'
+    if ( LOG_OUT ) write(6,*) '[Warning] /PARAM_PROCESS/ is not found in namelist.'
 !    stop
   elseif (ierr > 0) then !--- fatal error
     write(6,*) '[Error] xxx Not appropriate names in namelist PARAM_PROCESS. Check!'
@@ -445,12 +448,13 @@ subroutine read_nml_log
 
   namelist /PARAM_LOG/ &
     LOG_LEVEL, &
-    USE_MPI_BARRIER
+    USE_MPI_BARRIER, &
+    LOG_ALL_PRC
 
   rewind(IO_FID_CONF)
   read(IO_FID_CONF,nml=PARAM_LOG,iostat=ierr)
   if (ierr < 0) then !--- missing
-    write(6,*) '[Warning] /PARAM_LOG/ is not found in namelist.'
+    if ( LOG_OUT ) write(6,*) '[Warning] /PARAM_LOG/ is not found in namelist.'
 !    stop
   elseif (ierr > 0) then !--- fatal error
     write(6,*) '[Error] xxx Not appropriate names in namelist PARAM_LOG. Check!'
@@ -709,7 +713,7 @@ subroutine read_nml_letkf_obs
   rewind(IO_FID_CONF)
   read(IO_FID_CONF,nml=PARAM_LETKF_OBS,iostat=ierr)
   if (ierr < 0) then !--- missing
-    write(6,*) '[Warning] /PARAM_LETKF_OBS/ is not found in namelist.'
+    if ( LOG_OUT ) write(6,*) '[Warning] /PARAM_LETKF_OBS/ is not found in namelist.'
 !    stop
   elseif (ierr > 0) then !--- fatal error
     write(6,*) '[Error] xxx Not appropriate names in namelist PARAM_LETKF_OBS. Check!'
@@ -781,7 +785,7 @@ subroutine read_nml_letkf_var_local
   rewind(IO_FID_CONF)
   read(IO_FID_CONF,nml=PARAM_LETKF_VAR_LOCAL,iostat=ierr)
   if (ierr < 0) then !--- missing
-    write(6,*) '[Warning] /PARAM_LETKF_VAR_LOCAL/ is not found in namelist.'
+    if ( LOG_OUT ) write(6,*) '[Warning] /PARAM_LETKF_VAR_LOCAL/ is not found in namelist.'
 !    stop
   elseif (ierr > 0) then !--- fatal error
     write(6,*) '[Error] xxx Not appropriate names in namelist PARAM_LETKF_VAR_LOCAL. Check!'
@@ -822,7 +826,7 @@ subroutine read_nml_letkf_monitor
   rewind(IO_FID_CONF)
   read(IO_FID_CONF,nml=PARAM_LETKF_MONITOR,iostat=ierr)
   if (ierr < 0) then !--- missing
-    write(6,*) '[Warning] /PARAM_LETKF_MONITOR/ is not found in namelist.'
+    if ( LOG_OUT ) write(6,*) '[Warning] /PARAM_LETKF_MONITOR/ is not found in namelist.'
 !    stop
   elseif (ierr > 0) then !--- fatal error
     write(6,*) '[Error] xxx Not appropriate names in namelist PARAM_LETKF_MONITOR. Check!'
@@ -865,7 +869,7 @@ subroutine read_nml_letkf_radar
   rewind(IO_FID_CONF)
   read(IO_FID_CONF,nml=PARAM_LETKF_RADAR,iostat=ierr)
   if (ierr < 0) then !--- missing
-    write(6,*) '[Warning] /PARAM_LETKF_RADAR/ is not found in namelist.'
+    if ( LOG_OUT ) write(6,*) '[Warning] /PARAM_LETKF_RADAR/ is not found in namelist.'
 !    stop
   elseif (ierr > 0) then !--- fatal error
     write(6,*) '[Error] xxx Not appropriate names in namelist PARAM_LETKF_RADAR. Check!'
@@ -903,7 +907,7 @@ subroutine read_nml_obs_error
   rewind(IO_FID_CONF)
   read(IO_FID_CONF,nml=PARAM_OBS_ERROR,iostat=ierr)
   if (ierr < 0) then !--- missing
-    write(6,*) '[Warning] /PARAM_OBS_ERROR/ is not found in namelist.'
+    if ( LOG_OUT ) write(6,*) '[Warning] /PARAM_OBS_ERROR/ is not found in namelist.'
 !    stop
   elseif (ierr > 0) then !--- fatal error
     write(6,*) '[Error] xxx Not appropriate names in namelist PARAM_OBS_ERROR. Check!'
@@ -943,7 +947,7 @@ subroutine read_nml_obssim
   rewind(IO_FID_CONF)
   read(IO_FID_CONF,nml=PARAM_OBSSIM,iostat=ierr)
   if (ierr < 0) then !--- missing
-    write(6,*) '[Warning] /PARAM_OBSSIM/ is not found in namelist.'
+    if ( LOG_OUT ) write(6,*) '[Warning] /PARAM_OBSSIM/ is not found in namelist.'
 !    stop
   elseif (ierr > 0) then !--- fatal error
     write(6,*) '[Error] xxx Not appropriate names in namelist PARAM_OBSSIM. Check!'
@@ -1007,7 +1011,7 @@ subroutine filename_replace_mem_str(filename, mem)
   if (pos == 0) then
     call str_replace(filename, memf_notation_2, mem, pos)
     if (pos == 0) then
-      write (6, '(7A)') "[Warning] Keyword '", memf_notation, "' or '", memf_notation_2, "' is not found in '", trim(filename), "'."
+      if ( LOG_OUT ) write (6, '(7A)') "[Warning] Keyword '", memf_notation, "' or '", memf_notation_2, "' is not found in '", trim(filename), "'."
     end if
   end if
 
@@ -1054,7 +1058,7 @@ subroutine filename_replace_dom_str(filename, dom)
 
   call str_replace(filename, domf_notation, dom, pos)
   if (pos == 0) then
-    write (6, '(5A)') "[Warning] Keyword '", domf_notation, "' is not found in '", trim(filename), "'."
+    if ( LOG_OUT ) write (6, '(5A)') "[Warning] Keyword '", domf_notation, "' is not found in '", trim(filename), "'."
   end if
 
   return
@@ -1103,6 +1107,24 @@ subroutine str_replace(str, oldsub, newsub, pos)
 
   return
 end subroutine str_replace
+
+subroutine set_log_out( myrank )
+  implicit none
+
+  integer, intent(in) :: myrank
+
+  if ( LOG_ALL_PRC ) then
+    LOG_OUT = .true.
+  else
+    if ( myrank == 0 ) then
+      LOG_OUT = .true.
+    else
+      LOG_OUT = .false.
+    end if
+  end if
+
+  return
+end subroutine set_log_out
 
 !===============================================================================
 end module common_nml

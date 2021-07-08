@@ -66,8 +66,6 @@ PROGRAM obsope
 
 !-----------------------------------------------------------------------
 
-  call set_common_conf
-
   if (DET_RUN) then
     call set_mem_node_proc(MEMBER+2)
   else

@@ -140,12 +140,14 @@ SUBROUTINE set_letkf_obs
 
   call mpi_timer('', 2)
 
-  WRITE(6,'(A)') 'Hello from set_letkf_obs'
+  if ( LOG_OUT ) WRITE(6,'(A)') 'Hello from set_letkf_obs'
 
   nobs_intern = obsda%nobs - nobs_extern
-  WRITE(6,'(A,I10)') 'Internally processed observations: ', nobs_intern
-  WRITE(6,'(A,I10)') 'Externally processed observations: ', nobs_extern
-  WRITE(6,'(A,I10)') 'Total                observations: ', obsda%nobs
+  if ( LOG_OUT ) then
+    WRITE(6,'(A,I10)') 'Internally processed observations: ', nobs_intern
+    WRITE(6,'(A,I10)') 'Externally processed observations: ', nobs_extern
+    WRITE(6,'(A,I10)') 'Total                observations: ', obsda%nobs
+  end if
 
 !-------------------------------------------------------------------------------
 ! Read externally processed observations
@@ -176,7 +178,7 @@ SUBROUTINE set_letkf_obs
           obsdafile = OBSDA_MDET_IN_BASENAME
         end if
         write (obsda_suffix(2:7),'(I6.6)') myrank_d
-        write (6,'(A,I6.6,2A)') 'MYRANK ', myrank,' is reading an externally processed obsda file ', trim(obsdafile)//obsda_suffix
+        if ( LOG_OUT ) write (6,'(A,I6.6,2A)') 'MYRANK ', myrank,' is reading an externally processed obsda file ', trim(obsdafile)//obsda_suffix
         call read_obs_da(trim(obsdafile)//obsda_suffix,obsda_ext,0)
 
         if (OBSDA_OUT) then
@@ -191,7 +193,7 @@ SUBROUTINE set_letkf_obs
             obsdafile = OBSDA_MDET_OUT_BASENAME
           end if
 !          write (obsda_suffix(2:7),'(I6.6)') myrank_d
-          write (6,'(A,I6.6,2A)') 'MYRANK ', myrank,' is writing (appending) an obsda file ', trim(obsdafile)//obsda_suffix
+          if ( LOG_OUT ) write (6,'(A,I6.6,2A)') 'MYRANK ', myrank,' is writing (appending) an obsda file ', trim(obsdafile)//obsda_suffix
           call write_obs_da(trim(obsdafile)//obsda_suffix,obsda_ext,0,append=.true.)
         end if
 
@@ -365,7 +367,7 @@ SUBROUTINE set_letkf_obs
       if (obs(iof)%dat(iidx) > RADAR_REF_THRES_DBZ+1.0d-6) then
         if (mem_ref < MIN_RADAR_REF_MEMBER_OBSREF) then
           obsda%qc(n) = iqc_ref_mem
-          if (LOG_LEVEL >= 3) then
+          if ( LOG_LEVEL >= 3 .and. LOG_OUT ) then
             write (6,'(A)') '* Reflectivity does not fit assimilation criterion'
             write (6,'(A,F6.2,A,F6.2,A,I6,A,F7.3)') &
                   '*  (lon,lat)=(',obs(iof)%lon(iidx),',',obs(iof)%lat(iidx),'), mem_ref=', &
@@ -376,7 +378,7 @@ SUBROUTINE set_letkf_obs
       else
         if (mem_ref < MIN_RADAR_REF_MEMBER) then
           obsda%qc(n) = iqc_ref_mem
-          if (LOG_LEVEL >= 3) then
+          if ( LOG_LEVEL >= 3 .and. LOG_OUT ) then
             write (6,'(A)') '* Reflectivity does not fit assimilation criterion'
             write (6,'(A,F6.2,A,F6.2,A,I6,A,F7.3)') &
                   '*  (lon,lat)=(',obs(iof)%lon(iidx),',',obs(iof)%lat(iidx),'), mem_ref=', &
@@ -440,7 +442,7 @@ SUBROUTINE set_letkf_obs
       END IF
     end select
 
-    if (LOG_LEVEL >= 3) then
+    if ( LOG_LEVEL >= 3 .and. LOG_OUT ) then
       write (6, '(2I6,2F8.2,4F12.4,I3)') obs(iof)%elm(iidx), &
                                          obs(iof)%typ(iidx), &
                                          obs(iof)%lon(iidx), &
@@ -471,7 +473,7 @@ SUBROUTINE set_letkf_obs
   ! Print departure statistics
   !-------------------------------------------------------------------------------
 
-  if (LOG_LEVEL >= 1) then
+  if ( LOG_LEVEL >= 1 .and. LOG_OUT ) then
     write (6, *)
     write (6,'(A,I6,A)') 'OBSERVATIONAL DEPARTURE STATISTICS (IN THIS SUBDOMAIN #', myrank_d, '):'
 
@@ -534,7 +536,7 @@ SUBROUTINE set_letkf_obs
   ! Print observation usage settings
   !-----------------------------------------------------------------------------
 
-  if (LOG_LEVEL >= 2) then
+  if ( LOG_LEVEL >= 2 .and. LOG_OUT ) then
     write (6, *)
     write (6, '(A)') 'OBSERVATION USAGE SETTINGS (LIST ONLY EXISTING TYPE-VAR):'
     write (6, '(A)') '=================================================================================='
@@ -694,7 +696,7 @@ SUBROUTINE set_letkf_obs
   ! Print observation counts for each types
   !-----------------------------------------------------------------------------
 
-  if (LOG_LEVEL >= 2) then
+  if ( LOG_LEVEL >= 2 .and. LOG_OUT ) then
     write (nstr, '(I4)') nid_obs
     write (6, *)
     write (6, '(A)') 'OBSERVATION COUNTS BEFORE QC (GLOABL):'
@@ -949,7 +951,7 @@ SUBROUTINE set_letkf_obs
     call mpi_timer('set_letkf_obs:extdomain_allreduce:', 2)
   end if
 
-  if (LOG_LEVEL >= 3) then
+  if ( LOG_LEVEL >= 3 .and. LOG_OUT ) then
     do n = 1, nobstotal
       write (6, '(I9,2I6,2F8.2,3F12.4,2F10.4,I6,F12.4,I3)') n, &
             obs(obsda_sort%set(n))%elm(obsda_sort%idx(n)), &
@@ -970,7 +972,7 @@ SUBROUTINE set_letkf_obs
   ! Print observation counts
   !-----------------------------------------------------------------------------
 
-  if (LOG_LEVEL >= 1) then
+  if ( LOG_LEVEL >= 1 .and. LOG_OUT ) then
     write (6, *)
     write (6, '(A,I6,A)') 'OBSERVATION COUNTS (GLOABL AND IN THIS SUBDOMAIN #', myrank_d, '):'
     write (6, '(A)') '====================================================================='

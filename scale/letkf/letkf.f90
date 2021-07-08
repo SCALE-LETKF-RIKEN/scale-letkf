@@ -63,21 +63,23 @@ PROGRAM letkf
     end if
   end if
 
-  WRITE(6,'(A)') '============================================='
-  WRITE(6,'(A)') '  LOCAL ENSEMBLE TRANSFORM KALMAN FILTERING  '
-  WRITE(6,'(A)') '                                             '
-  WRITE(6,'(A)') '   LL      EEEEEE  TTTTTT  KK  KK  FFFFFF    '
-  WRITE(6,'(A)') '   LL      EE        TT    KK KK   FF        '
-  WRITE(6,'(A)') '   LL      EEEEE     TT    KKK     FFFFF     '
-  WRITE(6,'(A)') '   LL      EE        TT    KK KK   FF        '
-  WRITE(6,'(A)') '   LLLLLL  EEEEEE    TT    KK  KK  FF        '
-  WRITE(6,'(A)') '                                             '
-  WRITE(6,'(A)') '             WITHOUT LOCAL PATCH             '
-  WRITE(6,'(A)') '                                             '
-  WRITE(6,'(A)') '          Coded by Takemasa Miyoshi          '
-  WRITE(6,'(A)') '  Based on Ott et al (2004) and Hunt (2005)  '
-  WRITE(6,'(A)') '  Tested by Miyoshi and Yamane (2006)        '
-  WRITE(6,'(A)') '============================================='
+  if ( LOG_OUT ) then
+    WRITE(6,'(A)') '============================================='
+    WRITE(6,'(A)') '  LOCAL ENSEMBLE TRANSFORM KALMAN FILTERING  '
+    WRITE(6,'(A)') '                                             '
+    WRITE(6,'(A)') '   LL      EEEEEE  TTTTTT  KK  KK  FFFFFF    '
+    WRITE(6,'(A)') '   LL      EE        TT    KK KK   FF        '
+    WRITE(6,'(A)') '   LL      EEEEE     TT    KKK     FFFFF     '
+    WRITE(6,'(A)') '   LL      EE        TT    KK KK   FF        '
+    WRITE(6,'(A)') '   LLLLLL  EEEEEE    TT    KK  KK  FF        '
+    WRITE(6,'(A)') '                                             '
+    WRITE(6,'(A)') '             WITHOUT LOCAL PATCH             '
+    WRITE(6,'(A)') '                                             '
+    WRITE(6,'(A)') '          Coded by Takemasa Miyoshi          '
+    WRITE(6,'(A)') '  Based on Ott et al (2004) and Hunt (2005)  '
+    WRITE(6,'(A)') '  Tested by Miyoshi and Yamane (2006)        '
+    WRITE(6,'(A)') '============================================='
+  end if 
 
 !-----------------------------------------------------------------------
 ! Pre-processing scripts
@@ -92,8 +94,6 @@ PROGRAM letkf
   call mpi_timer('PRE_SCRIPT', 1, barrier=MPI_COMM_WORLD)
 
 !-----------------------------------------------------------------------
-
-  call set_common_conf
 
   if (DET_RUN) then
     call set_mem_node_proc(MEMBER+2)

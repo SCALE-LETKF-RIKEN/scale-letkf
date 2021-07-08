@@ -18,4 +18,5 @@
 
 &PARAM_LOG
  LOG_LEVEL = 1,
+ LOG_ALL_PRC = F,
 /

@@ -147,16 +147,20 @@ CONTAINS
 !-------------------------------------------------------------------------------
 ! Initialize standard I/O and read common namelist of SCALE-LETKF
 !-------------------------------------------------------------------------------
-subroutine set_common_conf()
+subroutine set_common_conf( myrank )
   use scale_io, only: &
     IO_setup
 
   implicit none
+  
+  integer, intent(in) :: myrank 
 
   ! setup standard I/O
   call IO_setup( modelname)
 
   call read_nml_log
+  call set_log_out( myrank )
+
   call read_nml_model
   call read_nml_ensemble
   call read_nml_process
@@ -184,7 +188,7 @@ SUBROUTINE set_common_scale
 !  REAL(r_size) :: totalwg, wgtmp, latm1, latm2
 !  INTEGER :: i,j
 
-  WRITE(6,'(A)') 'Hello from set_common_scale'
+  if ( LOG_OUT ) WRITE(6,'(A)') 'Hello from set_common_scale'
 
   !
   ! Set up node and process distribution
@@ -337,11 +341,11 @@ SUBROUTINE read_restart(filename,v3dg,v2dg)
 !  write (6,'(A,I6.6,3A,I6.6,A)') 'MYRANK ',myrank,' is reading a file ',filename,'.pe',PRC_myrank,'.nc'
 
   write (filesuffix(4:9),'(I6.6)') PRC_myrank
-  write (6,'(A,I6.6,2A)') 'MYRANK ',myrank,' is reading a file ',trim(filename) // filesuffix
+  if ( LOG_OUT ) write (6,'(A,I6.6,2A)') 'MYRANK ',myrank,' is reading a file ',trim(filename) // filesuffix
   call ncio_open(trim(filename) // filesuffix, NF90_NOWRITE, ncid)
 
   do iv3d = 1, nv3d
-    if (LOG_LEVEL >= 1) then
+    if ( LOG_LEVEL >= 1 .and. LOG_OUT ) then
       write(6,'(1x,A,A15)') '*** Read 3D var: ', trim(v3d_name(iv3d))
     end if
 
@@ -358,7 +362,7 @@ SUBROUTINE read_restart(filename,v3dg,v2dg)
   end do
 
   do iv2d = 1, nv2d
-    if (LOG_LEVEL >= 1) then
+    if ( LOG_LEVEL >= 1 .and. LOG_OUT ) then
       write(6,'(1x,A,A15)') '*** Read 2D var: ', trim(v2d_name(iv2d))
     end if
     call ncio_check(nf90_inq_varid(ncid, trim(v2d_name(iv2d)), varid))
@@ -417,14 +421,14 @@ SUBROUTINE read_restart_par(filename,v3dg,v2dg,comm)
 !  if (.NOT. PRC_PERIODIC_X) start(2) = start(2) + IHALO
 !  if (.NOT. PRC_PERIODIC_Y) start(3) = start(3) + JHALO
 
-  write (6,'(A,I6.6,3A,6I6)') 'MYRANK ',myrank,' is reading a file ',trim(filename)//'.nc', ' >> PnetCDF start(3), count(3) =', start, count
+  if ( LOG_OUT ) write (6,'(A,I6.6,3A,6I6)') 'MYRANK ',myrank,' is reading a file ',trim(filename)//'.nc', ' >> PnetCDF start(3), count(3) =', start, count
 
   err = nfmpi_open(comm, trim(filename)//".nc", NF_NOWRITE, MPI_INFO_NULL, ncid)
   if ( err .NE. NF_NOERR ) &
      write (6,'(A)') 'failed nfmpi_open '//trim(filename)//'.nc '//nfmpi_strerror(err)
 
   do iv3d = 1, nv3d
-    if (LOG_LEVEL >= 1) then
+    if ( LOG_LEVEL >= 1 .and. LOG_OUT ) then
       write(6,'(1x,A,A15)') '*** Read 3D var: ', trim(v3d_name(iv3d))
     end if
     err = nfmpi_inq_varid(ncid, trim(v3d_name(iv3d)), varid)
@@ -440,7 +444,7 @@ SUBROUTINE read_restart_par(filename,v3dg,v2dg,comm)
   end do
 
   do iv2d = 1, nv2d
-    if (LOG_LEVEL >= 1) then
+    if ( LOG_LEVEL >= 1 .and. LOG_OUT ) then
       write(6,'(1x,A,A15)') '*** Read 2D var: ', trim(v2d_name(iv2d))
     end if
     err = nfmpi_inq_varid(ncid, trim(v2d_name(iv2d)), varid)
@@ -585,11 +589,11 @@ SUBROUTINE write_restart(filename,v3dg,v2dg)
 !  write (6,'(A,I6.6,3A,I6.6,A)') 'MYRANK ',myrank,' is writing a file ',filename,'.pe',PRC_myrank,'.nc'
 
   write (filesuffix(4:9),'(I6.6)') PRC_myrank
-  write (6,'(A,I6.6,2A)') 'MYRANK ',myrank,' is writing a file ',trim(filename) // filesuffix
+  if ( LOG_OUT) write (6,'(A,I6.6,2A)') 'MYRANK ',myrank,' is writing a file ',trim(filename) // filesuffix
   call ncio_open(trim(filename) // filesuffix, NF90_WRITE, ncid)
 
   do iv3d = 1, nv3d
-    if (LOG_LEVEL >= 1) then
+    if ( LOG_LEVEL >= 1 .and. LOG_OUT ) then
       write(6,'(1x,A,A15)') '*** Write 3D var: ', trim(v3d_name(iv3d))
     end if
 
@@ -606,7 +610,7 @@ SUBROUTINE write_restart(filename,v3dg,v2dg)
   end do
 
   do iv2d = 1, nv2d
-    if (LOG_LEVEL >= 1) then
+    if ( LOG_LEVEL >= 1 .and. LOG_OUT ) then
       write(6,'(1x,A,A15)') '*** Write 2D var: ', trim(v2d_name(iv2d))
     end if
     call ncio_check(nf90_inq_varid(ncid, trim(v2d_name(iv2d)), varid))
@@ -750,7 +754,7 @@ SUBROUTINE read_restart_coor(filename,lon,lat,height)
   end if
 
   write (filesuffix(4:9),'(I6.6)') PRC_myrank
-  write (6,'(A,I6.6,2A)') 'MYRANK ',myrank,' is reading a file ',trim(filename) // filesuffix
+  if ( LOG_OUT ) write (6,'(A,I6.6,2A)') 'MYRANK ',myrank,' is reading a file ',trim(filename) // filesuffix
   call ncio_open(trim(filename) // filesuffix, NF90_NOWRITE, ncid)
 
 !!! restart files do not contain 3D height variable before SCALE v5.1
@@ -816,10 +820,10 @@ SUBROUTINE read_topo(filename,topo)
   end if
 
   write (filesuffix(4:9),'(I6.6)') PRC_myrank
-  write (6,'(A,I6.6,2A)') 'MYRANK ',myrank,' is reading a file ',trim(filename) // filesuffix
+  if ( LOG_OUT ) write (6,'(A,I6.6,2A)') 'MYRANK ',myrank,' is reading a file ',trim(filename) // filesuffix
   call ncio_open(trim(filename) // filesuffix, NF90_NOWRITE, ncid)
 
-  if (LOG_LEVEL >= 1) then
+  if ( LOG_LEVEL >= 1 .and. LOG_OUT ) then
     write(6,'(1x,A,A15)') '*** Read 2D var: ', trim(topo2d_name)
   end if
   call ncio_check(nf90_inq_varid(ncid, trim(topo2d_name), varid))
@@ -936,13 +940,13 @@ subroutine read_history(filename,step,v3dg,v2dg)
   integer :: step_
  
   write (filesuffix(4:9),'(I6.6)') PRC_myrank
-  write (6,'(A,I6.6,2A)') 'MYRANK ',myrank,' is reading a file ',trim(filename) // filesuffix
+  if ( LOG_OUT ) write (6,'(A,I6.6,2A)') 'MYRANK ',myrank,' is reading a file ',trim(filename) // filesuffix
 
   ! 3D variables
   !-------------
   v3dg_RP(:,:,:,:) = UNDEF
   do iv3d = 1, nv3dd
-    if (LOG_LEVEL >= 1) then
+    if ( LOG_LEVEL >= 1 .and. LOG_OUT ) then
       write(6,'(1x,A,A15)') '*** Read 3D var: ', trim(v3dd_name(iv3d))
     end if
 
@@ -965,7 +969,7 @@ subroutine read_history(filename,step,v3dg,v2dg)
   !-------------
   v2dg_RP(:,:,:) = UNDEF
   do iv2d = 1, nv2dd
-    if (LOG_LEVEL >= 1) then
+    if ( LOG_LEVEL >= 1 .and. LOG_OUT ) then
       write(6,'(1x,A,A15)') '*** Read 2D var: ', trim(v2dd_name(iv2d))
     end if
 

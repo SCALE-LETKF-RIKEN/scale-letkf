@@ -1653,13 +1653,15 @@ SUBROUTINE monit_print(nobs,bias,rmse,monit_type)
   end do
   write(nstr, '(I4)') n
 
-  WRITE(6,'(A,' // trim(nstr) // "('============'))") '======'
-  WRITE(6,'(6x,' // trim(nstr) // 'A)')          var_show(1:n)
-  WRITE(6,'(A,' // trim(nstr) // "('------------'))") '------'
-  WRITE(6,'(A,' // trim(nstr) // 'A)') 'BIAS  ', bias_show(1:n)
-  WRITE(6,'(A,' // trim(nstr) // 'A)') 'RMSE  ', rmse_show(1:n)
-  WRITE(6,'(A,' // trim(nstr) // 'A)') 'NUMBER', nobs_show(1:n)
-  WRITE(6,'(A,' // trim(nstr) // "('============'))") '======'
+  if ( LOG_OUT ) then
+    WRITE(6,'(A,' // trim(nstr) // "('============'))") '======'
+    WRITE(6,'(6x,' // trim(nstr) // 'A)')          var_show(1:n)
+    WRITE(6,'(A,' // trim(nstr) // "('------------'))") '------'
+    WRITE(6,'(A,' // trim(nstr) // 'A)') 'BIAS  ', bias_show(1:n)
+    WRITE(6,'(A,' // trim(nstr) // 'A)') 'RMSE  ', rmse_show(1:n)
+    WRITE(6,'(A,' // trim(nstr) // 'A)') 'NUMBER', nobs_show(1:n)
+    WRITE(6,'(A,' // trim(nstr) // "('============'))") '======'
+  end if
 
   RETURN
 END SUBROUTINE monit_print

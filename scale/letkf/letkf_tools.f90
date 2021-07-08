@@ -108,11 +108,13 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
 
   call mpi_timer('', 2)
 
-  WRITE(6,'(A)') 'Hello from das_letkf'
-  WRITE(6,'(A,F15.2)') '  INFL_MUL = ',INFL_MUL
-
-  WRITE(6,'(A,I8)') 'Target observation numbers (global) : NOBS=',nobstotalg
-  WRITE(6,'(A,I8)') 'Target observation numbers processed in this subdomian : NOBS=',nobstotal
+  if ( LOG_OUT ) then 
+    WRITE(6,'(A)') 'Hello from das_letkf'
+    WRITE(6,'(A,F15.2)') '  INFL_MUL = ',INFL_MUL
+  
+    WRITE(6,'(A,I8)') 'Target observation numbers (global) : NOBS=',nobstotalg
+    WRITE(6,'(A,I8)') 'Target observation numbers processed in this subdomian : NOBS=',nobstotal
+  end if
 !!  !
 !!  ! In case of no obs
 !!  !

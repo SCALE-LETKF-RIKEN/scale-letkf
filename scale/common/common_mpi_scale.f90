@@ -114,6 +114,8 @@ subroutine initialize_mpi_scale
     MPI_r_size = MPI_REAL
   end if
 
+  call set_common_conf( myrank )
+
   return
 end subroutine initialize_mpi_scale
 
@@ -289,7 +291,7 @@ subroutine set_common_mpi_grid
   else
     nij1 = nij1max - 1
   end if
-  write (6,'(A,I6.6,A,I7)') 'MYRANK ', myrank, ' number of grid points: nij1 =', nij1
+  if ( LOG_OUT ) write (6,'(A,I6.6,A,I7)') 'MYRANK ', myrank, ' number of grid points: nij1 =', nij1
 
   allocate (nij1node(nprocs_e))
   do n = 1, nprocs_e
@@ -400,7 +402,7 @@ SUBROUTINE set_mem_node_proc(mem)
 
   nprocs_m = sum(PRC_DOMAINS(1:NUM_DOMAIN))
 
-  if (LOG_LEVEL >= 1) then
+  if ( LOG_LEVEL >= 1 .and. LOG_OUT ) then
     write(6,'(A,I10)') '[Info] Total number of MPI processes                = ', nprocs
     write(6,'(A,I10)') '[Info] Number of nodes (NNODES)                     = ', nnodes
     write(6,'(A,I10)') '[Info] Number of processes per node (PPN)           = ', PPN
@@ -1657,13 +1659,13 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
 
       if (myrank_d == 0) then
         if ( OBSDEP_OUT_NC ) then
-          write (6,'(A,I6.6,2A)') 'MYRANK ', myrank,' is writing an obsda file ', trim(OBSDEP_OUT_BASENAME)//'.nc'
+          if ( LOG_OUT ) write (6,'(A,I6.6,2A)') 'MYRANK ', myrank,' is writing an obsda file ', trim(OBSDEP_OUT_BASENAME)//'.nc'
           call write_obs_dep_nc( trim(OBSDEP_OUT_BASENAME)//'.nc', &
                                  obsdep_g_nobs, obsdep_g_set, &
                                  obsdep_g_idx, obsdep_g_qc, &
                                  obsdep_g_omb, obsdep_g_oma )
         else
-          write (6,'(A,I6.6,2A)') 'MYRANK ', myrank,' is writing an obsda file ', trim(OBSDEP_OUT_BASENAME)//'.dat'
+          if ( LOG_OUT ) write (6,'(A,I6.6,2A)') 'MYRANK ', myrank,' is writing an obsda file ', trim(OBSDEP_OUT_BASENAME)//'.dat'
           call write_obs_dep( trim(OBSDEP_OUT_BASENAME)//'.dat', &
                               obsdep_g_nobs, obsdep_g_set, &
                               obsdep_g_idx, obsdep_g_qc, &
@@ -1703,19 +1705,21 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
   end if
 
   if (DEPARTURE_STAT_ALL_PROCESSES .or. myrank_e == mmean_rank_e) then
-    if (monit_step == 1) then
-      write(6,'(2A)') 'OBSERVATIONAL DEPARTURE STATISTICS [GUESS] (IN THIS SUBDOMAIN):'
-    else if (monit_step == 2) then
-      write(6,'(2A)') 'OBSERVATIONAL DEPARTURE STATISTICS [ANALYSIS] (IN THIS SUBDOMAIN):'
-    end if
-    call monit_print(nobs, bias, rmse, monit_type)
+    if ( LOG_OUT ) then
+      if (monit_step == 1) then
+        write(6,'(2A)') 'OBSERVATIONAL DEPARTURE STATISTICS [GUESS] (IN THIS SUBDOMAIN):'
+      else if (monit_step == 2) then
+        write(6,'(2A)') 'OBSERVATIONAL DEPARTURE STATISTICS [ANALYSIS] (IN THIS SUBDOMAIN):'
+      end if
+      call monit_print(nobs, bias, rmse, monit_type)
 
-    if (monit_step == 1) then
-      write(6,'(2A)') 'OBSERVATIONAL DEPARTURE STATISTICS [GUESS] (GLOBAL):'
-    else if (monit_step == 2) then
-      write(6,'(2A)') 'OBSERVATIONAL DEPARTURE STATISTICS [ANALYSIS] (GLOBAL):'
+      if (monit_step == 1) then
+        write(6,'(2A)') 'OBSERVATIONAL DEPARTURE STATISTICS [GUESS] (GLOBAL):'
+      else if (monit_step == 2) then
+        write(6,'(2A)') 'OBSERVATIONAL DEPARTURE STATISTICS [ANALYSIS] (GLOBAL):'
+      end if
+      call monit_print(nobs_g, bias_g, rmse_g, monit_type)
     end if
-    call monit_print(nobs_g, bias_g, rmse_g, monit_type)
     if ( DEPARTURE_STAT_OUT_NC .and. myrank_e == mmean_rank_e .and. myrank_d == 0 ) then
       call write_monit_nc( nobs_g, bias_g, rmse_g, monit_step, monit_type )
     endif
@@ -2089,22 +2093,26 @@ subroutine mpi_timer(sect_name, level, barrier)
 
       if (i == level .and. initialized .and. trim(sect_name) /= '') then
         sect_name_tmp = sect_name ! to left-align the text
-        write (6,'(3A,2F14.6,A)') sect_prefix_1, trim(sect_prefix_2), sect_name_tmp, &
-                                  timer_before_barrier - timer_save(i), &
-                                  timer_after_barrier - timer_save(i)
+        if ( LOG_OUT ) then
+          write (6,'(3A,2F14.6,A)') sect_prefix_1, trim(sect_prefix_2), sect_name_tmp, &
+                                    timer_before_barrier - timer_save(i), &
+                                    timer_after_barrier - timer_save(i)
+        end if 
       else if (timer_after_barrier - timer_save(i) >= timer_neglect) then
         if (i == level .and. initialized) then
           sect_name_tmp = ' (wait)'
         else
           sect_name_tmp = ' (unknown)'
         end if
-        if (timer_before_barrier - timer_save(i) >= timer_neglect) then
-          write (6,'(3A,2F14.6,A)') sect_prefix_1, trim(sect_prefix_2), sect_name_tmp, &
-                                    timer_before_barrier - timer_save(i), &
-                                    timer_after_barrier - timer_save(i)
-        else
-          write (6,'(3A,14x,F14.6,A)') sect_prefix_1, trim(sect_prefix_2), sect_name_tmp, &
-                                       timer_after_barrier - timer_save(i)
+        if ( LOG_OUT ) then
+          if (timer_before_barrier - timer_save(i) >= timer_neglect) then
+            write (6,'(3A,2F14.6,A)') sect_prefix_1, trim(sect_prefix_2), sect_name_tmp, &
+                                      timer_before_barrier - timer_save(i), &
+                                      timer_after_barrier - timer_save(i)
+          else
+            write (6,'(3A,14x,F14.6,A)') sect_prefix_1, trim(sect_prefix_2), sect_name_tmp, &
+                                         timer_after_barrier - timer_save(i)
+          end if
         end if
       end if
     end if

@@ -70,6 +70,8 @@ program scaleles_pp_ens
   nprocs = universal_nprocs
   myrank = universal_myrank
 
+  call set_common_conf( myrank )
+
 !  WRITE(6,'(A,I6.6,A,I6.6)') 'Hello from MYRANK ',universal_myrank,'/',universal_nprocs-1
 
   if (command_argument_count() >= 3) then
@@ -108,7 +110,6 @@ program scaleles_pp_ens
 
 !-----------------------------------------------------------------------
 
-  call set_common_conf
   if (DET_RUN) then
     call set_mem_node_proc(MEMBER+2)
   else
@@ -177,7 +178,7 @@ program scaleles_pp_ens
             call filename_replace_mem(confname, memf_mdet)
           end if
         end if
-        WRITE(6,'(A,I6.6,2A)') 'MYRANK ',universal_myrank,' is running a model with configuration file: ', trim(confname)
+        if ( LOG_OUT ) WRITE(6,'(A,I6.6,2A)') 'MYRANK ',universal_myrank,' is running a model with configuration file: ', trim(confname)
 
         call rm_prep ( local_comm, &
                        intercomm_parent, &

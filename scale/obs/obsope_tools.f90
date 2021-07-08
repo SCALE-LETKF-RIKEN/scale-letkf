@@ -340,8 +340,8 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
     im = myrank_to_mem(it)
     if ((im >= 1 .and. im <= MEMBER) .or. im == mmdetin) then
 
-      write (6,'(A,I6.6,A,I4.4,A,I6.6)') 'MYRANK ',myrank,' is processing member ', &
-            im, ', subdomain id #', myrank_d
+      if ( LOG_OUT ) write (6,'(A,I6.6,A,I4.4,A,I6.6)') 'MYRANK ',myrank,' is processing member ', &
+                                                        im, ', subdomain id #', myrank_d
 
       if (nobs > 0) then
         obsda%qc(1:nobs) = iqc_undef
@@ -366,7 +366,7 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
       ! Valid observations: loop over time slots
       ! 
       do islot = SLOT_START, SLOT_END
-        write (6, '(A,I3,A,F9.1,A,F9.1,A)') 'Slot #', islot-SLOT_START+1, ': time window (', slot_lb(islot), ',', slot_ub(islot), '] sec'
+        if ( LOG_OUT )write (6, '(A,I3,A,F9.1,A,F9.1,A)') 'Slot #', islot-SLOT_START+1, ': time window (', slot_lb(islot), ',', slot_ub(islot), '] sec'
 
         n1 = bsna(islot-1, myrank_d) - bsna(SLOT_START-1, myrank_d) + 1
         n2 = bsna(islot,   myrank_d) - bsna(SLOT_START-1, myrank_d)
@@ -377,8 +377,10 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
           cycle
         end if
 
-        write (6, '(A,I10)') ' -- # obs in the slot = ', slot_nobsg
-        write (6, '(A,I6,A,I6,A,I10)') ' -- # obs in the slot and processed by rank ', myrank, ' (subdomain #', myrank_d, ') = ', bsn(islot, myrank_d)
+        if ( LOG_OUT ) then
+          write (6, '(A,I10)') ' -- # obs in the slot = ', slot_nobsg
+          write (6, '(A,I6,A,I6,A,I10)') ' -- # obs in the slot and processed by rank ', myrank, ' (subdomain #', myrank_d, ') = ', bsn(islot, myrank_d)
+        end if
 
         call mpi_timer('', 2)
 
@@ -589,8 +591,10 @@ SUBROUTINE obsmake_cal(obs)
 
     end do ! [ iof = 1, OBS_IN_NUM ]
 
-    write (6,'(3A,I10)') ' -- [', trim(OBS_IN_NAME(iof)), '] nobs in the slot = ', nslot
-    write (6,'(3A,I6,A,I10)') ' -- [', trim(OBS_IN_NAME(iof)), '] nobs in the slot and processed by rank ', myrank, ' = ', nobs_slot
+    if ( LOG_OUT ) then
+      write (6,'(3A,I10)') ' -- [', trim(OBS_IN_NAME(iof)), '] nobs in the slot = ', nslot
+      write (6,'(3A,I6,A,I10)') ' -- [', trim(OBS_IN_NAME(iof)), '] nobs in the slot and processed by rank ', myrank, ' = ', nobs_slot
+    end if
 
   end do ! [ islot = SLOT_START, SLOT_END ]
 
