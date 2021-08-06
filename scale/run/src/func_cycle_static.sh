@@ -65,23 +65,6 @@ cp ${OBSUTIL_DIR}/obsope ${TMPROOT}/obsope
 cp ${LETKF_DIR}/letkf ${TMPROOT}/letkf
 
 #-------------------------------------------------------------------------------
-# dynamic library
-if [ "$PRESET" = 'FUGAKU' ] && (( CP_BIN_TMP == 1 )) ; then
-
-  if [ -z "$SCALE_NETCDF_F" ] | [ -z "$SCALE_NETCDF_C" ] | \
-     [ -z "$SCALE_PNETCDF" ] | [ -z "$SCALE_HDF" ] ; then
-    echo "Set SCALE_NETCDF_F/SCALE_NETCDF_C/SCALE_PNETCDF/SCALE_HDF"
-    exit
-  fi
-
-  cp ${SCALE_NETCDF_F}/lib/lib*.so* ${TMPROOT}/
-  cp ${SCALE_NETCDF_C}/lib/libnetcdf*.so*  ${TMPROOT}/
-  cp ${SCALE_PNETCDF}/lib/lib*.so* ${TMPROOT}/
-  cp ${SCALE_HDF}/lib/libhdf5*.so*  ${TMPROOT}/
-
-fi
-
-#-------------------------------------------------------------------------------
 # database
 
 cp -r ${SCALEDIR}/scale-rm/test/data/rad ${TMPROOT}/dat/rad
@@ -1212,6 +1195,20 @@ stepexecname[4]="obsope"
 stepname[5]='Run LETKF'
 stepexecdir[5]="$TMPRUN/letkf"
 stepexecname[5]="letkf"
+
+if (( USE_LLIO_BIN == 1 )); then
+  LLIO_BINDIR=`readlink -f $DIR | sed -e "s#vol0004#vol0004_cache#g"`
+  stepexecbin[1]="$LLIO_BINDIR/ensmodel/scale-rm_pp_ens"
+  stepexecbin[2]="$LLIO_BINDIR/ensmodel/scale-rm_init_ens"
+  stepexecbin[3]="$LLIO_BINDIR/ensmodel/scale-rm_ens"
+  stepexecbin[4]="$LLIO_BINDIR/obs/obsope"
+  stepexecbin[5]="$LLIO_BINDIR/letkf/letkf"
+else
+  for i in `seq $nsteps`; do
+    stepexecbin[$i]="./${stepexecname[$i]}"
+  done
+fi
+
 
 #-------------------------------------------------------------------------------
 # usage help string

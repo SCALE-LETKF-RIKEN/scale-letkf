@@ -64,17 +64,6 @@ cp ${ENSMODEL_DIR}/scale-rm_init_ens ${TMPROOT}/scale-rm_init_ens
 cp ${ENSMODEL_DIR}/scale-rm_ens ${TMPROOT}/scale-rm_ens
 
 #-------------------------------------------------------------------------------
-# dynamic library
-if [ "$PRESET" = 'FUGAKU' ] && (( CP_BIN_TMP == 1 )) ; then
-
-  cp ${SCALE_NETCDF_F}/lib/libnetcdff.so* ${TMPROOT}/
-  cp ${SCALE_NETCDF_C}/lib/libnetcdf.so*  ${TMPROOT}/
-  cp ${SCALE_PNETCDF}/lib/libpnetcdf.so* ${TMPROOT}/
-  cp ${SCALE_HDF}/lib/libhdf5*so*  ${TMPROOT}/
-
-fi
-
-#-------------------------------------------------------------------------------
 # database
 
 cp -r ${SCALEDIR}/scale-rm/test/data/rad ${TMPROOT}/dat/rad
@@ -966,6 +955,17 @@ stepexecname[3]="scale-rm_ens"
 #stepname[4]='Run verification'
 #stepexecdir[4]="$TMPRUN/verify"
 #stepexecname[4]="verify"
+
+if (( USE_LLIO_BIN == 1 )); then
+  LLIO_BINDIR=`readlink -f $DIR | sed -e "s#vol0004#vol0004_cache#g"`
+  stepexecbin[1]="$LLIO_BINDIR/ensmodel/scale-rm_pp_ens"
+  stepexecbin[2]="$LLIO_BINDIR/ensmodel/scale-rm_init_ens"
+  stepexecbin[3]="$LLIO_BINDIR/ensmodel/scale-rm_ens"
+else
+  for i in `seq $nsteps`; do
+    stepexecbin[$i]="./${stepexecname[$i]}"
+  done
+fi
 
 #-------------------------------------------------------------------------------
 # usage help string

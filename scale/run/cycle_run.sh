@@ -195,15 +195,14 @@ export FLIB_BARRIER=HARD
 
 EOF
 
-if (( CP_BIN_TMP == 1 )) ; then
+  if (( USE_LLIO_BIN == 1 )); then
+    for i in $(seq $nsteps) ; do
+      echo "llio_transfer ${stepexecbin[$i]}" >> $jobscrp 
+    done
+  fi
 
-cat << EOF >>  $jobscrp 
-export LD_LIBRARY_PATH=/tmp/`id -u -n`:\${LD_LIBRARY_PATH}
-EOF
 
-else
-
-if (( USE_SPACK > 0 )); then
+  if (( USE_SPACK > 0 )); then
 
 cat << EOF >>  $jobscrp 
 SPACK_FJVER=${SPACK_FJVER}
@@ -216,38 +215,43 @@ export LD_LIBRARY_PATH=/lib64:/usr/lib64:/opt/FJSVxtclanga/tcsds-latest/lib64:/o
 
 EOF
 
-else
+  else
 
-  if [ -z "$SCALE_NETCDF_C" ] || [ -z "$SCALE_NETCDF_F" ] || [ -z "$SCALE_PNETCDF" ] || [ -z "$SCALE_HDF" ] ; then
-    echo "[Error] Export SCALE environmental parameters (e.g., SCALE_NETCDF_C)"
-    exit 1
-  fi
+    if [ -z "$SCALE_NETCDF_C" ] || [ -z "$SCALE_NETCDF_F" ] || [ -z "$SCALE_PNETCDF" ] || [ -z "$SCALE_HDF" ] ; then
+      echo "[Error] Export SCALE environmental parameters (e.g., SCALE_NETCDF_C)"
+      exit 1
+    fi
+
 cat << EOF >>  $jobscrp 
 
 export LD_LIBRARY_PATH=/lib64:/usr/lib64:/opt/FJSVxtclanga/tcsds-latest/lib64:/opt/FJSVxtclanga/tcsds-latest/lib:${SCALE_NETCDF_C}/lib:${SCALE_NETCDF_F}/lib:${SCALE_PNETCDF}/lib:${SCALE_HDF}/lib:\$LD_LIBRARY_PATH
 
 EOF
 
-fi
+  fi # USE_SPACK
 
-
-fi
-
-if (( USE_RAMDISK == 1 )) && (( OUT_OPT >= 2 )); then
-  hdir_l="/worktmp/hist/mean /worktmp/hist/mdet "$(seq -f '/worktmp/hist/%04g' -s ' ' ${MEMBER})
-  adir_l=" /worktmp/anal/mean /worktmp/anal/mdet /worktmp/anal/sprd "$(seq -f '/worktmp/anal/%04g' -s ' ' ${MEMBER})
-  gdir_l=" /worktmp/gues/mean /worktmp/gues/mdet /worktmp/gues/sprd "$(seq -f '/worktmp/gues/%04g' -s ' ' ${MEMBER})
-  bdir_l=" /worktmp/bdy/mean /worktmp/bdy/mdet "$(seq -f '/worktmp/bdy/%04g' -s ' ' ${MEMBER})
+  if (( USE_RAMDISK == 1 )) && (( OUT_OPT >= 2 )); then
+    hdir_l="/worktmp/hist/mean /worktmp/hist/mdet "$(seq -f '/worktmp/hist/%04g' -s ' ' ${MEMBER})
+    adir_l=" /worktmp/anal/mean /worktmp/anal/mdet /worktmp/anal/sprd "$(seq -f '/worktmp/anal/%04g' -s ' ' ${MEMBER})
+    gdir_l=" /worktmp/gues/mean /worktmp/gues/mdet /worktmp/gues/sprd "$(seq -f '/worktmp/gues/%04g' -s ' ' ${MEMBER})
+    bdir_l=" /worktmp/bdy/mean /worktmp/bdy/mdet "$(seq -f '/worktmp/bdy/%04g' -s ' ' ${MEMBER})
 cat << EOF >>  $jobscrp 
 
 mpiexec -std-proc mkdir_log mkdir -p ${hdir_l} ${adir_l} ${gdir_l} ${bdir_l}
 
 EOF
-fi
+  fi
 
 cat << EOF >>  $jobscrp 
 ./${job}.sh "$STIME" "$ETIME" "$MEMBERS" "$CYCLE" "$CYCLE_SKIP" "$IF_VERF" "$IF_EFSO" "$ISTEP" "$FSTEP" "$CONF_MODE" || exit \$?
 EOF
+
+  if (( USE_LLIO_BIN == 1 )); then
+    for i in $(seq $nsteps) ; do
+      echo "llio_transfer --purge ${stepexecbin[$i]}" >> $jobscrp 
+    done
+  fi
+
 
   echo "[$(datetime_now)] Run ${job} job on PJM"
   echo

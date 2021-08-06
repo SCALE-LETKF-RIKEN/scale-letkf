@@ -197,18 +197,15 @@ export PLE_MPI_STD_EMPTYFILE=off
 export OMP_WAIT_POLICY=active
 export FLIB_BARRIER=HARD
 
-
 EOF
 
-if (( CP_BIN_TMP == 1 )) ; then
+  if (( USE_LLIO_BIN == 1 )); then
+    for i in $(seq $nsteps) ; do
+      echo "llio_transfer ${stepexecbin[$i]}" >> $jobscrp 
+    done
+  fi
 
-cat << EOF >>  $jobscrp 
-export LD_LIBRARY_PATH=/tmp/`id -u -n`:\${LD_LIBRARY_PATH}
-EOF
-
-else
-
-if (( USE_SPACK > 0 )); then
+  if (( USE_SPACK > 0 )); then
 
 cat << EOF >>  $jobscrp 
 SPACK_FJVER=${SPACK_FJVER}
@@ -221,25 +218,29 @@ export LD_LIBRARY_PATH=/lib64:/usr/lib64:/opt/FJSVxtclanga/tcsds-latest/lib64:/o
 
 EOF
 
-else
+  else
 
-  if [ -z "$SCALE_NETCDF_C" ] || [ -z "$SCALE_NETCDF_F" ] || [ -z "$SCALE_PNETCDF" ] || [ -z "$SCALE_HDF" ] ; then
-    echo "[Error] Export SCALE environmental parameters (e.g., SCALE_NETCDF_C)"
-    exit 1
-  fi
+    if [ -z "$SCALE_NETCDF_C" ] || [ -z "$SCALE_NETCDF_F" ] || [ -z "$SCALE_PNETCDF" ] || [ -z "$SCALE_HDF" ] ; then
+      echo "[Error] Export SCALE environmental parameters (e.g., SCALE_NETCDF_C)"
+      exit 1
+    fi
 
 cat << EOF >>  $jobscrp 
 export LD_LIBRARY_PATH=/lib64:/usr/lib64:/opt/FJSVxtclanga/tcsds-latest/lib64:/opt/FJSVxtclanga/tcsds-latest/lib:${SCALE_NETCDF_C}/lib:${SCALE_NETCDF_F}/lib:${SCALE_PNETCDF}/lib:${SCALE_HDF}/lib:\$LD_LIBRARY_PATH
 
 EOF
 
-fi
-
-fi
+  fi
 
 cat << EOF >>  $jobscrp 
 ./${job}.sh "$STIME" "$ETIME" "$MEMBERS" "$CYCLE" "$CYCLE_SKIP" "$IF_VERF" "$IF_EFSO" "$ISTEP" "$FSTEP" "$CONF_MODE" || exit \$?
 EOF
+
+  if (( USE_LLIO_BIN == 1 )); then
+    for i in $(seq $nsteps) ; do
+      echo "llio_transfer --purge ${stepexecbin[$i]}" >> $jobscrp 
+    done
+  fi
 
   echo "[$(datetime_now)] Run ${job} job on PJM"
   echo

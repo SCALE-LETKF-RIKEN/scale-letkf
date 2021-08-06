@@ -146,10 +146,8 @@ repeat_mems=$((fmember*SCALE_NP_TOTAL/totalnp))
 nitmax=$(( ( fmember - 1) * SCALE_NP_TOTAL / totalnp + 1 ))
 
 exedir=./
-if [ "$PRESET" = 'FUGAKU' ] && (( CP_BIN_TMP == 1 )) ; then
-  mpiexec /work/system/bin/my_clean.sh
-  mpiexec /work/system/bin/my_cpy.sh ${ENSMODEL_DIR}/scale-rm_pp_ens ${ENSMODEL_DIR}/scale-rm_init_ens ${ENSMODEL_DIR}/scale-rm_ens ${TMPROOT}/lib*.so*
-  exedir=/tmp/$(id -u -n)/
+if [ "$PRESET" = 'FUGAKU' ] && (( USE_LLIO_BIN == 1 )) ; then
+  exedir=
 fi
 
 #-------------------------------------------------------------------------------
@@ -302,10 +300,6 @@ while ((time <= ETIME)); do
 #-------------------------------------------------------------------------------
 done
 #-------------------------------------------------------------------------------
-
-if [ "$PRESET" = 'FUGAKU' ] && (( CP_BIN_TMP == 1 )) ; then
-  mpiexec /work/system/bin/my_clean.sh
-fi
 
 #===============================================================================
 # Stage out
