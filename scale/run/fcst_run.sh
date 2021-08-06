@@ -208,6 +208,8 @@ EOF
 
 else
 
+if (( USE_SPACK > 0 )); then
+
 cat << EOF >>  $jobscrp 
 SPACK_FJVER=${SPACK_FJVER}
 . /vol0004/apps/oss/spack/share/spack/setup-env.sh
@@ -216,7 +218,22 @@ spack load netcdf-fortran%fj@\${SPACK_FJVER}
 spack load parallel-netcdf%fj@\${SPACK_FJVER}
 
 export LD_LIBRARY_PATH=/lib64:/usr/lib64:/opt/FJSVxtclanga/tcsds-latest/lib64:/opt/FJSVxtclanga/tcsds-latest/lib:\$LD_LIBRARY_PATH
+
 EOF
+
+else
+
+  if [ -z "$SCALE_NETCDF_C" ] || [ -z "$SCALE_NETCDF_F" ] || [ -z "$SCALE_PNETCDF" ] || [ -z "$SCALE_HDF" ] ; then
+    echo "[Error] Export SCALE environmental parameters (e.g., SCALE_NETCDF_C)"
+    exit 1
+  fi
+
+cat << EOF >>  $jobscrp 
+export LD_LIBRARY_PATH=/lib64:/usr/lib64:/opt/FJSVxtclanga/tcsds-latest/lib64:/opt/FJSVxtclanga/tcsds-latest/lib:${SCALE_NETCDF_C}/lib:${SCALE_NETCDF_F}/lib:${SCALE_PNETCDF}/lib:${SCALE_HDF}/lib:\$LD_LIBRARY_PATH
+
+EOF
+
+fi
 
 fi
 

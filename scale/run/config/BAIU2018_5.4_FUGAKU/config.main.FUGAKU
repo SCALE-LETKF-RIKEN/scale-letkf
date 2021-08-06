@@ -134,12 +134,16 @@ TMPL="$TMP"
 
 USE_RAMDISK=1   # 1: Use RAM disk on FUGAKU
                 # 0: Not use RAM disk
-CP_BIN_TMP=1   # 1: Copy executable binary to /tmp on FUGAKU
+CP_BIN_TMP=0   # 1: Copy executable binary to /tmp on FUGAKU
                # 0: Not copy
 
 CLEAR_TMP=0                 # Clear temporary directories after the completion of job?
                             #  0: No
                             #  1: Yes
+
+USE_SPACK=0 # 1: Use spack in job scripts
+            # 0: Not use spack in job scripts
+            #    SCALE environment paramters (e.g., SCALE_NETCDF_C) should be exported
 
 #===============================================================================
 # Environmental settings
