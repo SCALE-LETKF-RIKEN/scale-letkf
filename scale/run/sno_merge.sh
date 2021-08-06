@@ -25,7 +25,7 @@ SCALEDIR="$(cd "$(pwd)/../../.." && pwd)"
 #PPN=$PPN # Process per node
 
 TYPE=fcst
-#TYPE=anal
+TYPE=anal
 #TYPE=gues
 #TYPE=hist
 
@@ -71,12 +71,12 @@ if [ "$PLEV" == "T" ] ; then
   fi
 fi
 
+VARS="'Gprs', 'MSLP', 'Tprs', 'Uprs', 'Vprs', 'QVprs', 'QHYDprs', 'DENSprs',"
+
 if [ "$TYPE" != "fcst" ] && [ "$TYPE" != "hist" ] ; then
   VARS="'RHOT', 'DENS', 'MOMX', 'MOMY', 'MOMZ'"
   PLEV=F
 fi
-
-VARS="'Gprs', 'MSLP', 'Tprs', 'Uprs', 'Vprs', 'QVprs', 'QHYDprs', 'DENSprs',"
 
 TOPO=0 # Process topography file? # 1: Yes, 0: No
 if (( TOPO > 0 )) ; then
@@ -318,17 +318,51 @@ export PLE_MPI_STD_EMPTYFILE=off
 export OMP_WAIT_POLICY=active
 export FLIB_BARRIER=HARD
 
+EOF
+
+  if (( USE_SPACK > 0 )); then
+cat << EOF >> $jobsh
 SPACK_FJVER=${SPACK_FJVER}
 . /vol0004/apps/oss/spack/share/spack/setup-env.sh
 spack load netcdf-c%fj@\${SPACK_FJVER}
 spack load netcdf-fortran%fj@\${SPACK_FJVER}
 spack load parallel-netcdf%fj@\${SPACK_FJVER}
 
-echo "[\$(date "+%Y/%m/%d %H:%M:%S")] Start SNO"
-mpiexec -std-proc log/NOUT -n $((NP_OFILE)) ${SNOBIN} ${conf_bulk}.\${PJM_BULKNUM}
-echo "[\$(date "+%Y/%m/%d %H:%M:%S")] End SNO"
+export LD_LIBRARY_PATH=/lib64:/usr/lib64:/opt/FJSVxtclanga/tcsds-latest/lib64:/opt/FJSVxtclanga/tcsds-latest/lib:\$LD_LIBRARY_PATH
+
+EOF
+  else
+
+    if [ -z "$SCALE_NETCDF_C" ] || [ -z "$SCALE_NETCDF_F" ] || [ -z "$SCALE_PNETCDF" ] || [ -z "$SCALE_HDF" ] ; then
+      echo "[Error] Export SCALE environmental parameters (e.g., SCALE_NETCDF_C)"
+      exit 1
+    fi
+
+cat << EOF >>  $jobsh
+
+export LD_LIBRARY_PATH=/lib64:/usr/lib64:/opt/FJSVxtclanga/tcsds-latest/lib64:/opt/FJSVxtclanga/tcsds-latest/lib:${SCALE_NETCDF_C}/lib:${SCALE_NETCDF_F}/lib:${SCALE_PNETCDF}/lib:${SCALE_HDF}/lib:\$LD_LIBRARY_PATH
+
 EOF
 
+  fi
+
+  if (( USE_LLIO_BIN == 1 )); then
+    SNOBIN=${SNOBIN/vol0004/vol0004_cache}
+    echo "llio_transfer ${SNOBIN}" >> $jobsh
+  fi
+
+cat << EOF >> $jobsh
+echo "[\$(date "+%Y/%m/%d %H:%M:%S")] Start SNO"
+
+mpiexec -std-proc log/NOUT -n $((NP_OFILE)) ${SNOBIN} ${conf_bulk}.\${PJM_BULKNUM}
+
+echo "[\$(date "+%Y/%m/%d %H:%M:%S")] End SNO"
+
+EOF
+
+  if (( USE_LLIO_BIN == 1 )); then
+    echo "llio_transfer --purge ${SNOBIN}" >> $jobsh
+  fi
 
 fi
 
