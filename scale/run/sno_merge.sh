@@ -347,7 +347,6 @@ EOF
   fi
 
   if (( USE_LLIO_BIN == 1 )); then
-    SNOBIN=${SNOBIN/vol0004/vol0004_cache}
     echo "llio_transfer ${SNOBIN}" >> $jobsh
   fi
 

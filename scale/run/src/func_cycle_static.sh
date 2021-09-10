@@ -1197,12 +1197,11 @@ stepexecdir[5]="$TMPRUN/letkf"
 stepexecname[5]="letkf"
 
 if (( USE_LLIO_BIN == 1 )); then
-  LLIO_BINDIR=`readlink -f $DIR | sed -e "s#vol0004#vol0004_cache#g"`
-  stepexecbin[1]="$LLIO_BINDIR/ensmodel/scale-rm_pp_ens"
-  stepexecbin[2]="$LLIO_BINDIR/ensmodel/scale-rm_init_ens"
-  stepexecbin[3]="$LLIO_BINDIR/ensmodel/scale-rm_ens"
-  stepexecbin[4]="$LLIO_BINDIR/obs/obsope"
-  stepexecbin[5]="$LLIO_BINDIR/letkf/letkf"
+  stepexecbin[1]="$DIR/ensmodel/scale-rm_pp_ens"
+  stepexecbin[2]="$DIR/ensmodel/scale-rm_init_ens"
+  stepexecbin[3]="$DIR/ensmodel/scale-rm_ens"
+  stepexecbin[4]="$DIR/obs/obsope"
+  stepexecbin[5]="$DIR/letkf/letkf"
 else
   for i in `seq $nsteps`; do
     stepexecbin[$i]="./${stepexecname[$i]}"

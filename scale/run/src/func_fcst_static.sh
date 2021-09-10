@@ -957,10 +957,9 @@ stepexecname[3]="scale-rm_ens"
 #stepexecname[4]="verify"
 
 if (( USE_LLIO_BIN == 1 )); then
-  LLIO_BINDIR=`readlink -f $DIR | sed -e "s#vol0004#vol0004_cache#g"`
-  stepexecbin[1]="$LLIO_BINDIR/ensmodel/scale-rm_pp_ens"
-  stepexecbin[2]="$LLIO_BINDIR/ensmodel/scale-rm_init_ens"
-  stepexecbin[3]="$LLIO_BINDIR/ensmodel/scale-rm_ens"
+  stepexecbin[1]="$DIR/ensmodel/scale-rm_pp_ens"
+  stepexecbin[2]="$DIR/ensmodel/scale-rm_init_ens"
+  stepexecbin[3]="$DIR/ensmodel/scale-rm_ens"
 else
   for i in `seq $nsteps`; do
     stepexecbin[$i]="./${stepexecname[$i]}"
