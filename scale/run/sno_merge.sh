@@ -5,13 +5,13 @@
 #
 
 GRADS=F
-PLEV=T
-
+PLEV=F
 
 INPUT_FROM_SNOW=F
 INPUT_SNOW_NP=16
 
-
+ALLVAR=F
+SINGLE_VAR=T
 
 tint=21600 # [second]
 tstart='2018-07-05 0:10:00'
@@ -22,19 +22,18 @@ RUNDIR="${TMP}_sno"
 
 
 SCALEDIR="$(cd "$(pwd)/../../.." && pwd)"  
-#PPN=$PPN # Process per node
 
 TYPE=fcst
 TYPE=anal
 #TYPE=gues
-#TYPE=hist
+TYPE=hist
 
 ## Which domain do you want to convert?
 #DOM=2 
 
 # Output file (X & Y process number) for each member
-NP_OFILE_X=4
-NP_OFILE_Y=4
+NP_OFILE_X=1
+NP_OFILE_Y=1
 
 if [ "$INPUT_FROM_SNOW" == "T" ] ; then
   NP_OFILE_X=1
@@ -44,38 +43,23 @@ fi
 # Do not edit!
 NP_OFILE=$((${NP_OFILE_X} * ${NP_OFILE_Y})) # Output file (process number) for each member
 
-#SNO_MEMBERS=${MEMBER}
-#SNO_MEM_L=$(seq -f %04g ${SNO_MEMBERS})" mean mdet" # All members + mean + mdet
-SNO_MEM_L=" mean 0001 0002 0003 0004"
-SNO_MEMBERS=5
+# Specify members that will be processed
+#SNO_MEMBERS=50
+#SNO_MEM_L="mean "$(seq -f %04g ${SNO_MEMBERS})
 
-SNO_MEMBERS=50
-SNO_MEM_L="mean "$(seq -f %04g ${SNO_MEMBERS})
-
-SNO_MEMBERS=0
 SNO_MEM_L="mean "
 
 
-# Convert variables (Other variables will NOT be included in converted files)
-#VARS='"Umet", "Vmet", "W", "T", "QV", "QHYD", "PRES", "RAIN", "MSLP"'
-VARS='"MSLP",'
-#NVAR='MSLP'
-VARS="'PRES', 'SFC_PRES'"
-
-if [ "$PLEV" == "T" ] ; then
-#  VARS="'QV', 'Umet', 'Vmet', 'W', 'T', 'QHYD', 'MSLP', 'PRES', 'SFC_PRES','PREC', 'PW', 'RH'"
-  VARS="'QV', 'Umet', 'Vmet', 'W', 'T', 'QHYD', 'MSLP', 'PRES', 'SFC_PRES','PREC', 'PW', 'LAND_TEMP', 'LAND_WATER', 'LAND_SFC_TEMP', 'OCEAN_SFC_TEMP','OCEAN_TEMP', 'RH'"
-  if [ "$INPUT_FROM_SNOW" == "T" ] ; then
-#    VARS="'QV', 'Umet', 'Vmet', 'W', 'T', 'QHYD', 'MSLP', 'SFC_PRES', 'GPH', 'PREC', 'PW', 'RH'"
-    VARS="'QV', 'Umet', 'Vmet', 'W', 'T', 'QHYD', 'MSLP', 'GPH', 'SFC_PRES','PREC', 'PW', 'LAND_TEMP', 'LAND_WATER', 'LAND_SFC_TEMP', 'OCEAN_SFC_TEMP','OCEAN_TEMP', 'RH'"
-  fi
-fi
-
-VARS="'Gprs', 'MSLP', 'Tprs', 'Uprs', 'Vprs', 'QVprs', 'QHYDprs', 'DENSprs',"
-
-if [ "$TYPE" != "fcst" ] && [ "$TYPE" != "hist" ] ; then
-  VARS="'RHOT', 'DENS', 'MOMX', 'MOMY', 'MOMZ'"
-  PLEV=F
+if [ "$ALLVAR" == "T" ] ; then
+  # Convert all variables
+  VARS=""
+elif [ "$SINGLE_VAR" == "T" ] ; then
+  # Convert single variable 
+  NVAR='MSLP'
+  VARS="$NVAR"
+else
+  # Specify variables that will be converted
+  VARS='"W", "QV"' 
 fi
 
 TOPO=0 # Process topography file? # 1: Yes, 0: No
@@ -94,8 +78,8 @@ else
   OUTPUT_GRADS=".false."
   OUTPUT_GRADSCTL=".false."
 fi
-#OUTPUT_SINGLE=".true."
-#OUTPUT_SINGLE=".false."
+
+
 
 ###############################
 
@@ -122,10 +106,6 @@ conf_bulk="${RUNDIR}/conf/bulk_sno.conf"
 
 cnt=0
 
-#exec_l="${RUNDIR}/tmp_exec"
-#rm -f $exec_l
-#touch $exec_l
-
 time="$tstart"
 while (($(date -ud "$time" '+%s') <= $(date -ud "$tend" '+%s'))); do # time loop
 
@@ -150,18 +130,17 @@ while (($(date -ud "$time" '+%s') <= $(date -ud "$tend" '+%s'))); do # time loop
   
     SNO_BASENAME_IN="${OUTDIR}/${DTIME}/${TYPE}/${mem}/history"
   
-    if [ "$PLEV" == "T" ] ; then
-      SNO_BASENAME_OUT="p_history"
-  #    SNO_BASENAME_OUT="$NVAR"
-    else
-      SNO_BASENAME_OUT="history"
-    fi
+    SNO_BASENAME_OUT="history"
   
     if [ "$TYPE" != "fcst" ] && [ "$TYPE" != "hist" ]  ; then
       SNO_BASENAME_OUT="$TYPE"
       SNO_BASENAME_IN="${OUTDIR}/${DTIME}/${TYPE}/${mem}/init_${SCALE_TIME}"
     fi
   
+    if [ "$ALLVAR" != "T" ] && [ "$SINGLE_VAR" == "T" ]; then
+      SNO_BASENAME_OUT="$NVAR"
+    fi
+    
   
     if [ "$INPUT_FROM_SNOW" == "T" ] ; then
       SNO_BASENAME_IN=${OUTDIR}/${DTIME}/${TYPE}_sno_np$(printf %05d ${INPUT_SNOW_NP})/${mem}/${SNO_BASENAME_OUT}
@@ -198,7 +177,6 @@ cat << EOF >> $conf
  basename_out  = "${SNO_BASENAME_OUT}",
  dirpath_out = "${SNO_OUTPUT_PATH}",
  vars         = ${VARS},
-! output_single = ${OUTPUT_SINGLE},
  nprocs_x_out = ${NP_OFILE_X},
  nprocs_y_out = ${NP_OFILE_Y},
  output_gradsctl = ${OUTPUT_GRADSCTL},
@@ -207,25 +185,19 @@ cat << EOF >> $conf
 /
 EOF
 
-#  if [ "$PLEV" == "T" ] &&  [ "$INPUT_FROM_SNOW" != "T" ] ; then
-#  
-#cat << EOF >> $conf
-#&PARAM_SNOPLGIN_VGRIDOPE
-# SNOPLGIN_vgridope_type        = 'PLEV', 
-# SNOPLGIN_vgridope_lev_num     = 15,
-# SNOPLGIN_vgridope_lev_data    = 1000.e+2, 950.e+2, 925.e+2, 900.e+2, 850.e+2, 800.e+2, 700.e+2, 600.e+2, 500.e+2, 400.e+2, 300.e+2, 200.e+2, 100.e+2, 70.e+2, 50.e+2, 
-#! SNOPLGIN_vgridope_lev_num     = 13,
-#! SNOPLGIN_vgridope_lev_data    = 1000.e+2, 950.e+2, 925.e+2, 900.e+2, 850.e+2, 800.e+2, 700.e+2, 600.e+2, 500.e+2, 400.e+2, 300.e+2, 200.e+2, 100.e+2, 
-#/
-#EOF
-#
-#  fi
+    if [ "$PLEV" == "T" ] &&  [ "$INPUT_FROM_SNOW" != "T" ] ; then
+  
+cat << EOF >> $conf
+&PARAM_SNOPLGIN_VGRIDOPE
+ SNOPLGIN_vgridope_type        = 'PLEV', 
+ SNOPLGIN_vgridope_lev_num     = 15,
+ SNOPLGIN_vgridope_lev_data    = 1000.e+2, 950.e+2, 925.e+2, 900.e+2, 850.e+2, 800.e+2, 700.e+2, 600.e+2, 500.e+2, 400.e+2, 300.e+2, 200.e+2, 100.e+2, 70.e+2, 50.e+2, 
+/
+EOF
+
+    fi
   
     ln -s ${conf} ${conf_bulk}.${cnt}
-
-#cat << EOF >> $exec_l
-#mpirun -np ${NP_OFILE} ${SNOBIN} ${conf_bulk}.\${PJM_BULKNUM}
-#EOF
 
   done # member loop
 
@@ -348,6 +320,7 @@ EOF
 
   if (( USE_LLIO_BIN == 1 )); then
     echo "llio_transfer ${SNOBIN}" >> $jobsh
+    echo "" >> $jobsh
   fi
 
 cat << EOF >> $jobsh
@@ -361,6 +334,7 @@ EOF
 
   if (( USE_LLIO_BIN == 1 )); then
     echo "llio_transfer --purge ${SNOBIN}" >> $jobsh
+    echo "" >> $jobsh
   fi
 
 fi
