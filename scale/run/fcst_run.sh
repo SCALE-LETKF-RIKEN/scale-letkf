@@ -203,6 +203,12 @@ EOF
     for i in $(seq $nsteps) ; do
       echo "llio_transfer ${stepexecbin[$i]}" >> $jobscrp 
     done
+    echo "" >> $jobscrp
+  fi
+
+  if (( USE_LLIO_DAT == 1 )); then
+    echo "/home/system/tool/dir_transfer -l ./ ${TMPROOT}/dat" >> $jobscrp
+    echo "" >> $jobscrp
   fi
 
   if (( USE_SPACK > 0 )); then
@@ -240,6 +246,11 @@ EOF
     for i in $(seq $nsteps) ; do
       echo "llio_transfer --purge ${stepexecbin[$i]}" >> $jobscrp 
     done
+  fi
+
+  if (( USE_LLIO_DAT == 1 )); then
+    echo "/home/system/tool/dir_transfer -p -l ./ ${TMPROOT}/dat" >> $jobscrp
+    echo "" >> $jobscrp
   fi
 
   echo "[$(datetime_now)] Run ${job} job on PJM"
