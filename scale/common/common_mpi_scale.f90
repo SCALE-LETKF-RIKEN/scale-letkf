@@ -1580,6 +1580,7 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
   integer, allocatable :: obsdep_g_qc(:)
   real(r_size), allocatable :: obsdep_g_omb(:)
   real(r_size), allocatable :: obsdep_g_oma(:)
+  real(r_size), allocatable :: obsdep_g_omb_emean(:)
   integer :: cnts
   integer :: cntr(nprocs_d)
   integer :: dspr(nprocs_d)
@@ -1648,6 +1649,7 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
       allocate (obsdep_g_qc (obsdep_g_nobs))
       allocate (obsdep_g_omb(obsdep_g_nobs))
       allocate (obsdep_g_oma(obsdep_g_nobs))
+      allocate (obsdep_g_omb_emean(obsdep_g_nobs))
 
       if (obsdep_g_nobs > 0) then
         call MPI_GATHERV(obsdep_set, cnts, MPI_INTEGER, obsdep_g_set, cntr, dspr, MPI_INTEGER, 0, MPI_COMM_d, ierr)
@@ -1655,6 +1657,7 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
         call MPI_GATHERV(obsdep_qc,  cnts, MPI_INTEGER, obsdep_g_qc,  cntr, dspr, MPI_INTEGER, 0, MPI_COMM_d, ierr)
         call MPI_GATHERV(obsdep_omb, cnts, MPI_r_size,  obsdep_g_omb, cntr, dspr, MPI_r_size,  0, MPI_COMM_d, ierr)
         call MPI_GATHERV(obsdep_oma, cnts, MPI_r_size,  obsdep_g_oma, cntr, dspr, MPI_r_size,  0, MPI_COMM_d, ierr)
+        call MPI_GATHERV(obsdep_omb_emean, cnts, MPI_r_size,  obsdep_g_omb_emean, cntr, dspr, MPI_r_size,  0, MPI_COMM_d, ierr)
       end if
 
       if (myrank_d == 0) then
@@ -1662,8 +1665,9 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
           if ( LOG_OUT ) write (6,'(A,I6.6,2A)') 'MYRANK ', myrank,' is writing an obsda file ', trim(OBSDEP_OUT_BASENAME)//'.nc'
           call write_obs_dep_nc( trim(OBSDEP_OUT_BASENAME)//'.nc', &
                                  obsdep_g_nobs, obsdep_g_set, &
-                                 obsdep_g_idx, obsdep_g_qc, &
-                                 obsdep_g_omb, obsdep_g_oma )
+                                 obsdep_g_idx, obsdep_g_qc,   &
+                                 obsdep_g_omb, obsdep_g_oma,  &
+                                 obsdep_g_omb_emean )
         else
           if ( LOG_OUT ) write (6,'(A,I6.6,2A)') 'MYRANK ', myrank,' is writing an obsda file ', trim(OBSDEP_OUT_BASENAME)//'.dat'
           call write_obs_dep( trim(OBSDEP_OUT_BASENAME)//'.dat', &
@@ -1677,6 +1681,7 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
       deallocate (obsdep_g_qc )
       deallocate (obsdep_g_omb)
       deallocate (obsdep_g_oma)
+      deallocate (obsdep_g_omb_emean)
 
       call mpi_timer('monit_obs_mpi:obsdep:mpi_allreduce(domain):', 2)
     end if ! [ OBSDEP_OUT .and. monit_step == 2 ]
