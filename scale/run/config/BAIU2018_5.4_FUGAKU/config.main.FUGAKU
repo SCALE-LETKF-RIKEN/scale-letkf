@@ -7,12 +7,13 @@
 
 PRESET='FUGAKU'
 RSCGRP="small"
+RSCGRP="large"
 
 #===============================================================================
 
 DIR="$(cd "$(pwd)/.." && pwd)"    # Root directory of the SCALE-LETKF
 
-OUTDIR=/vol0004/ra000007/a04042/SCALE-LETKF/scale-5.4.3/OUTPUT/TEST
+OUTDIR=/vol0004/ra000007/a04042/SCALE-LETKF/scale-5.4.4dev/OUTPUT/TEST
 INDIR=$OUTDIR
 
 #===============================================================================
@@ -106,14 +107,15 @@ MEMBER=50          # Ensemble size
 
 
 MEMBER=3          # Ensemble size
-NNODES=48
+#NNODES=48
+NNODES=$((48*16))
 #NNODES=12
 
 PPN=4              # Number of processes per node
 
 THREADS=12          # Number of threads per process
 
-SCALE_NP=48        # Number of processes to run SCALE
+SCALE_NP=$((48*16))        # Number of processes to run SCALE
 
 BGJOB_INT='0.1s'   # Interval of multiple background job submissions
 

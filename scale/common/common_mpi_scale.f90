@@ -549,7 +549,7 @@ subroutine set_scalelib(execname)
     ATMOS_HYDROMETEOR_setup
   use scale_atmos_grid_cartesC_index, only: &
      ATMOS_GRID_CARTESC_INDEX_setup, &
-     IA, JA
+     IA, JA, KA, IHALO, JHALO
   use scale_atmos_grid_cartesC, only: &
     ATMOS_GRID_CARTESC_setup, &
     DOMAIN_CENTER_Y => ATMOS_GRID_CARTESC_DOMAIN_CENTER_Y, &
@@ -586,7 +586,8 @@ subroutine set_scalelib(execname)
   use scale_file_cartesC, only: &
     FILE_CARTESC_setup
   use scale_comm_cartesC, only: &
-    COMM_setup
+    COMM_setup, &
+    COMM_regist
   use scale_comm_cartesC_nest, only: &
     COMM_CARTESC_NEST_setup
   use scale_topography, only: &
@@ -680,14 +681,14 @@ subroutine set_scalelib(execname)
   integer :: local_comm
   integer :: local_myrank
   logical :: local_ismaster
-  integer :: intercomm_parent
-  integer :: intercomm_child
   character(len=H_LONG) :: confname_domains(PRC_DOMAIN_nlim)
   character(len=H_LONG) :: confname_mydom
 
   integer :: color, key, idom, ierr
 
   character(len=7) :: execname_ = ''
+
+  integer :: id
 
   if (present(execname)) execname_ = execname
 
@@ -761,9 +762,7 @@ subroutine set_scalelib(execname)
                           .false.,          & ! [IN]
                           .false.,          & ! [IN] no reordering
                           local_comm,       & ! [OUT]
-                          mydom,            & ! [OUT]
-                          intercomm_parent, & ! [OUT]
-                          intercomm_child )   ! [OUT]
+                          mydom           )   ! [OUT]
  
   MPI_COMM_d = local_comm
 
@@ -899,6 +898,7 @@ subroutine set_scalelib(execname)
 
   ! setup mpi communication
   call COMM_setup
+  call COMM_regist( KA, IA, JA, IHALO, JHALO, id )
 
   ! setup topography
   call TOPOGRAPHY_setup
@@ -935,11 +935,10 @@ subroutine set_scalelib(execname)
 !  call FILE_EXTERNAL_INPUT_CARTESC_setup
 
   ! setup nesting grid
-  call COMM_CARTESC_NEST_setup ( QA_MP, ATMOS_PHY_MP_TYPE, intercomm_parent, intercomm_child )
+  call COMM_CARTESC_NEST_setup ( QA_MP, ATMOS_PHY_MP_TYPE )
 
   ! setup coriolis parameter
   call CORIOLIS_setup( IA, JA, REAL_LAT(:,:), CY(:), DOMAIN_CENTER_Y )
-
   ! setup common tools
   call ATMOS_HYDROSTATIC_setup
   call ATMOS_THERMODYN_setup
