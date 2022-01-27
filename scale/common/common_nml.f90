@@ -38,7 +38,6 @@ MODULE common_nml
   !--- PARAM_ENSEMBLE
   integer :: MEMBER = 3      ! ensemble size
   integer :: MEMBER_RUN = 1  !
-  integer :: MEMBER_ITER = 0 !
   character(filelenmax) :: CONF_FILES = 'run.@@@@.conf'
   logical :: CONF_FILES_SEQNUM = .false.
 
@@ -328,7 +327,6 @@ subroutine read_nml_ensemble
   namelist /PARAM_ENSEMBLE/ &
     MEMBER, &
     MEMBER_RUN, &
-    MEMBER_ITER, &
     CONF_FILES, &
     CONF_FILES_SEQNUM, &
     DET_RUN, &

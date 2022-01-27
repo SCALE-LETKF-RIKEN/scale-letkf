@@ -170,24 +170,20 @@ if ((DET_RUN == 1)); then
   DET_RUN_TF='.true.'
 fi
 
-for it in $(seq $nitmax); do
+conf_file="${MODEL_NAME}_${time}.conf"
 
-  conf_file="${MODEL_NAME}_${time}_${it}.conf"
-
-  echo "  $conf_file"
-  cat $SCRP_DIR/config.nml.ensmodel | \
-      sed -e "/!--MEMBER--/a MEMBER = $MEMBER," \
-          -e "/!--MEMBER_RUN--/a MEMBER_RUN = $MEMBER_RUN," \
-          -e "/!--MEMBER_ITER--/a MEMBER_ITER = $it," \
-          -e "/!--CONF_FILES--/a CONF_FILES = \"${CONF_NAME}.d<domain>_${time}.conf\"," \
-          -e "/!--CONF_FILES_SEQNUM--/a CONF_FILES_SEQNUM = $CONF_FILES_SEQNUM," \
-          -e "/!--DET_RUN--/a DET_RUN = $DET_RUN_TF," \
-          -e "/!--PPN--/a PPN = $PPN_APPAR," \
-          -e "/!--MEM_NODES--/a MEM_NODES = $mem_nodes," \
-          -e "/!--NUM_DOMAIN--/a NUM_DOMAIN = $DOMNUM," \
-          -e "/!--PRC_DOMAINS--/a PRC_DOMAINS = $PRC_DOMAINS_LIST" \
-      > $TMP/${conf_file}
-done
+echo "  $conf_file"
+cat $SCRP_DIR/config.nml.ensmodel | \
+    sed -e "/!--MEMBER--/a MEMBER = $MEMBER," \
+        -e "/!--MEMBER_RUN--/a MEMBER_RUN = $MEMBER_RUN," \
+        -e "/!--CONF_FILES--/a CONF_FILES = \"${CONF_NAME}.d<domain>_${time}.conf\"," \
+        -e "/!--CONF_FILES_SEQNUM--/a CONF_FILES_SEQNUM = $CONF_FILES_SEQNUM," \
+        -e "/!--DET_RUN--/a DET_RUN = $DET_RUN_TF," \
+        -e "/!--PPN--/a PPN = $PPN_APPAR," \
+        -e "/!--MEM_NODES--/a MEM_NODES = $mem_nodes," \
+        -e "/!--NUM_DOMAIN--/a NUM_DOMAIN = $DOMNUM," \
+        -e "/!--PRC_DOMAINS--/a PRC_DOMAINS = $PRC_DOMAINS_LIST" \
+    > $TMP/${conf_file}
 
 #-------------------------------------------------------------------------------
 }

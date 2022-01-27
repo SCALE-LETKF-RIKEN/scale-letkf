@@ -250,13 +250,13 @@ while ((time <= ETIME)); do
       echo "[$(datetime_now)] ${time}: ${stepname[$s]}" >&2
 
       nit=1
-      if (( s == 2 )); then
-        if ((BDY_ENS == 1)); then
-          nit=$nitmax
-        fi
-      elif ((s == 3)); then
-        nit=$nitmax
-      fi
+#      if (( s == 2 )); then
+#        if ((BDY_ENS == 1)); then
+#          nit=$nitmax
+#        fi
+#      elif ((s == 3)); then
+#        nit=$nitmax
+#      fi
 
       if ((s == 3)); then
         logd=$OUTDIR/$time/log/fcst_scale
@@ -267,7 +267,7 @@ while ((time <= ETIME)); do
       for it in $(seq $nit); do
         echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: start" >&2
 
-        mpirunf ${nodestr} ${exedir}${stepexecname[$s]} fcst_${stepexecname[$s]}_${stimes[1]}_${it}.conf ${logd}/${stepexecname[$s]}.NOUT_${stimes[1]}_${it} || exit $?
+        mpirunf ${nodestr} ${exedir}${stepexecname[$s]} fcst_${stepexecname[$s]}_${stimes[1]}.conf ${logd}/${stepexecname[$s]}.NOUT_${stimes[1]} || exit $?
 
         echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: end" >&2
       done

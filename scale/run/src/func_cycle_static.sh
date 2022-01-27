@@ -1088,11 +1088,11 @@ while ((time <= ETIME)); do
     if ((d == 1)); then
       conf_file_src=$SCRP_DIR/config.nml.letkf
 #      conf_file_src2=$SCRP_DIR/config.nml.scale
-      conf_file="$TMP/letkf_${atime}_1.conf"
+      conf_file="$TMP/letkf_${atime}.conf"
     else
       conf_file_src=$SCRP_DIR/config.nml.letkf.d$d
       #conf_file_src2=$SCRP_DIR/config.nml.scale.d$d
-      conf_file="$TMP/letkf.d${dfmt}_${atime}_1.conf"
+      conf_file="$TMP/letkf.d${dfmt}_${atime}.conf"
     fi
     conf_file_src2="$TMP/${name_m[$m]}/run.d${dfmt}_${time}.conf"
 

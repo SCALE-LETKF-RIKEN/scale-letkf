@@ -248,13 +248,13 @@ while ((time <= ETIME)); do
       echo "[$(datetime_now)] ${time}: ${stepname[$s]}" >&2
 
       nit=1
-      if ((s == 2)); then
-        if ((BDY_ENS == 1)); then
-          nit=$nitmax
-        fi
-      elif ((s == 3)); then
-        nit=$nitmax
-      fi
+#      if ((s == 2)); then
+#        if ((BDY_ENS == 1)); then
+#          nit=$nitmax
+#        fi
+#      elif ((s == 3)); then
+#        nit=$nitmax
+#      fi
 
       nodestr=proc
 
@@ -271,7 +271,7 @@ while ((time <= ETIME)); do
 
 #        rm -rf  $logd
 #        mkdir -p $logd
-        mpirunf ${nodestr} ${exedir}${stepexecbin[$s]} ${stepexecname[$s]}_${conf_time}_${it}.conf ${logd}/NOUT_${conf_time}_${it} || exit $?
+        mpirunf ${nodestr} ${exedir}${stepexecbin[$s]} ${stepexecname[$s]}_${conf_time}.conf ${logd}/NOUT_${conf_time} || exit $?
        
         echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: end" >&2
       done

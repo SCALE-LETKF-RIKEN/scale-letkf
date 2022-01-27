@@ -33,7 +33,7 @@ program scaleles_pp_ens
 
   implicit none
 
-  integer :: it, its, ite, im, idom, color, key, ierr
+  integer :: it, im, idom, color, key, ierr
 
   integer :: universal_comm
   integer :: universal_nprocs
@@ -109,15 +109,7 @@ program scaleles_pp_ens
                             local_comm,       & ! [OUT]
                             idom              ) ! [OUT]
 
-    if (MEMBER_ITER == 0) then
-      its = 1
-      ite = nitmax
-    else
-      its = MEMBER_ITER
-      ite = MEMBER_ITER
-    end if
-
-    do it = its, ite
+    do it = 1, nitmax
       im = myrank_to_mem(it)
       if (im >= 1 .and. im <= MEMBER_RUN) then
         confname = confname_domains(idom)
@@ -143,7 +135,7 @@ program scaleles_pp_ens
                        "",             &
                        .false.         )
       end if
-    end do ! [ it = its, ite ]
+    end do ! [ it = 1, nitmax ]
 
   else ! [ global_comm /= MPI_COMM_NULL ]
 
