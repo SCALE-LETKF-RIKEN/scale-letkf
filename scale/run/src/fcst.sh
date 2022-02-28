@@ -145,11 +145,6 @@ fi
 repeat_mems=$((fmember*SCALE_NP_TOTAL/totalnp))
 nitmax=$(( ( fmember - 1) * SCALE_NP_TOTAL / totalnp + 1 ))
 
-exedir=./
-if [ "$PRESET" = 'FUGAKU' ] && (( USE_LLIO_BIN == 1 )) ; then
-  exedir=
-fi
-
 #-------------------------------------------------------------------------------
 while ((time <= ETIME)); do
 #-------------------------------------------------------------------------------
@@ -267,7 +262,7 @@ while ((time <= ETIME)); do
       for it in $(seq $nit); do
         echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: start" >&2
 
-        mpirunf ${nodestr} ${exedir}${stepexecname[$s]} fcst_${stepexecname[$s]}_${stimes[1]}.conf ${logd}/${stepexecname[$s]}.NOUT_${stimes[1]} || exit $?
+        mpirunf ${nodestr} ${stepexecname[$s]} fcst_${stepexecname[$s]}_${stimes[1]}.conf ${logd}/${stepexecname[$s]}.NOUT_${stimes[1]} || exit $?
 
         echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: end" >&2
       done

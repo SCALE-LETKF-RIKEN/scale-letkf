@@ -1,4 +1,4 @@
-#!/bin/bash
+#!bin/bash
 #===============================================================================
 #
 #  Run data assimilation cycles.
@@ -136,11 +136,6 @@ btime=$STIME
 atime=$(datetime $time $LCYCLE s)
 loop=0
 
-exedir=./
-if [ "$PRESET" = 'FUGAKU' ] && (( USE_LLIO_BIN == 1 )) ; then
-  exedir=
-fi
-
 #-------------------------------------------------------------------------------
 while ((time <= ETIME)); do
 #-------------------------------------------------------------------------------
@@ -271,7 +266,7 @@ while ((time <= ETIME)); do
 
 #        rm -rf  $logd
 #        mkdir -p $logd
-        mpirunf ${nodestr} ${exedir}${stepexecbin[$s]} ${stepexecname[$s]}_${conf_time}.conf ${logd}/NOUT_${conf_time} || exit $?
+        mpirunf ${nodestr} ${stepexecbin[$s]} ${stepexecname[$s]}_${conf_time}.conf ${logd}/NOUT_${conf_time} || exit $?
        
         echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: end" >&2
       done

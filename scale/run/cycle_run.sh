@@ -173,12 +173,18 @@ elif [ "$PRESET" = 'FUGAKU' ]; then
   fi
   TPROC=$((NNODES*PPN))
 
+  VOLUMES="/"$(readlink /data/$(id -ng) | cut -d "/" -f 2)
+  if [ $VOLUMES != "/vol0004" ] ;then
+    VOLUMES="${VOLUMES}:/vol0004" # spack
+  fi
+
 cat > $jobscrp << EOF
 #!/bin/sh 
 #
 #
+#PJM -x PJM_LLIO_GFSCACHE=${VOLUMES}
 #PJM -L "rscgrp=${RSCGRP}"
-#PJM -L "node=$(((TPROC+3)/4))"
+#PJM -L "node=$(((TPROC+PPN-1)/${PPN}))"
 #PJM -L "elapse=${TIME_LIMIT}"
 #PJM --mpi "max-proc-per-node=${PPN}"
 #PJM -j
@@ -235,18 +241,6 @@ EOF
 
   fi # USE_SPACK
 
-  if (( USE_RAMDISK == 1 )) && (( OUT_OPT >= 2 )); then
-    hdir_l="/worktmp/hist/mean /worktmp/hist/mdet "$(seq -f '/worktmp/hist/%04g' -s ' ' ${MEMBER})
-    adir_l=" /worktmp/anal/mean /worktmp/anal/mdet /worktmp/anal/sprd "$(seq -f '/worktmp/anal/%04g' -s ' ' ${MEMBER})
-    gdir_l=" /worktmp/gues/mean /worktmp/gues/mdet /worktmp/gues/sprd "$(seq -f '/worktmp/gues/%04g' -s ' ' ${MEMBER})
-    bdir_l=" /worktmp/bdy/mean /worktmp/bdy/mdet "$(seq -f '/worktmp/bdy/%04g' -s ' ' ${MEMBER})
-cat << EOF >>  $jobscrp 
-
-mpiexec -std-proc mkdir_log mkdir -p ${hdir_l} ${adir_l} ${gdir_l} ${bdir_l}
-
-EOF
-  fi
-
 cat << EOF >>  $jobscrp 
 ./${job}.sh "$STIME" "$ETIME" "$MEMBERS" "$CYCLE" "$CYCLE_SKIP" "$IF_VERF" "$IF_EFSO" "$ISTEP" "$FSTEP" "$CONF_MODE" || exit \$?
 
@@ -266,7 +260,8 @@ EOF
 
   echo "[$(datetime_now)] Run ${job} job on PJM"
   echo
-  
+ 
+
   job_submit_PJM $jobscrp
   echo
   

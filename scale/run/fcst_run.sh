@@ -178,10 +178,17 @@ elif [ "$PRESET" = 'FUGAKU' ]; then
   fi
 
   TPROC=$((NNODES*PPN))
+
+  VOLUMES="/"$(readlink /data/$(id -ng) | cut -d "/" -f 2)
+  if [ $VOLUMES != "/vol0004" ] ;then
+    VOLUMES="${VOLUMES}:/vol0004" # spack
+  fi
+
 cat > $jobscrp << EOF
 #!/bin/sh 
 #
 #
+#PJM -x PJM_LLIO_GFSCACHE=${VOLUMES}
 #PJM -L "rscgrp=${RSCGRP}"
 #PJM -L "node=$(((TPROC+3)/4))"
 #PJM -L "elapse=${TIME_LIMIT}"
