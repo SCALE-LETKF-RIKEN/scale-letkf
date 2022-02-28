@@ -563,10 +563,9 @@ while ((time_s <= ETIME)); do
           RESTART_OUTPUT='.false.'
         fi
         if ((MAKEINIT == 1 && ${bdy_times[1]} != time)); then
-#          echo "[Error] $0: Unable to generate initial analyses (MAKEINIT) at this time" >&2
-#          echo "        that does not fit to any boundary data." >&2
-#          exit 1
-          echo "time != bdy_times{1} : continue" 
+          echo "[Error] $0: Unable to generate initial analyses (MAKEINIT) at this time" >&2
+          echo "        that does not fit to any boundary data." >&2
+          exit 1
         fi
 
         if ((BDY_ROTATING == 1 || ${bdy_times[1]} != time_bdy_start_prev)); then

@@ -47,11 +47,6 @@ done
 repeat_mems=$((mtot*SCALE_NP_TOTAL/totalnp))
 nitmax=$(( ( mtot - 1) * SCALE_NP_TOTAL / totalnp + 1 ))
 
-if [ "$TOPO_FORMAT" != 'prep' ] || [ "$LANDUSE_FORMAT" != 'prep' ]; then
-  echo "[Error] $0: Prepare topo and landuse data by fcst before running DA cycle" >&2
-  exit 1
-fi
-
 #-------------------------------------------------------------------------------
 # executable files
 
@@ -579,6 +574,74 @@ for d in $(seq $DOMNUM); do
   PRC_DOMAINS_LIST="$PRC_DOMAINS_LIST${SCALE_NP[$d]}, "
 done
 
+if [ "$TOPO_FORMAT" != "prep" ] || [ "$LAND_FORMAT" != "prep" ] ; then
+  mkdir -p $OUTDIR/const/topo
+  mkdir -p $OUTDIR/const/landuse
+  time=$STIME
+  config_file_scale_launcher cycle scale-rm_pp_ens "f<member>/pp" 1
+  OFFLINE_PARENT_BASENAME=
+
+  if ((BDY_FORMAT == 1)); then
+    BDYCATALOGUE=${DATA_TOPO_BDY_SCALE}/const/log/latlon_domain_catalogue.txt
+    BDYTOPO=${DATA_TOPO_BDY_SCALE}/const/topo
+  fi
+
+#  if ((BDY_FORMAT == 1)) && [ "$TOPO_FORMAT" != 'prep' ]; then
+#    OFFLINE_PARENT_BASENAME="$COPYTOPO"
+#  fi
+
+  if [ "$TOPO_FORMAT" != 'prep' ]; then
+    CONVERT_TOPO='.true.'
+  else
+    CONVERT_TOPO='.false.'
+  fi
+  
+  if [ "$LANDUSE_FORMAT" != 'prep' ]; then
+    CONVERT_LANDUSE='.true.'
+  else
+    CONVERT_LANDUSE='.false.'
+  fi
+
+  # assume Domain 1
+
+  mkdir -p $OUTDIR/$time/log/scale_pp
+
+  conf_file_src=$SCRP_DIR/config.nml.scale_pp
+  conf="$(cat $conf_file_src | \
+           sed -e "/!--IO_LOG_BASENAME--/a IO_LOG_BASENAME = \"$OUTDIR/$time/log/scale_pp/LOG\"," \
+               -e "/!--FILE_AGGREGATE--/a FILE_AGGREGATE = ${FILE_AGGREGATE}," \
+               -e "/!--TOPOGRAPHY_OUT_BASENAME--/a TOPOGRAPHY_OUT_BASENAME = \"${OUTDIR}/const/topo/topo\"," \
+               -e "/!--LANDUSE_OUT_BASENAME--/a LANDUSE_OUT_BASENAME = \"${OUTDIR}/const/landuse/landuse\"," \
+               -e "/!--CONVERT_TOPO--/a CONVERT_TOPO = $CONVERT_TOPO," \
+               -e "/!--CONVERT_LANDUSE--/a CONVERT_LANDUSE = $CONVERT_LANDUSE," \
+               -e "/!--CNVTOPO_name--/a CNVTOPO_name = \"$TOPO_FORMAT\"," \
+               -e "/!--GTOPO30_IN_DIR--/a GTOPO30_IN_DIR = \"${DATADIR}/topo/GTOPO30/Products\"," \
+               -e "/!--DEM50M_IN_DIR--/a DEM50M_IN_DIR = \"${DATADIR}/topo/DEM50M/Products\"," \
+               -e "/!--CNVLANDUSE_name--/a CNVLANDUSE_name = '$LANDUSE_FORMAT'," \
+               -e "/!--GLCCv2_IN_DIR--/a GLCCv2_IN_DIR = \"${DATADIR}/landuse/GLCCv2/Products\"," \
+               -e "/!--LU100M_IN_DIR--/a LU100M_IN_DIR = \"${DATADIR}/landuse/LU100M/Products\"," \
+               -e "/!--COPYTOPO_IN_BASENAME--/a COPYTOPO_IN_BASENAME = \"${BDYTOPO}\"," \
+               -e "/!--LATLON_CATALOGUE_FNAME--/a LATLON_CATALOGUE_FNAME = \"${BDYCATALOGUE}\"," \
+               -e "/!--OFFLINE_PARENT_BASENAME--/a OFFLINE_PARENT_BASENAME = \"${OFFLINE_PARENT_BASENAME}\"," \
+               -e "/!--OFFLINE_PARENT_PRC_NUM_X--/a OFFLINE_PARENT_PRC_NUM_X = ${DATA_BDY_SCALE_PRC_NUM_X}," \
+               -e "/!--OFFLINE_PARENT_PRC_NUM_Y--/a OFFLINE_PARENT_PRC_NUM_Y = ${DATA_BDY_SCALE_PRC_NUM_Y}," \
+          )"
+   mkdir -p $TMP/f$(printf $MEMBER_FMT 1)
+   conf_file="$TMP/f$(printf $MEMBER_FMT 1)/pp.d01_${STIME}.conf"
+   echo "$conf" > ${conf_file}
+
+#   for q in $(seq ${SCALE_NP[1]}); do
+#      pathin="${DATA_TOPO[$d]}/const/${CONNECTOR_TOPO}topo$(scale_filename_sfx $((q-1)))"
+#      path="${TMPROOT}/topo/topo.d$(printf $DOMAIN_FMT $d)$(scale_filename_sfx $((q-1)))"
+#      ln -sf $pathin $path
+#
+#      pathin2="${DATA_LANDUSE[$d]}/const/${CONNECTOR_LANDUSE}landuse$(scale_filename_sfx $((q-1)))"
+#      path2="${TMPROOT}/landuse/landuse.d$(printf $DOMAIN_FMT $d)$(scale_filename_sfx $((q-1)))"
+#      ln -sf $pathin2 $path2
+#   done
+fi
+
+
 mkdir -p ${OUTDIR[$d]}/score
 
 time=$STIME
@@ -644,9 +707,6 @@ while ((time <= ETIME)); do
     if (((loop == 1 && MAKEINIT == 1) && ${bdy_times[1]} != time)); then
       echo "[Error] $0: Unable to generate initial analyses (MAKEINIT) at this time" >&2
       echo "        that does not fit to any boundary data." >&2
-
-      echo $time $bdy_times[1]
-
       exit 1
     fi
 
