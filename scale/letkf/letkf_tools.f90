@@ -1315,6 +1315,8 @@ subroutine obs_local(ri, rj, rlev, rz, nvar, hdxf, rdiag, rloc, dep, nobsl, depd
     return
   end if
 
+  rloc_tmp(:) = -1.0d6
+
   !-----------------------------------------------------------------------------
   ! For each observation type,
   ! do rough data search by a rectangle using the sorting mesh, and then
