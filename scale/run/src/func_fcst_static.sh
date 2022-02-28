@@ -66,10 +66,10 @@ cp ${ENSMODEL_DIR}/scale-rm_ens ${TMPROOT}/scale-rm_ens
 #-------------------------------------------------------------------------------
 # database
 
-cp -r ${SCALEDIR}/scale-rm/test/data/rad ${TMPROOT}/dat/rad
-cp -r ${SCALEDIR}/scale-rm/test/data/land ${TMPROOT}/dat/land
-cp -r ${SCALEDIR}/scale-rm/test/data/urban ${TMPROOT}/dat/urban
-cp -r ${SCALEDIR}/scale-rm/test/data/lightning ${TMPROOT}/dat/lightning
+cp -r ${SCALEDIR}/data/rad ${TMPROOT}/dat/rad
+cp -r ${SCALEDIR}/data/land ${TMPROOT}/dat/land
+cp -r ${SCALEDIR}/data/urban ${TMPROOT}/dat/urban
+cp -r ${SCALEDIR}/data/lightning ${TMPROOT}/dat/lightning
 
 #-------------------------------------------------------------------------------
 # time-variant outputs
@@ -890,10 +890,12 @@ while ((time_s <= ETIME)); do
                   -e "/!--ATMOS_PHY_RD_PROFILE_MIPAS2001_IN_BASENAME--/a ATMOS_PHY_RD_PROFILE_MIPAS2001_IN_BASENAME = \"${TMPROOT_CONSTDB}/dat/rad/MIPAS\"," \
                   -e "/!--ATMOS_PHY_LT_LUT_FILENAME--/a ATMOS_PHY_LT_LUT_FILENAME = \"${TMPROOT_CONSTDB}/dat/lightning/LUT_TK1978_v.txt\",")"
           if ((d == 1)); then
+#            conf="$(echo "$conf" | \
+#                sed -e "/!--ATMOS_BOUNDARY_IN_BASENAME--/a ATMOS_BOUNDARY_IN_BASENAME = \"bdy/${mem_bdy}/bdy_$(datetime_scale $time)\"," \
+#                    -e "/!--ATMOS_BOUNDARY_START_DATE--/a ATMOS_BOUNDARY_START_DATE = ${bdy_start_time:0:4}, ${bdy_start_time:4:2}, ${bdy_start_time:6:2}, ${bdy_start_time:8:2}, ${bdy_start_time:10:2}, ${bdy_start_time:12:2}," \
+#                    -e "/!--ATMOS_BOUNDARY_UPDATE_DT--/a ATMOS_BOUNDARY_UPDATE_DT = $BDYINT.D0,")"
             conf="$(echo "$conf" | \
-                sed -e "/!--ATMOS_BOUNDARY_IN_BASENAME--/a ATMOS_BOUNDARY_IN_BASENAME = \"bdy/${mem_bdy}/bdy_$(datetime_scale $time)\"," \
-                    -e "/!--ATMOS_BOUNDARY_START_DATE--/a ATMOS_BOUNDARY_START_DATE = ${bdy_start_time:0:4}, ${bdy_start_time:4:2}, ${bdy_start_time:6:2}, ${bdy_start_time:8:2}, ${bdy_start_time:10:2}, ${bdy_start_time:12:2}," \
-                    -e "/!--ATMOS_BOUNDARY_UPDATE_DT--/a ATMOS_BOUNDARY_UPDATE_DT = $BDYINT.D0,")"
+                sed -e "/!--ATMOS_BOUNDARY_IN_BASENAME--/a ATMOS_BOUNDARY_IN_BASENAME = \"bdy/${mem_bdy}/bdy_$(datetime_scale $time)\",")"
           fi
           if [ ! -e "$SCRP_DIR/config.nml.scale_user" ]; then
             if ((OCEAN_INPUT == 1)); then

@@ -1,6 +1,7 @@
 &PARAM_ENSEMBLE
 !--MEMBER--
 !--MEMBER_RUN--
+!--MEMBER_ITER--
 !--CONF_FILES--
 !--CONF_FILES_SEQNUM--
 !--DET_RUN--
@@ -15,7 +16,3 @@
 ! COLOR_REORDER = .true.,
 /
 
-&PARAM_LOG
- LOG_LEVEL = 1,
- LOG_ALL_PRC = F,
-/

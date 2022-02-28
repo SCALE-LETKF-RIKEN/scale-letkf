@@ -300,7 +300,7 @@ LANDUSE_ALLLAND=.true.,
 /
 
 &PARAM_URBAN_DYN_KUSAKA01
-URBAN_DYN_KUSAKA01_PARAM_IN_FILENAME = "/data/hp150019/u01168/test_scale/scale_new/scale-rm/test/data/urban/param.kusaka01.dat",
+!--URBAN_DYN_KUSAKA01_PARAM_IN_FILENAME--
 /
 
 

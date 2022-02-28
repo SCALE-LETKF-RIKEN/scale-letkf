@@ -271,11 +271,20 @@ EOF
 
 else
 
+if [ $NNODES -le 4 ] ; then
+  RSCGRP=s
+elif [ $NNODES -le 16 ] ; then
+  RSCGRP=m
+else
+  echo "too many nodes required. " $NNODES " > 16"
+  exit 1
+fi
+
 # qsub
 cat > $jobscrp << EOF
 #!/bin/sh
 #PBS -N $job
-#PBS -q s
+#PBS -q ${RSCGRP}
 #PBS -l nodes=${NNODES}:ppn=${PPN}
 #PBS -l walltime=${TIME_LIMIT}
 #
