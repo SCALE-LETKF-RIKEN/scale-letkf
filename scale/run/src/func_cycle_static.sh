@@ -644,6 +644,9 @@ while ((time <= ETIME)); do
     if (((loop == 1 && MAKEINIT == 1) && ${bdy_times[1]} != time)); then
       echo "[Error] $0: Unable to generate initial analyses (MAKEINIT) at this time" >&2
       echo "        that does not fit to any boundary data." >&2
+
+      echo $time $bdy_times[1]
+
       exit 1
     fi
 
@@ -751,7 +754,7 @@ while ((time <= ETIME)); do
 
       if ((BDY_FORMAT == 1)); then
         FILETYPE_ORG='SCALE-RM'
-        LATLON_CATALOGUE_FNAME="${DATA_BDY_SCALE}/const/log/latlon_domain_catalogue.txt"
+        LATLON_CATALOGUE_FNAME="${DATA_TOPO_BDY_SCALE}/const/log/latlon_domain_catalogue.txt"
       elif ((BDY_FORMAT == 2)); then
         FILETYPE_ORG='WRF-ARW'
         LATLON_CATALOGUE_FNAME=
@@ -787,6 +790,7 @@ while ((time <= ETIME)); do
         mkdir -p ${OUTDIR[$d]}/$time/log/scale_init
         rm -rf ${OUTDIR[$d]}/$time/bdy/$mem_bdy
         mkdir -p ${OUTDIR[$d]}/$time/bdy/$mem_bdy
+        mkdir -p ${OUTDIR[$d]}/$time/anal/$mem_bdy
 
         # Update boundary time
         if (( SKIP_BDYINIT == 1 )); then
@@ -807,10 +811,10 @@ while ((time <= ETIME)); do
                 -e "/!--FILE_AGGREGATE--/a FILE_AGGREGATE = ${FILE_AGGREGATE}," \
                 -e "/!--TIME_STARTDATE--/a TIME_STARTDATE = ${time:0:4}, ${time:4:2}, ${time:6:2}, ${time:8:2}, ${time:10:2}, ${time:12:2}," \
                 -e "/!--RESTART_OUTPUT--/a RESTART_OUTPUT = ${RESTART_OUTPUT}," \
-                -e "/!--RESTART_OUT_BASENAME--/a RESTART_OUT_BASENAME = \"${BOUNDARY_PATH[$d]}/bdy/${mem_bdy}/init_bdy\"," \
+                -e "/!--RESTART_OUT_BASENAME--/a RESTART_OUT_BASENAME = \"${BOUNDARY_PATH[$d]}/anal/${mem_bdy}/init\"," \
                 -e "/!--RESTART_OUT_POSTFIX_TIMELABEL--/a RESTART_OUT_POSTFIX_TIMELABEL = ${RESTART_OUT_POSTFIX_TIMELABEL_TF}," \
-                -e "/!--TOPOGRAPHY_IN_BASENAME--/a TOPOGRAPHY_IN_BASENAME = \"${INDIR[$d]}/const/topo/topo\"," \
-                -e "/!--LANDUSE_IN_BASENAME--/a LANDUSE_IN_BASENAME = \"${INDIR[$d]}/const/landuse/landuse\"," \
+                -e "/!--TOPOGRAPHY_IN_BASENAME--/a TOPOGRAPHY_IN_BASENAME = \"${DATA_TOPO}/const/topo/topo\"," \
+                -e "/!--LANDUSE_IN_BASENAME--/a LANDUSE_IN_BASENAME = \"${DATA_LANDUSE}/const/landuse/landuse\"," \
                 -e "/!--LAND_PROPERTY_IN_FILENAME--/a LAND_PROPERTY_IN_FILENAME = \"${TMPROOT_CONSTDB}/dat/land/param.bucket.conf\",")"
         if ((BDY_FORMAT == 1)); then
           conf="$(echo "$conf" | \
@@ -980,10 +984,10 @@ while ((time <= ETIME)); do
               -e "/!--RESTART_IN_BASENAME--/a RESTART_IN_BASENAME = \"${RESTART_IN_BASENAME[$d]}\"," \
               -e "/!--RESTART_IN_POSTFIX_TIMELABEL--/a RESTART_IN_POSTFIX_TIMELABEL = ${RESTART_IN_POSTFIX_TIMELABEL_TF}," \
               -e "/!--RESTART_OUTPUT--/a RESTART_OUTPUT = .true.," \
-              -e "/!--RESTART_OUT_BASENAME--/a RESTART_OUT_BASENAME = \"${RESTART_OUT_PATH[$d]}/anal/${name_m[$m]}/init\"," \
+              -e "/!--RESTART_OUT_BASENAME--/a RESTART_OUT_BASENAME = \"${BOUNDARY_PATH[$d]}/anal/${mem_bdy}/init\"," \
               -e "/!--RESTART_OUT_POSTFIX_TIMELABEL--/a RESTART_OUT_POSTFIX_TIMELABEL = ${RESTART_OUT_POSTFIX_TIMELABEL_TF}," \
-              -e "/!--TOPOGRAPHY_IN_BASENAME--/a TOPOGRAPHY_IN_BASENAME = \"${INDIR[$d]}/const/topo/topo\"," \
-              -e "/!--LANDUSE_IN_BASENAME--/a LANDUSE_IN_BASENAME = \"${INDIR[$d]}/const/landuse/landuse\"," \
+              -e "/!--TOPOGRAPHY_IN_BASENAME--/a TOPOGRAPHY_IN_BASENAME = \"${DATA_TOPO}/const/topo/topo\"," \
+              -e "/!--LANDUSE_IN_BASENAME--/a LANDUSE_IN_BASENAME = \"${DATA_LANDUSE}/const/landuse/landuse\"," \
               -e "/!--FILE_HISTORY_DEFAULT_BASENAME--/a FILE_HISTORY_DEFAULT_BASENAME = \"${HISTORY_PATH[$d]}/hist/${name_m[$m]}/history\"," \
               -e "/!--FILE_HISTORY_DEFAULT_TINTERVAL--/a FILE_HISTORY_DEFAULT_TINTERVAL = ${CYCLEFOUT}.D0," \
               -e "/!--MONITOR_OUT_BASENAME--/a MONITOR_OUT_BASENAME = \"log/scale.${name_m[$m]}.d${dfmt}.monitor_${time}\"," \
@@ -1137,7 +1141,7 @@ while ((time <= ETIME)); do
             -e "/!--GUES_SPRD_OUT--/a GUES_SPRD_OUT = ${SPRD_OUT_TF}," \
             -e "/!--ANAL_OUT_BASENAME--/a ANAL_OUT_BASENAME = \"${RESTART_OUT_PATH[$d]}/anal/<member>/init_$(datetime_scale $atime)\"," \
             -e "/!--ANAL_SPRD_OUT--/a ANAL_SPRD_OUT = ${SPRD_OUT_TF}," \
-            -e "/!--LETKF_TOPOGRAPHY_IN_BASENAME--/a LETKF_TOPOGRAPHY_IN_BASENAME = \"${INDIR[$d]}/const/topo/topo\"," \
+            -e "/!--LETKF_TOPOGRAPHY_IN_BASENAME--/a LETKF_TOPOGRAPHY_IN_BASENAME = \"${DATA_TOPO}/const/topo/topo\"," \
             -e "/!--INFL_ADD_IN_BASENAME--/a INFL_ADD_IN_BASENAME = \"<member>/addi.d${dfmt}\"," \
             -e "/!--RELAX_SPREAD_OUT--/a RELAX_SPREAD_OUT = ${RTPS_INFL_OUT_TF}," \
             -e "/!--RELAX_SPREAD_OUT_BASENAME--/a RELAX_SPREAD_OUT_BASENAME = \"rtpsinfl.d${dfmt}_$(datetime_scale $atime).nc\"," \

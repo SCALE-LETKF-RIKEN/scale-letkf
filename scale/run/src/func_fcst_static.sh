@@ -66,10 +66,10 @@ cp ${ENSMODEL_DIR}/scale-rm_ens ${TMPROOT}/scale-rm_ens
 #-------------------------------------------------------------------------------
 # database
 
-cp -r ${SCALEDIR}/data/rad ${TMPROOT}/dat/rad
-cp -r ${SCALEDIR}/data/land ${TMPROOT}/dat/land
-cp -r ${SCALEDIR}/data/urban ${TMPROOT}/dat/urban
-cp -r ${SCALEDIR}/data/lightning ${TMPROOT}/dat/lightning
+cp -r ${SCALEDIR}/scale-rm/test/data/rad ${TMPROOT}/dat/rad
+cp -r ${SCALEDIR}/scale-rm/test/data/land ${TMPROOT}/dat/land
+cp -r ${SCALEDIR}/scale-rm/test/data/urban ${TMPROOT}/dat/urban
+cp -r ${SCALEDIR}/scale-rm/test/data/lightning ${TMPROOT}/dat/lightning
 
 #-------------------------------------------------------------------------------
 # time-variant outputs
@@ -452,8 +452,8 @@ if [ "$TOPO_FORMAT" != "prep" ] || [ "$LAND_FORMAT" != "prep" ] ; then
   OFFLINE_PARENT_BASENAME=
 
   if ((BDY_FORMAT == 1)); then
-    BDYCATALOGUE=${DATA_BDY_SCALE}/const/log/latlon_domain_catalogue.txt
-    BDYTOPO=${DATA_BDY_SCALE}/const/topo
+    BDYCATALOGUE=${DATA_TOPO_BDY_SCALE}/const/log/latlon_domain_catalogue.txt
+    BDYTOPO=${DATA_TOPO_BDY_SCALE}/const/topo
   fi
 
 #  if ((BDY_FORMAT == 1)) && [ "$TOPO_FORMAT" != 'prep' ]; then
@@ -519,6 +519,8 @@ loop=0
 while ((time_s <= ETIME)); do
   loop=$((loop+1))
 
+  echo "loop " $loop "time_s" $time_s 
+
   rcycle=1
   for c in $(seq 2 $CYCLE); do
     if (($(datetime $time_s $((lcycles * (c-1))) s) <= ETIME)); then
@@ -561,9 +563,10 @@ while ((time_s <= ETIME)); do
           RESTART_OUTPUT='.false.'
         fi
         if ((MAKEINIT == 1 && ${bdy_times[1]} != time)); then
-          echo "[Error] $0: Unable to generate initial analyses (MAKEINIT) at this time" >&2
-          echo "        that does not fit to any boundary data." >&2
-          exit 1
+#          echo "[Error] $0: Unable to generate initial analyses (MAKEINIT) at this time" >&2
+#          echo "        that does not fit to any boundary data." >&2
+#          exit 1
+          echo "time != bdy_times{1} : continue" 
         fi
 
         if ((BDY_ROTATING == 1 || ${bdy_times[1]} != time_bdy_start_prev)); then
@@ -671,7 +674,7 @@ while ((time_s <= ETIME)); do
 
           if ((BDY_FORMAT == 1)); then
             FILETYPE_ORG='SCALE-RM'
-            LATLON_CATALOGUE_FNAME="${DATA_BDY_SCALE}/const/log/latlon_domain_catalogue.txt"
+            LATLON_CATALOGUE_FNAME="${DATA_TOPO_BDY_SCALE}/const/log/latlon_domain_catalogue.txt"
           elif ((BDY_FORMAT == 2)); then
             FILETYPE_ORG='WRF-ARW'
             LATLON_CATALOGUE_FNAME=
@@ -719,8 +722,8 @@ while ((time_s <= ETIME)); do
                     -e "/!--RESTART_OUTPUT--/a RESTART_OUTPUT = ${RESTART_OUTPUT}," \
                     -e "/!--RESTART_OUT_BASENAME--/a RESTART_OUT_BASENAME = \"${RESTART_OUT_BASENAME}\"," \
                     -e "/!--RESTART_OUT_POSTFIX_TIMELABEL--/a RESTART_OUT_POSTFIX_TIMELABEL = .true.," \
-                    -e "/!--TOPOGRAPHY_IN_BASENAME--/a TOPOGRAPHY_IN_BASENAME = \"${INDIR[$d]}/const/topo/topo\"," \
-                    -e "/!--LANDUSE_IN_BASENAME--/a LANDUSE_IN_BASENAME = \"${INDIR[$d]}/const/landuse/landuse\"," \
+                    -e "/!--TOPOGRAPHY_IN_BASENAME--/a TOPOGRAPHY_IN_BASENAME = \"${DATA_TOPO}/const/topo/topo\"," \
+                    -e "/!--LANDUSE_IN_BASENAME--/a LANDUSE_IN_BASENAME = \"${DATA_LANDUSE}/const/landuse/landuse\"," \
                     -e "/!--LAND_PROPERTY_IN_FILENAME--/a LAND_PROPERTY_IN_FILENAME = \"${TMPROOT_CONSTDB}/dat/land/param.bucket.conf\",")"
             if ((BDY_FORMAT == 1)); then
               conf="$(echo "$conf" | \
@@ -871,8 +874,8 @@ while ((time_s <= ETIME)); do
                   -e "/!--RESTART_OUTPUT--/a RESTART_OUTPUT = ${RESTART_OUTPUT}," \
                   -e "/!--RESTART_OUT_BASENAME--/a RESTART_OUT_BASENAME = \"${OUTDIR[$d]}/$time/fcst/${name_m[$m]}/init\"," \
                   -e "/!--RESTART_OUT_POSTFIX_TIMELABEL--/a RESTART_OUT_POSTFIX_TIMELABEL = .true.," \
-                  -e "/!--TOPOGRAPHY_IN_BASENAME--/a TOPOGRAPHY_IN_BASENAME = \"${INDIR[$d]}/const/topo/topo\"," \
-                  -e "/!--LANDUSE_IN_BASENAME--/a LANDUSE_IN_BASENAME = \"${INDIR[$d]}/const/landuse/landuse\"," \
+                  -e "/!--TOPOGRAPHY_IN_BASENAME--/a TOPOGRAPHY_IN_BASENAME = \"${DATA_TOPO}/const/topo/topo\"," \
+                  -e "/!--LANDUSE_IN_BASENAME--/a LANDUSE_IN_BASENAME = \"${DATA_LANDUSE}/const/landuse/landuse\"," \
                   -e "/!--FILE_HISTORY_DEFAULT_BASENAME--/a FILE_HISTORY_DEFAULT_BASENAME = \"${OUTDIR[$d]}/$time/fcst/${name_m[$m]}/history\"," \
                   -e "/!--FILE_HISTORY_DEFAULT_TINTERVAL--/a FILE_HISTORY_DEFAULT_TINTERVAL = ${FCSTOUT}.D0," \
                   -e "/!--MONITOR_OUT_BASENAME--/a MONITOR_OUT_BASENAME = \"${OUTDIR[$d]}/$time/log/fcst_scale/${name_m[$m]}_monitor_${time}\"," \
@@ -888,7 +891,9 @@ while ((time_s <= ETIME)); do
                   -e "/!--ATMOS_PHY_LT_LUT_FILENAME--/a ATMOS_PHY_LT_LUT_FILENAME = \"${TMPROOT_CONSTDB}/dat/lightning/LUT_TK1978_v.txt\",")"
           if ((d == 1)); then
             conf="$(echo "$conf" | \
-                sed -e "/!--ATMOS_BOUNDARY_IN_BASENAME--/a ATMOS_BOUNDARY_IN_BASENAME = \"bdy/${mem_bdy}/bdy_$(datetime_scale $time)\"," )"
+                sed -e "/!--ATMOS_BOUNDARY_IN_BASENAME--/a ATMOS_BOUNDARY_IN_BASENAME = \"bdy/${mem_bdy}/bdy_$(datetime_scale $time)\"," \
+                    -e "/!--ATMOS_BOUNDARY_START_DATE--/a ATMOS_BOUNDARY_START_DATE = ${bdy_start_time:0:4}, ${bdy_start_time:4:2}, ${bdy_start_time:6:2}, ${bdy_start_time:8:2}, ${bdy_start_time:10:2}, ${bdy_start_time:12:2}," \
+                    -e "/!--ATMOS_BOUNDARY_UPDATE_DT--/a ATMOS_BOUNDARY_UPDATE_DT = $BDYINT.D0,")"
           fi
           if [ ! -e "$SCRP_DIR/config.nml.scale_user" ]; then
             if ((OCEAN_INPUT == 1)); then
