@@ -83,9 +83,11 @@ SUBROUTINE letkf_core(ne,nobs,nobsl,hdxb,rdiag,rloc,dep,parm_infl,trans,transm,p
   LOGICAL :: infl_update_
   INTEGER :: i,j,k
 
+#ifdef KEVD
   real(RP_EVP) :: work1_evp(ne,ne)
   real(RP_EVP) :: eivec_evp(ne,ne)
   real(RP_EVP) :: eival_evp(ne)
+#endif
 
   rdiag_wloc_ = .FALSE.                               !GYL
   IF(present(rdiag_wloc)) rdiag_wloc_ = rdiag_wloc    !GYL
@@ -155,10 +157,14 @@ SUBROUTINE letkf_core(ne,nobs,nobsl,hdxb,rdiag,rloc,dep,parm_infl,trans,transm,p
 !-----------------------------------------------------------------------
 !  eigenvalues and eigenvectors of [ hdxb^T Rinv hdxb + (m-1) I ]
 !-----------------------------------------------------------------------
+#ifdef KEVD
   work1_evp = real( work1, kind=RP_EVP )
   call mtx_eigen( ne, work1_evp, eival_evp, eivec_evp )
   eival = real( eival_evp, kind=r_size )
   eivec = real( eivec_evp, kind=r_size )
+#else
+  call mtx_eigen( ne, work1, eival, eivec )
+#endif
 !-----------------------------------------------------------------------
 !  Pa = [ hdxb^T Rinv hdxb + (m-1) I ]inv
 !-----------------------------------------------------------------------

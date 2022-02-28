@@ -22,10 +22,12 @@ MODULE common
 #else
   INTEGER,PARAMETER :: r_size=r_dble
 #endif
+#ifdef KEVD
 #ifdef SINGLE_EVP
   integer, parameter :: RP_EVP = r_sngl
 #else
   integer, parameter :: RP_EVP = r_dble
+#endif
 #endif
 !-----------------------------------------------------------------------
 ! Constants
@@ -879,11 +881,20 @@ SUBROUTINE com_gamma(x,ga)
               DO 10 K=2,M1
 10               GA=GA*K
            ELSE
+#ifdef SINGLELETKF
+              GA=1.0E+30
+#else
               GA=1.0D+300
+#endif
            ENDIF
         ELSE
+#ifdef SINGLELETKF
+           IF (ABS(X).GT.1.0D0) THEN
+              Z=ABS(X)
+#else
            IF (DABS(X).GT.1.0D0) THEN
               Z=DABS(X)
+#endif
               M=INT(Z)
               R=1.0D0
               DO 15 K=1,M
@@ -908,10 +919,17 @@ SUBROUTINE com_gamma(x,ga)
            DO 20 K=25,1,-1
 20            GR=GR*Z+G(K)
            GA=1.0D0/(GR*Z)
+#ifdef SINGLELETKF
+           IF (ABS(X).GT.1.0D0) THEN
+              GA=GA*R
+              IF (X.LT.0.0D0) GA=-PI/(X*GA*SIN(PI*X))
+           ENDIF
+#else
            IF (DABS(X).GT.1.0D0) THEN
               GA=GA*R
               IF (X.LT.0.0D0) GA=-PI/(X*GA*DSIN(PI*X))
            ENDIF
+#endif
         ENDIF
         RETURN
 END SUBROUTINE com_gamma

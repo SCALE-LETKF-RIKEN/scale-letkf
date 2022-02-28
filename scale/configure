@@ -39,6 +39,7 @@ FOPTS     += -DSINGLE_EVP
 endif
 
 ifeq ($(USE_MTX_KEVD),T)
+  FOPTS     += -DKEVD
   common_mtx = common_mtx_kevd
 else
   common_mtx = common_mtx_lapack
