@@ -1697,8 +1697,10 @@ subroutine obs_local_cal(ri, rj, rlev, rz, nvar, iob, ic, ndist, nrloc, nrdiag)
   integer :: obtyp           ! observation report type
   integer :: obset
   integer :: obidx
-  real(r_size) :: rdx, rdy
+  real(r_size) :: rdx, rdy, rdz
   real(r_size) :: nd_h, nd_v ! normalized horizontal/vertical distances
+
+  integer :: di, dj, dk
 
   nrloc = 0.0d0
   nrdiag = -1.0d0
@@ -1780,6 +1782,50 @@ subroutine obs_local_cal(ri, rj, rlev, rz, nvar, iob, ic, ndist, nrloc, nrdiag)
     ndist = -1.0d0
     return
   end if
+
+  if ( obtyp == 22 .and. ( RADAR_THIN_LETKF_METHOD > 0 ) ) then ! obtypelist(obtyp) == 'PHARAD'
+    rdz = obs(obset)%lev(obidx) - rz
+
+
+    select case( RADAR_THIN_LETKF_METHOD )
+    case( 1 )
+      ! Pick up nearest 8 obs (2x2x2)
+      ! and then choose every HGRID/VGRID
+      di = int( abs( rdx / RADAR_THIN_LETKF_HGRID_SIZE ) )
+      dj = int( abs( rdy / RADAR_THIN_LETKF_HGRID_SIZE ) )
+      dk = int( abs( obs(obset)%lev(obidx) - rz ) / RADAR_THIN_LETKF_VGRID_SIZE )
+
+      if ( ( mod( di, RADAR_THIN_LETKF_HGRID ) /= 0 .or. &
+             mod( dj, RADAR_THIN_LETKF_HGRID ) /= 0 .or. &
+             mod( dk, RADAR_THIN_LETKF_VGRID ) /= 0 ) .and. &
+            ( ( di >= RADAR_THIN_LETKF_HNEAR ) .or. &
+              ( dj >= RADAR_THIN_LETKF_HNEAR ) .or. &
+              ( dk >= RADAR_THIN_LETKF_VNEAR ) ) ) then
+        nrloc = 0.0d0
+        ndist = -1.0d0
+        return
+      endif
+    case( 2 )
+      ! Pick up nearest 1 obs
+      ! and then choose every HGRID/VGRID
+      di = nint( rdx / RADAR_THIN_LETKF_HGRID_SIZE )
+      dj = nint( rdy / RADAR_THIN_LETKF_HGRID_SIZE )
+      dk = nint( obs(obset)%lev(obidx) - rz ) / RADAR_THIN_LETKF_VGRID_SIZE
+
+      if ( mod( di, RADAR_THIN_LETKF_HGRID ) /= 0 .or. &
+           mod( dj, RADAR_THIN_LETKF_HGRID ) /= 0 .or. &
+           mod( dk, RADAR_THIN_LETKF_VGRID ) /= 0 ) then
+        nrloc = 0.0d0
+        ndist = -1.0d0
+        return
+      endif
+
+    case default
+      ! No thinning
+    end select
+
+  endif
+
   !
   ! Calculate observational localization
   !

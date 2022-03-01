@@ -86,6 +86,7 @@ SUBROUTINE set_letkf_obs
   integer :: n1, n2
 
   integer :: mem_ref
+  real(r_size) :: qvs
 
   integer :: it,ip
   integer :: ityp,ielm,ielm_u,ictype
@@ -364,8 +365,10 @@ SUBROUTINE set_letkf_obs
           mem_ref = mem_ref + 1
         end if
       end do
+
+      ! Obs: Rain
       if (obs(iof)%dat(iidx) > RADAR_REF_THRES_DBZ+1.0d-6) then
-        if (mem_ref < MIN_RADAR_REF_MEMBER_OBSREF) then
+        if (mem_ref < MIN_RADAR_REF_MEMBER_OBSRAIN) then
           obsda%qc(n) = iqc_ref_mem
           if ( LOG_LEVEL >= 3 .and. LOG_OUT ) then
             write (6,'(A)') '* Reflectivity does not fit assimilation criterion'
@@ -373,10 +376,13 @@ SUBROUTINE set_letkf_obs
                   '*  (lon,lat)=(',obs(iof)%lon(iidx),',',obs(iof)%lat(iidx),'), mem_ref=', &
                   mem_ref,', ref_obs=', obs(iof)%dat(iidx)
           end if
-          cycle
+          if ( .not. RADAR_PQV ) cycle
+          ! When RADAR_PQV=True, pseudo qv obs is assimilated even if mem_ref is
+          ! too small
         end if
       else
-        if (mem_ref < MIN_RADAR_REF_MEMBER) then
+      ! Obs: No rain
+        if (mem_ref < MIN_RADAR_REF_MEMBER_OBSNORAIN) then
           obsda%qc(n) = iqc_ref_mem
           if ( LOG_LEVEL >= 3 .and. LOG_OUT ) then
             write (6,'(A)') '* Reflectivity does not fit assimilation criterion'
@@ -425,9 +431,40 @@ SUBROUTINE set_letkf_obs
         obsda%qc(n) = iqc_gross_err
       END IF
     case (id_radar_ref_obs,id_radar_ref_zero_obs)
-      IF(ABS(obsda%val(n)) > GROSS_ERROR_RADAR_REF * obs(iof)%err(iidx)) THEN
-        obsda%qc(n) = iqc_gross_err
-      END IF
+
+      if( RADAR_PQV .and. obsda%val(n) > RADAR_PQV_OMB ) then
+        ! pseudo qv
+        obsda%val(n) = obsda%eqv(1,n)
+        do i = 2 ,MEMBER
+          obsda%val(n) = obsda%val(n) + obsda%eqv(i,n)
+        enddo
+        obsda%val(n) = obsda%val(n) / real(MEMBER, r_size)
+
+        do i = 1, MEMBER
+          obsda%ensval(i,n) = obsda%eqv(i,n) - obsda%val(n) ! Hdx
+        enddO
+
+        ! Tetens equation es(Pa)
+        qvs = 611.2d0*exp(17.67d0*(obsda%tm(n)-t0c)/(obsda%tm(n) - t0c + 243.5d0))
+
+        ! Saturtion mixing ratio
+        qvs = 0.622d0*qvs / ( obsda%pm(n) - qvs )
+
+        obsda%val(n) = qvs - obsda%val(n) ! y-Hx
+
+        if (DET_RUN) then
+          obsda%ensval(mmdetobs,n) = qvs - obsda%eqv(mmdetobs,n) ! y-Hx for deterministic run
+        end if
+
+        obsda%tm(n) = -1.0d0
+
+      else
+
+        IF(ABS(obsda%val(n)) > GROSS_ERROR_RADAR_REF * obs(iof)%err(iidx)) THEN
+          obsda%qc(n) = iqc_gross_err
+        END IF
+
+      end if
     case (id_radar_vr_obs)
       IF(ABS(obsda%val(n)) > GROSS_ERROR_RADAR_VR * obs(iof)%err(iidx)) THEN
         obsda%qc(n) = iqc_gross_err

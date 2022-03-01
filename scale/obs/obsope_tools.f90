@@ -418,6 +418,11 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
               if (LOG_LEVEL >= 3) then
                 write(6,'(A,F8.1,A,I5)') '[Warning] radar observation is too high: lev=', obs(iof)%lev(n), ', elem=', obs(iof)%elm(n)
               end if
+            elseif (obs(iof)%lev(n) < RADAR_ZMIN) then
+              obsda%qc(nn) = iqc_out_vlo
+              if (LOG_LEVEL >= 3) then
+                write(6,'(A,F8.1,A,I5)') '[Warning] radar observation is too low: lev=', obs(iof)%lev(n), ', elem=', obs(iof)%elm(n)
+              end if
             else
               call phys2ijkz(v3dg(:,:,:,iv3dd_hgt), ril, rjl, obs(iof)%lev(n), rkz, obsda%qc(nn))
             end if
