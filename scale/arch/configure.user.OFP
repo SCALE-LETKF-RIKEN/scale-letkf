@@ -4,6 +4,13 @@ SCALE_USER_VER = T
 # Precision
 LETKF_SINGLE_FP = F
 
+# MP-PAWR decoder
+
+USE_PAWR_DECODER = T
+
+ENABLE_SAITAMA_MPW = T
+#ENABLE_SAITAMA_MPW = F
+
 
 # Libraries
 #-----------------
