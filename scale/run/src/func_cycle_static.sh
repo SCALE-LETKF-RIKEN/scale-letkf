@@ -1088,18 +1088,22 @@ while ((time <= ETIME)); do
 
       if [ -e "$SCRP_DIR/config.nml.scale_user" ]; then
         conf="$(cat $SCRP_DIR/config.nml.scale_user)"
-        if ((OCEAN_INPUT == 1)); then
-          if ((OCEAN_FORMAT == 99)); then
-            conf="$(echo "$conf" | \
-                sed -e "/!--OCEAN_RESTART_IN_BASENAME--/a OCEAN_RESTART_IN_BASENAME = \"${BOUNDARY_PATH[$d]}/bdy/${mem_bdy}/init_bdy_$(datetime_scale $btime)\",")"
-          fi
-        fi
-        if ((LAND_INPUT == 1)); then
-          if ((LAND_FORMAT == 99)); then
-            conf="$(echo "$conf" | \
-                sed -e "/!--LAND_RESTART_IN_BASENAME--/a LAND_RESTART_IN_BASENAME = \"${BOUNDARY_PATH[$d]}/bdy/${mem_bdy}/init_bdy_$(datetime_scale $btime)\",")"
-          fi
-        fi
+#        if ((OCEAN_INPUT == 1)); then
+#          if ((OCEAN_FORMAT == 99)); then
+#            conf="$(echo "$conf" | \
+#                sed -e "/!--OCEAN_RESTART_IN_BASENAME--/a OCEAN_RESTART_IN_BASENAME = \"${RESTART_IN_BASENAME[$d]}\",")"
+#            conf="$(echo "$conf" | \
+#                sed -e "/!--OCEAN_RESTART_IN_BASENAME--/a OCEAN_RESTART_IN_BASENAME = \"${BOUNDARY_PATH[$d]}/bdy/${mem_bdy}/init_bdy_$(datetime_scale $btime)\",")"
+#          fi
+#        fi
+#        if ((LAND_INPUT == 1)); then
+#          if ((LAND_FORMAT == 99)); then
+#            conf="$(echo "$conf" | \
+#                sed -e "/!--LAND_RESTART_IN_BASENAME--/a LAND_RESTART_IN_BASENAME = \"${BOUNDARY_PATH[$d]}/bdy/${mem_bdy}/init_bdy_$(datetime_scale $btime)\",")"
+#            conf="$(echo "$conf" | \
+#                sed -e "/!--LAND_RESTART_IN_BASENAME--/a LAND_RESTART_IN_BASENAME = \"${RESTART_IN_BASENAME[$d]}\",")"
+#          fi
+#        fi
         echo "$conf" >> ${conf_file}
       fi
 

@@ -6,14 +6,13 @@
 #===============================================================================
 
 PRESET='FUGAKU'
-RSCGRP="small"
 RSCGRP="large"
 
 #===============================================================================
 
 DIR="$(cd "$(pwd)/.." && pwd)"    # Root directory of the SCALE-LETKF
 
-OUTDIR=/vol0004/ra000007/a04042/SCALE-LETKF/scale-5.4.4dev/OUTPUT/TEST
+OUTDIR=/data/$(id -ng)/$(id -nu)/test_scale/result/BAIU2018_5.4 ### EDIT HERE ### 
 INDIR=$OUTDIR
 
 #===============================================================================
@@ -22,19 +21,19 @@ INDIR=$OUTDIR
 SCALEDIR="$DIR/../.."                  # Directory of the SCALE model
 DATADIR=${SCALE_DB}  # Directory of the SCALE database
 
-DATA_TOPO=                   # Directory of the prepared topo files
-DATA_TOPO_BDY_SCALE=
-DATA_LANDUSE=                # Directory of the prepared landuse files
-DATA_BDY_SCALE=              # Directory of the boundary data in SCALE history format (parent domain)
-DATA_BDY_SCALE_PRC_NUM_X=
-DATA_BDY_SCALE_PRC_NUM_Y=
+DATA_TOPO=$INDIR                # Directory of the prepared topo files
+DATA_TOPO_BDY_SCALE=$DATADIR/scale-letkf-test-suite/exp/BAIU2018_5.4_bdy
+DATA_LANDUSE=$DATA_TOPO         # Directory of the prepared landuse files
+DATA_BDY_SCALE=$DATADIR/scale-letkf-test-suite/exp/BAIU2018_5.4_bdy  # Directory of the boundary data in SCALE history format (parent domain)
+DATA_BDY_SCALE_PRC_NUM_X=8
+DATA_BDY_SCALE_PRC_NUM_Y=6
 DATA_BDY_SCALE_PREP=         # Directory of the prepared SCALE boundary files
 DATA_BDY_WRF=                # Directory of the boundary data in WRF format
 DATA_BDY_NICAM=              # Directory of the boundary data in NICAM format (not finished)
 
-DATA_BDY_GRADS="/vol0004/ra000007/a04042/SCALE-LETKF/scale-5.4.3/OUTPUT/TEST_REF/grads_test"
+DATA_BDY_GRADS="$DATA_BDY_SCALE/grads_test"
 
-OBS="/vol0004/ra000007/a04042/SCALE-LETKF/scale-5.4.3/OUTPUT/TEST_REF/obs"
+OBS="$DATADIR/scale-letkf-test-suite/obs/BAIU2018_5.4"
 OBSNCEP=
 
 #===============================================================================
@@ -43,13 +42,13 @@ OBSNCEP=
 DET_RUN=0               # 0: Disable the deterministic run
                         # 1: Enable  the deterministic run
 
-TOPO_FORMAT='prep'      # 'prep': Use prepared topo files in $DATA_TOPO
-#TOPO_FORMAT='GTOPO30'      # 'prep': Use prepared topo files in $DATA_TOPO
+#TOPO_FORMAT='prep'      # 'prep': Use prepared topo files in $DATA_TOPO
+TOPO_FORMAT='GTOPO30'      # 'prep': Use prepared topo files in $DATA_TOPO
                         # 'GTOPO30' (requires compatible 'config.nml.scale_pp')
                         # 'DEM50M'  (requires compatible 'config.nml.scale_pp')
 
-LANDUSE_FORMAT='prep'   # 'prep': Use prepared landuse files in $DATA_LANDUSE
-#LANDUSE_FORMAT='GLCCv2'   # 'prep': Use prepared landuse files in $DATA_LANDUSE
+#LANDUSE_FORMAT='prep'   # 'prep': Use prepared landuse files in $DATA_LANDUSE
+LANDUSE_FORMAT='GLCCv2'   # 'prep': Use prepared landuse files in $DATA_LANDUSE
                         # 'GLCCv2' (requires compatible 'config.nml.scale_pp')
                         # 'LU100M' (requires compatible 'config.nml.scale_pp')
 LANDUSE_UPDATE=0        # 0: Time-invariant landuse files
@@ -64,7 +63,7 @@ BDY_SINGLE_FILE=0       # 0: Length of a boundary file = $BDYCYCLE_INT (e.g., fi
                         # 1: Length of a boundary file is long enough so that only a single boundary file is used for each forecast
 BDY_SCALE_DIR='hist'    # Directory name of the SCALE history files when $BDY_FORMAT = 1
 
-BDY_ENS=0               # 0: Fixed boundary files for all memebers
+BDY_ENS=1               # 0: Fixed boundary files for all memebers
                         # 1: Ensemble boundary files
 
 # FCST
@@ -103,17 +102,15 @@ LTIMESLOT=600     # Timeslot interval for 4D-LETKF (second)
 #===============================================================================
 # Parallelization settings
 
-MEMBER=50          # Ensemble size
-
-
 MEMBER=3          # Ensemble size
-NNODES=$((48*16))
 
 PPN=4              # Number of processes per node
 
 THREADS=12          # Number of threads per process
 
 SCALE_NP=$((48*16))        # Number of processes to run SCALE
+
+NNODES=$(( ( MEMBER + 1 ) * ( SCALE_NP / PPN ) ))
 
 BGJOB_INT='0.1s'   # Interval of multiple background job submissions
 
