@@ -262,7 +262,7 @@ while ((time <= ETIME)); do
       for it in $(seq $nit); do
         echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: start" >&2
 
-        mpirunf ${nodestr} ${stepexecname[$s]} fcst_${stepexecname[$s]}_${stimes[1]}.conf ${logd}/${stepexecname[$s]}.NOUT_${stimes[1]} || exit $?
+        mpirunf ${nodestr} ${stepexecname[$s]} $TMPROOT/config/fcst_${stepexecname[$s]}_${stimes[1]}.conf ${logd}/${stepexecname[$s]}.NOUT_${stimes[1]} || exit $?
 
         echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: end" >&2
       done

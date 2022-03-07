@@ -704,11 +704,11 @@ while ((time <= ETIME)); do
     else
       RESTART_OUTPUT='.false.'
     fi
-    if (((loop == 1 && MAKEINIT == 1) && ${bdy_times[1]} != time)); then
-      echo "[Error] $0: Unable to generate initial analyses (MAKEINIT) at this time" >&2
-      echo "        that does not fit to any boundary data." >&2
-      exit 1
-    fi
+#    if (((loop == 1 && MAKEINIT == 1) && ${bdy_times[1]} != time)); then
+#      echo "[Error] $0: Unable to generate initial analyses (MAKEINIT) at this time" >&2
+#      echo "        that does not fit to any boundary data." >&2
+#      exit 1
+#    fi
 
     if ((BDY_ROTATING == 1 || ${bdy_times[1]} != time_bdy_start_prev)); then
       time_bdy_start_prev=${bdy_times[1]}
@@ -1153,11 +1153,11 @@ while ((time <= ETIME)); do
     if ((d == 1)); then
       conf_file_src=$SCRP_DIR/config.nml.letkf
 #      conf_file_src2=$SCRP_DIR/config.nml.scale
-      conf_file="$TMP/letkf_${atime}.conf"
+      conf_file="$TMP/config/letkf_${atime}.conf"
     else
       conf_file_src=$SCRP_DIR/config.nml.letkf.d$d
       #conf_file_src2=$SCRP_DIR/config.nml.scale.d$d
-      conf_file="$TMP/letkf.d${dfmt}_${atime}.conf"
+      conf_file="$TMP/config/letkf.d${dfmt}_${atime}.conf"
     fi
     conf_file_src2="$TMP/${name_m[$m]}/run.d${dfmt}_${time}.conf"
 
@@ -1224,7 +1224,21 @@ while ((time <= ETIME)); do
 #    if ((stage_config == 1)); then
 #      echo "$CONFIG_DIR/${conf_file}|${conf_file}" >> ${STAGING_DIR}/${STGINLIST}
 #    fi
-  done # [ d in $(seq $DOMNUM) ]
+    if (( PAWR_DECODE == 1 )) ; then
+      conf_file_dec_pawr="$TMP/config/dec_pawr_${atime}.conf"
+      PAWR_IN_PATH="${PAWR_RAW}/${FNAME_PAWR_RAW}"
+      OUT_PAWR_SUPEROB_PATH="${TMPROOT_OBS}/obs/${OBSNAME[$iobs]}"
+      cat ${conf_file} | \
+      sed -e "/!--PAWR_IN_PATH--/a PAWR_IN_PATH = \"${PAWR_IN_PATH}\"," \
+          -e "/!--OUT_PAWR_SUPEROB_PATH--/a OUT_PAWR_SUPEROB_PATH = \"${OUT_PAWR_SUPEROB_PATH}\", " \
+          -e "/!--MEMBER_RUN--/a MEMBER_RUN = 1, " \
+          -e "s#^MEMBER\ =.*#MEMBER\ =\ 1,#g" \
+          -e "s#^CONF_FILES\ =.*#CONF_FILES\ =\ ${conf_file_dec_pawr},#g" \
+          -e "s#^TIME_STARTDATE\ =.*#TIME_STARTDATE\ =\ ${atime:0:4},\ ${atime:4:2},\ ${atime:6:2},\ ${atime:8:2},\ ${atime:10:2},\ ${atime:12:2}, #g" \
+      >> ${conf_file_dec_pawr}
+    fi
+
+   done # [ d in $(seq $DOMNUM) ]
 
   #-------------------
   time=$(datetime $time $LCYCLE s)
@@ -1252,26 +1266,38 @@ stepexecname[2]="scale-rm_init_ens"
 stepname[3]='Run ensemble forecasts'
 stepexecdir[3]="$TMPRUN/scale"
 stepexecname[3]="scale-rm_ens"
+if (( OBSOPE_RUN == 0 )) && (( PAWR_DECODE == 1 )) ; then
+stepname[4]='Run PAWR decoder'
+stepexecdir[4]="$TMPRUN/dec_pawr"
+stepexecname[4]="dec_pawr"
+elif (( OBSOPE_RUN == 1 )) && (( PAWR_DECODE == 1 )) ; then
+  echo "OBSOPE=1 and PAWR_DECODE=1 is not supported. "
+  exit 1 
+else 
 stepname[4]='Run observation operator'
 stepexecdir[4]="$TMPRUN/obsope"
 stepexecname[4]="obsope"
+fi 
+
 stepname[5]='Run LETKF'
 stepexecdir[5]="$TMPRUN/letkf"
 stepexecname[5]="letkf"
 
-if (( USE_LLIO_BIN == 1 )); then
+if (( PRESET == "FUGAKU" )) && (( USE_LLIO_BIN == 1 )); then
   stepexecbin[1]="$DIR/ensmodel/scale-rm_pp_ens"
   stepexecbin[2]="$DIR/ensmodel/scale-rm_init_ens"
   stepexecbin[3]="$DIR/ensmodel/scale-rm_ens"
-  stepexecbin[4]="$DIR/obs/obsope"
+  if (( OBSOPE_RUN == 0 )) && (( PAWR_DECODE == 1 )) ; then
+    stepexecbin[4]="$DIR/obs/dec_pawr"
+  else
+    stepexecbin[4]="$DIR/obs/obsope"
+  fi
   stepexecbin[5]="$DIR/letkf/letkf"
 else
   for i in `seq $nsteps`; do
-    stepexecbin[$i]="./${stepexecname[$i]}"
+     stepexecbin[$i]="./${stepexecname[$i]}"
   done
 fi
-
-
 #-------------------------------------------------------------------------------
 # usage help string
 

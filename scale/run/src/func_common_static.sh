@@ -183,7 +183,7 @@ cat $SCRP_DIR/config.nml.ensmodel | \
         -e "/!--MEM_NODES--/a MEM_NODES = $mem_nodes," \
         -e "/!--NUM_DOMAIN--/a NUM_DOMAIN = $DOMNUM," \
         -e "/!--PRC_DOMAINS--/a PRC_DOMAINS = $PRC_DOMAINS_LIST" \
-    > $TMP/${conf_file}
+    > $TMP/config/${conf_file}
 
 #-------------------------------------------------------------------------------
 }

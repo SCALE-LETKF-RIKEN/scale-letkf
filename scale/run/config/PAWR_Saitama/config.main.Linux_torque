@@ -12,7 +12,7 @@ RSCGRP="small"
 
 DIR="$(cd "$(pwd)/.." && pwd)"    # Root directory of the SCALE-LETKF
 
-OUTDIR=/home/$(id -nu)/test_scale/result/PAWR_Kobe ### EDIT HERE ### 
+OUTDIR=/home/$(id -nu)/test_scale/result/PAWR_Saitama ### EDIT HERE ### 
 INDIR=$OUTDIR
 
 #===============================================================================
@@ -21,7 +21,7 @@ INDIR=$OUTDIR
 SCALEDIR="$DIR/../.."                  # Directory of the SCALE model
 DATADIR=$SCALE_DB  # Directory of the SCALE database
 
-DATA_BDY_SCALE=$DATADIR/scale-letkf-test-suite/exp/PAWR_Kobe_bdy # Directory of the boundary data in SCALE history format (parent domain)
+DATA_BDY_SCALE=$DATADIR/scale-letkf-test-suite/exp/PAWR_Saitama_bdy # Directory of the boundary data in SCALE history format (parent domain)
 DATA_TOPO_BDY_SCALE=$DATA_BDY_SCALE
 DATA_TOPO=$INDIR                                # Directory of the prepared topo files
 DATA_LANDUSE=$DATA_TOPO                         # Directory of the prepared landuse files
@@ -33,7 +33,7 @@ DATA_BDY_NICAM=              # Directory of the boundary data in NICAM format (n
 
 DATA_BDY_GRADS=
 
-OBS="$DATADIR/scale-letkf-test-suite/obs/PAWR_Kobe"
+OBS="$DATADIR/scale-letkf-test-suite/obs/PAWR_Saitama"
 OBSNCEP=
 
 OBSNUM=1
@@ -43,7 +43,7 @@ OBSNAME[1]=radar
 # PAWR decoder 
 
 PAWR_DECODE=1
-PAWR_RAW="$DATADIR/scale-letkf-test-suite/obs/PAWR_Kobe/raw"
+PAWR_RAW="$DATADIR/scale-letkf-test-suite/obs/PAWR_Saitama/raw"
 FNAME_PAWR_RAW="obs.pawr<type>"
 OBS="$INDIR/obs_letkf"
 
@@ -53,13 +53,13 @@ OBS="$INDIR/obs_letkf"
 DET_RUN=0               # 0: Disable the deterministic run
                         # 1: Enable  the deterministic run
 
-TOPO_FORMAT='prep'      # 'prep': Use prepared topo files in $DATA_TOPO
-#TOPO_FORMAT='DEM50M'      # 'prep': Use prepared topo files in $DATA_TOPO
+#TOPO_FORMAT='prep'      # 'prep': Use prepared topo files in $DATA_TOPO
+TOPO_FORMAT='DEM50M'      # 'prep': Use prepared topo files in $DATA_TOPO
                         # 'GTOPO30' (requires compatible 'config.nml.scale_pp')
                         # 'DEM50M'  (requires compatible 'config.nml.scale_pp')
 
-LANDUSE_FORMAT='prep'   # 'prep': Use prepared landuse files in $DATA_LANDUSE
-#LANDUSE_FORMAT='LU100M'   # 'prep': Use prepared landuse files in $DATA_LANDUSE
+#LANDUSE_FORMAT='prep'   # 'prep': Use prepared landuse files in $DATA_LANDUSE
+LANDUSE_FORMAT='LU100M'   # 'prep': Use prepared landuse files in $DATA_LANDUSE
                         # 'GLCCv2' (requires compatible 'config.nml.scale_pp')
                         # 'LU100M' (requires compatible 'config.nml.scale_pp')
 LANDUSE_UPDATE=0        # 0: Time-invariant landuse files
@@ -83,9 +83,9 @@ BDY_ROTATING=0          # 0: Use a same series of boundary files for all initial
 
 
 BDYINT=600
-BDYCYCLE_INT=3600
+BDYCYCLE_INT=32400
 
-PARENT_REF_TIME=20190610060000
+PARENT_REF_TIME=20210730000000
 
 ENABLE_PARAM_USER=0     # 0: Do not enable the 'PARAM_USER' section of the SCALE namelist
                         # 1: Enable the 'PARAM_USER' section of the SCALE namelist (require 'config.nml.scale_user' and customized version of SCALE)
@@ -110,15 +110,15 @@ LTIMESLOT=30     # Timeslot interval for 4D-LETKF (second)
 #===============================================================================
 # Parallelization settings
 
-MEMBER=2          # Ensemble size
-
-NNODES=6
+MEMBER=7          # Ensemble size
 
 PPN=8             # Number of processes per node ???
 
 THREADS=1         # Number of threads per process ???
 
 SCALE_NP=16        # Number of processes to run SCALE
+
+NNODES=$(( ( MEMBER + 1 ) * ( SCALE_NP / PPN ) ))
 
 BGJOB_INT='0.1s'   # Interval of multiple background job submissions
 

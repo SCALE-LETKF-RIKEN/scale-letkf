@@ -233,8 +233,8 @@ while ((time <= ETIME)); do
       fi
       if ((s == 4)); then
         logd=$OUTDIR/$atime/log/letkf
-        if ((OBSOPE_RUN == 0)); then
-          echo "[$(datetime_now)] ${time}: ${stepname[$s]} ...skipped (only use integrated observation operators)" >&2
+        if ((OBSOPE_RUN == 0)) && ((PAWR_DECODE != 1)) ; then
+          echo "[$(datetime_now)] ${time}: ${stepname[$s]} ...skipped (only use integrated observation operators and decoded data)" >&2
           continue
         fi
       fi
@@ -266,8 +266,9 @@ while ((time <= ETIME)); do
 
 #        rm -rf  $logd
 #        mkdir -p $logd
-        mpirunf ${nodestr} ${stepexecbin[$s]} ${stepexecname[$s]}_${conf_time}.conf ${logd}/NOUT_${conf_time} || exit $?
-       
+
+           mpirunf ${nodestr} ${stepexecbin[$s]} $TMPROOT/config/${stepexecname[$s]}_${conf_time}.conf ${logd}/NOUT_${conf_time} || exit $?
+
         echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: end" >&2
       done
 
