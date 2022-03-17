@@ -182,7 +182,7 @@ elif [ "$MPI_TYPE" = 'openmpi' ]; then
     exit $res
   fi
 
-elif [ "$MPI_TYPE" = 'impi' ]  ||  [ "$PRESET" = 'OFP' ]; then
+elif [ "$MPI_TYPE" = 'impi' ] ; then
 
   $MPIRUN $PROG $CONF $STDOUT $ARGS
   res=$?

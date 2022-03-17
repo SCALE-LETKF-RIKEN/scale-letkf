@@ -24,10 +24,7 @@ DOMAIN_FMT_0="$(printf $DOMAIN_FMT 0)"
 # NODELIST_TYPE: 'machinefile', '(0)'
 # MPI_TYPE: 'K', 'sgimpt', 'openmpi'
 
-if [ "$PRESET" = 'OFP' ]; then
-  NODELIST_TYPE='machinefile'
-  MPI_TYPE='impi'
-elif [ "$PRESET" = 'Linux64' ]; then
+if [ "$PRESET" = 'Linux64' ]; then
   NODELIST_TYPE='machinefile'
   MPI_TYPE='impi'
 elif [ "$PRESET" = 'Linux' ]; then

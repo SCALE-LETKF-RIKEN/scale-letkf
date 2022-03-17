@@ -129,9 +129,6 @@ TMPS="$DIR/tmp/$TMPSUBDIR"  # Temporary directory only on the server node
 #TMPS="$TMP"  # Temporary directory only on the server node
 TMPL="$TMP"
 
-USE_RAMDISK=1   # 1: Use RAM disk on FUGAKU
-                # 0: Not use RAM disk
-
 CLEAR_TMP=0                 # Clear temporary directories after the completion of job?
                             #  0: No
                             #  1: Yes

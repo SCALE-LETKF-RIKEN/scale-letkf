@@ -869,9 +869,6 @@ while ((time <= ETIME)); do
         fi
 
         BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$btime
-        if [ "$PRESET" = 'FUGAKU' ] && (( USE_RAMDISK == 1 && BDY_ENS != 0 )) ; then
-          BOUNDARY_PATH[$d]=/worktmp
-        fi
 
         conf="$(cat $conf_file_src | \
             sed -e "/!--IO_LOG_BASENAME--/a IO_LOG_BASENAME = \"${OUTDIR[$d]}/$time/log/scale_init/${name_m[$m]}_LOG\"," \
@@ -979,20 +976,6 @@ while ((time <= ETIME)); do
       HISTORY_PATH[$d]=${OUTDIR[$d]}/$time
       RESTART_IN_PATH[$d]=${INDIR[$d]}/$time
       RESTART_OUT_PATH[$d]=${OUTDIR[$d]}/${atime}
-      if [ "$PRESET" = 'FUGAKU' ] && (( USE_RAMDISK == 1 )) && (( OUT_OPT >= 2 )); then
-        HISTORY_PATH[$d]=/worktmp
-
-        loop_p=$((loop + 1))
-        loop_m=$((loop - 1))
-        if (( loop > 1 && loop_m % OUT_CYCLE_SKIP != 0 )); then
-          RESTART_IN_PATH[$d]=/worktmp
-        fi
-
-        if (( OUT_OPT >= 5 &&  loop % OUT_CYCLE_SKIP != 0  ))  ; then
-          RESTART_OUT_PATH[$d]=/worktmp
-        fi 
-
-      fi 
       RESTART_IN_BASENAME[$d]="${RESTART_IN_PATH[$d]}/anal/${name_m[$m]}/init"
       RESTART_OUT_BASENAME[$d]="${RESTART_OUT_PATH[$d]}/anal/${name_m[$m]}/init"
 

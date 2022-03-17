@@ -218,54 +218,9 @@ else
   fi
 fi
 
-
-#NPIN=`expr 255 / \( $PPN \) + 1`
 jobsh="${RUNDIR}/job_sno.sh"
 
-# OFP
-if [ "$PRESET" = 'OFP' ]; then
-
-cat << EOF >> $jobsh
-#!/bin/sh
-#PJM -L rscgrp=debug-cache
-#PJM -L node=${SNO_NODE}
-#PJM -L elapse="00:30:00"
-#PJM --mpi proc=${NP_OFILE}
-#PJM --omp thread=1
-#PJM -g $(echo $(id -ng))
-#PJM -s
-
-
-module unload impi
-module unload intel
-module load intel/2019.5.281
-
- 
-module load hdf5/1.10.5
-module load netcdf/4.7.0
-module load netcdf-fortran/4.4.5
-
-export FORT_FMT_RECL=400
-
-export HFI_NO_CPUAFFINITY=1
-export I_MPI_PIN_PROCESSOR_EXCLUDE_LIST=0,1,68,69,136,137,204,205
-export I_MPI_HBW_POLICY=hbw_preferred,,
-export I_MPI_FABRICS_LIST=tmi
-unset KMP_AFFINITY
-export OMP_NUM_THREADS=1
-#export I_MPI_PIN_DOMAIN=${NPIN}
-#export I_MPI_PERHOST=${PPN}
-export KMP_HW_SUBSET=1t
-
-ulimit -s unlimited
-
-echo "[\$(date "+%Y/%m/%d %H:%M:%S")] Start SNO"
-mpiexec.hydra -n $((NP_OFILE)) ${SNOBIN} ${conf_bulk}.\${PJM_BULKNUM}
-echo "[\$(date "+%Y/%m/%d %H:%M:%S")] End SNO"
-EOF
-
-# FUGAKU
-elif [ "$PRESET" = 'FUGAKU' ]; then
+if [ "$PRESET" = 'FUGAKU' ]; then
 
 #  if (( SNO_NODE < 12 )) ; then
 #    SNO_NODE=12
