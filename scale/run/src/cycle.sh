@@ -139,7 +139,6 @@ loop=0
 #-------------------------------------------------------------------------------
 while ((time <= ETIME)); do
 #-------------------------------------------------------------------------------
-
   timefmt="$(datetime_fmt ${time})"
   loop=$((loop+1))
   if (($(datetime $time $LCYCLE s) > ETIME)); then
@@ -238,6 +237,9 @@ while ((time <= ETIME)); do
           continue
         fi
       fi
+      if ((s == 5)); then
+        logd=$OUTDIR/$atime/log/letkf
+      fi
       ######
 
       echo "[$(datetime_now)] ${time}: ${stepname[$s]}" >&2
@@ -263,9 +265,6 @@ while ((time <= ETIME)); do
 #      logd=/worktmp
       for it in $(seq $nit); do
         echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: start" >&2
-
-#        rm -rf  $logd
-#        mkdir -p $logd
 
            mpirunf ${nodestr} ${stepexecbin[$s]} $TMPROOT/config/${stepexecname[$s]}_${conf_time}.conf ${logd}/NOUT_${conf_time} || exit $?
 

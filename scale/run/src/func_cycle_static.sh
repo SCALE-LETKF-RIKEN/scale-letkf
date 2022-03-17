@@ -67,6 +67,10 @@ cp -r ${SCALEDIR}/data/land ${TMPROOT}/dat/land
 cp -r ${SCALEDIR}/data/urban ${TMPROOT}/dat/urban
 cp -r ${SCALEDIR}/data/lightning ${TMPROOT}/dat/lightning
 
+if [ "${SOUNDING}" != "" ] ; then
+  cp ${SOUNDING} ${TMPROOT}/dat/
+fi
+
 #-------------------------------------------------------------------------------
 # time-variant outputs
 
@@ -551,7 +555,7 @@ if ((PNETCDF_BDY_SCALE == 1)); then
   local mem_np_bdy_=1
 else
   local mem_np_bdy_=$((DATA_BDY_SCALE_PRC_NUM_X*DATA_BDY_SCALE_PRC_NUM_Y))
-  if (( mem_np_bdy_ < 1 )) && (( BDY_FORMAT < 4 )) ; then
+  if (( mem_np_bdy_ < 1 )) && (( BDY_FORMAT < 4 ))  && (( BDY_FORMAT > 0 )); then
     echo "[Error] $0: Specify DATA_BDY_SCALE_PRC_NUM_X/Y" >&2
     exit 1
   fi
@@ -820,6 +824,9 @@ while ((time <= ETIME)); do
         LATLON_CATALOGUE_FNAME=
       elif ((BDY_FORMAT == 4)); then
         FILETYPE_ORG='GrADS'
+        LATLON_CATALOGUE_FNAME=
+      elif ((BDY_FORMAT == 5)); then
+        FILETYPE_ORG=
         LATLON_CATALOGUE_FNAME=
       else
         echo "[Error] $0: Unsupport boundary file types." >&2
@@ -1412,7 +1419,7 @@ else
   exit 1
 fi
 
-if ((BDY_FORMAT >= 1)); then
+if ((BDY_FORMAT >= 1)) && ((BDY_FORMAT <= 4 )) ; then
   if ((BDYCYCLE_INT % BDYINT != 0)); then
     echo "[Error] \$BDYCYCLE_INT needs to be an exact multiple of \$BDYINT" >&2
     exit 1

@@ -30,6 +30,8 @@ PROGRAM letkf
   REAL(r_size),ALLOCATABLE :: anal2d(:,:,:)
 
   integer :: iof
+  character(len=7) :: stdoutf = '-000000'
+  character(len=6400) :: icmd
 
 !-----------------------------------------------------------------------
 ! Initial settings
@@ -37,6 +39,16 @@ PROGRAM letkf
 
   call initialize_mpi_scale
   call mpi_timer('', 1)
+
+  if (command_argument_count() >= 2) then
+    call get_command_argument(2, icmd)
+    if (trim(icmd) /= '') then
+      write (stdoutf(2:7), '(I6.6)') myrank
+!      write (6,'(3A,I6.6)') 'STDOUT goes to ', trim(icmd)//stdoutf, ' for MYRANK ', myrank
+      open (6, file=trim(icmd)//stdoutf)
+      write (6,'(A,I6.6,2A)') 'MYRANK=', myrank, ', STDOUTF=', trim(icmd)//stdoutf
+    end if
+  end if
 
   if ( LOG_OUT ) then
     WRITE(6,'(A)') '============================================='

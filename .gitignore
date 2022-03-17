@@ -14,12 +14,14 @@ log*
 /scale/run/config.main*
 /scale/run/config.cycle
 /scale/run/config.fcst
+/scale/run/config.obsmake
 /scale/run/config.nml.scale_pp*
 /scale/run/config.nml.scale_init*
 /scale/run/config.nml.grads_boundary
 /scale/run/config.nml.scale*
 /scale/run/config.nml.scale_user
 /scale/run/config.nml.obsope
+/scale/run/config.nml.obsmake
 /scale/run/config.nml.letkf*
 /scale/run/cycle_job.sh
 /scale/run/fcst_job.sh
@@ -27,6 +29,8 @@ log*
 /scale/run/mpd.hosts
 /scale/run/cycle_*.[e,i,s,o][0-9]*
 /scale/run/fcst_*.[e,i,s,o][0-9]*
+/scale/run/make_obsin
+/scale/run/obsmake_run.sh
 /scale/run/exp
 /scale/letkf/letkf
 /scale/obs/obsmake

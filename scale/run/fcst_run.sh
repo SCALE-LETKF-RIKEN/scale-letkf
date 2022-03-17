@@ -97,6 +97,8 @@ stage_in server || exit $?
 #===============================================================================
 # Creat a job script
 
+NNODES_USE=$((  fmember * ( SCALE_NP / PPN ) ))
+
 NPIN=`expr 255 / \( $PPN \) + 1`
 jobscrp="$TMP/${job}_job.sh"
 
@@ -113,9 +115,9 @@ if [ "$PRESET" = 'OFP' ]; then
 cat > $jobscrp << EOF
 #!/bin/sh
 #PJM -L rscgrp=${RSCGRP}
-#PJM -L node=${NNODES}
+#PJM -L node=${NNODES_USE}
 #PJM -L elapse=${TIME_LIMIT}
-#PJM --mpi proc=$((NNODES*PPN))
+#PJM --mpi proc=$((NNODES_USE*PPN))
 ##PJM --mpi proc=${totalnp}
 #PJM --omp thread=${THREADS}
 
@@ -177,7 +179,7 @@ elif [ "$PRESET" = 'FUGAKU' ]; then
     RSCGRP="small"
   fi
 
-  TPROC=$((NNODES*PPN))
+  TPROC=$((NNODES_USE*PPN))
 
   VOLUMES="/"$(readlink /data/$(id -ng) | cut -d "/" -f 2)
   if [ $VOLUMES != "/vol0004" ] ;then
@@ -271,12 +273,12 @@ EOF
 
 else
 
-if [ $NNODES -le 4 ] ; then
+if [ $NNODES_USE -lt 4 ] ; then
   RSCGRP=s
-elif [ $NNODES -le 16 ] ; then
+elif [ $NNODES_USE -le 16 ] ; then
   RSCGRP=m
 else
-  echo "too many nodes required. " $NNODES " > 16"
+  echo "too many nodes required. " $NNODES_USE " > 16"
   exit 1
 fi
 
@@ -285,7 +287,7 @@ cat > $jobscrp << EOF
 #!/bin/sh
 #PBS -N $job
 #PBS -q ${RSCGRP}
-#PBS -l nodes=${NNODES}:ppn=${PPN}
+#PBS -l nodes=${NNODES_USE}:ppn=${PPN}
 #PBS -l walltime=${TIME_LIMIT}
 #
 #
@@ -311,7 +313,7 @@ EOF
 
   echo "[$(datetime_now)] Run ${job} job on PJM"
   echo
-  
+
   job_submit_torque $jobscrp
   echo
   

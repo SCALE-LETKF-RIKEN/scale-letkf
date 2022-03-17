@@ -483,6 +483,8 @@ mem_loop: DO it = 1, nitmax
     myrank_use = .true.
   end if
 
+  nens = mem
+
   ! settings related to mean (only valid when mem >= MEMBER+1)
   !----------------------------------------------------------------
   if (mem >= MEMBER+1) then
@@ -879,14 +881,20 @@ subroutine set_scalelib(execname)
   call ATMOS_GRID_CARTESC_INDEX_setup
   call ATMOS_GRID_CARTESC_setup
 
+  if ( OCEAN_do ) then
   call OCEAN_GRID_CARTESC_INDEX_setup
   call OCEAN_GRID_CARTESC_setup
+  end if
 
+  if ( LAND_do ) then
   call LAND_GRID_CARTESC_INDEX_setup
   call LAND_GRID_CARTESC_setup
+  end if
 
+  if ( URBAN_do ) then
   call URBAN_GRID_CARTESC_INDEX_setup
   call URBAN_GRID_CARTESC_setup
+  end if
 
   ! setup tracer index
   call ATMOS_HYDROMETEOR_setup
@@ -912,14 +920,20 @@ subroutine set_scalelib(execname)
   call ATMOS_GRID_CARTESC_METRIC_setup
   call ATMOS_GRID_CARTESC_REAL_calc_areavol( ATMOS_GRID_CARTESC_METRIC_MAPF(:,:,:,:) )
 
+  if ( OCEAN_do ) then
   call OCEAN_GRID_CARTESC_REAL_setup
   call OCEAN_GRID_CARTESC_REAL_set_areavol
+  end if
 
+  if ( LAND_do ) then
   call LAND_GRID_CARTESC_REAL_setup
   call LAND_GRID_CARTESC_REAL_set_areavol
+  end if
 
+  if ( URBAN_do ) then
   call URBAN_GRID_CARTESC_REAL_setup
   call URBAN_GRID_CARTESC_REAL_set_areavol
+  end if
 
   ! setup restart
   call ADMIN_restart_setup

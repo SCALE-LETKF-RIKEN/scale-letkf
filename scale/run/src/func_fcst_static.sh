@@ -71,6 +71,10 @@ cp -r ${SCALEDIR}/data/land ${TMPROOT}/dat/land
 cp -r ${SCALEDIR}/data/urban ${TMPROOT}/dat/urban
 cp -r ${SCALEDIR}/data/lightning ${TMPROOT}/dat/lightning
 
+if [ "${SOUNDING}" != "" ] ; then
+  cp ${SOUNDING} ${TMPROOT}/dat/
+fi 
+
 #-------------------------------------------------------------------------------
 # time-variant outputs
 
@@ -420,7 +424,7 @@ if ((PNETCDF_BDY_SCALE == 1)); then
   local mem_np_bdy_=1
 else
   local mem_np_bdy_=$((DATA_BDY_SCALE_PRC_NUM_X*DATA_BDY_SCALE_PRC_NUM_Y))
-  if (( mem_np_bdy_ < 1 )) && (( BDY_FORMAT < 4 )) ; then
+  if (( mem_np_bdy_ < 1 )) && (( BDY_FORMAT < 4 ))  && (( BDY_FORMAT > 0 )); then
     echo "[Error] $0: Specify DATA_BDY_SCALE_PRC_NUM_X/Y" >&2
     exit 1
   fi
@@ -518,9 +522,6 @@ time_bdy_start_prev=0
 loop=0
 while ((time_s <= ETIME)); do
   loop=$((loop+1))
-
-  echo "loop " $loop "time_s" $time_s 
-
   rcycle=1
   for c in $(seq 2 $CYCLE); do
     if (($(datetime $time_s $((lcycles * (c-1))) s) <= ETIME)); then
@@ -553,6 +554,7 @@ while ((time_s <= ETIME)); do
 
     for c in $(seq $CYCLE); do
       time=$(datetime $time_s $((lcycles * (c-1))) s)
+
       if ((time <= ETIME)); then
 
         bdy_setting $time $FCSTLEN $BDYCYCLE_INT "$BDYINT" "$PARENT_REF_TIME" "$BDY_SINGLE_FILE"
@@ -680,6 +682,9 @@ while ((time_s <= ETIME)); do
           elif ((BDY_FORMAT == 4)); then
             FILETYPE_ORG='GrADS'
             LATLON_CATALOGUE_FNAME=
+          elif ((BDY_FORMAT == 5)); then
+            FILETYPE_ORG=
+            LATLON_CATALOGUE_FNAME=
           else
             echo "[Error] $0: Unsupport boundary file types." >&2
             exit 1
@@ -721,6 +726,7 @@ while ((time_s <= ETIME)); do
                     -e "/!--RESTART_OUTPUT--/a RESTART_OUTPUT = ${RESTART_OUTPUT}," \
                     -e "/!--RESTART_OUT_BASENAME--/a RESTART_OUT_BASENAME = \"${RESTART_OUT_BASENAME}\"," \
                     -e "/!--RESTART_OUT_POSTFIX_TIMELABEL--/a RESTART_OUT_POSTFIX_TIMELABEL = .true.," \
+                    -e "/!--TOPOGRAPHY_OUT_BASENAME--/a TOPOGRAPHY_OUT_BASENAME = \"${DATA_TOPO}/const/topo/topo\"," \
                     -e "/!--TOPOGRAPHY_IN_BASENAME--/a TOPOGRAPHY_IN_BASENAME = \"${DATA_TOPO}/const/topo/topo\"," \
                     -e "/!--LANDUSE_IN_BASENAME--/a LANDUSE_IN_BASENAME = \"${DATA_LANDUSE}/const/landuse/landuse\"," \
                     -e "/!--LAND_PROPERTY_IN_FILENAME--/a LAND_PROPERTY_IN_FILENAME = \"${TMPROOT_CONSTDB}/dat/land/param.bucket.conf\",")"
@@ -1099,7 +1105,7 @@ if ((RUN_LEVEL == 0)); then
 
   if ((MAKEINIT == 1)); then
     if [ -d "${OUTDIR}/${STIME}/anal" ]; then
-      if [ -n "$(ls ${OUTDIR}/${STIME}/anal 2> /dev/null)" ]; then
+      if [ -n "$(ls ${OUTDIR}/${STIME}/anal/*/*.nc 2> /dev/null)" ]; then
         echo "[Error] $myname: Initial ensemble is to be generated (\$MAKEINIT = 1) at \"${OUTDIR}/${STIME}/anal/\", but existing data are found there;" >&2
         echo "        Set \$MAKEINIT = 0 or remove \"${OUTDIR}/${STIME}/anal/*\" before running this job." >&2
         exit 1
@@ -1113,7 +1119,7 @@ fi
 #-------------------------------------------------------------------------------
 # common variables
 
-if ((BDY_FORMAT >= 1)); then
+if ((BDY_FORMAT >= 1)) && ((BDY_FORMAT <= 4 )) ; then
   if ((BDYCYCLE_INT % BDYINT != 0)); then
     echo "[Error] \$BDYCYCLE_INT needs to be an exact multiple of \$BDYINT" >&2
     exit 1

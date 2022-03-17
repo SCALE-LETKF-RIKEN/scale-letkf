@@ -90,6 +90,8 @@ MODULE common_scale
   LOGICAL,PARAMETER :: v2dd_hastime(nv2dd) = &
      (/.false., .true., .true., .true., .true., .true., .true./)
 
+  INTEGER,SAVE :: nv2dd_use=7
+
   ! 
   !--- Variables for model coordinates
   ! 
@@ -182,6 +184,8 @@ SUBROUTINE set_common_scale
     IHALO, &
     JHALO, &
     KHALO
+  use mod_atmos_admin, only: &
+    ATMOS_sw_phy_sf
 
   IMPLICIT NONE
 !  REAL(r_sngl) :: slat(nlat), wlat(nlat)
@@ -207,6 +211,12 @@ SUBROUTINE set_common_scale
   nlevalld = nlev * nv3dd + nv2dd
   ngpv  = nij0 * nlevall
   ngpvd = nij0 * nlevalld
+
+  if (ATMOS_sw_phy_sf) then
+    nv2dd_use=nv2dd
+  else
+    nv2dd_use=1 !!! read TOPO only 
+  end if
 
 !  !
 !  ! Lon, Lat
@@ -968,7 +978,8 @@ subroutine read_history(filename,step,v3dg,v2dg)
   ! 2D variables
   !-------------
   v2dg_RP(:,:,:) = UNDEF
-  do iv2d = 1, nv2dd
+!!  do iv2d = 1, nv2dd
+  do iv2d = 1, nv2dd_use
     if ( LOG_LEVEL >= 1 .and. LOG_OUT ) then
       write(6,'(1x,A,A15)') '*** Read 2D var: ', trim(v2dd_name(iv2d))
     end if
@@ -1027,10 +1038,12 @@ subroutine read_history(filename,step,v3dg,v2dg)
     call COMM_wait ( v3dg_RP(:,:,:,iv3d), iv3d )
   end do
 
-  do iv2d = 1, nv2dd
+!  do iv2d = 1, nv2dd
+  do iv2d = 1, nv2dd_use
     call COMM_vars8( v2dg_RP(:,:,iv2d), iv2d )
   end do
-  do iv2d = 1, nv2dd
+!  do iv2d = 1, nv2dd
+  do iv2d = 1, nv2dd_use
     call COMM_wait ( v2dg_RP(:,:,iv2d), iv2d )
   end do
 
@@ -1141,7 +1154,8 @@ subroutine read_history_par(filename,step,v3dg,v2dg,comm)
 
   ! 2D variables
   !-------------
-  do iv2d = 1, nv2dd
+!  do iv2d = 1, nv2dd
+  do iv2d = 1, nv2dd_use
     if (LOG_LEVEL >= 1) then
       write(6,'(1x,A,A15)') '*** Read 2D var: ', trim(v2dd_name(iv2d))
     end if
@@ -1189,7 +1203,8 @@ subroutine read_history_par(filename,step,v3dg,v2dg,comm)
 !$OMP END DO 
 
 !$OMP DO SCHEDULE(STATIC)
-  do iv2d = 1, nv2dd
+!  do iv2d = 1, nv2dd
+  do iv2d = 1, nv2dd_use
     v2dg(IS:IE,JS:JE,iv2d) = real(var2D(:,:,iv2d), r_size)
   end do
 !$OMP END DO
@@ -1215,10 +1230,12 @@ subroutine read_history_par(filename,step,v3dg,v2dg,comm)
     call COMM_wait ( v3dg(:,:,:,iv3d), iv3d )
   end do
 
-  do iv2d = 1, nv2dd
+!  do iv2d = 1, nv2dd
+  do iv2d = 1, nv2dd_use
     call COMM_vars8( v2dg(:,:,iv2d), iv2d )
   end do
-  do iv2d = 1, nv2dd
+!  do iv2d = 1, nv2dd
+  do iv2d = 1, nv2dd_use
     call COMM_wait ( v2dg(:,:,iv2d), iv2d )
   end do
 
@@ -1453,10 +1470,12 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
     call COMM_wait ( v3dgh_RP(:,:,:,iv3d), iv3d )
   end do
 
-  do iv2d = 1, nv2dd
+!  do iv2d = 1, nv2dd
+  do iv2d = 1, nv2dd_use
     call COMM_vars8( v2dgh_RP(:,:,iv2d), iv2d )
   end do
-  do iv2d = 1, nv2dd
+!  do iv2d = 1, nv2dd
+  do iv2d = 1, nv2dd_use
     call COMM_wait ( v2dgh_RP(:,:,iv2d), iv2d )
   end do
 
