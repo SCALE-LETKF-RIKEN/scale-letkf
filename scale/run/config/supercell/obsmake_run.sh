@@ -97,6 +97,17 @@ cp $OBSIN $TMP/obsin/obsin.dat
 time=$STIME
 time_list=""
 while ((time <= ETIME)); do
+nslot=1
+timet=$BASETIME
+while (( timet < time )); do
+  nslot=$((nslot + 1))
+  timet=$(datetime $timet $FCSTOUT)
+done
+if (( timet > time )); then 
+  echo "observation time does not match with history file !"
+  exit 1 
+fi
+
 conf_file=$TMP/config/obsmake_${time}.conf
 cat $SCRP_DIR/config.nml.obsmake | sed \
     -e "/!--PPN--/a PPN=$PPN,"  \
@@ -106,6 +117,10 @@ cat $SCRP_DIR/config.nml.obsmake | sed \
     -e "/!--PPN--/a PPN=$PPN,"  \
     -e "/!--LETKF_TOPOGRAPHY_IN_BASENAME--/a LETKF_TOPOGRAPHY_IN_BASENAME=\"$OUTDIR/topo/topo\"," \
     -e "/!--HISTORY_IN_BASENAME--/a HISTORY_IN_BASENAME=\"$OUTDIR/nature/hist/history\"," \
+    -e "/!--SLOT_START--/a SLOT_START=$nslot,"  \
+    -e "/!--SLOT_END--/a SLOT_END=$nslot,"  \
+    -e "/!--SLOT_BASE--/a SLOT_BASE=$nslot,"  \
+    -e "/!--SLOT_TINTERVAL--/a SLOT_TINTERVAL=$FCSTOUT,"  \
 > $conf_file
 
 cat $SCRP_DIR/config.nml.scale | sed \

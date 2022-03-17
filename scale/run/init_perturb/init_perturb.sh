@@ -21,6 +21,7 @@
 cd "$(dirname "$0")"
 myname=$(basename "$0")
 
+cd ..
 
 #===============================================================================
 # Configuration
@@ -32,9 +33,9 @@ res=$? && ((res != 0)) && exit $res
 . src/func_util.sh
 
 if (( PRESET == "FUGAKU" )) ; then
-  export PYTHONPATH=$DIR/run/python3:$PYTHONPATH
+  spack load --first py-pip%gcc
+  export PYTHONPATH="/share/hp150019/u01168/metscripts/python3:$PYTHONPATH"
   PYTHON="python"
-  #PYTHON="/vol0004/apps/oss/spack-v0.16/opt/spack/linux-rhel8-skylake_avx512/gcc-8.3.1/python-3.8.6-f75wehorvhacm3lcwiyh3cqz6t5rbpkl/bin/python"
 else
   echo "PRESET $PRESET not supported."
   exit 1
@@ -49,8 +50,10 @@ USAGE="
 
 Usage: $myname [STIME S_PATH]
 
-  STIME   Initial time of the ensemble (format: YYYYMMDDHHMMSS)
-  S_PATH  Source of the initial condition including the basename.
+  STIME     Initial time of the ensemble (format: YYYYMMDDHHMMSS)
+  S_PATH    Source of the initial condition including the basename.
+  TIMELABEL Add SCALE timelabel ? (optional : default=0)
+
 "
 
 #-------------------------------------------------------------------------------
@@ -66,6 +69,13 @@ fi
 
 STIME=$(datetime $1)
 S_PATH="$2"
+TIMELABEL=${3:-0}
+
+if [ $TIMELABEL == 1 ] ; then
+  tlabel="_"$(datetime_scale $STIME)
+else
+  tlabel=""
+fi
 
 #-------------------------------------------------------------------------------
 
@@ -101,21 +111,23 @@ for m in $(seq $MEMBER); do
   q=0
   while [ -s "$S_basename$(printf $SCALE_SFX $q)" ]; do
     mkdir -p $OUTDIR/$STIME/anal/${mem}
-    mv -f "$S_basename$(printf $SCALE_SFX $q)" $OUTDIR/$STIME/anal/${mem}/init$(printf $SCALE_SFX $q)
+    mv -f "$S_basename$(printf $SCALE_SFX $q)" $OUTDIR/$STIME/anal/${mem}/init${tlabel}$(printf $SCALE_SFX $q)
   q=$((q+1))
   done
 done
 
 ### mdet 
-#mem='mdet'
-#echo "  member $mem"
-#cp -f $S_PATH*.nc .
-#q=0
-#while [ -s "$S_basename$(printf $SCALE_SFX $q)" ]; do
-#  mkdir -p $OUTDIR/$STIME/anal/${mem}
-#  cp -f $S_basename$(printf $SCALE_SFX $q) $OUTDIR/$STIME/anal/${mem}/init$(printf $SCALE_SFX $q)
-#  q=$((q+1))
-#done
+if [ $DET_RUN == 1 ];then
+  mem='mdet'
+  echo "  member $mem"
+  cp -f $S_PATH*.nc .
+  q=0
+  while [ -s "$S_basename$(printf $SCALE_SFX $q)" ]; do
+    mkdir -p $OUTDIR/$STIME/anal/${mem}
+    cp -f $S_basename$(printf $SCALE_SFX $q) $OUTDIR/$STIME/anal/${mem}/init${tlabel}$(printf $SCALE_SFX $q)
+    q=$((q+1))
+  done
+fi
 
 ### mean (initial mean = mdet)
 mem='mean'
@@ -124,7 +136,7 @@ cp -f $S_PATH*.nc .
 q=0
 while [ -s "$S_basename$(printf $SCALE_SFX $q)" ]; do
   mkdir -p $OUTDIR/$STIME/anal/${mem}
-  cp -f $S_basename$(printf $SCALE_SFX $q) $OUTDIR/$STIME/anal/${mem}/init$(printf $SCALE_SFX $q)
+  cp -f $S_basename$(printf $SCALE_SFX $q) $OUTDIR/$STIME/anal/${mem}/init${tlabel}$(printf $SCALE_SFX $q)
   q=$((q+1))
 done
 

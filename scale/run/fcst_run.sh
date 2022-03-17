@@ -79,6 +79,9 @@ safe_init_tmpdir $STAGING_DIR || exit $?
 staging_list_static || exit $?
 config_file_list $TMPS/config || exit $?
 
+NNODES_USE=$(( fmember * ( SCALE_NP / PPN ) ))
+echo "NNODES=$NNODES_USE" >> $TMP/config.main
+
 #-------------------------------------------------------------------------------
 # Add shell scripts and node distribution files into the staging list
 
@@ -96,8 +99,6 @@ stage_in server || exit $?
 
 #===============================================================================
 # Creat a job script
-
-NNODES_USE=$((  fmember * ( SCALE_NP / PPN ) ))
 
 NPIN=`expr 255 / \( $PPN \) + 1`
 jobscrp="$TMP/${job}_job.sh"
