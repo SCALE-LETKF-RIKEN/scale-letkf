@@ -574,6 +574,73 @@ while ((time_s <= ETIME)); do
           time_bdy_start_prev=${bdy_times[1]}
           nbdy_max=0
         fi
+
+        ith=0
+        for mm in $(seq $m_run_onecycle); do
+          ith=$((ith+1))
+          m=$(((c-1) * m_run_onecycle + mm))
+          config_file_init_core $m &
+          if (( ith == SHELL_PROCS )); then 
+            wait 
+            ith=0
+          fi
+        done
+
+
+      fi # [ ((time <= ETIME)) ]
+    done # [ c in $(seq $CYCLE) ]
+
+  fi # [ BDY_FORMAT != 0 ]
+
+  #-----------------------------------------------------------------------------
+  # scale (launcher)
+  #-----------------------------------------------------------------------------
+
+  time=$time_s
+  config_file_scale_launcher fcst fcst_scale-rm_ens "f<member>/run" $((fmember*rcycle))
+
+  #-----------------------------------------------------------------------------
+  # scale (each member)
+  #-----------------------------------------------------------------------------
+
+  if ((OUT_OPT <= 1)); then
+    RESTART_OUTPUT='.true.'
+  else
+    RESTART_OUTPUT='.false.'
+  fi
+
+  for c in $(seq $CYCLE); do
+    time=$(datetime $time_s $((lcycles * (c-1))) s)
+    if ((time <= ETIME)); then
+
+      bdy_setting $time $FCSTLEN $BDYCYCLE_INT "$BDYINT" "$PARENT_REF_TIME" "$BDY_SINGLE_FILE"
+
+      ith=0
+      for mm in $(seq $fmember); do
+        ith=$((ith+1))
+        m=$(((c-1) * fmember + mm))
+        config_file_scale_core $m &
+        if (( ith == SHELL_PROCS )); then 
+          wait 
+          ith=0
+        fi
+      done
+
+
+
+    fi # [ ((time <= ETIME)) ]
+  done # [ c in $(seq $CYCLE) ]
+
+  #-------------------
+  time_s=$(datetime $time_s $((lcycles * CYCLE)) s)
+done # [ ((time_s <= ETIME)) ]
+
+#-------------------------------------------------------------------------------
+}
+
+config_file_init_core (){ 
+
+m=$1
         if ((nbdy > nbdy_max)); then
           for ibdy in $(seq $((nbdy_max+1)) $nbdy); do
             time_bdy=${bdy_times[$ibdy]}
@@ -581,7 +648,6 @@ while ((time_s <= ETIME)); do
             if ((BDY_FORMAT == 1)); then
 
               if ((BDY_ENS == 1)); then
-                for m in $(seq $fmember); do
                   if ((m == mmean)); then
                     mem_bdy="$BDY_MEAN"
                   else
@@ -593,14 +659,15 @@ while ((time_s <= ETIME)); do
                     #echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
                     ln -sf  $pathin $TMP/$path
                   done
-                done
               else
+                if ((m == mmean)); then
                 for q in $(seq $mem_np_bdy_); do
                   pathin="${DATA_BDY_SCALE}/${time_bdy}/${BDY_SCALE_DIR}/${BDY_MEAN}${CONNECTOR}history$(scale_filename_bdy_sfx $((q-1)))"
                   path="bdy/mean/bdyorg_$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))$(scale_filename_bdy_sfx $((q-1)))"
                   #echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
                   ln -sf  $pathin $TMP/$path
                 done
+                fi
               fi
 
             elif ((BDY_FORMAT == 2 || BDY_FORMAT == 4)); then
@@ -630,7 +697,6 @@ while ((time_s <= ETIME)); do
               fi
 
               if ((BDY_ENS == 1)); then
-                for m in $(seq $fmember); do
                   if ((m == mmean)); then
                     mem_bdy="$BDY_MEAN"
                   else
@@ -646,8 +712,8 @@ while ((time_s <= ETIME)); do
                     #echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
                     ln -sf  $pathin $TMP/$path
                   done
-                done
               else
+                if ((m == mmean)); then
                 for ifile in $(seq $filenum); do
                   if ((BDY_ROTATING == 1)); then
                     pathin="${data_bdy_i}/${time}/${BDY_MEAN}/${filename_prefix[$ifile]}${time_bdy}${filename_suffix[$ifile]}"
@@ -658,6 +724,7 @@ while ((time_s <= ETIME)); do
                   #echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
                   ln -sf  $pathin $TMP/$path
                 done
+                fi
               fi
 
             fi # [ BDY_FORMAT == 2 || BDY_FORMAT == 4 ]
@@ -665,8 +732,7 @@ while ((time_s <= ETIME)); do
           nbdy_max=$nbdy
         fi
 
-        for mm in $(seq $m_run_onecycle); do
-          m=$(((c-1) * m_run_onecycle + mm))
+
           if ((BDY_ENS == 1)); then
             mem_bdy=${name_m[$m]}
           else
@@ -795,38 +861,12 @@ while ((time_s <= ETIME)); do
 #              echo "$CONFIG_DIR/${conf_file}|${conf_file}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
 #            fi
           fi # [ BDY_FORMAT == 4 && (BDY_ENS == 0 || m == 1) ]
-        done # [ mm in $(seq $m_run_onecycle) ]
+}
 
-      fi # [ ((time <= ETIME)) ]
-    done # [ c in $(seq $CYCLE) ]
+config_file_scale_core () { 
 
-  fi # [ BDY_FORMAT != 0 ]
+m=$1
 
-  #-----------------------------------------------------------------------------
-  # scale (launcher)
-  #-----------------------------------------------------------------------------
-
-  time=$time_s
-  config_file_scale_launcher fcst fcst_scale-rm_ens "f<member>/run" $((fmember*rcycle))
-
-  #-----------------------------------------------------------------------------
-  # scale (each member)
-  #-----------------------------------------------------------------------------
-
-  if ((OUT_OPT <= 1)); then
-    RESTART_OUTPUT='.true.'
-  else
-    RESTART_OUTPUT='.false.'
-  fi
-
-  for c in $(seq $CYCLE); do
-    time=$(datetime $time_s $((lcycles * (c-1))) s)
-    if ((time <= ETIME)); then
-
-      bdy_setting $time $FCSTLEN $BDYCYCLE_INT "$BDYINT" "$PARENT_REF_TIME" "$BDY_SINGLE_FILE"
-
-      for mm in $(seq $fmember); do
-        m=$(((c-1) * fmember + mm))
         if ((BDY_ENS == 1)); then
           mem_bdy=${name_m[$m]}
         else
@@ -928,18 +968,7 @@ while ((time_s <= ETIME)); do
 #            fi
 #          fi
         done # [ d in $(seq $DOMNUM) ]
-      done # [ mm in $(seq $fmember) ]
 
-    fi # [ ((time <= ETIME)) ]
-  done # [ c in $(seq $CYCLE) ]
-
-  #-------------------
-  time_s=$(datetime $time_s $((lcycles * CYCLE)) s)
-done # [ ((time_s <= ETIME)) ]
-
-echo
-
-#-------------------------------------------------------------------------------
 }
 
 #===============================================================================

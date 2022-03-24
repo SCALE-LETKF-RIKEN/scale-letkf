@@ -30,18 +30,6 @@ for d in $(seq $DOMNUM); do
   fi
 done
 
-
-
-## H08
-#if [ "$JOBTYPE" = 'cycle' ]; then
-#  if [ -e "${RTTOV_COEF}" ] && [ -e "${RTTOV_SCCOEF}" ]; then
-#    cat >> ${STAGING_DIR}/${STGINLIST_CONSTDB} << EOF
-#${RTTOV_COEF}|dat/rttov/rtcoef_himawari_8_ahi.dat
-#${RTTOV_SCCOEF}|dat/rttov/sccldcoef_himawari_8_ahi.dat
-#EOF
-#  fi
-#fi
-
 if [ "$TOPO_FORMAT" != 'prep' ]; then
   mkdir -p $TMP/dat/topo/${TOPO_FORMAT}
   ln -sf ${DATADIR}/topo/${TOPO_FORMAT}/Products $TMP/dat/topo/${TOPO_FORMAT}/Products
