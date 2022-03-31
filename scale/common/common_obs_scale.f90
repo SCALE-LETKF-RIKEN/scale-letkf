@@ -159,6 +159,7 @@ MODULE common_obs_scale
   integer, allocatable, save :: obsdep_qc(:)       ! 
   real(r_size), allocatable, save :: obsdep_omb(:) ! 
   real(r_size), allocatable, save :: obsdep_oma(:) ! 
+  real(r_size), allocatable, save :: obsdep_sprd(:) ! 
   real(r_size), allocatable, save :: obsdep_omb_emean(:) ! 
 
   REAL(r_size),SAVE :: MIN_RADAR_REF
@@ -1494,6 +1495,7 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step)
     allocate (obsdep_qc (obsdep_nobs))
     allocate (obsdep_omb(obsdep_nobs))
     allocate (obsdep_oma(obsdep_nobs))
+    allocate (obsdep_sprd(obsdep_nobs))
     allocate (obsdep_omb_emean(obsdep_nobs))
   end if
 
@@ -1599,6 +1601,9 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step)
         obsdep_oma(n) = ohx(n)
         obsdep_omb_emean(n) = obsda_sort%val(nn)
       end if
+
+!!! ensemble perturbation output
+      obsdep_sprd(n)=sqrt ( sum(   ( obsda_sort%ensval(:,nn) - sum(obsda_sort%ensval(:,nn))/MEMBER ) **2 ) / MEMBER  )
 
       if (LOG_LEVEL >= 3) then
         write (6, '(2I6,2F8.2,4F12.4,I3)') &
@@ -2137,7 +2142,7 @@ SUBROUTINE write_obs_da(cfile,obsda,im,append)
   RETURN
 END SUBROUTINE write_obs_da
 
-subroutine write_obs_dep(cfile, nobs, set, idx, qc, omb, oma)
+subroutine write_obs_dep(cfile, nobs, set, idx, qc, omb, oma, spr)
   implicit none
   character(*), intent(in) :: cfile
   integer, intent(in) :: nobs
@@ -2146,8 +2151,9 @@ subroutine write_obs_dep(cfile, nobs, set, idx, qc, omb, oma)
   integer, intent(in) :: qc(nobs)
   real(r_size), intent(in) :: omb(nobs)
   real(r_size), intent(in) :: oma(nobs)
+  real(r_size), intent(in), optional :: spr(nobs)
 
-  real(r_sngl) :: wk(11)
+  real(r_sngl) :: wk(12)
   integer :: n, iunit
 
   iunit=92
@@ -2187,7 +2193,12 @@ subroutine write_obs_dep(cfile, nobs, set, idx, qc, omb, oma)
       wk(5) = wk(5) * 0.01 ! Pa -> hPa
       wk(6) = wk(6) * 0.01 ! Pa -> hPa
     end select
-    write (iunit) wk
+    if (present(spr)) then
+      wk(12) = real(spr(n), r_sngl)
+      write (iunit) wk
+    else
+      write (iunit) wk(1:11)
+    endif
   end do
   close (iunit)
 
@@ -2459,7 +2470,7 @@ subroutine write_obs_all(obs, missing, file_suffix)
   return
 end subroutine write_obs_all
 
-subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em )
+subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em , sprd )
   use netcdf
   use common_ncio
   implicit none
@@ -2472,6 +2483,7 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em )
   real(r_size), intent(in) :: omb(nobs)
   real(r_size), intent(in) :: oma(nobs)
   real(r_size), intent(in) :: omb_em(nobs)
+  real(r_size), intent(in), optional :: sprd(nobs)
 
   integer :: ncid
   integer :: dimid
@@ -2479,7 +2491,7 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em )
   integer :: lon_varid, lat_varid
   integer :: lev_varid, dat_varid, qc_varid
   integer :: dif_varid, err_varid
-  integer :: omb_varid, oma_varid, omb_em_varid
+  integer :: omb_varid, oma_varid, omb_em_varid, sprd_varid
 
   character(len=*), parameter :: DIM_NAME = "number"
   character(len=*), parameter :: ELM_NAME = "elm"
@@ -2493,6 +2505,7 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em )
   character(len=*), parameter :: OMB_NAME = "omb"
   character(len=*), parameter :: OMA_NAME = "oma"
   character(len=*), parameter :: OMB_EM_NAME = "omb_emean"
+  character(len=*), parameter :: SPRD_NAME = "sprd"
 
   character(len=*), parameter :: ELM_LONGNAME = "observation id"
   character(len=*), parameter :: LON_LONGNAME = "longitude"
@@ -2505,6 +2518,7 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em )
   character(len=*), parameter :: OMB_LONGNAME = "observation-minus-background"
   character(len=*), parameter :: OMA_LONGNAME = "observation-minus-analysis"
   character(len=*), parameter :: OMB_EM_LONGNAME = "observation-minus-background-ensemble-mean"
+  character(len=*), parameter :: SPRD_LONGNAME = "ensemble spread in observation space"
 
   integer :: nobs_l(nobs)
   integer :: n
@@ -2548,6 +2562,7 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em )
   call ncio_check( nf90_def_var(ncid, OMB_NAME, NF90_REAL, dimid, omb_varid) )
   call ncio_check( nf90_def_var(ncid, OMA_NAME, NF90_REAL, dimid, oma_varid) )
   call ncio_check( nf90_def_var(ncid, OMB_EM_NAME, NF90_REAL, dimid, omb_em_varid) )
+  if (present(sprd)) call ncio_check( nf90_def_var(ncid, SPRD_NAME, NF90_REAL, dimid, sprd_varid) )
 
   ! Add long names for the netCDF variables
   call ncio_check( nf90_put_att(ncid, elm_varid, "long_name", ELM_LONGNAME ) )
@@ -2562,6 +2577,7 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em )
   call ncio_check( nf90_put_att(ncid, omb_varid, "long_name", OMB_LONGNAME ) )
   call ncio_check( nf90_put_att(ncid, oma_varid, "long_name", OMA_LONGNAME ) )
   call ncio_check( nf90_put_att(ncid, omb_em_varid, "long_name", OMB_EM_LONGNAME ) )
+  if (present(sprd)) call ncio_check( nf90_put_att(ncid, sprd_varid, "long_name", SPRD_LONGNAME ) )
 
   ! End define mode.
   call ncio_check( nf90_enddef(ncid) )
@@ -2593,6 +2609,9 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em )
                    count=(/nobs/) ) )
   call ncio_check( nf90_put_var(ncid, omb_em_varid, omb_em, start=(/1/), &
                    count=(/nobs/) ) )
+  if (present(sprd)) call ncio_check( nf90_put_var(ncid, sprd_varid, sprd, start=(/1/), &
+                   count=(/nobs/) ) )
+
 
   ! Close the file. 
   call ncio_check( nf90_close(ncid) )
