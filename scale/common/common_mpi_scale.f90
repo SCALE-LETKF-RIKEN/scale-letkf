@@ -615,7 +615,7 @@ subroutine set_scalelib(execname)
   use mod_admin_time, only: &
     ADMIN_TIME_setup
   use mod_admin_restart, only: &
-    ADMIN_restart_setup
+    ADMIN_restart_setup  
   use mod_atmos_admin, only: &
     ATMOS_admin_setup, &
     ATMOS_do,          &
@@ -961,7 +961,7 @@ subroutine set_scalelib(execname)
   call BULKFLUX_setup( sqrt(DX**2+DY**2) )
 
 !  ! setup variable container
-!  if ( ATMOS_do ) call ATMOS_vars_setup
+  if ( ATMOS_do ) call ATMOS_vars_setup
 !  if ( OCEAN_do ) call OCEAN_vars_setup
 !  if ( LAND_do  ) call LAND_vars_setup
 !  if ( URBAN_do ) call URBAN_vars_setup
@@ -1140,6 +1140,23 @@ END SUBROUTINE gather_grd_mpi
 ! Read ensemble SCALE history files, one file per time (iter)
 !-------------------------------------------------------------------------------
 subroutine read_ens_history_iter(iter, step, v3dg, v2dg)
+  use mod_atmos_vars,        only: ATMOS_RESTART_IN_BASENAME
+  use mod_atmos_dyn_vars,    only: ATMOS_DYN_RESTART_IN_BASENAME
+  use mod_atmos_phy_bl_vars, only: ATMOS_PHY_BL_RESTART_IN_BASENAME
+  use mod_atmos_phy_lt_vars, only: ATMOS_PHY_LT_RESTART_IN_BASENAME
+  use mod_atmos_phy_ae_vars, only: ATMOS_PHY_AE_RESTART_IN_BASENAME
+  use mod_atmos_phy_ch_vars, only: ATMOS_PHY_CH_RESTART_IN_BASENAME
+  use mod_atmos_phy_rd_vars, only: ATMOS_PHY_RD_RESTART_IN_BASENAME
+  use mod_atmos_phy_sf_vars, only: ATMOS_PHY_SF_RESTART_IN_BASENAME
+  use mod_atmos_phy_tb_vars, only: ATMOS_PHY_TB_RESTART_IN_BASENAME
+  use mod_atmos_phy_cp_vars, only: ATMOS_PHY_CP_RESTART_IN_BASENAME
+  use mod_ocean_vars,        only: OCEAN_RESTART_IN_BASENAME
+  use mod_land_vars,         only: LAND_RESTART_IN_BASENAME
+  use mod_urban_vars,        only: URBAN_RESTART_IN_BASENAME
+  use mod_ocean_admin, only: OCEAN_do
+  use mod_land_admin,  only: LAND_do
+  use mod_urban_admin, only: URBAN_do
+
   implicit none
   integer, intent(in) :: iter
   integer, intent(in) :: step
@@ -1159,15 +1176,34 @@ subroutine read_ens_history_iter(iter, step, v3dg, v2dg)
       filename = HISTORY_MDET_IN_BASENAME
     end if
 
-#ifdef PNETCDF
-    if (FILE_AGGREGATE) then
-      call read_history_par(trim(filename), step, v3dg, v2dg, MPI_COMM_d)
+    if (SLOT_END == 1 .and. SLOT_BASE == 1) then !!! 3D-LETKF
+      call filename_replace_mem(ATMOS_RESTART_IN_BASENAME, im)
+      call filename_replace_mem(ATMOS_DYN_RESTART_IN_BASENAME, im)
+      call filename_replace_mem(ATMOS_PHY_BL_RESTART_IN_BASENAME, im)
+      call filename_replace_mem(ATMOS_PHY_LT_RESTART_IN_BASENAME, im)
+      call filename_replace_mem(ATMOS_PHY_AE_RESTART_IN_BASENAME, im)
+      call filename_replace_mem(ATMOS_PHY_CH_RESTART_IN_BASENAME, im)
+      call filename_replace_mem(ATMOS_PHY_RD_RESTART_IN_BASENAME, im)
+      call filename_replace_mem(ATMOS_PHY_SF_RESTART_IN_BASENAME, im)
+      call filename_replace_mem(ATMOS_PHY_TB_RESTART_IN_BASENAME, im)
+      call filename_replace_mem(ATMOS_PHY_CP_RESTART_IN_BASENAME, im)
+      if (OCEAN_do) call filename_replace_mem(OCEAN_RESTART_IN_BASENAME, im)
+      if (LAND_do)  call filename_replace_mem(LAND_RESTART_IN_BASENAME, im)
+      if (URBAN_do) call filename_replace_mem(URBAN_RESTART_IN_BASENAME, im)
+      call read_restart_trans_history(v3dg, v2dg)
     else
-#endif
-      call read_history(trim(filename), step, v3dg, v2dg)
+
 #ifdef PNETCDF
-    end if
+      if (FILE_AGGREGATE) then
+        call read_history_par(trim(filename), step, v3dg, v2dg, MPI_COMM_d)
+      else
 #endif
+        call read_history(trim(filename), step, v3dg, v2dg)
+#ifdef PNETCDF
+      end if
+#endif
+    end if
+
   end if
 
   return

@@ -731,6 +731,11 @@ while ((time <= ETIME)); do
       nbdy_max=$nbdy
     fi
 
+
+    HISTORY_PATH[$d]=${OUTDIR[$d]}/$time
+    RESTART_IN_PATH[$d]=${INDIR[$d]}/$time
+    RESTART_OUT_PATH[$d]=${OUTDIR[$d]}/${atime}
+
     ith=0
     for m in $(seq $mtot); do
       ith=$((ith+1))
@@ -808,6 +813,14 @@ while ((time <= ETIME)); do
   for d in $(seq $DOMNUM); do
     dfmt=$(printf $DOMAIN_FMT $d)
 
+    if ((ISTEP > 3)) ;then 
+      for m in $mtot ; do
+        cp ${OUTDIR[$d]}/$atime/gues/${name_m[$m]}/* ${OUTDIR[$d]}/$atime/anal/${name_m[$m]}
+      done
+      cp ${OUTDIR[$d]}/$atime/gues/mean/* ${OUTDIR[$d]}/$atime/gues/sprd
+      cp ${OUTDIR[$d]}/$atime/gues/mean/* ${OUTDIR[$d]}/$atime/anal/sprd
+    fi
+
     if ((d == 1)); then
       conf_file_src=$SCRP_DIR/config.nml.letkf
 #      conf_file_src2=$SCRP_DIR/config.nml.scale
@@ -874,10 +887,10 @@ while ((time <= ETIME)); do
         >> ${conf_file}
 
     # Most of these parameters are not important for letkf
-    cat $conf_file_src2  >> ${conf_file}
-#    cat $conf_file_src2 | \
-#        sed -e "/!--FILE_AGGREGATE--/a FILE_AGGREGATE = ${FILE_AGGREGATE}," \
-#        >> ${conf_file}
+    cat $conf_file_src2 | \
+        sed -e "s#^RESTART_IN_BASENAME.*#RESTART_IN_BASENAME = \"${RESTART_OUT_PATH[$d]}/gues/<member>/init\", #g " \
+            -e "s#^TIME_STARTDATE\ =.*#TIME_STARTDATE\ =\ ${atime:0:4},\ ${atime:4:2},\ ${atime:6:2},\ ${atime:8:2},\ ${atime:10:2},\ ${atime:12:2}, #g" \
+        >> ${conf_file}
 
 #    if ((stage_config == 1)); then
 #      echo "$CONFIG_DIR/${conf_file}|${conf_file}" >> ${STAGING_DIR}/${STGINLIST}
@@ -1072,9 +1085,6 @@ config_file_scale_core (){
       mkdir -p ${OUTDIR[$d]}/$atime/anal/${name_m[$mlocal]}
       mkdir -p ${OUTDIR[$d]}/$time/hist/${name_m[$mlocal]}
 
-      HISTORY_PATH[$d]=${OUTDIR[$d]}/$time
-      RESTART_IN_PATH[$d]=${INDIR[$d]}/$time
-      RESTART_OUT_PATH[$d]=${OUTDIR[$d]}/${atime}
       RESTART_IN_BASENAME[$d]="${RESTART_IN_PATH[$d]}/anal/${name_m[$mlocal]}/init"
       RESTART_OUT_BASENAME[$d]="${RESTART_OUT_PATH[$d]}/anal/${name_m[$mlocal]}/init"
 
