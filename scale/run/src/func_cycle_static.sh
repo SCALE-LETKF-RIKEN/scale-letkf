@@ -736,6 +736,18 @@ while ((time <= ETIME)); do
     RESTART_IN_PATH[$d]=${INDIR[$d]}/$time
     RESTART_OUT_PATH[$d]=${OUTDIR[$d]}/${atime}
 
+    # Update boundary time
+    if (( SKIP_BDYINIT == 1 )); then
+      if (( $(datetime $btime $BDYINT s) <= time )) ; then
+        btime=$(datetime $btime $BDYINT s)
+      fi
+    else
+      btime=$time
+    fi
+
+    BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$btime
+
+ 
     ith=0
     for m in $(seq $mtot); do
       ith=$((ith+1))
@@ -977,17 +989,6 @@ echo
         rm -rf ${OUTDIR[$d]}/$time/bdy/$mem_bdy
         mkdir -p ${OUTDIR[$d]}/$time/bdy/$mem_bdy
         mkdir -p ${OUTDIR[$d]}/$time/anal/$mem_bdy
-
-        # Update boundary time
-        if (( SKIP_BDYINIT == 1 )); then
-          if (( $(datetime $btime $BDYINT s) <= time )) ; then
-            btime=$(datetime $btime $BDYINT s)
-          fi
-        else
-          btime=$time
-        fi
-
-        BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$btime
 
         conf="$(cat $conf_file_src | \
             sed -e "/!--IO_LOG_BASENAME--/a IO_LOG_BASENAME = \"${OUTDIR[$d]}/$time/log/scale_init/${name_m[$mlocal]}_LOG\"," \

@@ -74,7 +74,7 @@ BDY_ROTATING=0          # 0: Use a same series of boundary files for all initial
 BDYINT=600
 BDYCYCLE_INT=32400
 
-PARENT_REF_TIME=20210730060000
+PARENT_REF_TIME=20210730000000
 
 ENABLE_PARAM_USER=0     # 0: Do not enable the 'PARAM_USER' section of the SCALE namelist
                         # 1: Enable the 'PARAM_USER' section of the SCALE namelist (require 'config.nml.scale_user' and customized version of SCALE)
@@ -127,7 +127,7 @@ ONLINE_STGOUT=0             # Stage out right after each cycle (do not wait unti
                             #  1: Yes
 
 #SYSNAME="$(basename $OUTDIR)"                # A unique name in the machine
-TMPSUBDIR="scale-letkf_PAWR_Kobe"           # (used to identify multiple runs in the same time)
+TMPSUBDIR="scale-letkf_PAWR_Saitama"           # (used to identify multiple runs in the same time)
 
 TMP="$DIR/tmp/$TMPSUBDIR" # Temporary directory shared among all nodes
 TMPS="$DIR/tmp/$TMPSUBDIR"  # Temporary directory only on the server node
