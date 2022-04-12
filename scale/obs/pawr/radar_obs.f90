@@ -12,17 +12,19 @@ module radar_obs
   use common_mpi_scale, only: &
     mpi_timer
   use scale_precision, only: DP
+  use radar_tools, only: & 
+    MPI_COMM_o, nprocs_o, myrank_o, &
+    radar_georeference, & 
+    define_grid, &  
+    radar_superobing 
   use dec_pawr_nml
 
   implicit none
   public
   integer, save :: utime_obs(6) = (/-1,-1,-1,-1,-1,-1/)
 
-  integer :: MPI_COMM_o, nprocs_o, myrank_o  
   ! time label
   character(len=24), save :: timelabel_obs  = ''
-
-  private MPI_COMM_o, nprocs_o, myrank_o
   
 contains
 
@@ -37,7 +39,6 @@ subroutine read_obs_radar_toshiba(cfile, obs)
   use read_toshiba_f
 #endif
 
-  use radar_tools
   use scale_atmos_grid_cartesC, only: &
       DX, DY
   use scale_time, only: &
@@ -131,11 +132,6 @@ subroutine read_obs_radar_toshiba(cfile, obs)
   character(len=255) :: filename
   integer :: irec, iunit, iolen
   integer :: k
-
-
-  MPI_COMM_o = MPI_COMM_a
-  nprocs_o   = nprocs_a
-  myrank_o   = myrank_a
 
   call mpi_timer('', 3)
 
@@ -377,7 +373,7 @@ subroutine read_obs_radar_toshiba(cfile, obs)
   call radar_georeference(lon0, lat0, z0, na, nr, ne, &                                   ! input
        &                  real(az(1:na, 1, 1), r_size), rrange, real(el(1, 1:ne, 1), r_size), & ! input (assume ordinary scan strategy)
        &                  radlon, radlat, radz, &                                     ! output  
-       &                  MPI_comm_o)
+       &                  MPI_COMM_o)
 
   call mpi_timer('read_obs_radar_toshiba:radar_georeference:', 2)
 

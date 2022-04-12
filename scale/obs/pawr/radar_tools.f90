@@ -19,8 +19,6 @@ MODULE radar_tools
     LOG_LEVEL,       &
     RADAR_ZMIN
   use common_mpi_scale, only: &
-    myrank_a, &
-    nprocs_a, &
     MPI_r_size, &
     mpi_timer
   use dec_pawr_nml, only: & 
@@ -31,6 +29,8 @@ MODULE radar_tools
 
   IMPLICIT NONE
   PUBLIC
+
+  integer,save :: MPI_COMM_o, nprocs_o, myrank_o  
 
 #ifdef SINGLELETKF
   integer, parameter :: r_size = kind(0.0e0)
@@ -93,8 +93,8 @@ CONTAINS
 
 !    call system_clock(time1, timerate, timemax)
 
-    mpiprocs = nprocs_a
-    myrank = myrank_a
+    mpiprocs = nprocs_o
+    myrank = myrank_o
 
     allocate(j_mpi(2, 0:(mpiprocs - 1)))
     call set_mpi_div(j_mpi, int(ne, 8))
@@ -268,8 +268,8 @@ CONTAINS
     logical, allocatable :: packed_attn_mpi(:)
     !MPI-----
 
-    mpiprocs = nprocs_a
-    myrank = myrank_a
+    mpiprocs = nprocs_o
+    myrank = myrank_o
 
     !MPI DIVISION
     allocate(sendcount(0:(mpiprocs - 1)), recvcount(0:(mpiprocs - 1)), recvoffset(0:(mpiprocs - 1)))
@@ -326,8 +326,11 @@ CONTAINS
     end do !i
     eidx = sidx + nobs_each_elev - 1
     deallocate(nobs_each_elev)
-!    call system_clock(time2, timerate, timemax)
-!    if(myrank == 0) write(*, *) "qc_index_pack", (time2 - time1) / dble(timerate)
+
+
+    !call system_clock(time2, timerate, timemax)
+    !if(myrank == 0) write(*, *) "qc_index_pack", (time2 - time1) / dble(timerate)
+
     call mpi_timer('read_obs_radar_toshiba:read_toshiba:superob:qc_index_pack', 2)
     !MPI packed data
     if(mpiprocs > 1) then
@@ -350,8 +353,10 @@ CONTAINS
             &           packed_data, recvcount * 5, recvoffset * 5, MPI_r_size, &
             &           0, comm, mpi_ierr)
        deallocate(packed_grid_mpi, packed_data_mpi, packed_attn_mpi)
-!       call system_clock(time2, timerate, timemax)
-!       if(myrank == 0) write(*, *) "MPI packed", (time2 - time1) / dble(timerate)
+
+       !call system_clock(time2, timerate, timemax)
+       !if(myrank == 0) write(*, *) "MPI packed", (time2 - time1) / dble(timerate)
+
        call mpi_timer('read_obs_radar_toshiba:read_toshiba:superob:MPI packed',2)
 
     end if

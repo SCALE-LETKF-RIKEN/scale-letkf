@@ -16,11 +16,15 @@ PROGRAM dec_pawr
   USE common_obs_scale
   USE common_nml
   USE dec_pawr_nml
+  use radar_tools, only: MPI_COMM_o, nprocs_o, myrank_o 
   USE radar_obs
   IMPLICIT NONE
 
   character(len=7) :: stdoutf = '-000000'
   character(len=6400) :: icmd
+
+  integer :: color, key, ierr
+  logical :: myrank_use_dec=.false.
 
 !-----------------------------------------------------------------------
 ! Initial settings
@@ -52,30 +56,46 @@ PROGRAM dec_pawr
     call set_common_mpi_scale
     call set_common_obs_scale
 
+    if (myrank_e == 0) then !!! only the head member
+      color = 0
+      key   = myrank_to_pe
+      myrank_use_dec = .true.
+    else
+      color = MPI_UNDEFINED
+      key   = MPI_UNDEFINED
+    end if
+    call MPI_COMM_SPLIT(MPI_COMM_a, color, key, MPI_COMM_o, ierr)
+    call MPI_COMM_SIZE(MPI_COMM_o, nprocs_o, ierr)
+    call MPI_COMM_RANK(MPI_COMM_o, myrank_o, ierr)
+
     call mpi_timer('INITIALIZE', 1, barrier=MPI_COMM_a)
+
+    if (myrank_use_dec) then
 
 !-----------------------------------------------------------------------
 ! Read namelist
 !-----------------------------------------------------------------------
 
-  call read_nml_letkf_radar
-  call read_nml_letkf_radar_decode
+      call read_nml_letkf_radar
+      call read_nml_letkf_radar_decode
 
 !-----------------------------------------------------------------------
 ! Read observations
 !-----------------------------------------------------------------------
 
-    allocate(obs(OBS_IN_NUM))
-    call get_timelabel_obs
-    call read_obs_radar_toshiba(trim(PAWR_IN_PATH)//trim(timelabel_obs),obs(1))
+      allocate(obs(OBS_IN_NUM))
+      call get_timelabel_obs
+      call read_obs_radar_toshiba(trim(PAWR_IN_PATH)//trim(timelabel_obs),obs(1))
 
-    call mpi_timer('READ_OBS', 1, barrier=MPI_COMM_a)
+      call mpi_timer('READ_OBS', 1, barrier=MPI_COMM_o)
 
 !-----------------------------------------------------------------------
 ! Generate observations
 !-----------------------------------------------------------------------
 
-    deallocate(obs)
+      deallocate(obs)
+
+    end if ! [ myrank_use_dec ] 
 
     call unset_common_mpi_scale
 
