@@ -30,18 +30,6 @@ for d in $(seq $DOMNUM); do
   fi
 done
 
-
-
-## H08
-#if [ "$JOBTYPE" = 'cycle' ]; then
-#  if [ -e "${RTTOV_COEF}" ] && [ -e "${RTTOV_SCCOEF}" ]; then
-#    cat >> ${STAGING_DIR}/${STGINLIST_CONSTDB} << EOF
-#${RTTOV_COEF}|dat/rttov/rtcoef_himawari_8_ahi.dat
-#${RTTOV_SCCOEF}|dat/rttov/sccldcoef_himawari_8_ahi.dat
-#EOF
-#  fi
-#fi
-
 if [ "$TOPO_FORMAT" != 'prep' ]; then
   mkdir -p $TMP/dat/topo/${TOPO_FORMAT}
   ln -sf ${DATADIR}/topo/${TOPO_FORMAT}/Products $TMP/dat/topo/${TOPO_FORMAT}/Products
@@ -55,6 +43,7 @@ fi
 
 #-------------------------------------------------------------------------------
 # observations
+      
 
 if [ "$JOBTYPE" = 'cycle' ]; then
   mkdir -p $TMP/obs
@@ -62,8 +51,10 @@ if [ "$JOBTYPE" = 'cycle' ]; then
   time=$(datetime $STIME $LCYCLE s)
   while ((time <= $(datetime $ETIME $LCYCLE s))); do
     for iobs in $(seq $OBSNUM); do
-      if [ "${OBSNAME[$iobs]}" != '' ] && [ -e ${OBS}/${OBSNAME[$iobs]}_${time}.dat ]; then
-        #echo "${OBS}/${OBSNAME[$iobs]}_${time}.dat|obs.${OBSNAME[$iobs]}_${time}.dat" >> ${STAGING_DIR}/${STGINLIST_OBS}
+#      if [ "${OBSNAME[$iobs]}" != '' ] && [ -e ${OBS}/${OBSNAME[$iobs]}_${time}.dat ]; then
+      if [ "${OBSNAME[$iobs]}" != '' ] ; then
+        mkdir -p ${OBS}
+        #echo "${OBS}/${OBSNAME[$iobs]}_${time}.dat|obs/${OBSNAME[$iobs]}_${time}.dat" >> ${STAGING_DIR}/${STGINLIST_OBS}
         ln -sf ${OBS}/${OBSNAME[$iobs]}_${time}.dat $TMP/obs/${OBSNAME[$iobs]}_${time}.dat
       fi
     done
@@ -170,24 +161,20 @@ if ((DET_RUN == 1)); then
   DET_RUN_TF='.true.'
 fi
 
-for it in $(seq $nitmax); do
+conf_file="${MODEL_NAME}_${time}.conf"
 
-  conf_file="${MODEL_NAME}_${time}_${it}.conf"
-
-  echo "  $conf_file"
-  cat $SCRP_DIR/config.nml.ensmodel | \
-      sed -e "/!--MEMBER--/a MEMBER = $MEMBER," \
-          -e "/!--MEMBER_RUN--/a MEMBER_RUN = $MEMBER_RUN," \
-          -e "/!--MEMBER_ITER--/a MEMBER_ITER = $it," \
-          -e "/!--CONF_FILES--/a CONF_FILES = \"${CONF_NAME}.d<domain>_${time}.conf\"," \
-          -e "/!--CONF_FILES_SEQNUM--/a CONF_FILES_SEQNUM = $CONF_FILES_SEQNUM," \
-          -e "/!--DET_RUN--/a DET_RUN = $DET_RUN_TF," \
-          -e "/!--PPN--/a PPN = $PPN_APPAR," \
-          -e "/!--MEM_NODES--/a MEM_NODES = $mem_nodes," \
-          -e "/!--NUM_DOMAIN--/a NUM_DOMAIN = $DOMNUM," \
-          -e "/!--PRC_DOMAINS--/a PRC_DOMAINS = $PRC_DOMAINS_LIST" \
-      > $TMP/${conf_file}
-done
+echo "  $conf_file"
+cat $SCRP_DIR/config.nml.ensmodel | \
+    sed -e "/!--MEMBER--/a MEMBER = $MEMBER," \
+        -e "/!--MEMBER_RUN--/a MEMBER_RUN = $MEMBER_RUN," \
+        -e "/!--CONF_FILES--/a CONF_FILES = \"${CONF_NAME}.d<domain>_${time}.conf\"," \
+        -e "/!--CONF_FILES_SEQNUM--/a CONF_FILES_SEQNUM = $CONF_FILES_SEQNUM," \
+        -e "/!--DET_RUN--/a DET_RUN = $DET_RUN_TF," \
+        -e "/!--PPN--/a PPN = $PPN_APPAR," \
+        -e "/!--MEM_NODES--/a MEM_NODES = $mem_nodes," \
+        -e "/!--NUM_DOMAIN--/a NUM_DOMAIN = $DOMNUM," \
+        -e "/!--PRC_DOMAINS--/a PRC_DOMAINS = $PRC_DOMAINS_LIST" \
+    > $TMP/config/${conf_file}
 
 #-------------------------------------------------------------------------------
 }

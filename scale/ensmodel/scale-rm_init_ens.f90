@@ -19,7 +19,6 @@ program scaleles_init_ens
      H_LONG, &
      IO_L, &
      IO_FID_CONF, &
-     IO_FID_LOG, &
      IO_FID_STDOUT
   use scale_prc, only: &
      PRC_MPIstart, &
@@ -33,7 +32,7 @@ program scaleles_init_ens
 
   implicit none
 
-  integer :: it, its, ite, im, idom, color, key, ierr
+  integer :: it, im, idom, color, key, ierr
 
   integer :: universal_comm
   integer :: universal_nprocs
@@ -41,8 +40,6 @@ program scaleles_init_ens
   integer :: universal_myrank
   integer :: global_comm
   integer :: local_comm
-  integer :: intercomm_parent
-  integer :: intercomm_child
 
   character(len=H_LONG) :: confname_domains(PRC_DOMAIN_nlim)
   character(len=H_LONG) :: confname_mydom
@@ -110,19 +107,9 @@ program scaleles_init_ens
                             .false.,          & ! [IN]
                             COLOR_REORDER,    & ! [IN]
                             local_comm,       & ! [OUT]
-                            idom,             & ! [OUT]
-                            intercomm_parent, & ! [OUT]
-                            intercomm_child   ) ! [OUT]
+                            idom              ) ! [OUT]
 
-    if (MEMBER_ITER == 0) then
-      its = 1
-      ite = nitmax
-    else
-      its = MEMBER_ITER
-      ite = MEMBER_ITER
-    end if
-
-    do it = its, ite
+    do it = 1, nitmax
       im = myrank_to_mem(it)
       if (im >= 1 .and. im <= MEMBER_RUN) then
         confname = confname_domains(idom)
@@ -139,24 +126,18 @@ program scaleles_init_ens
         end if
         if ( LOG_OUT ) WRITE(6,'(A,I6.6,2A)') 'MYRANK ',universal_myrank,' is running a model with configuration file: ', trim(confname)
 
-        call rm_prep ( local_comm, &
-                       intercomm_parent, &
-                       intercomm_child, &
-                       trim(confname) )
+        call rm_prep ( local_comm,     &
+                       trim(confname), &
+                       "",             &
+                       .false.         )
       end if
-    end do ! [ it = its, ite ]
+    end do ! [ it = 1, nitmax ]
 
   else ! [ global_comm /= MPI_COMM_NULL ]
 
     write (6, '(A,I6.6,A)') 'MYRANK=',universal_myrank,': This process is not used!'
 
   end if ! [ global_comm /= MPI_COMM_NULL ]
-
-  ! Close logfile, configfile
-  if ( IO_L ) then
-    if( IO_FID_LOG /= IO_FID_STDOUT ) close(IO_FID_LOG)
-  endif
-  close(IO_FID_CONF)
 
   call mpi_timer('SCALE_RM', 1, barrier=universal_comm)
 

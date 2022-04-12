@@ -38,7 +38,6 @@ MODULE common_nml
   !--- PARAM_ENSEMBLE
   integer :: MEMBER = 3      ! ensemble size
   integer :: MEMBER_RUN = 1  !
-  integer :: MEMBER_ITER = 0 !
   character(filelenmax) :: CONF_FILES = 'run.@@@@.conf'
   logical :: CONF_FILES_SEQNUM = .false.
 
@@ -259,24 +258,48 @@ MODULE common_nml
   logical :: RADAR_OBS_4D = .false.
 
   REAL(r_size) :: RADAR_REF_THRES_DBZ = 15.0d0 !Threshold of rain/no rain
-  INTEGER :: MIN_RADAR_REF_MEMBER = 1          !Ensemble members with reflectivity greather than RADAR_REF_THRES_DBZ
-  INTEGER :: MIN_RADAR_REF_MEMBER_OBSREF = 1   !Ensemble members with
+  INTEGER :: MIN_RADAR_REF_MEMBER_OBSRAIN = 1          !Ensemble members with reflectivity greather than RADAR_REF_THRES_DBZ
+                                                       ! assimilation of RAIN 
+  INTEGER :: MIN_RADAR_REF_MEMBER_OBSNORAIN = 1        ! assimilation of NO RAIN 
 
   REAL(r_size) :: MIN_RADAR_REF_DBZ = 0.0d0    !Minimum reflectivity
   REAL(r_size) :: LOW_REF_SHIFT = 0.0d0
 
-  real(r_size) :: RADAR_ZMAX = 99.0d3          !Height limit of radar data to be used
+  real(r_size) :: RADAR_ZMAX =  99.0d3         !Height upper limit of radar data to be used
+  real(r_size) :: RADAR_ZMIN = -99.0d3         !Height lower limit of radar data to be used
 
   REAL(r_size) :: RADAR_PRH_ERROR = 0.1d0      !Obserational error for pseudo RH observations.
 
   !These 2 flags affects the computation of model reflectivity and radial velocity. 
   INTEGER :: INTERPOLATION_TECHNIQUE = 1
   INTEGER :: METHOD_REF_CALC = 3
+  logical :: USE_METHOD3_REF_MELT = .false. ! Use radar operator considering melting (Xue et al. 2009QJRMS)
+  logical :: USE_T08_RS2014 = .false. ! Use RS2014 in snow obsope (must be consistent with SCALE)
 
   LOGICAL :: USE_TERMINAL_VELOCITY = .false.
 
   ! PARAMETERS FOR RADAR DATA ASSIMILATION
   INTEGER :: NRADARTYPE = 1  !Currently PAWR (1) and LIDAR (2) ... not used?
+
+  integer :: RADAR_THIN_LETKF_METHOD = 0 ! Thinning method
+                                         ! 0: No thinning
+                                         ! 1: Nearest (2z)*(2x)^2 grids & their columns and
+                                         ! rows + staggered grids
+                                         ! x is given by
+                                         ! RADAR_THIN_LETKF_HGRID_HNEAR
+                                         ! z is given by
+                                         ! RADAR_THIN_LETKF_HGRID_VNEAR
+  integer :: RADAR_THIN_LETKF_HGRID = 1 ! Horizontal thinning level in obs_local
+  integer :: RADAR_THIN_LETKF_VGRID = 1 ! Vertical thinning level in obs_local
+  integer :: RADAR_THIN_LETKF_HNEAR = 1
+  integer :: RADAR_THIN_LETKF_VNEAR = 1
+
+  !!! tentative : duplicate with RADAR_SO_SIZE in PARAM_LETKF_RADAR_DACODE
+  real(r_size) :: RADAR_THIN_LETKF_HGRID_SIZE = 500.0d0
+  real(r_size) :: RADAR_THIN_LETKF_VGRID_SIZE = 500.0d0
+
+  logical :: RADAR_PQV = .false. ! Pseudo qv DA for radar
+  real(r_size) :: RADAR_PQV_OMB = 25.0d0 ! Threshold Obs-B for pseudo qv DA for radar
 
   !--- PARAM_OBS_ERROR
   real(r_size) :: OBSERR_U = 1.0d0
@@ -328,7 +351,6 @@ subroutine read_nml_ensemble
   namelist /PARAM_ENSEMBLE/ &
     MEMBER, &
     MEMBER_RUN, &
-    MEMBER_ITER, &
     CONF_FILES, &
     CONF_FILES_SEQNUM, &
     DET_RUN, &
@@ -855,16 +877,28 @@ subroutine read_nml_letkf_radar
     USE_OBSERR_RADAR_VR, &
     RADAR_OBS_4D, &
     RADAR_REF_THRES_DBZ, &
-    MIN_RADAR_REF_MEMBER, &
-    MIN_RADAR_REF_MEMBER_OBSREF, &
+    MIN_RADAR_REF_MEMBER_OBSRAIN, &
+    MIN_RADAR_REF_MEMBER_OBSNORAIN, &
     MIN_RADAR_REF_DBZ, &
     LOW_REF_SHIFT, &
     RADAR_ZMAX, &
+    RADAR_ZMIN, &
     RADAR_PRH_ERROR, &
     INTERPOLATION_TECHNIQUE, &
     METHOD_REF_CALC, &
     USE_TERMINAL_VELOCITY, &
-    NRADARTYPE
+    NRADARTYPE, & 
+    USE_METHOD3_REF_MELT, &
+    USE_T08_RS2014, &
+    RADAR_THIN_LETKF_METHOD, &
+    RADAR_THIN_LETKF_HGRID, &
+    RADAR_THIN_LETKF_VGRID, &
+    RADAR_THIN_LETKF_HNEAR, &
+    RADAR_THIN_LETKF_VNEAR, &
+    RADAR_THIN_LETKF_HGRID_SIZE, &
+    RADAR_THIN_LETKF_VGRID_SIZE, &
+    RADAR_PQV, &
+    RADAR_PQV_OMB
 
   rewind(IO_FID_CONF)
   read(IO_FID_CONF,nml=PARAM_LETKF_RADAR,iostat=ierr)

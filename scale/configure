@@ -34,11 +34,19 @@ FOPTS     += -DH08
 FOPTS_SCALE += -DH08
 endif
 
+TOSHIBA_OPT =
+ifeq ($(ENABLE_SAITAMA_MPW),T)
+FOPTS     += -DMPW
+FOPTS_SCALE += -DMPW
+TOSHIBA_OPT = _mpr
+endif
+
 ifeq ($(SINGLE_EVP),T)
 FOPTS     += -DSINGLE_EVP
 endif
 
 ifeq ($(USE_MTX_KEVD),T)
+  FOPTS     += -DKEVD
   common_mtx = common_mtx_kevd
 else
   common_mtx = common_mtx_lapack

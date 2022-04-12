@@ -99,7 +99,7 @@ contains
        enddo
     enddo
 
-#ifdef LETKFSINGLE
+#ifdef SINGLELETKF
     call ssyevd ("V","L",n,b,lda,w,work,lwork,iwork,liwork,ierr)
 #else
     call dsyevd ("V","L",n,b,lda,w,work,lwork,iwork,liwork,ierr)
@@ -135,7 +135,7 @@ contains
           enddo
        enddo
 
-#ifdef LETKFSINGLE
+#ifdef SINGLELETKF
        call ssyev ("V","L",n,b,lda,w,work,lwork,ierr)
 #else
        call dsyev ("V","L",n,b,lda,w,work,lwork,ierr)

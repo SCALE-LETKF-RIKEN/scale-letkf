@@ -483,6 +483,8 @@ mem_loop: DO it = 1, nitmax
     myrank_use = .true.
   end if
 
+  nens = mem
+
   ! settings related to mean (only valid when mem >= MEMBER+1)
   !----------------------------------------------------------------
   if (mem >= MEMBER+1) then
@@ -549,7 +551,7 @@ subroutine set_scalelib(execname)
     ATMOS_HYDROMETEOR_setup
   use scale_atmos_grid_cartesC_index, only: &
      ATMOS_GRID_CARTESC_INDEX_setup, &
-     IA, JA
+     IA, JA, KA, IHALO, JHALO
   use scale_atmos_grid_cartesC, only: &
     ATMOS_GRID_CARTESC_setup, &
     DOMAIN_CENTER_Y => ATMOS_GRID_CARTESC_DOMAIN_CENTER_Y, &
@@ -586,7 +588,8 @@ subroutine set_scalelib(execname)
   use scale_file_cartesC, only: &
     FILE_CARTESC_setup
   use scale_comm_cartesC, only: &
-    COMM_setup
+    COMM_setup, &
+    COMM_regist
   use scale_comm_cartesC_nest, only: &
     COMM_CARTESC_NEST_setup
   use scale_topography, only: &
@@ -612,7 +615,7 @@ subroutine set_scalelib(execname)
   use mod_admin_time, only: &
     ADMIN_TIME_setup
   use mod_admin_restart, only: &
-    ADMIN_restart_setup
+    ADMIN_restart_setup  
   use mod_atmos_admin, only: &
     ATMOS_admin_setup, &
     ATMOS_do,          &
@@ -680,14 +683,14 @@ subroutine set_scalelib(execname)
   integer :: local_comm
   integer :: local_myrank
   logical :: local_ismaster
-  integer :: intercomm_parent
-  integer :: intercomm_child
   character(len=H_LONG) :: confname_domains(PRC_DOMAIN_nlim)
   character(len=H_LONG) :: confname_mydom
 
   integer :: color, key, idom, ierr
 
   character(len=7) :: execname_ = ''
+
+  integer :: id
 
   if (present(execname)) execname_ = execname
 
@@ -761,9 +764,7 @@ subroutine set_scalelib(execname)
                           .false.,          & ! [IN]
                           .false.,          & ! [IN] no reordering
                           local_comm,       & ! [OUT]
-                          mydom,            & ! [OUT]
-                          intercomm_parent, & ! [OUT]
-                          intercomm_child )   ! [OUT]
+                          mydom           )   ! [OUT]
  
   MPI_COMM_d = local_comm
 
@@ -880,14 +881,20 @@ subroutine set_scalelib(execname)
   call ATMOS_GRID_CARTESC_INDEX_setup
   call ATMOS_GRID_CARTESC_setup
 
+  if ( OCEAN_do ) then
   call OCEAN_GRID_CARTESC_INDEX_setup
   call OCEAN_GRID_CARTESC_setup
+  end if
 
+  if ( LAND_do ) then
   call LAND_GRID_CARTESC_INDEX_setup
   call LAND_GRID_CARTESC_setup
+  end if
 
+  if ( URBAN_do ) then
   call URBAN_GRID_CARTESC_INDEX_setup
   call URBAN_GRID_CARTESC_setup
+  end if
 
   ! setup tracer index
   call ATMOS_HYDROMETEOR_setup
@@ -899,6 +906,7 @@ subroutine set_scalelib(execname)
 
   ! setup mpi communication
   call COMM_setup
+  call COMM_regist( KA, IA, JA, IHALO, JHALO, id )
 
   ! setup topography
   call TOPOGRAPHY_setup
@@ -912,14 +920,20 @@ subroutine set_scalelib(execname)
   call ATMOS_GRID_CARTESC_METRIC_setup
   call ATMOS_GRID_CARTESC_REAL_calc_areavol( ATMOS_GRID_CARTESC_METRIC_MAPF(:,:,:,:) )
 
+  if ( OCEAN_do ) then
   call OCEAN_GRID_CARTESC_REAL_setup
   call OCEAN_GRID_CARTESC_REAL_set_areavol
+  end if
 
+  if ( LAND_do ) then
   call LAND_GRID_CARTESC_REAL_setup
   call LAND_GRID_CARTESC_REAL_set_areavol
+  end if
 
+  if ( URBAN_do ) then
   call URBAN_GRID_CARTESC_REAL_setup
   call URBAN_GRID_CARTESC_REAL_set_areavol
+  end if
 
   ! setup restart
   call ADMIN_restart_setup
@@ -935,11 +949,10 @@ subroutine set_scalelib(execname)
 !  call FILE_EXTERNAL_INPUT_CARTESC_setup
 
   ! setup nesting grid
-  call COMM_CARTESC_NEST_setup ( QA_MP, ATMOS_PHY_MP_TYPE, intercomm_parent, intercomm_child )
+  call COMM_CARTESC_NEST_setup ( QA_MP, ATMOS_PHY_MP_TYPE )
 
   ! setup coriolis parameter
   call CORIOLIS_setup( IA, JA, REAL_LAT(:,:), CY(:), DOMAIN_CENTER_Y )
-
   ! setup common tools
   call ATMOS_HYDROSTATIC_setup
   call ATMOS_THERMODYN_setup
@@ -948,7 +961,7 @@ subroutine set_scalelib(execname)
   call BULKFLUX_setup( sqrt(DX**2+DY**2) )
 
 !  ! setup variable container
-!  if ( ATMOS_do ) call ATMOS_vars_setup
+  if ( ATMOS_do ) call ATMOS_vars_setup
 !  if ( OCEAN_do ) call OCEAN_vars_setup
 !  if ( LAND_do  ) call LAND_vars_setup
 !  if ( URBAN_do ) call URBAN_vars_setup
@@ -1127,6 +1140,23 @@ END SUBROUTINE gather_grd_mpi
 ! Read ensemble SCALE history files, one file per time (iter)
 !-------------------------------------------------------------------------------
 subroutine read_ens_history_iter(iter, step, v3dg, v2dg)
+  use mod_atmos_vars,        only: ATMOS_RESTART_IN_BASENAME
+  use mod_atmos_dyn_vars,    only: ATMOS_DYN_RESTART_IN_BASENAME
+  use mod_atmos_phy_bl_vars, only: ATMOS_PHY_BL_RESTART_IN_BASENAME
+  use mod_atmos_phy_lt_vars, only: ATMOS_PHY_LT_RESTART_IN_BASENAME
+  use mod_atmos_phy_ae_vars, only: ATMOS_PHY_AE_RESTART_IN_BASENAME
+  use mod_atmos_phy_ch_vars, only: ATMOS_PHY_CH_RESTART_IN_BASENAME
+  use mod_atmos_phy_rd_vars, only: ATMOS_PHY_RD_RESTART_IN_BASENAME
+  use mod_atmos_phy_sf_vars, only: ATMOS_PHY_SF_RESTART_IN_BASENAME
+  use mod_atmos_phy_tb_vars, only: ATMOS_PHY_TB_RESTART_IN_BASENAME
+  use mod_atmos_phy_cp_vars, only: ATMOS_PHY_CP_RESTART_IN_BASENAME
+  use mod_ocean_vars,        only: OCEAN_RESTART_IN_BASENAME
+  use mod_land_vars,         only: LAND_RESTART_IN_BASENAME
+  use mod_urban_vars,        only: URBAN_RESTART_IN_BASENAME
+  use mod_ocean_admin, only: OCEAN_do
+  use mod_land_admin,  only: LAND_do
+  use mod_urban_admin, only: URBAN_do
+
   implicit none
   integer, intent(in) :: iter
   integer, intent(in) :: step
@@ -1146,15 +1176,34 @@ subroutine read_ens_history_iter(iter, step, v3dg, v2dg)
       filename = HISTORY_MDET_IN_BASENAME
     end if
 
-#ifdef PNETCDF
-    if (FILE_AGGREGATE) then
-      call read_history_par(trim(filename), step, v3dg, v2dg, MPI_COMM_d)
+    if (SLOT_END == 1 .and. SLOT_BASE == 1) then !!! 3D-LETKF
+      call filename_replace_mem(ATMOS_RESTART_IN_BASENAME, im)
+      call filename_replace_mem(ATMOS_DYN_RESTART_IN_BASENAME, im)
+      call filename_replace_mem(ATMOS_PHY_BL_RESTART_IN_BASENAME, im)
+      call filename_replace_mem(ATMOS_PHY_LT_RESTART_IN_BASENAME, im)
+      call filename_replace_mem(ATMOS_PHY_AE_RESTART_IN_BASENAME, im)
+      call filename_replace_mem(ATMOS_PHY_CH_RESTART_IN_BASENAME, im)
+      call filename_replace_mem(ATMOS_PHY_RD_RESTART_IN_BASENAME, im)
+      call filename_replace_mem(ATMOS_PHY_SF_RESTART_IN_BASENAME, im)
+      call filename_replace_mem(ATMOS_PHY_TB_RESTART_IN_BASENAME, im)
+      call filename_replace_mem(ATMOS_PHY_CP_RESTART_IN_BASENAME, im)
+      if (OCEAN_do) call filename_replace_mem(OCEAN_RESTART_IN_BASENAME, im)
+      if (LAND_do)  call filename_replace_mem(LAND_RESTART_IN_BASENAME, im)
+      if (URBAN_do) call filename_replace_mem(URBAN_RESTART_IN_BASENAME, im)
+      call read_restart_trans_history(v3dg, v2dg)
     else
-#endif
-      call read_history(trim(filename), step, v3dg, v2dg)
+
 #ifdef PNETCDF
-    end if
+      if (FILE_AGGREGATE) then
+        call read_history_par(trim(filename), step, v3dg, v2dg, MPI_COMM_d)
+      else
 #endif
+        call read_history(trim(filename), step, v3dg, v2dg)
+#ifdef PNETCDF
+      end if
+#endif
+    end if
+
   end if
 
   return
@@ -1580,6 +1629,7 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
   integer, allocatable :: obsdep_g_qc(:)
   real(r_size), allocatable :: obsdep_g_omb(:)
   real(r_size), allocatable :: obsdep_g_oma(:)
+  real(r_size), allocatable :: obsdep_g_sprd(:)
   real(r_size), allocatable :: obsdep_g_omb_emean(:)
   integer :: cnts
   integer :: cntr(nprocs_d)
@@ -1649,6 +1699,7 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
       allocate (obsdep_g_qc (obsdep_g_nobs))
       allocate (obsdep_g_omb(obsdep_g_nobs))
       allocate (obsdep_g_oma(obsdep_g_nobs))
+      allocate (obsdep_g_sprd(obsdep_g_nobs))
       allocate (obsdep_g_omb_emean(obsdep_g_nobs))
 
       if (obsdep_g_nobs > 0) then
@@ -1657,6 +1708,7 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
         call MPI_GATHERV(obsdep_qc,  cnts, MPI_INTEGER, obsdep_g_qc,  cntr, dspr, MPI_INTEGER, 0, MPI_COMM_d, ierr)
         call MPI_GATHERV(obsdep_omb, cnts, MPI_r_size,  obsdep_g_omb, cntr, dspr, MPI_r_size,  0, MPI_COMM_d, ierr)
         call MPI_GATHERV(obsdep_oma, cnts, MPI_r_size,  obsdep_g_oma, cntr, dspr, MPI_r_size,  0, MPI_COMM_d, ierr)
+        call MPI_GATHERV(obsdep_sprd, cnts, MPI_r_size,  obsdep_g_sprd, cntr, dspr, MPI_r_size,  0, MPI_COMM_d, ierr)
         call MPI_GATHERV(obsdep_omb_emean, cnts, MPI_r_size,  obsdep_g_omb_emean, cntr, dspr, MPI_r_size,  0, MPI_COMM_d, ierr)
       end if
 
@@ -1673,7 +1725,7 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
           call write_obs_dep( trim(OBSDEP_OUT_BASENAME)//'.dat', &
                               obsdep_g_nobs, obsdep_g_set, &
                               obsdep_g_idx, obsdep_g_qc, &
-                              obsdep_g_omb, obsdep_g_oma )
+                              obsdep_g_omb, obsdep_g_oma, obsdep_g_sprd )
         end if
       end if
       deallocate (obsdep_g_set)
@@ -1681,6 +1733,7 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
       deallocate (obsdep_g_qc )
       deallocate (obsdep_g_omb)
       deallocate (obsdep_g_oma)
+      deallocate (obsdep_g_sprd)
       deallocate (obsdep_g_omb_emean)
 
       call mpi_timer('monit_obs_mpi:obsdep:mpi_allreduce(domain):', 2)
@@ -1692,6 +1745,7 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
       deallocate (obsdep_qc )
       deallocate (obsdep_omb)
       deallocate (obsdep_oma)
+      deallocate (obsdep_sprd)
     end if
   end if ! [ myrank_e == mmean_rank_e ]
 

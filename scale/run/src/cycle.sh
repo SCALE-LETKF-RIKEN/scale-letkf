@@ -136,15 +136,9 @@ btime=$STIME
 atime=$(datetime $time $LCYCLE s)
 loop=0
 
-exedir=./
-if [ "$PRESET" = 'FUGAKU' ] && (( USE_LLIO_BIN == 1 )) ; then
-  exedir=
-fi
-
 #-------------------------------------------------------------------------------
 while ((time <= ETIME)); do
 #-------------------------------------------------------------------------------
-
   timefmt="$(datetime_fmt ${time})"
   loop=$((loop+1))
   if (($(datetime $time $LCYCLE s) > ETIME)); then
@@ -238,23 +232,26 @@ while ((time <= ETIME)); do
       fi
       if ((s == 4)); then
         logd=$OUTDIR/$atime/log/letkf
-        if ((OBSOPE_RUN == 0)); then
-          echo "[$(datetime_now)] ${time}: ${stepname[$s]} ...skipped (only use integrated observation operators)" >&2
+        if ((OBSOPE_RUN == 0)) && ((PAWR_DECODE != 1)) ; then
+          echo "[$(datetime_now)] ${time}: ${stepname[$s]} ...skipped (only use integrated observation operators and decoded data)" >&2
           continue
         fi
+      fi
+      if ((s == 5)); then
+        logd=$OUTDIR/$atime/log/letkf
       fi
       ######
 
       echo "[$(datetime_now)] ${time}: ${stepname[$s]}" >&2
 
       nit=1
-      if ((s == 2)); then
-        if ((BDY_ENS == 1)); then
-          nit=$nitmax
-        fi
-      elif ((s == 3)); then
-        nit=$nitmax
-      fi
+#      if ((s == 2)); then
+#        if ((BDY_ENS == 1)); then
+#          nit=$nitmax
+#        fi
+#      elif ((s == 3)); then
+#        nit=$nitmax
+#      fi
 
       nodestr=proc
 
@@ -269,19 +266,13 @@ while ((time <= ETIME)); do
       for it in $(seq $nit); do
         echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: start" >&2
 
-#        rm -rf  $logd
-#        mkdir -p $logd
-        mpirunf ${nodestr} ${exedir}${stepexecbin[$s]} ${stepexecname[$s]}_${conf_time}_${it}.conf ${logd}/NOUT_${conf_time}_${it} || exit $?
-       
+           mpirunf ${nodestr} ${stepexecbin[$s]} $TMPROOT/config/${stepexecname[$s]}_${conf_time}.conf ${logd}/NOUT_${conf_time} || exit $?
+
         echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: end" >&2
       done
 
     fi
   done
-
-  if [ "$PRESET" = 'FUGAKU' ] && (( USE_RAMDISK == 1 )) && (( OUT_OPT >= 2 )); then
-    mpiexec -std-proc rm_log rm -rf /worktmp/hist/*/hist*.nc
-  fi
 
 #-------------------------------------------------------------------------------
 # Online stage out

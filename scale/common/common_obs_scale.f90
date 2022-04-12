@@ -122,6 +122,10 @@ MODULE common_obs_scale
     ! For Himawari-8 assimilation, LETKF uses obsda%lev instead of obs%lev.
     ! 
     REAL(r_size),ALLOCATABLE :: ensval(:,:)
+    REAL(r_size),ALLOCATABLE :: eqv(:,:) ! qv (ensemble)
+    REAL(r_size),ALLOCATABLE :: qv(:)    ! qv (mean)
+    REAL(r_size),ALLOCATABLE :: tm(:)    ! temp (mean)
+    REAL(r_size),ALLOCATABLE :: pm(:)    ! pressure (mean)
     INTEGER,ALLOCATABLE :: qc(:)
   END TYPE obs_da_value
 
@@ -155,6 +159,7 @@ MODULE common_obs_scale
   integer, allocatable, save :: obsdep_qc(:)       ! 
   real(r_size), allocatable, save :: obsdep_omb(:) ! 
   real(r_size), allocatable, save :: obsdep_oma(:) ! 
+  real(r_size), allocatable, save :: obsdep_sprd(:) ! 
   real(r_size), allocatable, save :: obsdep_omb_emean(:) ! 
 
   REAL(r_size),SAVE :: MIN_RADAR_REF
@@ -629,6 +634,7 @@ SUBROUTINE calc_ref_vr(qv,qc,qr,qci,qs,qg,u,v,w,t,p,az,elev,ref,vr)
   REAL(r_size)  :: nor, nos, nog !Rain, snow and graupel's intercepting parameters.
   REAL(r_size)  :: ror, ros, rog , roi !Rain, snow and graupel, ice densities.
   REAL(r_size)  :: a,b,c,d,Cd    !Constant for fall speed computations.
+  REAL(r_size)  :: cr_t08,cs_t08,cg_t08,dr_t08,ds_t08,dg_t08    !Constant for fall speed computations (Tomita2008)
   REAL(r_size)  :: cf, pip , roo
   REAL(r_size)  :: ki2 , kr2
   REAL(r_size)  :: lr , ls , lg
@@ -637,6 +643,11 @@ SUBROUTINE calc_ref_vr(qv,qc,qr,qci,qs,qg,u,v,w,t,p,az,elev,ref,vr)
   REAL(r_size)  :: Fs, Fg , zms , zmg , fws , fwg !METHOD_REF_CALC 3
   REAL(r_size)  :: qrp , qsp , qgp
   REAL(r_size)  :: maxf                     !Maximum mixture relative concentration. (METHOD_REF_CALC 3)
+
+  REAL(r_size) , parameter :: qeps = 1.0d-20 !Avoid overflow
+
+  REAL(r_size) , parameter :: as_RS14 = 6.9d-2
+  REAL(r_size)  :: tc , MOMs_0bs
 
   !Note: While equivalent reflectivity is assumed to be independent of the radar, in 
   !practice short wavelengths as those associated with K band radars migh frequently
@@ -694,7 +705,7 @@ SUBROUTINE calc_ref_vr(qv,qc,qr,qci,qs,qg,u,v,w,t,p,az,elev,ref,vr)
     qt=qr + qs + qg  !Assume that the total condensate is rain water
                      !But ignore cloud ice and cloud water
 
-    IF( qt .GT. 0.0d0 )THEN
+    IF( qt .GT. qeps )THEN
     ref = cf * ( ( ro * qt )**1.75 )
     ref = ref / ( pip * ( nor ** 0.75 ) * ( ror ** 1.75 ) )
    !ref= 2.04d4 *( ( ro * qt * 1.0d3 ) ** 1.75 ) !Original Sun and Crook expresion.
@@ -704,7 +715,7 @@ SUBROUTINE calc_ref_vr(qv,qc,qr,qci,qs,qg,u,v,w,t,p,az,elev,ref,vr)
 
     !Radial wind
 
-    IF ( qt .GT. 0.0d0 )THEN
+    IF ( qt .GT. qeps )THEN
     a=(p0/p)**0.4
     wt = 5.40d0 * a * ( qt ** 0.125 )
     ELSE
@@ -733,12 +744,12 @@ SUBROUTINE calc_ref_vr(qv,qc,qr,qci,qs,qg,u,v,w,t,p,az,elev,ref,vr)
     pip=pi ** 1.75 !factor
     cf =1.0d18 * 720 !factor 
 
-    IF( qr .GT. 0.0d0 )THEN
+    IF( qr .GT. qeps )THEN
     zr= cf * ( ( ro * qr )**1.75 )
     zr= zr / ( pip * ( nor ** 0.75 ) * ( ror ** 1.75 ) )
     ENDIF
     !The contribution of snow depends on temperature (bright band effect)
-    IF( qs .GT. 0.0d0 )THEN
+    IF( qs .GT. qeps )THEN
     IF ( t <= 273.16 )THEN
      zs = cf * ki2 * ( ros ** 0.25 ) * ( ( ro * qs ) ** 1.75 )
      zs = zs / ( pip * kr2 * ( nos ** 0.75  ) * ( roi ** 2 ) )
@@ -752,7 +763,7 @@ SUBROUTINE calc_ref_vr(qv,qc,qr,qci,qs,qg,u,v,w,t,p,az,elev,ref,vr)
     ENDIF
 
     !Only dry graupel contribution is ussed.
-    IF( qg .GT. 0.0d0 )THEN
+    IF( qg .GT. qeps )THEN
     zg= ( cf / ( pip * ( nog ** 0.75) * ( rog ** 1.75 ) ) ) ** 0.95
     zg= zg * ( ( ro * qg ) ** 1.6625 )
 
@@ -788,7 +799,8 @@ SUBROUTINE calc_ref_vr(qv,qc,qr,qci,qs,qg,u,v,w,t,p,az,elev,ref,vr)
     Cd=0.6d0
 
     rofactor= ( roo / ro  ) ** 0.25
-    if(qr > 0.0d0)then
+
+    if( qr > qeps )then
       CALL com_gamma( 4.0_r_size + b , tmp_factor )
       lr= ( pi * ror * nor / ( ro * qr ) ) ** 0.25
       wr= a * tmp_factor / ( 6.0d0 * ( lr ** b ) )
@@ -797,7 +809,7 @@ SUBROUTINE calc_ref_vr(qv,qc,qr,qci,qs,qg,u,v,w,t,p,az,elev,ref,vr)
       wr = 0.0d0
     endif
 
-    if(qs > 0.0d0)then
+    if( qs > qeps )then
       CALL com_gamma( 4.0_r_size + d , tmp_factor )
       ls= ( pi * ros * nos / ( ro * qs ) ) ** 0.25
       ws= c * tmp_factor / ( 6.0d0 * ( ls ** d ) )
@@ -806,7 +818,7 @@ SUBROUTINE calc_ref_vr(qv,qc,qr,qci,qs,qg,u,v,w,t,p,az,elev,ref,vr)
       ws = 0.0d0
     endif
  
-    if(qg > 0.0d0)then
+    if( qg > qeps )then
       CALL com_gamma( 4.5_r_size , tmp_factor )
       lg= ( pi * rog * nog / ( ro * qg ) ) ** 0.25
       wg= tmp_factor * ( ( ( 4.0d0 * gg * 100.0d0 * rog )/( 3.0d0 * Cd * ro ) ) ** 0.5 )
@@ -848,6 +860,10 @@ SUBROUTINE calc_ref_vr(qv,qc,qr,qci,qs,qg,u,v,w,t,p,az,elev,ref,vr)
       fws= qr / ( qr + qs )
     ENDIF
 
+    if ( .not. USE_METHOD3_REF_MELT ) then
+      Fs = 0.0_r_size
+      Fg = 0.0_r_size
+    endif
 
     !Correct the rain, snow and hail mixing ratios assuming
     !that we have a mixture due to melting.
@@ -866,22 +882,22 @@ SUBROUTINE calc_ref_vr(qv,qc,qr,qci,qs,qg,u,v,w,t,p,az,elev,ref,vr)
 
     !Compute reflectivities for each species including the melting species.
 
-    IF( qrp .GT. 0.0d0)THEN
+    IF( qrp .GT. qeps )THEN
     zr= 2.53d4 * ( ro * qrp * 1.0d3 )**1.84
     ENDIF
-    IF( qsp .GT. 0.0d0)THEN
+    IF( qsp .GT. qeps )THEN
     zs= 3.48d3 * ( ro * qsp * 1.0d3 )**1.66
     ENDIF
-    IF( qgp .GT. 0.0d0)THEN
+    IF( qgp .GT. qeps )THEN
 !!!    zg= 8.18d4 * ( ro * qgp * 1.0d3 )**1.50  !!! hail
     zg= 5.54d3 * ( ro * qgp * 1.0d3 )**1.70   !!! graupel (A. Amemiya 2019.5)
     ENDIF
-    IF( qms .GT. 0.0d0 )THEN
+    IF( qms .GT. qeps )THEN
     zms=( 0.00491 + 5.75*fws - 5.588*(fws**2) )*1.0d5
     zms= zms * ( ro * qms * 1.0d3 )**( 1.67 - 0.202*fws + 0.398*(fws**2) )
 
     ENDIF
-    IF( qmg .GT. 0.0d0 )THEN
+    IF( qmg .GT. qeps )THEN
 !!!    zmg=( 0.809 + 10.13*fwg -5.98*(fwg**2) )*1.0d5
 !!!    zmg= zmg * ( ro * qmg * 1.0d3 )**( 1.48 + 0.0448*fwg - 0.0313*(fwg**2) ) !!! hail
     zmg=( 0.0358 + 5.27*fwg -9.51*(fwg**2) + 4.68 *(fwg**3) )*1.0d5
@@ -899,43 +915,64 @@ SUBROUTINE calc_ref_vr(qv,qc,qr,qci,qs,qg,u,v,w,t,p,az,elev,ref,vr)
       !Units according to Lin et al 1983.
       nor=8.0d-2      ![cm^-4]
       nos=3.0d-2      ![cm^-4]
-      nog=4.0d-4      ![cm^-4]
+!      nog=4.0d-4      ![cm^-4]
+      nog=4.0d-2      ![cm^-4]   !!! Tomita 2008
       ror=1.0d0        ![g/cm3]
       ros=0.1d0        ![g/cm3]
-      rog=0.917d0      ![g/cm3] 
-      roo=0.001d0      ![g/cm3] Surface air density.
+!      rog=0.917d0      ![g/cm3]
+      rog=0.400d0      ![g/cm3]   !!! Tomita 2008
+!      roo=0.001d0      ![g/cm3] Surface air density.
+      roo=1.28 * 0.001d0      ![g/cm3] Surface air density. !!! Tomita 2008
       ro=1.0d-3 * ro
-      a=2115d0   ![cm**1-b / s]
-      b=0.8d0
-      c=152.93d0 ![cm**1-b / s]
-      d=0.25d0
-      Cd=0.6d0
+!      a=2115d0   ![cm**1-b / s]
+!      b=0.8d0
+!      c=152.93d0 ![cm**1-b / s]
+!      d=0.25d0
+      Cd=0.6d0  !!! drag_g in SCALE
+
+      cr_t08=0.5d0 ![m**1-b / s]  !!! Tomita 2008 but not used in SCALE
+      cr_t08=130.0d0 ![m**1-b / s]     !!! SCALE default
+      dr_t08=0.5d0
+      cs_t08=4.84d0 ![m**1-b / s]
+      ds_t08=0.25d0
+      cg_t08=82.5d0 ![m**1-b / s]   !!! Tomita 2008 but not used in SCALE
+      dg_t08=0.5d0  !!! SCALE default
 
       rofactor= ( roo / ro  ) ** 0.5
 
-      IF ( qr .GT. 0.0d0 )THEN
-      CALL com_gamma( 4.0_r_size + b , tmp_factor )
-      lr= ( pi * ror * nor / ( ro * qr ) ) ** 0.25
-      wr= a * tmp_factor / ( 6.0d0 * ( lr ** b ) )
-      wr= 1.0d-2 * wr * rofactor
+      IF ( qr .GT. qeps )THEN
+      lr= ( pi * ror * nor / ( ro * qr ) ) ** 0.25 !!! [cm ^-1]
+      CALL com_gamma( 4.0_r_size + dr_t08 , tmp_factor )
+      wr= cr_t08 * tmp_factor / ( 6.0d0 * ( ( lr * 1.0e2 ) ** dr_t08 ) ) !!! [m/s]
+      wr= wr * rofactor
       ELSE
       wr=0.0d0
       ENDIF
 
-      IF( qs .GT. 0.0d0 )THEN
-      ls= ( pi * ros * nos / ( ro * qs ) ) ** 0.25
-      CALL com_gamma( 4.0_r_size + d , tmp_factor )
-      ws= c * tmp_factor / ( 6.0d0 * ( ls ** d ) )
-      ws= 1.0d-2 * ws * rofactor
+      IF( qs .GT. qeps )THEN
+        IF  ( USE_T08_RS2014 ) then
+          tc=min(-0.1_r_size, t-273.15_r_size)
+          MOMs_0bs = exp(log(10.0_r_size) * loga_(tc,2.0_r_size) + log(ro * qs / as_RS14) * b_(tc,2.0_r_size) )
+          ws = cs_t08 * rofactor * exp(log(10.0_r_size) * loga_(tc,2.25_r_size) + log(ro * qs / as_RS14) * b_(tc,2.25_r_size) ) / MOMs_0bs
+        ELSE
+          ls= ( pi * ros * nos / ( ro * qs ) ) ** 0.25 !!! [cm ^-1]
+          CALL com_gamma( 4.0_r_size + ds_t08 , tmp_factor )
+          ws= cs_t08 * tmp_factor / ( 6.0d0 * ( ( ls * 1.0e2 ) ** ds_t08 ) ) !!! [m/s]
+          ws= ws * rofactor
+        ENDIF
       ELSE
-      ws=0.0d0
+        ws=0.0d0
       ENDIF
 
-      IF ( qg .GT. 0.0d0 )THEN
+
+      IF ( qg .GT. qeps )THEN
       lg= ( pi * rog * nog / ( ro * qg ) ) ** 0.25
-      CALL com_gamma( 4.5_r_size , tmp_factor )
-      wg= tmp_factor * ( ( ( 4.0d0 * gg * 100.0d0 * rog )/( 3.0d0 * Cd * ro ) ) ** 0.5 )
-      wg= 1.0d-2 * wg / ( 6.0d0 * ( lg ** 0.5 ) )
+      CALL com_gamma( 4.0_r_size + dg_t08 , tmp_factor )
+!!!      wg = tmp_factor * ( ( ( 4.0d0 * gg * rog )/( 3.0d0 * Cd * ro ) ) ** 0.5 )
+      wg = tmp_factor * ( ( ( 4.0d0 * gg * rog )/( 3.0d0 * Cd * roo ) ) ** 0.5 )  !!! fixed 2021.5.14
+      wg = wg / ( 6.0d0 * ( ( lg * 1.0e2 ) ** dg_t08 ) )   !!! [m/s]
+!!!      wg= cg_t08 * tmp_factor / ( 6.0d0 * ( ( lg * 1.0e2 ) ** dg_t08 ) ) !!! [m/s]
+      wg= wg * rofactor
       ELSE
       wg=0.0d0
       ENDIF
@@ -960,7 +997,6 @@ SUBROUTINE calc_ref_vr(qv,qc,qr,qci,qs,qg,u,v,w,t,p,az,elev,ref,vr)
 
 
   !Compute radial velocity
-  !WRITE(6,*)'ICRV',u,v,w,wt,az,elev
   vr = u * cos(elev*deg2rad) * sin(az*deg2rad)
   vr = vr + v * cos(elev*deg2rad) * cos(az*deg2rad)
   IF( USE_TERMINAL_VELOCITY )THEN
@@ -969,12 +1005,58 @@ SUBROUTINE calc_ref_vr(qv,qc,qr,qci,qs,qg,u,v,w,t,p,az,elev,ref,vr)
     vr = vr + (w)*sin(elev*deg2rad)
   ENDIF
 
-  !WRITE(6,*) u , v , w
-  !WRITE(6,*) wt , vr
-  !WRITE(6,*) elev , az , deg2rad
-
-
   RETURN
+
+CONTAINS
+  function loga_(tems, nm)
+    real(r_size) :: loga_
+    real(r_size) :: tems
+    real(r_size) :: nm
+    real(r_size),  parameter   :: coef_a01 =  5.065339_r_size
+    real(r_size),  parameter   :: coef_a02 = -0.062659_r_size
+    real(r_size),  parameter   :: coef_a03 = -3.032362_r_size
+    real(r_size),  parameter   :: coef_a04 =  0.029469_r_size
+    real(r_size),  parameter   :: coef_a05 = -0.000285_r_size
+    real(r_size),  parameter   :: coef_a06 =  0.31255_r_size
+    real(r_size),  parameter   :: coef_a07 =  0.000204_r_size
+    real(r_size),  parameter   :: coef_a08 =  0.003199_r_size
+    real(r_size),  parameter   :: coef_a09 =  0.0_r_size
+    real(r_size),  parameter   :: coef_a10 = -0.015952_r_size
+    real(r_size) :: coef_at(4)
+
+    coef_at(1) = coef_a01 + tems * ( coef_a02 + tems * ( coef_a05 + tems * coef_a09 ) )
+    coef_at(2) = coef_a03 + tems * ( coef_a04 + tems *   coef_a07 )
+    coef_at(3) = coef_a06 + tems *   coef_a08
+    coef_at(4) = coef_a10
+    loga_  = coef_at(1) + nm * ( coef_at(2) + nm * ( coef_at(3) + nm * coef_at(4) ) )
+
+  end function loga_
+
+  function b_(tems, nm)
+    real(r_size) :: b_
+    real(r_size) :: tems
+    real(r_size) :: nm
+    real(r_size), parameter   :: coef_b01 =  0.476221_r_size
+    real(r_size), parameter   :: coef_b02 = -0.015896_r_size
+    real(r_size),  parameter   :: coef_b03 =  0.165977_r_size
+    real(r_size),  parameter   :: coef_b04 =  0.007468_r_size
+    real(r_size),  parameter   :: coef_b05 = -0.000141_r_size
+    real(r_size),  parameter   :: coef_b06 =  0.060366_r_size
+    real(r_size),  parameter   :: coef_b07 =  0.000079_r_size
+    real(r_size),  parameter   :: coef_b08 =  0.000594_r_size
+    real(r_size),  parameter   :: coef_b09 =  0.0_r_size
+    real(r_size),  parameter   :: coef_b10 = -0.003577_r_size
+    real(r_size) :: coef_bt(4)
+
+    coef_bt(1) = coef_b01 + tems * ( coef_b02 + tems * ( coef_b05 + tems * coef_b09 ) )
+    coef_bt(2) = coef_b03 + tems * ( coef_b04 + tems *   coef_b07 )
+    coef_bt(3) = coef_b06 + tems *   coef_b08
+    coef_bt(4) = coef_b10
+    b_  = coef_bt(1) + nm * ( coef_bt(2) + nm * ( coef_bt(3) + nm * coef_bt(4) ) )
+
+   end function b_
+
+
 END SUBROUTINE calc_ref_vr
 
 
@@ -1413,6 +1495,7 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step)
     allocate (obsdep_qc (obsdep_nobs))
     allocate (obsdep_omb(obsdep_nobs))
     allocate (obsdep_oma(obsdep_nobs))
+    allocate (obsdep_sprd(obsdep_nobs))
     allocate (obsdep_omb_emean(obsdep_nobs))
   end if
 
@@ -1518,6 +1601,9 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step)
         obsdep_oma(n) = ohx(n)
         obsdep_omb_emean(n) = obsda_sort%val(nn)
       end if
+
+!!! ensemble perturbation output
+      obsdep_sprd(n)=sqrt ( sum(   ( obsda_sort%ensval(:,nn) - sum(obsda_sort%ensval(:,nn))/MEMBER ) **2 ) / MEMBER  )
 
       if (LOG_LEVEL >= 3) then
         write (6, '(2I6,2F8.2,4F12.4,I3)') &
@@ -1744,15 +1830,26 @@ SUBROUTINE obs_da_value_allocate(obsda,member)
   ALLOCATE( obsda%val (obsda%nobs) )
   ALLOCATE( obsda%qc  (obsda%nobs) )
 
+  allocate( obsda%tm (obsda%nobs) )
+  allocate( obsda%pm (obsda%nobs) )
+  allocate( obsda%qv (obsda%nobs) )
+
   obsda%nobs_in_key = 0
   obsda%idx = 0
   obsda%key = 0
   obsda%val = 0.0d0
   obsda%qc = 0
 
+  obsda%tm = 0.0d0
+  obsda%pm = 0.0d0
+  obsda%qv = 0.0d0
+
   if (member > 0) then
     ALLOCATE( obsda%ensval (member,obsda%nobs) )
     obsda%ensval = 0.0d0
+
+    allocate( obsda%eqv (member,obsda%nobs) )
+    obsda%eqv = 0.0d0
   end if
 
   RETURN
@@ -2045,7 +2142,7 @@ SUBROUTINE write_obs_da(cfile,obsda,im,append)
   RETURN
 END SUBROUTINE write_obs_da
 
-subroutine write_obs_dep(cfile, nobs, set, idx, qc, omb, oma)
+subroutine write_obs_dep(cfile, nobs, set, idx, qc, omb, oma, spr)
   implicit none
   character(*), intent(in) :: cfile
   integer, intent(in) :: nobs
@@ -2054,8 +2151,9 @@ subroutine write_obs_dep(cfile, nobs, set, idx, qc, omb, oma)
   integer, intent(in) :: qc(nobs)
   real(r_size), intent(in) :: omb(nobs)
   real(r_size), intent(in) :: oma(nobs)
+  real(r_size), intent(in), optional :: spr(nobs)
 
-  real(r_sngl) :: wk(11)
+  real(r_sngl) :: wk(12)
   integer :: n, iunit
 
   iunit=92
@@ -2095,7 +2193,12 @@ subroutine write_obs_dep(cfile, nobs, set, idx, qc, omb, oma)
       wk(5) = wk(5) * 0.01 ! Pa -> hPa
       wk(6) = wk(6) * 0.01 ! Pa -> hPa
     end select
-    write (iunit) wk
+    if (present(spr)) then
+      wk(12) = real(spr(n), r_sngl)
+      write (iunit) wk
+    else
+      write (iunit) wk(1:11)
+    endif
   end do
   close (iunit)
 
@@ -2367,7 +2470,7 @@ subroutine write_obs_all(obs, missing, file_suffix)
   return
 end subroutine write_obs_all
 
-subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em )
+subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em , sprd )
   use netcdf
   use common_ncio
   implicit none
@@ -2380,6 +2483,7 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em )
   real(r_size), intent(in) :: omb(nobs)
   real(r_size), intent(in) :: oma(nobs)
   real(r_size), intent(in) :: omb_em(nobs)
+  real(r_size), intent(in), optional :: sprd(nobs)
 
   integer :: ncid
   integer :: dimid
@@ -2387,7 +2491,7 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em )
   integer :: lon_varid, lat_varid
   integer :: lev_varid, dat_varid, qc_varid
   integer :: dif_varid, err_varid
-  integer :: omb_varid, oma_varid, omb_em_varid
+  integer :: omb_varid, oma_varid, omb_em_varid, sprd_varid
 
   character(len=*), parameter :: DIM_NAME = "number"
   character(len=*), parameter :: ELM_NAME = "elm"
@@ -2401,6 +2505,7 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em )
   character(len=*), parameter :: OMB_NAME = "omb"
   character(len=*), parameter :: OMA_NAME = "oma"
   character(len=*), parameter :: OMB_EM_NAME = "omb_emean"
+  character(len=*), parameter :: SPRD_NAME = "sprd"
 
   character(len=*), parameter :: ELM_LONGNAME = "observation id"
   character(len=*), parameter :: LON_LONGNAME = "longitude"
@@ -2413,6 +2518,7 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em )
   character(len=*), parameter :: OMB_LONGNAME = "observation-minus-background"
   character(len=*), parameter :: OMA_LONGNAME = "observation-minus-analysis"
   character(len=*), parameter :: OMB_EM_LONGNAME = "observation-minus-background-ensemble-mean"
+  character(len=*), parameter :: SPRD_LONGNAME = "ensemble spread in observation space"
 
   integer :: nobs_l(nobs)
   integer :: n
@@ -2456,6 +2562,7 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em )
   call ncio_check( nf90_def_var(ncid, OMB_NAME, NF90_REAL, dimid, omb_varid) )
   call ncio_check( nf90_def_var(ncid, OMA_NAME, NF90_REAL, dimid, oma_varid) )
   call ncio_check( nf90_def_var(ncid, OMB_EM_NAME, NF90_REAL, dimid, omb_em_varid) )
+  if (present(sprd)) call ncio_check( nf90_def_var(ncid, SPRD_NAME, NF90_REAL, dimid, sprd_varid) )
 
   ! Add long names for the netCDF variables
   call ncio_check( nf90_put_att(ncid, elm_varid, "long_name", ELM_LONGNAME ) )
@@ -2470,6 +2577,7 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em )
   call ncio_check( nf90_put_att(ncid, omb_varid, "long_name", OMB_LONGNAME ) )
   call ncio_check( nf90_put_att(ncid, oma_varid, "long_name", OMA_LONGNAME ) )
   call ncio_check( nf90_put_att(ncid, omb_em_varid, "long_name", OMB_EM_LONGNAME ) )
+  if (present(sprd)) call ncio_check( nf90_put_att(ncid, sprd_varid, "long_name", SPRD_LONGNAME ) )
 
   ! End define mode.
   call ncio_check( nf90_enddef(ncid) )
@@ -2501,6 +2609,9 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em )
                    count=(/nobs/) ) )
   call ncio_check( nf90_put_var(ncid, omb_em_varid, omb_em, start=(/1/), &
                    count=(/nobs/) ) )
+  if (present(sprd)) call ncio_check( nf90_put_var(ncid, sprd_varid, sprd, start=(/1/), &
+                   count=(/nobs/) ) )
+
 
   ! Close the file. 
   call ncio_check( nf90_close(ncid) )

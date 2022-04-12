@@ -1,7 +1,7 @@
 #!/bin/bash
 #===============================================================================
 #
-#  Wrap fcst.sh in OFP/FUGAKU/Linux and run it.
+#  Wrap fcst.sh in FUGAKU/Linux and run it.
 #
 #-------------------------------------------------------------------------------
 #
@@ -79,6 +79,9 @@ safe_init_tmpdir $STAGING_DIR || exit $?
 staging_list_static || exit $?
 config_file_list $TMPS/config || exit $?
 
+NNODES_USE=$(( fmember * ( SCALE_NP / PPN ) ))
+echo "NNODES=$NNODES_USE" >> $TMP/config.main
+
 #-------------------------------------------------------------------------------
 # Add shell scripts and node distribution files into the staging list
 
@@ -97,91 +100,31 @@ stage_in server || exit $?
 #===============================================================================
 # Creat a job script
 
-NPIN=`expr 255 / \( $PPN \) + 1`
 jobscrp="$TMP/${job}_job.sh"
 
 echo "[$(datetime_now)] Create a job script '$jobscrp'"
 
-
-# OFP
-if [ "$PRESET" = 'OFP' ]; then
-
-  if [ "$RSCGRP" == "" ] ; then
-    RSCGRP="regular-cache"
-  fi
-
-cat > $jobscrp << EOF
-#!/bin/sh
-#PJM -L rscgrp=${RSCGRP}
-#PJM -L node=${NNODES}
-#PJM -L elapse=${TIME_LIMIT}
-#PJM --mpi proc=$((NNODES*PPN))
-##PJM --mpi proc=${totalnp}
-#PJM --omp thread=${THREADS}
-
-#PJM -g $(echo $(id -ng))
-# HPC
-##PJM -g gx14  
-
-#PJM -s
-
-module unload impi
-module unload intel
-module load intel/2019.5.281
-
-source /work/opt/local/cores/intel/performance_snapshots_2019.6.0.602217/apsvars.sh
-export MPS_STAT_LEVEL=4
- 
-module load hdf5/1.10.5
-module load netcdf/4.7.0
-module load netcdf-fortran/4.4.5
-
-export FORT_FMT_RECL=400
-
-export HFI_NO_CPUAFFINITY=1
-export I_MPI_PIN_PROCESSOR_EXCLUDE_LIST=0,1,68,69,136,137,204,205
-export I_MPI_HBW_POLICY=hbw_preferred,,
-export I_MPI_FABRICS_LIST=tmi
-unset KMP_AFFINITY
-#export KMP_AFFINITY=verbose
-#export I_MPI_DEBUG=5
-
-export OMP_NUM_THREADS=1
-export I_MPI_PIN_DOMAIN=${NPIN}
-export I_MPI_PERHOST=${PPN}
-export KMP_HW_SUBSET=1t
-
-export PSM2_CONNECT_WARN_INTERVAL=2400
-export TMI_PSM2_CONNECT_TIMEOUT=2000
-
-
-#export OMP_STACKSIZE=128m
-ulimit -s unlimited
-
-./${job}.sh "$STIME" "$ETIME" "$MEMBERS" "$CYCLE" "$CYCLE_SKIP" "$IF_VERF" "$IF_EFSO" "$ISTEP" "$FSTEP" "$CONF_MODE" || exit \$?
-EOF
-
-  echo "[$(datetime_now)] Run ${job} job on PJM"
-  echo
-  
-  job_submit_PJM $jobscrp
-  echo
-  
-  job_end_check_PJM $jobid
-  res=$?
-
 # FUGAKU
-elif [ "$PRESET" = 'FUGAKU' ]; then
+if [ "$PRESET" = 'FUGAKU' ]; then
 
-  if [ "$RSCGRP" == "" ] ; then
+  if (( NNODES_USE > 384 )) ; then
+    RSCGRP="large"
+  else
     RSCGRP="small"
   fi
 
-  TPROC=$((NNODES*PPN))
+  TPROC=$((NNODES_USE*PPN))
+
+  VOLUMES="/"$(readlink /data/$(id -ng) | cut -d "/" -f 2)
+  if [ $VOLUMES != "/vol0004" ] ;then
+    VOLUMES="${VOLUMES}:/vol0004" # spack
+  fi
+
 cat > $jobscrp << EOF
 #!/bin/sh 
 #
 #
+#PJM -x PJM_LLIO_GFSCACHE=${VOLUMES}
 #PJM -L "rscgrp=${RSCGRP}"
 #PJM -L "node=$(((TPROC+3)/4))"
 #PJM -L "elapse=${TIME_LIMIT}"
@@ -264,12 +207,21 @@ EOF
 
 else
 
+if [ $NNODES_USE -lt 4 ] ; then
+  RSCGRP=s
+elif [ $NNODES_USE -le 16 ] ; then
+  RSCGRP=m
+else
+  echo "too many nodes required. " $NNODES_USE " > 16"
+  exit 1
+fi
+
 # qsub
 cat > $jobscrp << EOF
 #!/bin/sh
 #PBS -N $job
-#PBS -q s
-#PBS -l nodes=${NNODES}:ppn=${PPN}
+#PBS -q ${RSCGRP}
+#PBS -l nodes=${NNODES_USE}:ppn=${PPN}
 #PBS -l walltime=${TIME_LIMIT}
 #
 #
@@ -295,7 +247,7 @@ EOF
 
   echo "[$(datetime_now)] Run ${job} job on PJM"
   echo
-  
+
   job_submit_torque $jobscrp
   echo
   

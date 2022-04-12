@@ -66,10 +66,14 @@ cp ${ENSMODEL_DIR}/scale-rm_ens ${TMPROOT}/scale-rm_ens
 #-------------------------------------------------------------------------------
 # database
 
-cp -r ${SCALEDIR}/scale-rm/test/data/rad ${TMPROOT}/dat/rad
-cp -r ${SCALEDIR}/scale-rm/test/data/land ${TMPROOT}/dat/land
-cp -r ${SCALEDIR}/scale-rm/test/data/urban ${TMPROOT}/dat/urban
-cp -r ${SCALEDIR}/scale-rm/test/data/lightning ${TMPROOT}/dat/lightning
+cp -r ${SCALEDIR}/data/rad ${TMPROOT}/dat/rad
+cp -r ${SCALEDIR}/data/land ${TMPROOT}/dat/land
+cp -r ${SCALEDIR}/data/urban ${TMPROOT}/dat/urban
+cp -r ${SCALEDIR}/data/lightning ${TMPROOT}/dat/lightning
+
+if [ "${SOUNDING}" != "" ] ; then
+  cp ${SOUNDING} ${TMPROOT}/dat/
+fi 
 
 #-------------------------------------------------------------------------------
 # time-variant outputs
@@ -420,7 +424,7 @@ if ((PNETCDF_BDY_SCALE == 1)); then
   local mem_np_bdy_=1
 else
   local mem_np_bdy_=$((DATA_BDY_SCALE_PRC_NUM_X*DATA_BDY_SCALE_PRC_NUM_Y))
-  if (( mem_np_bdy_ < 1 )) && (( BDY_FORMAT < 4 )) ; then
+  if (( mem_np_bdy_ < 1 )) && (( BDY_FORMAT < 4 ))  && (( BDY_FORMAT > 0 )); then
     echo "[Error] $0: Specify DATA_BDY_SCALE_PRC_NUM_X/Y" >&2
     exit 1
   fi
@@ -452,8 +456,8 @@ if [ "$TOPO_FORMAT" != "prep" ] || [ "$LAND_FORMAT" != "prep" ] ; then
   OFFLINE_PARENT_BASENAME=
 
   if ((BDY_FORMAT == 1)); then
-    BDYCATALOGUE=${DATA_BDY_SCALE}/const/log/latlon_domain_catalogue.txt
-    BDYTOPO=${DATA_BDY_SCALE}/const/topo
+    BDYCATALOGUE=${DATA_TOPO_BDY_SCALE}/const/log/latlon_domain_catalogue.txt
+    BDYTOPO=${DATA_TOPO_BDY_SCALE}/const/topo
   fi
 
 #  if ((BDY_FORMAT == 1)) && [ "$TOPO_FORMAT" != 'prep' ]; then
@@ -518,7 +522,6 @@ time_bdy_start_prev=0
 loop=0
 while ((time_s <= ETIME)); do
   loop=$((loop+1))
-
   rcycle=1
   for c in $(seq 2 $CYCLE); do
     if (($(datetime $time_s $((lcycles * (c-1))) s) <= ETIME)); then
@@ -551,6 +554,7 @@ while ((time_s <= ETIME)); do
 
     for c in $(seq $CYCLE); do
       time=$(datetime $time_s $((lcycles * (c-1))) s)
+
       if ((time <= ETIME)); then
 
         bdy_setting $time $FCSTLEN $BDYCYCLE_INT "$BDYINT" "$PARENT_REF_TIME" "$BDY_SINGLE_FILE"
@@ -570,6 +574,73 @@ while ((time_s <= ETIME)); do
           time_bdy_start_prev=${bdy_times[1]}
           nbdy_max=0
         fi
+
+        ith=0
+        for mm in $(seq $m_run_onecycle); do
+          ith=$((ith+1))
+          m=$(((c-1) * m_run_onecycle + mm))
+          config_file_init_core $m &
+          if (( ith == SHELL_PROCS )); then 
+            wait 
+            ith=0
+          fi
+        done
+
+
+      fi # [ ((time <= ETIME)) ]
+    done # [ c in $(seq $CYCLE) ]
+
+  fi # [ BDY_FORMAT != 0 ]
+
+  #-----------------------------------------------------------------------------
+  # scale (launcher)
+  #-----------------------------------------------------------------------------
+
+  time=$time_s
+  config_file_scale_launcher fcst fcst_scale-rm_ens "f<member>/run" $((fmember*rcycle))
+
+  #-----------------------------------------------------------------------------
+  # scale (each member)
+  #-----------------------------------------------------------------------------
+
+  if ((OUT_OPT <= 1)); then
+    RESTART_OUTPUT='.true.'
+  else
+    RESTART_OUTPUT='.false.'
+  fi
+
+  for c in $(seq $CYCLE); do
+    time=$(datetime $time_s $((lcycles * (c-1))) s)
+    if ((time <= ETIME)); then
+
+      bdy_setting $time $FCSTLEN $BDYCYCLE_INT "$BDYINT" "$PARENT_REF_TIME" "$BDY_SINGLE_FILE"
+
+      ith=0
+      for mm in $(seq $fmember); do
+        ith=$((ith+1))
+        m=$(((c-1) * fmember + mm))
+        config_file_scale_core $m &
+        if (( ith == SHELL_PROCS )); then 
+          wait 
+          ith=0
+        fi
+      done
+
+
+
+    fi # [ ((time <= ETIME)) ]
+  done # [ c in $(seq $CYCLE) ]
+
+  #-------------------
+  time_s=$(datetime $time_s $((lcycles * CYCLE)) s)
+done # [ ((time_s <= ETIME)) ]
+
+#-------------------------------------------------------------------------------
+}
+
+config_file_init_core (){ 
+
+m=$1
         if ((nbdy > nbdy_max)); then
           for ibdy in $(seq $((nbdy_max+1)) $nbdy); do
             time_bdy=${bdy_times[$ibdy]}
@@ -577,7 +648,6 @@ while ((time_s <= ETIME)); do
             if ((BDY_FORMAT == 1)); then
 
               if ((BDY_ENS == 1)); then
-                for m in $(seq $fmember); do
                   if ((m == mmean)); then
                     mem_bdy="$BDY_MEAN"
                   else
@@ -589,14 +659,15 @@ while ((time_s <= ETIME)); do
                     #echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
                     ln -sf  $pathin $TMP/$path
                   done
-                done
               else
+                if ((m == mmean)); then
                 for q in $(seq $mem_np_bdy_); do
                   pathin="${DATA_BDY_SCALE}/${time_bdy}/${BDY_SCALE_DIR}/${BDY_MEAN}${CONNECTOR}history$(scale_filename_bdy_sfx $((q-1)))"
                   path="bdy/mean/bdyorg_$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))$(scale_filename_bdy_sfx $((q-1)))"
                   #echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
                   ln -sf  $pathin $TMP/$path
                 done
+                fi
               fi
 
             elif ((BDY_FORMAT == 2 || BDY_FORMAT == 4)); then
@@ -626,7 +697,6 @@ while ((time_s <= ETIME)); do
               fi
 
               if ((BDY_ENS == 1)); then
-                for m in $(seq $fmember); do
                   if ((m == mmean)); then
                     mem_bdy="$BDY_MEAN"
                   else
@@ -642,8 +712,8 @@ while ((time_s <= ETIME)); do
                     #echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
                     ln -sf  $pathin $TMP/$path
                   done
-                done
               else
+                if ((m == mmean)); then
                 for ifile in $(seq $filenum); do
                   if ((BDY_ROTATING == 1)); then
                     pathin="${data_bdy_i}/${time}/${BDY_MEAN}/${filename_prefix[$ifile]}${time_bdy}${filename_suffix[$ifile]}"
@@ -654,6 +724,7 @@ while ((time_s <= ETIME)); do
                   #echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
                   ln -sf  $pathin $TMP/$path
                 done
+                fi
               fi
 
             fi # [ BDY_FORMAT == 2 || BDY_FORMAT == 4 ]
@@ -661,8 +732,7 @@ while ((time_s <= ETIME)); do
           nbdy_max=$nbdy
         fi
 
-        for mm in $(seq $m_run_onecycle); do
-          m=$(((c-1) * m_run_onecycle + mm))
+
           if ((BDY_ENS == 1)); then
             mem_bdy=${name_m[$m]}
           else
@@ -671,12 +741,15 @@ while ((time_s <= ETIME)); do
 
           if ((BDY_FORMAT == 1)); then
             FILETYPE_ORG='SCALE-RM'
-            LATLON_CATALOGUE_FNAME="${DATA_BDY_SCALE}/const/log/latlon_domain_catalogue.txt"
+            LATLON_CATALOGUE_FNAME="${DATA_TOPO_BDY_SCALE}/const/log/latlon_domain_catalogue.txt"
           elif ((BDY_FORMAT == 2)); then
             FILETYPE_ORG='WRF-ARW'
             LATLON_CATALOGUE_FNAME=
           elif ((BDY_FORMAT == 4)); then
             FILETYPE_ORG='GrADS'
+            LATLON_CATALOGUE_FNAME=
+          elif ((BDY_FORMAT == 5)); then
+            FILETYPE_ORG=
             LATLON_CATALOGUE_FNAME=
           else
             echo "[Error] $0: Unsupport boundary file types." >&2
@@ -719,8 +792,9 @@ while ((time_s <= ETIME)); do
                     -e "/!--RESTART_OUTPUT--/a RESTART_OUTPUT = ${RESTART_OUTPUT}," \
                     -e "/!--RESTART_OUT_BASENAME--/a RESTART_OUT_BASENAME = \"${RESTART_OUT_BASENAME}\"," \
                     -e "/!--RESTART_OUT_POSTFIX_TIMELABEL--/a RESTART_OUT_POSTFIX_TIMELABEL = .true.," \
-                    -e "/!--TOPOGRAPHY_IN_BASENAME--/a TOPOGRAPHY_IN_BASENAME = \"${INDIR[$d]}/const/topo/topo\"," \
-                    -e "/!--LANDUSE_IN_BASENAME--/a LANDUSE_IN_BASENAME = \"${INDIR[$d]}/const/landuse/landuse\"," \
+                    -e "/!--TOPOGRAPHY_OUT_BASENAME--/a TOPOGRAPHY_OUT_BASENAME = \"${DATA_TOPO}/const/topo/topo\"," \
+                    -e "/!--TOPOGRAPHY_IN_BASENAME--/a TOPOGRAPHY_IN_BASENAME = \"${DATA_TOPO}/const/topo/topo\"," \
+                    -e "/!--LANDUSE_IN_BASENAME--/a LANDUSE_IN_BASENAME = \"${DATA_LANDUSE}/const/landuse/landuse\"," \
                     -e "/!--LAND_PROPERTY_IN_FILENAME--/a LAND_PROPERTY_IN_FILENAME = \"${TMPROOT_CONSTDB}/dat/land/param.bucket.conf\",")"
             if ((BDY_FORMAT == 1)); then
               conf="$(echo "$conf" | \
@@ -787,38 +861,12 @@ while ((time_s <= ETIME)); do
 #              echo "$CONFIG_DIR/${conf_file}|${conf_file}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
 #            fi
           fi # [ BDY_FORMAT == 4 && (BDY_ENS == 0 || m == 1) ]
-        done # [ mm in $(seq $m_run_onecycle) ]
+}
 
-      fi # [ ((time <= ETIME)) ]
-    done # [ c in $(seq $CYCLE) ]
+config_file_scale_core () { 
 
-  fi # [ BDY_FORMAT != 0 ]
+m=$1
 
-  #-----------------------------------------------------------------------------
-  # scale (launcher)
-  #-----------------------------------------------------------------------------
-
-  time=$time_s
-  config_file_scale_launcher fcst fcst_scale-rm_ens "f<member>/run" $((fmember*rcycle))
-
-  #-----------------------------------------------------------------------------
-  # scale (each member)
-  #-----------------------------------------------------------------------------
-
-  if ((OUT_OPT <= 1)); then
-    RESTART_OUTPUT='.true.'
-  else
-    RESTART_OUTPUT='.false.'
-  fi
-
-  for c in $(seq $CYCLE); do
-    time=$(datetime $time_s $((lcycles * (c-1))) s)
-    if ((time <= ETIME)); then
-
-      bdy_setting $time $FCSTLEN $BDYCYCLE_INT "$BDYINT" "$PARENT_REF_TIME" "$BDY_SINGLE_FILE"
-
-      for mm in $(seq $fmember); do
-        m=$(((c-1) * fmember + mm))
         if ((BDY_ENS == 1)); then
           mem_bdy=${name_m[$m]}
         else
@@ -871,8 +919,8 @@ while ((time_s <= ETIME)); do
                   -e "/!--RESTART_OUTPUT--/a RESTART_OUTPUT = ${RESTART_OUTPUT}," \
                   -e "/!--RESTART_OUT_BASENAME--/a RESTART_OUT_BASENAME = \"${OUTDIR[$d]}/$time/fcst/${name_m[$m]}/init\"," \
                   -e "/!--RESTART_OUT_POSTFIX_TIMELABEL--/a RESTART_OUT_POSTFIX_TIMELABEL = .true.," \
-                  -e "/!--TOPOGRAPHY_IN_BASENAME--/a TOPOGRAPHY_IN_BASENAME = \"${INDIR[$d]}/const/topo/topo\"," \
-                  -e "/!--LANDUSE_IN_BASENAME--/a LANDUSE_IN_BASENAME = \"${INDIR[$d]}/const/landuse/landuse\"," \
+                  -e "/!--TOPOGRAPHY_IN_BASENAME--/a TOPOGRAPHY_IN_BASENAME = \"${DATA_TOPO}/const/topo/topo\"," \
+                  -e "/!--LANDUSE_IN_BASENAME--/a LANDUSE_IN_BASENAME = \"${DATA_LANDUSE}/const/landuse/landuse\"," \
                   -e "/!--FILE_HISTORY_DEFAULT_BASENAME--/a FILE_HISTORY_DEFAULT_BASENAME = \"${OUTDIR[$d]}/$time/fcst/${name_m[$m]}/history\"," \
                   -e "/!--FILE_HISTORY_DEFAULT_TINTERVAL--/a FILE_HISTORY_DEFAULT_TINTERVAL = ${FCSTOUT}.D0," \
                   -e "/!--MONITOR_OUT_BASENAME--/a MONITOR_OUT_BASENAME = \"${OUTDIR[$d]}/$time/log/fcst_scale/${name_m[$m]}_monitor_${time}\"," \
@@ -888,9 +936,7 @@ while ((time_s <= ETIME)); do
                   -e "/!--ATMOS_PHY_LT_LUT_FILENAME--/a ATMOS_PHY_LT_LUT_FILENAME = \"${TMPROOT_CONSTDB}/dat/lightning/LUT_TK1978_v.txt\",")"
           if ((d == 1)); then
             conf="$(echo "$conf" | \
-                sed -e "/!--ATMOS_BOUNDARY_IN_BASENAME--/a ATMOS_BOUNDARY_IN_BASENAME = \"bdy/${mem_bdy}/bdy_$(datetime_scale $time)\"," \
-                    -e "/!--ATMOS_BOUNDARY_START_DATE--/a ATMOS_BOUNDARY_START_DATE = ${bdy_start_time:0:4}, ${bdy_start_time:4:2}, ${bdy_start_time:6:2}, ${bdy_start_time:8:2}, ${bdy_start_time:10:2}, ${bdy_start_time:12:2}," \
-                    -e "/!--ATMOS_BOUNDARY_UPDATE_DT--/a ATMOS_BOUNDARY_UPDATE_DT = $BDYINT.D0,")"
+                sed -e "/!--ATMOS_BOUNDARY_IN_BASENAME--/a ATMOS_BOUNDARY_IN_BASENAME = \"bdy/${mem_bdy}/bdy_$(datetime_scale $time)\",")"
           fi
           if [ ! -e "$SCRP_DIR/config.nml.scale_user" ]; then
             if ((OCEAN_INPUT == 1)); then
@@ -922,18 +968,7 @@ while ((time_s <= ETIME)); do
 #            fi
 #          fi
         done # [ d in $(seq $DOMNUM) ]
-      done # [ mm in $(seq $fmember) ]
 
-    fi # [ ((time <= ETIME)) ]
-  done # [ c in $(seq $CYCLE) ]
-
-  #-------------------
-  time_s=$(datetime $time_s $((lcycles * CYCLE)) s)
-done # [ ((time_s <= ETIME)) ]
-
-echo
-
-#-------------------------------------------------------------------------------
 }
 
 #===============================================================================
@@ -1095,7 +1130,7 @@ if ((RUN_LEVEL == 0)); then
 
   if ((MAKEINIT == 1)); then
     if [ -d "${OUTDIR}/${STIME}/anal" ]; then
-      if [ -n "$(ls ${OUTDIR}/${STIME}/anal 2> /dev/null)" ]; then
+      if [ -n "$(ls ${OUTDIR}/${STIME}/anal/*/*.nc 2> /dev/null)" ]; then
         echo "[Error] $myname: Initial ensemble is to be generated (\$MAKEINIT = 1) at \"${OUTDIR}/${STIME}/anal/\", but existing data are found there;" >&2
         echo "        Set \$MAKEINIT = 0 or remove \"${OUTDIR}/${STIME}/anal/*\" before running this job." >&2
         exit 1
@@ -1109,7 +1144,7 @@ fi
 #-------------------------------------------------------------------------------
 # common variables
 
-if ((BDY_FORMAT >= 1)); then
+if ((BDY_FORMAT >= 1)) && ((BDY_FORMAT <= 4 )) ; then
   if ((BDYCYCLE_INT % BDYINT != 0)); then
     echo "[Error] \$BDYCYCLE_INT needs to be an exact multiple of \$BDYINT" >&2
     exit 1

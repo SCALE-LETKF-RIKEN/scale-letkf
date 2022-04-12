@@ -90,6 +90,8 @@ MODULE common_scale
   LOGICAL,PARAMETER :: v2dd_hastime(nv2dd) = &
      (/.false., .true., .true., .true., .true., .true., .true./)
 
+  INTEGER,SAVE :: nv2dd_use=7
+
   ! 
   !--- Variables for model coordinates
   ! 
@@ -182,6 +184,8 @@ SUBROUTINE set_common_scale
     IHALO, &
     JHALO, &
     KHALO
+  use mod_atmos_admin, only: &
+    ATMOS_sw_phy_sf
 
   IMPLICIT NONE
 !  REAL(r_sngl) :: slat(nlat), wlat(nlat)
@@ -207,6 +211,12 @@ SUBROUTINE set_common_scale
   nlevalld = nlev * nv3dd + nv2dd
   ngpv  = nij0 * nlevall
   ngpvd = nij0 * nlevalld
+
+  if (ATMOS_sw_phy_sf) then
+    nv2dd_use=nv2dd
+  else
+    nv2dd_use=1 !!! read TOPO only 
+  end if
 
 !  !
 !  ! Lon, Lat
@@ -968,7 +978,8 @@ subroutine read_history(filename,step,v3dg,v2dg)
   ! 2D variables
   !-------------
   v2dg_RP(:,:,:) = UNDEF
-  do iv2d = 1, nv2dd
+!!  do iv2d = 1, nv2dd
+  do iv2d = 1, nv2dd_use
     if ( LOG_LEVEL >= 1 .and. LOG_OUT ) then
       write(6,'(1x,A,A15)') '*** Read 2D var: ', trim(v2dd_name(iv2d))
     end if
@@ -1027,10 +1038,12 @@ subroutine read_history(filename,step,v3dg,v2dg)
     call COMM_wait ( v3dg_RP(:,:,:,iv3d), iv3d )
   end do
 
-  do iv2d = 1, nv2dd
+!  do iv2d = 1, nv2dd
+  do iv2d = 1, nv2dd_use
     call COMM_vars8( v2dg_RP(:,:,iv2d), iv2d )
   end do
-  do iv2d = 1, nv2dd
+!  do iv2d = 1, nv2dd
+  do iv2d = 1, nv2dd_use
     call COMM_wait ( v2dg_RP(:,:,iv2d), iv2d )
   end do
 
@@ -1141,7 +1154,8 @@ subroutine read_history_par(filename,step,v3dg,v2dg,comm)
 
   ! 2D variables
   !-------------
-  do iv2d = 1, nv2dd
+!  do iv2d = 1, nv2dd
+  do iv2d = 1, nv2dd_use
     if (LOG_LEVEL >= 1) then
       write(6,'(1x,A,A15)') '*** Read 2D var: ', trim(v2dd_name(iv2d))
     end if
@@ -1189,7 +1203,8 @@ subroutine read_history_par(filename,step,v3dg,v2dg,comm)
 !$OMP END DO 
 
 !$OMP DO SCHEDULE(STATIC)
-  do iv2d = 1, nv2dd
+!  do iv2d = 1, nv2dd
+  do iv2d = 1, nv2dd_use
     v2dg(IS:IE,JS:JE,iv2d) = real(var2D(:,:,iv2d), r_size)
   end do
 !$OMP END DO
@@ -1215,10 +1230,12 @@ subroutine read_history_par(filename,step,v3dg,v2dg,comm)
     call COMM_wait ( v3dg(:,:,:,iv3d), iv3d )
   end do
 
-  do iv2d = 1, nv2dd
+!  do iv2d = 1, nv2dd
+  do iv2d = 1, nv2dd_use
     call COMM_vars8( v2dg(:,:,iv2d), iv2d )
   end do
-  do iv2d = 1, nv2dd
+!  do iv2d = 1, nv2dd
+  do iv2d = 1, nv2dd_use
     call COMM_wait ( v2dg(:,:,iv2d), iv2d )
   end do
 
@@ -1233,6 +1250,156 @@ subroutine read_history_par(filename,step,v3dg,v2dg,comm)
 end subroutine read_history_par
 #endif
 
+!-------------------------------------------------------------------------------
+! Transform the SCALE restart variables to the LETKF state variables
+!-------------------------------------------------------------------------------
+subroutine read_restart_trans_history(v3dg, v2dg)
+  use mod_admin_restart, only: &
+    admin_restart_read
+ use mod_atmos_vars, only: &
+    ATMOS_vars_calc_diagnostics, &
+    ATMOS_vars_get_diagnostic, &
+    QV, QC, QR, &
+    QI, QS, QG, &
+    U, V, W, &
+    PRES, TEMP, &
+    ATMOS_RESTART_IN_BASENAME
+  use mod_atmos_phy_sf_vars, only: &
+    ATMOS_PHY_SF_SFC_PRES, &
+    ATMOS_PHY_SF_U10, &
+    ATMOS_PHY_SF_V10, &
+    ATMOS_PHY_SF_T2, &
+    ATMOS_PHY_SF_Q2
+  use scale_topography, only: &
+    TOPOGRAPHY_Zsfc
+  use scale_atmos_grid_cartesC_real, only: &
+    ATMOS_GRID_CARTESC_REAL_CZ
+  use scale_atmos_grid_cartesC_index, only: &
+    IHALO, JHALO, &
+    IS, IE, JS, JE, KS, KE, KA
+  use scale_comm_cartesC, only: &
+    COMM_vars8, &
+    COMM_wait
+  implicit none
+
+  real(r_size),intent(out) :: v3dg(nlevh,nlonh,nlath,nv3dd)
+  real(r_size),intent(out) :: v2dg(nlonh,nlath,nv2dd)
+  real(RP) :: v3dg_RP(nlevh,nlonh,nlath,nv3dd)
+  real(RP) :: v2dg_RP(nlonh,nlath,nv2dd)
+  integer :: i, j, iv3d, iv2d
+
+  ! 3D variables
+  !-------------
+
+  call ADMIN_restart_read
+
+  call ATMOS_vars_calc_diagnostics
+
+  do iv3d = 1, nv3dd
+    if (LOG_LEVEL >= 4) then
+      write(6,'(1x,A,A15)') '*** Read 3D hist var [direct transfer]: ', trim(v3dd_name(iv3d))
+    end if
+    select case (iv3d)
+    case (iv3dd_u)
+      v3dg_RP(:,:,:,iv3d) = U(:,:,:)
+    case (iv3dd_v)
+      v3dg_RP(:,:,:,iv3d) = V(:,:,:)
+    case (iv3dd_w)
+      v3dg_RP(:,:,:,iv3d) = W(:,:,:)
+    case (iv3dd_t)
+      v3dg_RP(:,:,:,iv3d) = TEMP(:,:,:)
+    case (iv3dd_rh)
+      ! RH relative to liquid
+      ! Not used as of 12/11/2019
+      call ATMOS_vars_get_diagnostic(trim(v3dd_name(iv3d)), v3dg_RP(:,:,:,iv3d))
+    case (iv3dd_p)
+      v3dg_RP(:,:,:,iv3d) = PRES(:,:,:)
+    case (iv3d_q)
+      v3dg_RP(:,:,:,iv3d) = QV(:,:,:)
+    case (iv3d_qc)
+      v3dg_RP(:,:,:,iv3d) = QC(:,:,:)
+    case (iv3d_qr)
+      v3dg_RP(:,:,:,iv3d) = QR(:,:,:)
+    case (iv3d_qi)
+      v3dg_RP(:,:,:,iv3d) = QI(:,:,:)
+    case (iv3d_qs)
+      v3dg_RP(:,:,:,iv3d) = QS(:,:,:)
+    case (iv3d_qg)
+      v3dg_RP(:,:,:,iv3d) = QG(:,:,:)
+    case (iv3dd_hgt)
+      v3dg_RP(:,:,:,iv3d) = ATMOS_GRID_CARTESC_REAL_CZ(:,:,:)
+    case default
+      write (6, '(3A)') "[Error] Variable '", trim(v3dd_name(iv3d)), "' is not recognized."
+      stop
+    end select
+  end do
+
+  ! 2D variables
+  !-------------
+  do iv2d = 1, nv2dd
+    if (LOG_LEVEL >= 4) then
+      write(6,'(1x,A,A15)') '*** Read 2D hist var [direct transfer]: ', trim(v2dd_name(iv2d))
+    end if
+    select case (iv2d)
+    case (iv2dd_rain)
+      call ATMOS_vars_get_diagnostic(trim(v2dd_name(iv2d)), v2dg_RP(:,:,iv2d))
+    case (iv2dd_topo)
+      v2dg_RP(:,:,iv2d) = TOPOGRAPHY_Zsfc(:,:)
+    case (iv2dd_ps)
+      v2dg_RP(:,:,iv2d) = ATMOS_PHY_SF_SFC_PRES(:,:)
+    case (iv2dd_u10m)
+      v2dg_RP(:,:,iv2d) = ATMOS_PHY_SF_U10(:,:)
+    case (iv2dd_v10m)
+      v2dg_RP(:,:,iv2d) = ATMOS_PHY_SF_V10(:,:)
+    case (iv2dd_t2m)
+      v2dg_RP(:,:,iv2d) = ATMOS_PHY_SF_T2(:,:)
+    case (iv2dd_q2m)
+      v2dg_RP(:,:,iv2d) = ATMOS_PHY_SF_Q2(:,:)
+    case default
+      write (6, '(3A)') "[Error] Variable '", trim(v2dd_name(iv2d)), "' is not recognized."
+      stop
+    end select
+  end do
+
+  ! Communicate halo
+  !-------------
+!$OMP PARALLEL DO PRIVATE(i,j,iv3d) SCHEDULE(STATIC) COLLAPSE(2)
+  do iv3d = 1, nv3dd
+    do j = JS, JE
+      do i = IS, IE
+        v3dg_RP(   1:KS-1,i,j,iv3d) = v3dg_RP(KS,i,j,iv3d)
+        v3dg_RP(KE+1:KA,  i,j,iv3d) = v3dg_RP(KE,i,j,iv3d)
+      end do
+    end do
+  end do
+!$OMP END PARALLEL DO
+
+  do iv3d = 1, nv3dd
+    call COMM_vars8( v3dg_RP(:,:,:,iv3d), iv3d )
+  end do
+  do iv3d = 1, nv3dd
+    call COMM_wait ( v3dg_RP(:,:,:,iv3d), iv3d )
+  end do
+
+  do iv2d = 1, nv2dd
+    call COMM_vars8( v2dg_RP(:,:,iv2d), iv2d )
+  end do
+  do iv2d = 1, nv2dd
+    call COMM_wait ( v2dg_RP(:,:,iv2d), iv2d )
+  end do
+
+  v3dg = real(v3dg_RP, kind=r_size)
+  v2dg = real(v2dg_RP, kind=r_size)
+
+  ! Save topo for later use
+  !-------------
+  if (.not. allocated(topo2d)) then
+    allocate (topo2d(nlon,nlat))
+    topo2d = v2dg(1+IHALO:nlon+IHALO,1+JHALO:nlat+JHALO,iv2dd_topo)
+  end if
+
+  return
+end subroutine read_restart_trans_history
 !-------------------------------------------------------------------------------
 ! Transform the SCALE restart variables to the LETKF state variables
 !-------------------------------------------------------------------------------
@@ -1453,10 +1620,12 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
     call COMM_wait ( v3dgh_RP(:,:,:,iv3d), iv3d )
   end do
 
-  do iv2d = 1, nv2dd
+!  do iv2d = 1, nv2dd
+  do iv2d = 1, nv2dd_use
     call COMM_vars8( v2dgh_RP(:,:,iv2d), iv2d )
   end do
-  do iv2d = 1, nv2dd
+!  do iv2d = 1, nv2dd
+  do iv2d = 1, nv2dd_use
     call COMM_wait ( v2dgh_RP(:,:,iv2d), iv2d )
   end do
 

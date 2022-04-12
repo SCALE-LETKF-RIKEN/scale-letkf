@@ -182,7 +182,7 @@ elif [ "$MPI_TYPE" = 'openmpi' ]; then
     exit $res
   fi
 
-elif [ "$MPI_TYPE" = 'impi' ]  ||  [ "$PRESET" = 'OFP' ]; then
+elif [ "$MPI_TYPE" = 'impi' ] ; then
 
   $MPIRUN $PROG $CONF $STDOUT $ARGS
   res=$?
@@ -580,6 +580,7 @@ PARENT_REF_TIME=$(datetime $PARENT_REF_TIME)
 # compute $parent_start_time based on $PARENT_REF_TIME and $PARENT_LCYCLE
 
 parent_start_time=$PARENT_REF_TIME
+if (( BDY_FORMAT > 0 )) ;then
 local parent_start_time_prev=$parent_start_time
 while ((parent_start_time <= TIME)); do
   parent_start_time_prev=$parent_start_time
@@ -590,6 +591,7 @@ parent_start_time=$parent_start_time_prev
 while ((parent_start_time > TIME)); do
   parent_start_time=$(datetime $parent_start_time -${PARENT_LCYCLE} s)
 done
+fi
 
 #-------------------------------------------------------------------------------
 # compute $bdy_start_time, $ntsteps_skip, and $ntsteps_total based on $parent_start_time and $PARENT_FOUT

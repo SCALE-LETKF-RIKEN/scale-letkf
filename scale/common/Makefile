@@ -33,7 +33,7 @@ common_letkf.o:	../../common/common_letkf.f90 common.o $(common_mtx).o
 common_ncio.o:	common_ncio.f90 common.o
 	$(SFC) $(FOPTS) -c $< $(NETCDF_INC)
 common_scale.o:	common_scale.f90 common.o common_nml.o common_mpi.o common_ncio.o
-	$(FC) $(FOPTS) -c $< $(NETCDF_INC) $(SCALE_INC)
+	$(FC) $(FOPTS) -c $< $(NETCDF_INC) $(SCALE_INC) -I$(SCALE_RM_OBJDIR)
 common_obs_scale.o:	common_obs_scale.f90 common.o common_nml.o common_scale.o
 	$(FC) $(FOPTS) -c $< $(NETCDF_INC) $(SCALE_INC)
 common_mpi_scale.o:	common_mpi_scale.f90 common.o common_nml.o common_mpi.o \

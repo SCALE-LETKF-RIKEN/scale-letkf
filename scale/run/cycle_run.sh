@@ -1,7 +1,7 @@
 #!/bin/bash
 #===============================================================================
 #
-#  Wrap cycle.sh in OFP/FUGAKU/Linux and run it.
+#  Wrap cycle.sh in FUGAKU/Linux and run it.
 #
 #-------------------------------------------------------------------------------
 #
@@ -93,92 +93,32 @@ stage_in server || exit $?
 #===============================================================================
 # Creat a job script and submit a job
 
-NPIN=`expr 255 / \( $PPN \) + 1`
 jobscrp="$TMP/${job}_job.sh"
 
 echo "[$(datetime_now)] Create a job script '$jobscrp'"
 
-# OFP
-if [ "$PRESET" = 'OFP' ]; then
-
-  if [ "$RSCGRP" == "" ] ; then
-    RSCGRP="regular-cache"
-  fi
-
-cat > $jobscrp << EOF
-#!/bin/sh
-#PJM -L rscgrp=${RSCGRP}
-#PJM -L node=${NNODES}
-#PJM -L elapse=${TIME_LIMIT}
-#PJM --mpi proc=$((NNODES*PPN))
-##PJM --mpi proc=${totalnp}
-#PJM --omp thread=${THREADS}
-
-#PJM -g $(echo $(id -ng))
-# HPC
-##PJM -g gx14  
-
-#PJM -s
-
-module unload impi
-module unload intel
-module load intel/2019.5.281
-
-source /work/opt/local/cores/intel/performance_snapshots_2019.6.0.602217/apsvars.sh
-export MPS_STAT_LEVEL=4
-
-module load hdf5/1.10.5
-module load netcdf/4.7.0
-module load netcdf-fortran/4.4.5
-
-export FORT_FMT_RECL=400
-
-export HFI_NO_CPUAFFINITY=1
-export I_MPI_PIN_PROCESSOR_EXCLUDE_LIST=0,1,68,69,136,137,204,205
-export I_MPI_HBW_POLICY=hbw_preferred,,
-export I_MPI_FABRICS_LIST=tmi
-unset KMP_AFFINITY
-#export KMP_AFFINITY=verbose
-#export I_MPI_DEBUG=5
-
-export OMP_NUM_THREADS=1
-export I_MPI_PIN_DOMAIN=${NPIN}
-export I_MPI_PERHOST=${PPN}
-export KMP_HW_SUBSET=1t
-
-export PSM2_CONNECT_WARN_INTERVAL=2400
-export TMI_PSM2_CONNECT_TIMEOUT=2000
-
-
-#export OMP_STACKSIZE=128m
-ulimit -s unlimited
-
-./${job}.sh "$STIME" "$ETIME" "$MEMBERS" "$CYCLE" "$CYCLE_SKIP" "$IF_VERF" "$IF_EFSO" "$ISTEP" "$FSTEP" "$CONF_MODE" || exit \$?
-EOF
-
-  echo "[$(datetime_now)] Run ${job} job on PJM"
-  echo
-
-  job_submit_PJM $jobscrp
-  echo
-
-  job_end_check_PJM $jobid
-  res=$?
-
 # FUGAKU
-elif [ "$PRESET" = 'FUGAKU' ]; then
+if [ "$PRESET" = 'FUGAKU' ]; then
 
-  if [ "$RSCGRP" == "" ] ; then
+  if (( NNODES > 384 )) ; then
+    RSCGRP="large"
+  else
     RSCGRP="small"
   fi
   TPROC=$((NNODES*PPN))
+
+  VOLUMES="/"$(readlink /data/$(id -ng) | cut -d "/" -f 2)
+  if [ $VOLUMES != "/vol0004" ] ;then
+    VOLUMES="${VOLUMES}:/vol0004" # spack
+  fi
 
 cat > $jobscrp << EOF
 #!/bin/sh 
 #
 #
+#PJM -x PJM_LLIO_GFSCACHE=${VOLUMES}
 #PJM -L "rscgrp=${RSCGRP}"
-#PJM -L "node=$(((TPROC+3)/4))"
+#PJM -L "node=$(((TPROC+PPN-1)/${PPN}))"
 #PJM -L "elapse=${TIME_LIMIT}"
 #PJM --mpi "max-proc-per-node=${PPN}"
 #PJM -j
@@ -235,18 +175,6 @@ EOF
 
   fi # USE_SPACK
 
-  if (( USE_RAMDISK == 1 )) && (( OUT_OPT >= 2 )); then
-    hdir_l="/worktmp/hist/mean /worktmp/hist/mdet "$(seq -f '/worktmp/hist/%04g' -s ' ' ${MEMBER})
-    adir_l=" /worktmp/anal/mean /worktmp/anal/mdet /worktmp/anal/sprd "$(seq -f '/worktmp/anal/%04g' -s ' ' ${MEMBER})
-    gdir_l=" /worktmp/gues/mean /worktmp/gues/mdet /worktmp/gues/sprd "$(seq -f '/worktmp/gues/%04g' -s ' ' ${MEMBER})
-    bdir_l=" /worktmp/bdy/mean /worktmp/bdy/mdet "$(seq -f '/worktmp/bdy/%04g' -s ' ' ${MEMBER})
-cat << EOF >>  $jobscrp 
-
-mpiexec -std-proc mkdir_log mkdir -p ${hdir_l} ${adir_l} ${gdir_l} ${bdir_l}
-
-EOF
-  fi
-
 cat << EOF >>  $jobscrp 
 ./${job}.sh "$STIME" "$ETIME" "$MEMBERS" "$CYCLE" "$CYCLE_SKIP" "$IF_VERF" "$IF_EFSO" "$ISTEP" "$FSTEP" "$CONF_MODE" || exit \$?
 
@@ -266,7 +194,7 @@ EOF
 
   echo "[$(datetime_now)] Run ${job} job on PJM"
   echo
-  
+
   job_submit_PJM $jobscrp
   echo
   
@@ -276,10 +204,19 @@ EOF
 # qsub
 else
 
+if [ $NNODES -lt 4 ] ; then
+  RSCGRP=s
+elif [ $NNODES -le 16 ] ; then
+  RSCGRP=m
+else
+  echo "too many nodes required. " $NNODES " > 16"
+  exit 1
+fi
+
 cat > $jobscrp << EOF
 #!/bin/sh
 #PBS -N $job
-#PBS -q s
+#PBS -q $RSCGRP
 #PBS -l nodes=${NNODES}:ppn=${PPN}
 #PBS -l walltime=${TIME_LIMIT}
 #
