@@ -630,6 +630,7 @@ while ((time <= ETIME)); do
     else
       RESTART_OUTPUT='.false.'
     fi
+
 #    if (((loop == 1 && MAKEINIT == 1) && ${bdy_times[1]} != time)); then
 #      echo "[Error] $0: Unable to generate initial analyses (MAKEINIT) at this time" >&2
 #      echo "        that does not fit to any boundary data." >&2
@@ -998,7 +999,7 @@ echo
                 -e "/!--FILE_AGGREGATE--/a FILE_AGGREGATE = ${FILE_AGGREGATE}," \
                 -e "/!--TIME_STARTDATE--/a TIME_STARTDATE = ${time:0:4}, ${time:4:2}, ${time:6:2}, ${time:8:2}, ${time:10:2}, ${time:12:2}," \
                 -e "/!--RESTART_OUTPUT--/a RESTART_OUTPUT = ${RESTART_OUTPUT}," \
-                -e "/!--RESTART_OUT_BASENAME--/a RESTART_OUT_BASENAME = \"${BOUNDARY_PATH[$d]}/anal/${mem_bdy}/init\"," \
+                -e "/!--RESTART_OUT_BASENAME--/a RESTART_OUT_BASENAME = \"${BOUNDARY_PATH[$d]}/bdy/${mem_bdy}/init_bdy\"," \
                 -e "/!--RESTART_OUT_POSTFIX_TIMELABEL--/a RESTART_OUT_POSTFIX_TIMELABEL = ${RESTART_OUT_POSTFIX_TIMELABEL_TF}," \
                 -e "/!--TOPOGRAPHY_IN_BASENAME--/a TOPOGRAPHY_IN_BASENAME = \"${DATA_TOPO}/const/topo/topo\"," \
                 -e "/!--LANDUSE_IN_BASENAME--/a LANDUSE_IN_BASENAME = \"${DATA_LANDUSE}/const/landuse/landuse\"," \
@@ -1089,7 +1090,12 @@ config_file_scale_core (){
       mkdir -p ${OUTDIR[$d]}/$atime/anal/${name_m[$mlocal]}
       mkdir -p ${OUTDIR[$d]}/$time/hist/${name_m[$mlocal]}
 
-      RESTART_IN_BASENAME[$d]="${RESTART_IN_PATH[$d]}/anal/${name_m[$mlocal]}/init"
+      if (( MKINIT == 1 && USE_INIT_FROM_BDY == 1 )) ; then
+        RESTART_IN_BASENAME[$d]="${BOUNDARY_PATH[$d]}/bdy/${mem_bdy}/init_bdy"
+      else
+        RESTART_IN_BASENAME[$d]="${RESTART_IN_PATH[$d]}/anal/${name_m[$mlocal]}/init"
+      fi
+
       RESTART_OUT_BASENAME[$d]="${RESTART_OUT_PATH[$d]}/anal/${name_m[$mlocal]}/init"
 
       if [ "${name_m[$mlocal]}" == 'mean' ]; then ###### using a variable for 'mean', 'mdet', 'sprd'
@@ -1174,41 +1180,28 @@ config_file_scale_core (){
         conf="$(echo "$conf" | \
             sed -e "/!--ATMOS_BOUNDARY_IN_BASENAME--/a ATMOS_BOUNDARY_IN_BASENAME = \"${BOUNDARY_PATH[$d]}/bdy/${mem_bdy}/boundary\"," )"
       fi
-      if [ ! -e "$SCRP_DIR/config.nml.scale_user" ]; then
+
+      conf_file="$TMPS/${name_m[$mlocal]}/run.d${dfmt}_${time}.conf"
+      echo "$conf" > ${conf_file}
+
+      if [ -e "$SCRP_DIR/config.nml.scale_user" ]; then
+        conf="$(cat $SCRP_DIR/config.nml.scale_user)"
         if ((OCEAN_INPUT == 1)); then
           if ((OCEAN_FORMAT == 99)); then
+#            conf="$(echo "$conf" | \
+#                sed -e "/!--OCEAN_RESTART_IN_BASENAME--/a OCEAN_RESTART_IN_BASENAME = \"${RESTART_IN_BASENAME[$d]}\",")"
             conf="$(echo "$conf" | \
-                sed -e "/!--OCEAN_RESTART_IN_BASENAME--/a OCEAN_RESTART_IN_BASENAME = \"${BOUNDARY_PATH[$d]}/bdy/${mem_bdy}/init\",")"
+                 sed -e "/!--OCEAN_RESTART_IN_BASENAME--/a OCEAN_RESTART_IN_BASENAME = \"${BOUNDARY_PATH[$d]}/bdy/${mem_bdy}/init_bdy_$(datetime_scale $btime)\",")"
           fi
         fi
         if ((LAND_INPUT == 1)); then
           if ((LAND_FORMAT == 99)); then
             conf="$(echo "$conf" | \
-                sed -e "/!--LAND_RESTART_IN_BASENAME--/a LAND_RESTART_IN_BASENAME = \"${BOUNDARY_PATH[$d]}/bdy/${mem_bdy}/init\",")"
-          fi
-        fi
-      fi
-      conf_file="$TMP/${name_m[$mlocal]}/run.d${dfmt}_${time}.conf"
-      echo "$conf" > ${conf_file}
-
-      if [ -e "$SCRP_DIR/config.nml.scale_user" ]; then
-        conf="$(cat $SCRP_DIR/config.nml.scale_user)"
-#        if ((OCEAN_INPUT == 1)); then
-#          if ((OCEAN_FORMAT == 99)); then
-#            conf="$(echo "$conf" | \
-#                sed -e "/!--OCEAN_RESTART_IN_BASENAME--/a OCEAN_RESTART_IN_BASENAME = \"${RESTART_IN_BASENAME[$d]}\",")"
-#            conf="$(echo "$conf" | \
-#                sed -e "/!--OCEAN_RESTART_IN_BASENAME--/a OCEAN_RESTART_IN_BASENAME = \"${BOUNDARY_PATH[$d]}/bdy/${mem_bdy}/init_bdy_$(datetime_scale $btime)\",")"
-#          fi
-#        fi
-#        if ((LAND_INPUT == 1)); then
-#          if ((LAND_FORMAT == 99)); then
-#            conf="$(echo "$conf" | \
-#                sed -e "/!--LAND_RESTART_IN_BASENAME--/a LAND_RESTART_IN_BASENAME = \"${BOUNDARY_PATH[$d]}/bdy/${mem_bdy}/init_bdy_$(datetime_scale $btime)\",")"
+                sed -e "/!--LAND_RESTART_IN_BASENAME--/a LAND_RESTART_IN_BASENAME = \"${BOUNDARY_PATH[$d]}/bdy/${mem_bdy}/init_bdy_$(datetime_scale $btime)\",")"
 #            conf="$(echo "$conf" | \
 #                sed -e "/!--LAND_RESTART_IN_BASENAME--/a LAND_RESTART_IN_BASENAME = \"${RESTART_IN_BASENAME[$d]}\",")"
-#          fi
-#        fi
+          fi
+        fi
         echo "$conf" >> ${conf_file}
       fi
 
