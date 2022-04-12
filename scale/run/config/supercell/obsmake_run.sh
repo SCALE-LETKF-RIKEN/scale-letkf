@@ -116,7 +116,7 @@ cat $SCRP_DIR/config.nml.obsmake | sed \
     -e "/!--OBS_IN_FORMAT--/a OBS_IN_FORMAT=\"${OBS_IN_FORMAT}\","  \
     -e "/!--PPN--/a PPN=$PPN,"  \
     -e "/!--LETKF_TOPOGRAPHY_IN_BASENAME--/a LETKF_TOPOGRAPHY_IN_BASENAME=\"$OUTDIR/topo/topo\"," \
-    -e "/!--HISTORY_IN_BASENAME--/a HISTORY_IN_BASENAME=\"$OUTDIR/nature/hist/history\"," \
+    -e "/!--HISTORY_IN_BASENAME--/a HISTORY_IN_BASENAME=\"$OUTDIR/nature/fcst/mean/history\"," \
     -e "/!--SLOT_START--/a SLOT_START=$nslot,"  \
     -e "/!--SLOT_END--/a SLOT_END=$nslot,"  \
     -e "/!--SLOT_BASE--/a SLOT_BASE=$nslot,"  \
@@ -126,10 +126,10 @@ cat $SCRP_DIR/config.nml.obsmake | sed \
 cat $SCRP_DIR/config.nml.scale | sed \
     -e "/!--TIME_STARTDATE--/a TIME_STARTDATE = ${time:0:4}, ${time:4:2}, ${time:6:2}, ${time:8:2}, ${time:10:2}, ${time:12:2}," \
     -e "/!--TIME_DURATION--/a TIME_DURATION = ${LCYCLE}.D0," \
-    -e "/!--RESTART_IN_BASENAME--/a RESTART_IN_BASENAME=\"$OUTDIR/nature/init/init_00000101-000000.000\","  \
-    -e "/!--RESTART_OUT_BASENAME--/a RESTART_OUT_BASENAME=\"$OUTDIR/nature/init/init\","  \
+    -e "/!--RESTART_IN_BASENAME--/a RESTART_IN_BASENAME=\"$OUTDIR/nature/anal/init_00000101-000000.000\","  \
+    -e "/!--RESTART_OUT_BASENAME--/a RESTART_OUT_BASENAME=\"$OUTDIR/nature/anal/init\","  \
     -e "/!--TOPOGRAPHY_IN_BASENAME--/a TOPOGRAPHY_IN_BASENAME=\"$OUTDIR/const/topo/topo\"," \
-    -e "/!--FILE_HISTORY_DEFAULT_BASENAME--/a FILE_HISTORY_DEFAULT_BASENAME=\"$OUTDIR/nature/hist/history\"," \
+    -e "/!--FILE_HISTORY_DEFAULT_BASENAME--/a FILE_HISTORY_DEFAULT_BASENAME=\"$OUTDIR/nature/fcst/mean/history\"," \
 >> $conf_file
 
   time_list="$time_list $time"
@@ -219,7 +219,13 @@ EOF
   fi
 
 cat << EOF >>  $jobscrp 
-./${job}.sh "$STIME" "$ETIME" "$MEMBERS" "$CYCLE" "$CYCLE_SKIP" "$IF_VERF" "$IF_EFSO" "$ISTEP" "$FSTEP" "$CONF_MODE" || exit \$?
+. ./src/func_util.sh
+. ./config.main
+
+for time in $time_list ; do 
+    mpirunf - ./obsmake $TMP/config/obsmake_\${time}.conf log/obsmake || exit \$?
+    cp $TMP/obsin/obsin.dat.out $OBS/${OBSNAME[1]}_\${time}.dat
+done
 EOF
 
   if (( USE_LLIO_BIN == 1 )); then
@@ -233,7 +239,7 @@ EOF
     echo "" >> $jobscrp
   fi
 
-  echo "[$(datetime_now)] Run ${job} job on PJM"
+  echo "[$(datetime_now)] Run obsmake job on PJM"
   echo
   
   job_submit_PJM $jobscrp
@@ -286,13 +292,13 @@ cd $TMP
 
 for time in $time_list ; do 
     mpirunf - ./obsmake $TMP/config/obsmake_\${time}.conf log/obsmake || exit \$?
-    mv $TMP/obsin/obsin.dat.out $OBS/${OBSNAME[1]}_\${time}.dat
+    cp $TMP/obsin/obsin.dat.out $OBS/${OBSNAME[1]}_\${time}.dat
 done
 
 EOF
 
 
-  echo "[$(datetime_now)] Run ${job} job on PJM"
+  echo "[$(datetime_now)] Run obsmake job on PJM"
   echo
 
   job_submit_torque $jobscrp

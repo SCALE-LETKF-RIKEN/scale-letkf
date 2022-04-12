@@ -78,13 +78,13 @@ for m in $(seq $mtot) ; do
   for q in $(seq ${mem_np_[$d]}); do
       ith=$((ith+1))
       staging_list_core $m $q &
-      if (( ith == SHELL_PROCS )); then 
+      if (( ith == SHELL_PROCS )) ; then 
          wait 
          ith=0
       fi
   done
 done
-
+wait
 
 }
 
@@ -752,7 +752,7 @@ while ((time <= ETIME)); do
     for m in $(seq $mtot); do
       ith=$((ith+1))
       config_file_init_core $m &
-      if (( ith == SHELL_PROCS )); then 
+      if (( ith == SHELL_PROCS )) || ((m == mtot)) ; then 
          wait 
          ith=0
       fi
@@ -775,7 +775,7 @@ while ((time <= ETIME)); do
       ith=$((ith+1))
 ###      echo config_file_scale_core $loop $m 
       config_file_scale_core $m &
-      if (( ith == SHELL_PROCS )); then 
+      if (( ith == SHELL_PROCS )) || ((m == mtot)) ; then 
          wait 
          ith=0
       fi
@@ -842,8 +842,9 @@ while ((time <= ETIME)); do
       #conf_file_src2=$SCRP_DIR/config.nml.scale.d$d
       conf_file="$TMP/config/letkf.d${dfmt}_${atime}.conf"
     fi
-    conf_file_src2="$TMP/${name_m[$m]}/run.d${dfmt}_${time}.conf"
 
+    conf_file_src2="$TMP/${name_m[$mmean]}/run.d${dfmt}_${time}.conf"
+ 
     rm -rf ${OUTDIR[$d]}/$atime/log/letkf
     rm -rf ${OUTDIR[$d]}/$atime/obs
     mkdir -p ${OUTDIR[$d]}/$atime/log/letkf
@@ -986,9 +987,11 @@ echo
           mkdir -p ${OUTDIR[$d]}/$time/log/scale_init
         fi
 
+      if ((BDY_ENS == 1)) || ((mlocal==mmean)) ; then
         rm -rf ${OUTDIR[$d]}/$time/bdy/$mem_bdy
         mkdir -p ${OUTDIR[$d]}/$time/bdy/$mem_bdy
         mkdir -p ${OUTDIR[$d]}/$time/anal/$mem_bdy
+      fi
 
         conf="$(cat $conf_file_src | \
             sed -e "/!--IO_LOG_BASENAME--/a IO_LOG_BASENAME = \"${OUTDIR[$d]}/$time/log/scale_init/${name_m[$mlocal]}_LOG\"," \

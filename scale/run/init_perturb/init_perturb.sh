@@ -32,15 +32,6 @@ res=$? && ((res != 0)) && exit $res
 . src/func_datetime.sh
 . src/func_util.sh
 
-if (( PRESET == "FUGAKU" )) ; then
-  spack load --first py-pip%gcc
-  export PYTHONPATH="/share/hp150019/u01168/metscripts/python3:$PYTHONPATH"
-  PYTHON="python"
-else
-  echo "PRESET $PRESET not supported."
-  exit 1
-fi
-
 TMPS=$DIR/tmp/init_perturb
 
 #-------------------------------------------------------------------------------
@@ -79,8 +70,29 @@ fi
 
 #-------------------------------------------------------------------------------
 
-if [ ! -s "$S_PATH${SCALE_SFX_0}" ]; then
+if [ "${S_PATH:0:1}" != "/" ]; then
+  S_PATH=$(cd $(dirname $S_PATH) ; pwd)/$(basename $S_PATH)
+fi
+
+if [ ! -s "${S_PATH}${SCALE_SFX_0}" ] ; then
   echo "[Error] $0: Cannot find scale file '$S_PATH${SCALE_SFX_0}'" >&2
+  exit 1
+fi
+
+#===============================================================================
+
+if (( PRESET == "FUGAKU" )) ; then
+  if [ "$(which pip)" == "" ]; then
+    echo "loading py-pip..."
+    spack load --first py-pip%gcc
+  fi 
+  if [ "$(pip list | grep netCDF4)" == "" ] || [ "$(pip list | grep numpy)" == ""  ] ; then
+    echo "check python packages."
+    exit 1
+  fi 
+  PYTHON="python"
+else
+  echo "PRESET $PRESET not supported."
   exit 1
 fi
 

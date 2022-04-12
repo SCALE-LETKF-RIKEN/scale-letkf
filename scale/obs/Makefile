@@ -1,6 +1,6 @@
 include ../configure
 
-PROGS   = obsope obssim #obsmake dec_prepbufr
+PROGS   = obsope obssim obsmake #dec_prepbufr
 
 OBJS    = obsope_tools.o
 

@@ -89,8 +89,7 @@ LAND_FORMAT=99          # 0: SCALE init files (with exactly same domain settings
                         # 99: From the same file as used in generating the boundary conditions ($BDY_FORMAT)
 
 OBSNUM=1
-OBSNAME[1]='PAWR'
-OBSFILE[1]="obs.pawr"
+OBSNAME[1]='radar'
 nele=3
 obselm[1]='ze'
 obselm[2]='vr'

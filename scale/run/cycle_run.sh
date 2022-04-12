@@ -100,7 +100,9 @@ echo "[$(datetime_now)] Create a job script '$jobscrp'"
 # FUGAKU
 if [ "$PRESET" = 'FUGAKU' ]; then
 
-  if [ "$RSCGRP" == "" ] ; then
+  if (( NNODES > 384 )) ; then
+    RSCGRP="large"
+  else
     RSCGRP="small"
   fi
   TPROC=$((NNODES*PPN))
@@ -192,7 +194,6 @@ EOF
 
   echo "[$(datetime_now)] Run ${job} job on PJM"
   echo
- 
 
   job_submit_PJM $jobscrp
   echo

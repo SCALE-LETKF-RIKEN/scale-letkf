@@ -107,7 +107,9 @@ echo "[$(datetime_now)] Create a job script '$jobscrp'"
 # FUGAKU
 if [ "$PRESET" = 'FUGAKU' ]; then
 
-  if [ "$RSCGRP" == "" ] ; then
+  if (( NNODES_USE > 384 )) ; then
+    RSCGRP="large"
+  else
     RSCGRP="small"
   fi
 

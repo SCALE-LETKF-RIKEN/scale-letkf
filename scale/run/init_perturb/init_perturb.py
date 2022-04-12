@@ -1,18 +1,19 @@
 import numpy as np
 import numpy.ma as ma
 import datetime as dt
-import scale
-from scale.io import *
+#import scale
+#from scale.io import *
+from scale_io import *
 import sys
 
 if len(sys.argv) <= 1:
     sys.exit("\nUsage: {:s} BASE_FILE\n".format(sys.argv[0]))
 initialfile = sys.argv[1]
 
-wavel1 =  500000.
-wavel2 = 3000000.
-dx = 18000.
-zheight = 28800.
+wavel1 =  50000.
+wavel2 = 200000.
+dx = 2000.
+zheight = 16000.
 taper_width = 10
 taper_mtop = 10
 
