@@ -56,7 +56,12 @@ cp ${ENSMODEL_DIR}/scale-rm_pp_ens ${TMPROOT}/scale-rm_pp_ens
 cp ${ENSMODEL_DIR}/scale-rm_init_ens ${TMPROOT}/scale-rm_init_ens
 cp ${ENSMODEL_DIR}/scale-rm_ens ${TMPROOT}/scale-rm_ens
 
-cp ${OBSUTIL_DIR}/obsope ${TMPROOT}/obsope
+if (( OBSOPE_RUN == 1 )) ;then
+  cp ${OBSUTIL_DIR}/obsope ${TMPROOT}/obsope
+fi
+if (( PAWR_DECODE == 1 )) ;then
+  cp ${OBSUTIL_DIR}/dec_pawr ${TMPROOT}/dec_pawr
+fi
 cp ${LETKF_DIR}/letkf ${TMPROOT}/letkf
 
 #-------------------------------------------------------------------------------
@@ -912,12 +917,11 @@ while ((time <= ETIME)); do
     if (( PAWR_DECODE == 1 )) ; then
       conf_file_dec_pawr="$TMP/config/dec_pawr_${atime}.conf"
       PAWR_IN_PATH="${PAWR_RAW}/${FNAME_PAWR_RAW}"
-      OUT_PAWR_SUPEROB_PATH="${TMPROOT_OBS}/obs/${OBSNAME[$iobs]}"
+      OUT_PAWR_SUPEROB_PATH="${OBS}/${OBSNAME[$iobs]}"
       cat ${conf_file} | \
       sed -e "/!--PAWR_IN_PATH--/a PAWR_IN_PATH = \"${PAWR_IN_PATH}\"," \
           -e "/!--OUT_PAWR_SUPEROB_PATH--/a OUT_PAWR_SUPEROB_PATH = \"${OUT_PAWR_SUPEROB_PATH}\", " \
           -e "/!--MEMBER_RUN--/a MEMBER_RUN = 1, " \
-          -e "s#^MEMBER\ =.*#MEMBER\ =\ 1,#g" \
           -e "s#^CONF_FILES\ =.*#CONF_FILES\ =\ ${conf_file_dec_pawr},#g" \
           -e "s#^TIME_STARTDATE\ =.*#TIME_STARTDATE\ =\ ${atime:0:4},\ ${atime:4:2},\ ${atime:6:2},\ ${atime:8:2},\ ${atime:10:2},\ ${atime:12:2}, #g" \
       >> ${conf_file_dec_pawr}
@@ -994,12 +998,18 @@ echo
         mkdir -p ${OUTDIR[$d]}/$time/anal/$mem_bdy
       fi
 
+      if ((USE_INIT_FROM_BDY == 1)) || [ $time != $STIME ] ;then
+        RESTART_OUT_FNAME=${BOUNDARY_PATH[$d]}/bdy/${mem_bdy}/init_bdy
+      else
+        RESTART_OUT_FNAME=${OUTDIR[$d]}/$time/anal/${mem_bdy}/init
+      fi
+
         conf="$(cat $conf_file_src | \
             sed -e "/!--IO_LOG_BASENAME--/a IO_LOG_BASENAME = \"${OUTDIR[$d]}/$time/log/scale_init/${name_m[$mlocal]}_LOG\"," \
                 -e "/!--FILE_AGGREGATE--/a FILE_AGGREGATE = ${FILE_AGGREGATE}," \
                 -e "/!--TIME_STARTDATE--/a TIME_STARTDATE = ${time:0:4}, ${time:4:2}, ${time:6:2}, ${time:8:2}, ${time:10:2}, ${time:12:2}," \
                 -e "/!--RESTART_OUTPUT--/a RESTART_OUTPUT = ${RESTART_OUTPUT}," \
-                -e "/!--RESTART_OUT_BASENAME--/a RESTART_OUT_BASENAME = \"${BOUNDARY_PATH[$d]}/bdy/${mem_bdy}/init_bdy\"," \
+                -e "/!--RESTART_OUT_BASENAME--/a RESTART_OUT_BASENAME = \"${RESTART_OUT_FNAME}\"," \
                 -e "/!--RESTART_OUT_POSTFIX_TIMELABEL--/a RESTART_OUT_POSTFIX_TIMELABEL = ${RESTART_OUT_POSTFIX_TIMELABEL_TF}," \
                 -e "/!--TOPOGRAPHY_IN_BASENAME--/a TOPOGRAPHY_IN_BASENAME = \"${DATA_TOPO}/const/topo/topo\"," \
                 -e "/!--LANDUSE_IN_BASENAME--/a LANDUSE_IN_BASENAME = \"${DATA_LANDUSE}/const/landuse/landuse\"," \
@@ -1090,7 +1100,7 @@ config_file_scale_core (){
       mkdir -p ${OUTDIR[$d]}/$atime/anal/${name_m[$mlocal]}
       mkdir -p ${OUTDIR[$d]}/$time/hist/${name_m[$mlocal]}
 
-      if (( MKINIT == 1 && USE_INIT_FROM_BDY == 1 )) ; then
+      if (( MAKEINIT == 1 && USE_INIT_FROM_BDY == 1 )) && [ "$time" == "$STIME" ] ; then
         RESTART_IN_BASENAME[$d]="${BOUNDARY_PATH[$d]}/bdy/${mem_bdy}/init_bdy"
       else
         RESTART_IN_BASENAME[$d]="${RESTART_IN_PATH[$d]}/anal/${name_m[$mlocal]}/init"

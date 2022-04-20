@@ -233,6 +233,8 @@ while ((time <= ETIME)); do
       if ((s == 4)); then
         logd=$OUTDIR/$atime/log/letkf
         if ((OBSOPE_RUN == 0)) && ((PAWR_DECODE != 1)) ; then
+          logd=$OUTDIR/$atime/log/dec_pawr
+          mkdir -p $logd
           echo "[$(datetime_now)] ${time}: ${stepname[$s]} ...skipped (only use integrated observation operators and decoded data)" >&2
           continue
         fi

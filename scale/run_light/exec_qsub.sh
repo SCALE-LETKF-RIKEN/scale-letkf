@@ -2,7 +2,7 @@
 #PBS -N test_fcst
 #PBS -q m
 #PBS -l nodes=6:ppn=8
-#PBS -l walltime=00:30:00
+#PBS -l walltime=01:30:00
 #
 
 cd ${PBS_O_WORKDIR}
@@ -20,13 +20,15 @@ module load netcdf4/fortran-4.4.2-intel
 export OMP_NUM_THREADS=1
 export KMP_AFFINITY=compact
 
+export LD_LIBRARY_PATH="/home/seiya/lib:$LD_LIBRARY_PATH"
 
 ulimit -s unlimited
 umask 0007
 
-echo "scale-rm_init"
+echo "scale-rm_init_ens"
 impijob ./scale-rm_init_ens config/scale-rm_init_ens_20220101000000.conf 
-echo "scale-rm"
+echo "scale-rm_ens"
 impijob ./scale-rm_ens config/scale-rm_ens_20220101000000.conf 
 echo "letkf"
-impijob ./letkf config/letkf_20220101000000.conf 
+impijob ./letkf config/letkf_20220101060000.conf 
+echo "done."

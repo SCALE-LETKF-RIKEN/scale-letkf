@@ -65,8 +65,10 @@ PROGRAM dec_pawr
       key   = MPI_UNDEFINED
     end if
     call MPI_COMM_SPLIT(MPI_COMM_a, color, key, MPI_COMM_o, ierr)
-    call MPI_COMM_SIZE(MPI_COMM_o, nprocs_o, ierr)
-    call MPI_COMM_RANK(MPI_COMM_o, myrank_o, ierr)
+    if (myrank_use_dec) then
+      call MPI_COMM_SIZE(MPI_COMM_o, nprocs_o, ierr)
+      call MPI_COMM_RANK(MPI_COMM_o, myrank_o, ierr)
+    end if
 
     call mpi_timer('INITIALIZE', 1, barrier=MPI_COMM_a)
 

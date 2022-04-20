@@ -41,3 +41,17 @@ log*
 /scale/ensmodel/scale-rm_pp_ens
 /scale/ensmodel/scale-rm_init_ens
 /scale/ensmodel/scale-rm_ens
+/scale/run_light/dat
+/scale/run_light/letkf
+/scale/run_light/scale-rm_ens
+/scale/run_light/scale-rm_init_ens
+/scale/run_light/obs
+/scale/run_light/const
+/scale/run_light/*.out
+/scale/run_light/*.stats
+/scale/run_light/*/anal
+/scale/run_light/*/gues
+/scale/run_light/*/hist
+/scale/run_light/mean/*.grd
+/scale/run_light/mean/*.nc
+/scale/run_light/mean/gradsbdy.conf

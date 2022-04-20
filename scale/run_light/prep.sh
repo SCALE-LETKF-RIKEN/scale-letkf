@@ -9,7 +9,8 @@ myname="$(basename "$0")"
 ######
 LETKFDIR=${mydir}/..
 SCALEDIR=${mydir}/../../..
-DATADIR="/data/$(id -ng)/$(id -nu)/scale_database/scale-letkf-test-suite"
+DATADIR="/share/hp150019/scale_database/scale-letkf-test-suite"
+#DATADIR="${HOME}/scale_database/scale-letkf-test-suite"
 ######
 
 ### binary
@@ -59,7 +60,7 @@ done
  
 mkdir -p ./obs
 atime=$(date -ud "21600 second $timef" +%Y%m%d%H%M%S)
-ln -s /data/hp150019/u01168/scale_database/scale-letkf-test-suite/obs/prepbufr_Japan/obs_${atime}.dat ./obs/
+ln -s ${DATADIR}/obs/prepbufr_Japan/obs_${atime}.dat ./obs/
 
 ### log 
 mkdir -p log/scale_init log/scale log/letkf
