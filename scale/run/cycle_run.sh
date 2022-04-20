@@ -14,6 +14,12 @@ cd "$(dirname "$0")"
 myname="$(basename "$0")"
 job='cycle'
 
+GROUP=${GROUP:-$(id -ng)}
+if [ "$GROUP" == "fugaku" ] ;
+  echo 'specify group name $GROUP in which you want to submit the job'
+  exit 1
+fi
+
 #===============================================================================
 # Configuration
 
@@ -115,7 +121,7 @@ if [ "$PRESET" = 'FUGAKU' ]; then
 cat > $jobscrp << EOF
 #!/bin/sh 
 #
-#
+#PJM -g ${GROUP} 
 #PJM -x PJM_LLIO_GFSCACHE=${VOLUMES}
 #PJM -L "rscgrp=${RSCGRP}"
 #PJM -L "node=$(((TPROC+PPN-1)/${PPN}))"
@@ -237,10 +243,11 @@ module load intelmpi/5.1.2.150
 export OMP_NUM_THREADS=${THREADS}
 export KMP_AFFINITY=compact
 
+export LD_LIBRARY_PATH="/home/seiya/lib:$LD_LIBRARY_PATH"
 
 ulimit -s unlimited
 
-./${job}.sh "$STIME" "$ETIME" "$ISTEP" "$FSTEP" "$CONF_MODE" || exit \$?
+./${job}.sh "$STIME" "$ETIME" "$ISTEP" "$FSTEP" "$CONF_MODE" &> run_progress || exit \$?
 EOF
 
   echo "[$(datetime_now)] Run ${job} job on PJM"

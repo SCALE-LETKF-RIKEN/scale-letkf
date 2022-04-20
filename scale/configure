@@ -8,14 +8,17 @@ SCALE_RM_OBJDIR = $(TOPDIR)/scale-rm/src/.libs$(POSTFIX)
 
 SCALE_RM_OBJS = $(shell ls $(SCALE_RM_OBJDIR)/*.o | grep -v "scale-rm.o\|scale-rm_pp.o\|scale-rm_init.o")
 
-
-
 #------
 
 include ../arch/configure.user.$(SCALE_SYS)
 
 NETCDF_INC = $(SCALE_NETCDF_INCLUDE)
 NETCDF_LIB = $(SCALE_NETCDF_LIBS)
+
+### tentative
+ifeq ($(USE_PAWR_DECODER),T)
+FOPTS     += $(FFLAGS_OPENMP)
+endif
 
 ifeq ($(SCALE_USER_VER),T)
 FOPTS     += -DSCALEUV

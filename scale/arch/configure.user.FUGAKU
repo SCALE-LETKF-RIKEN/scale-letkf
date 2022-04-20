@@ -6,10 +6,9 @@ LETKF_SINGLE_FP = F
 
 # MP-PAWR decoder
 
-USE_PAWR_DECODER = T
+USE_PAWR_DECODER = F
 
-ENABLE_SAITAMA_MPW = T
-#ENABLE_SAITAMA_MPW = F
+ENABLE_SAITAMA_MPW = F
 
 
 # Libraries
@@ -21,7 +20,7 @@ USE_MTX_KEVD = F
 SINGLE_EVP = F
 KEVD_LIB = -L/share/hp150019/honda/kevd200710 -lkevd -lstdc++
 
-BUFR_LIB   = -L/data/opt/bufrlib/10.1.0_intel/lib -lbufrlib
+#BUFR_LIB   = -L/data/opt/bufrlib/10.1.0_intel/lib -lbufrlib
 
 
 # Compiler flags
