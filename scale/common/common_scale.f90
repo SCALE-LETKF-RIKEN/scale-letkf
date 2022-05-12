@@ -50,8 +50,8 @@ MODULE common_scale
   INTEGER,PARAMETER :: iv3d_qs=10  !
   INTEGER,PARAMETER :: iv3d_qg=11  !
   CHARACTER(vname_max),PARAMETER :: v3d_name(nv3d) = &
-     (/'DENS', 'MOMX', 'MOMY', 'MOMZ', 'RHOT', &
-       'QV', 'QC', 'QR', 'QI', 'QS', 'QG'/)
+     (/'DENS      ', 'MOMX      ', 'MOMY      ', 'MOMZ      ', 'RHOT      ', &
+       'QV        ', 'QC        ', 'QR        ', 'QI        ', 'QS        ', 'QG        '/)
   CHARACTER(vname_max) :: v2d_name(nv2d)
 
   ! 
@@ -80,13 +80,13 @@ MODULE common_scale
   INTEGER,PARAMETER :: iv2dd_t2m=6
   INTEGER,PARAMETER :: iv2dd_q2m=7
   CHARACTER(vname_max),PARAMETER :: v3dd_name(nv3dd) = &
-     (/'U', 'V', 'W', 'T', 'PRES', &
-       'QV', 'QC', 'QR', 'QI', 'QS', 'QG', 'RH', 'height'/)
+     (/'U         ', 'V         ', 'W         ', 'T         ', 'PRES      ', &
+       'QV        ', 'QC        ', 'QR        ', 'QI        ', 'QS        ', 'QG        ', 'RH        ', 'height    '/)
   LOGICAL,PARAMETER :: v3dd_hastime(nv3dd) = &
      (/.true., .true., .true., .true., .true., &
        .true., .true., .true., .true., .true., .true., .true., .false./)
   CHARACTER(vname_max),PARAMETER :: v2dd_name(nv2dd) = &
-     (/'topo', 'SFC_PRES', 'PREC', 'U10', 'V10', 'T2', 'Q2'/)
+     (/'topo      ', 'SFC_PRES  ', 'PREC      ', 'U10       ', 'V10       ', 'T2        ', 'Q2        '/)
   LOGICAL,PARAMETER :: v2dd_hastime(nv2dd) = &
      (/.false., .true., .true., .true., .true., .true., .true./)
 

@@ -17,7 +17,8 @@ NETCDF_LIB = $(SCALE_NETCDF_LIBS)
 
 ### tentative
 ifeq ($(USE_PAWR_DECODER),T)
-FOPTS     += $(FFLAGS_OPENMP)
+FOPTS       += $(FFLAGS_OPENMP)
+FOPTS_SCALE += $(FFLAGS_OPENMP)
 endif
 
 ifeq ($(SCALE_USER_VER),T)

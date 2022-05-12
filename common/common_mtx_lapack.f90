@@ -26,7 +26,8 @@ module common_mtx
   integer, private :: lwork
   integer, private :: liwork
 
-  public :: mtx_eigen !, mtx_inv, mtx_inv_rg
+   public :: mtx_setup
+   public :: mtx_eigen !, mtx_inv, mtx_inv_rg
 
 contains
   !-----------------------------------------------------------------------------
