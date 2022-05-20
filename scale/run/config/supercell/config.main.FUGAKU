@@ -14,7 +14,7 @@ DIR="$(cd "$(pwd)/.." && pwd)"    # Root directory of the SCALE-LETKF
 
 DATADIR=${SCALE_DB}          # Directory of the SCALE database
 
-OUTDIR=/data/$(id -ng)/$(id -nu)/test_scale/result/supercell ### EDIT HERE ### 
+OUTDIR=/data/${GROUP}/$(id -nu)/test_scale/result/supercell ### EDIT HERE ### 
 INDIR="$OUTDIR"
 
 #===============================================================================

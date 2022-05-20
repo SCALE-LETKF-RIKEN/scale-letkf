@@ -449,7 +449,7 @@ for d in $(seq $DOMNUM); do
   PRC_DOMAINS_LIST="$PRC_DOMAINS_LIST${SCALE_NP[$d]}, "
 done
 
-if [ "$TOPO_FORMAT" != "prep" ] || [ "$LAND_FORMAT" != "prep" ] ; then
+if [ "$TOPO_FORMAT" != "prep" ] || [ "$LANDUSE_FORMAT" != "prep" ] ; then
   mkdir -p $OUTDIR/const/topo
   mkdir -p $OUTDIR/const/landuse
   config_file_scale_launcher fcst fcst_scale-rm_pp_ens "f<member>/pp" 1

@@ -13,7 +13,7 @@
 cd "$(dirname "$0")"
 myname="$(basename "$0")"
 job='fcst'
-if [ "$GROUP" == "fugaku" ] ;
+if [ "$GROUP" == "fugaku" ] ; then
   echo 'specify group name $GROUP in which you want to submit the job'
   exit 1
 fi
@@ -119,7 +119,7 @@ if [ "$PRESET" = 'FUGAKU' ]; then
 
   TPROC=$((NNODES_USE*PPN))
 
-  VOLUMES="/"$(readlink /data/$(id -ng) | cut -d "/" -f 2)
+  VOLUMES="/"$(readlink /data/${GROUP} | cut -d "/" -f 2)
   if [ $VOLUMES != "/vol0004" ] ;then
     VOLUMES="${VOLUMES}:/vol0004" # spack
   fi
@@ -202,7 +202,7 @@ EOF
 
   echo "[$(datetime_now)] Run ${job} job on PJM"
   echo
-  
+
   job_submit_PJM $jobscrp
   echo
   

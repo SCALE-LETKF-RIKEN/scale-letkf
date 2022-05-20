@@ -6,13 +6,12 @@
 #===============================================================================
 
 PRESET='FUGAKU'
-RSCGRP="small"
 
 #===============================================================================
 
 DIR="$(cd "$(pwd)/.." && pwd)"    # Root directory of the SCALE-LETKF
 
-OUTDIR=/data/$(id -ng)/$(id -nu)/test_scale/result/PAWR_Kobe ### EDIT HERE ### 
+OUTDIR=/data/${GROUP}/$(id -nu)/test_scale/result/PAWR_Kobe ### EDIT HERE ### 
 INDIR=$OUTDIR
 
 #===============================================================================

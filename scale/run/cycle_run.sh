@@ -113,7 +113,7 @@ if [ "$PRESET" = 'FUGAKU' ]; then
   fi
   TPROC=$((NNODES*PPN))
 
-  VOLUMES="/"$(readlink /data/$(id -ng) | cut -d "/" -f 2)
+  VOLUMES="/"$(readlink /data/${GROUP} | cut -d "/" -f 2)
   if [ $VOLUMES != "/vol0004" ] ;then
     VOLUMES="${VOLUMES}:/vol0004" # spack
   fi
