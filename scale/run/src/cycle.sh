@@ -137,11 +137,11 @@ atime=$(datetime $time $LCYCLE s)
 loop=0
 
 #-------------------------------------------------------------------------------
-while ((time <= ETIME)); do
+while ((10#${time} <= 10#${ETIME})); do
 #-------------------------------------------------------------------------------
   timefmt="$(datetime_fmt ${time})"
   loop=$((loop+1))
-  if (($(datetime $time $LCYCLE s) > ETIME)); then
+  if ((10#$(datetime $time $LCYCLE s) > 10#${ETIME})); then
     e_flag=1
   fi
   obstime $time || exit $?
@@ -218,8 +218,11 @@ while ((time <= ETIME)); do
         if ((BDY_FORMAT == 0)); then
           echo "[$(datetime_now)] ${time}: ${stepname[$s]} ...skipped (use prepared boundary files)" >&2
           continue
+        elif ((BDY_FORMAT == 5)); then
+          echo "[$(datetime_now)] ${time}: ${stepname[$s]} ...skipped (use prepared init files)" >&2
+          continue
         fi
-        if ((SKIP_BDYINIT == 1 && $(datetime $time -$BDYINT s) < btime && time != btime)); then
+        if ((SKIP_BDYINIT == 1 && $(datetime $time -$BDYINT s) < 10#${btime} && 10#${time} != 10#${btime})); then
           echo "[$(datetime_now)] ${time}: ${stepname[$s]} ...skipped (use boundary files produced in a previous cycle)" >&2
           continue
         else

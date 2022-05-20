@@ -339,6 +339,8 @@ SUBROUTINE read_restart(filename,v3dg,v2dg)
   integer :: iv3d, iv2d, ncid, varid
   integer :: is, js, ks
 
+  integer :: istat
+
   is = 1
   js = 1
   if (.not. PRC_HAS_W) then
@@ -365,20 +367,38 @@ SUBROUTINE read_restart(filename,v3dg,v2dg)
       ks = 1
     endif
 
-    call ncio_check(nf90_inq_varid(ncid, trim(v3d_name(iv3d)), varid))
+    istat = nf90_inq_varid(ncid, trim(v3d_name(iv3d)), varid)
+    if ( istat == 0 ) then
     call ncio_check(nf90_get_var(ncid, varid, v3dg(:,:,:,iv3d), &
                                  start = (/ ks, is, js, 1 /),    &
                                  count = (/ KMAX, IMAX, JMAX, 1 /)))
+    else
+      write(6,'(A,A15,A)') " 3D var ", trim(v3d_name(iv3d))," not found. skipped."
+      v3dg(:,:,:,iv3d) = 0.0
+    end if
+!    call ncio_check(nf90_inq_varid(ncid, trim(v3d_name(iv3d)), varid))
+!    call ncio_check(nf90_get_var(ncid, varid, v3dg(:,:,:,iv3d), &
+!                                 start = (/ ks, is, js, 1 /),    &
+!                                 count = (/ KMAX, IMAX, JMAX, 1 /)))
   end do
 
   do iv2d = 1, nv2d
     if ( LOG_LEVEL >= 1 .and. LOG_OUT ) then
       write(6,'(1x,A,A15)') '*** Read 2D var: ', trim(v2d_name(iv2d))
     end if
-    call ncio_check(nf90_inq_varid(ncid, trim(v2d_name(iv2d)), varid))
+    istat = nf90_inq_varid(ncid, trim(v2d_name(iv2d)), varid)
+    if ( istat == 0 ) then
     call ncio_check(nf90_get_var(ncid, varid, v2dg(:,:,iv2d), &
                                  start = (/ is, js, 1 /),     &
                                  count = (/ IMAX, JMAX, 1 /)))
+    else
+      write(6,'(A,A15,A)') " 2D var ", trim(v3d_name(iv3d))," not found. skipped."
+      v2dg(:,:,iv3d) = 0.0
+    end if
+!    call ncio_check(nf90_inq_varid(ncid, trim(v2d_name(iv2d)), varid))
+!    call ncio_check(nf90_get_var(ncid, varid, v2dg(:,:,iv2d), &
+!                                 start = (/ is, js, 1 /),     &
+!                                 count = (/ IMAX, JMAX, 1 /)))
   end do
 
   call ncio_close(ncid)
@@ -587,6 +607,8 @@ SUBROUTINE write_restart(filename,v3dg,v2dg)
   integer :: iv3d, iv2d, ncid, varid
   integer :: is, js, ks
 
+  integer :: istat
+
   is = 1
   js = 1
   if (.not. PRC_HAS_W) then
@@ -613,20 +635,38 @@ SUBROUTINE write_restart(filename,v3dg,v2dg)
       ks = 1
     endif
 
-    call ncio_check(nf90_inq_varid(ncid, trim(v3d_name(iv3d)), varid))
+    istat = nf90_inq_varid(ncid, trim(v3d_name(iv3d)), varid)
+    if ( istat == 0 ) then
     call ncio_check(nf90_put_var(ncid, varid, v3dg(:,:,:,iv3d), &
                                  start = (/ ks, is, js, 1 /),    &
                                  count = (/ KMAX, IMAX, JMAX, 1 /)))
+    else
+      write(6,'(A,A15,A)') " 3D var ", trim(v3d_name(iv3d))," not found. skipped."
+    end if
+!    call ncio_check(nf90_inq_varid(ncid, trim(v3d_name(iv3d)), varid))
+!    call ncio_check(nf90_put_var(ncid, varid, v3dg(:,:,:,iv3d), &
+!                                 start = (/ ks, is, js, 1 /),    &
+!                                 count = (/ KMAX, IMAX, JMAX, 1 /)))
   end do
 
   do iv2d = 1, nv2d
     if ( LOG_LEVEL >= 1 .and. LOG_OUT ) then
       write(6,'(1x,A,A15)') '*** Write 2D var: ', trim(v2d_name(iv2d))
     end if
-    call ncio_check(nf90_inq_varid(ncid, trim(v2d_name(iv2d)), varid))
+
+    
+    istat = nf90_inq_varid(ncid, trim(v2d_name(iv2d)), varid)
+    if ( istat == 0 ) then
     call ncio_check(nf90_put_var(ncid, varid, v2dg(:,:,iv2d), &
                                  start = (/ is, js, 1 /),     &
                                  count = (/ IMAX, JMAX, 1 /)))
+    else
+      write(6,'(A,A15,A)') " 2D var ", trim(v3d_name(iv3d))," not found. skipped."
+    end if
+!    call ncio_check(nf90_inq_varid(ncid, trim(v2d_name(iv2d)), varid))
+!    call ncio_check(nf90_put_var(ncid, varid, v2dg(:,:,iv2d), &
+!                                 start = (/ is, js, 1 /),     &
+!                                 count = (/ IMAX, JMAX, 1 /)))
   end do
 
   call ncio_close(ncid)
@@ -934,6 +974,8 @@ subroutine read_history(filename,step,v3dg,v2dg)
   use common_mpi, only: myrank
   use scale_const, only: &
       UNDEF => CONST_UNDEF
+  use netcdf
+  use common_ncio
   implicit none
 
   character(*), intent(in) :: filename
@@ -948,6 +990,8 @@ subroutine read_history(filename,step,v3dg,v2dg)
   real(RP) :: var2D(nlon,nlat)
   real(RP) :: utmp, vtmp
   integer :: step_
+
+  integer :: ncid, varid, istat
  
   write (filesuffix(4:9),'(I6.6)') PRC_myrank
   if ( LOG_OUT ) write (6,'(A,I6.6,2A)') 'MYRANK ',myrank,' is reading a file ',trim(filename) // filesuffix
@@ -966,11 +1010,19 @@ subroutine read_history(filename,step,v3dg,v2dg)
       step_ = 1
     endif
 
+    call ncio_open(trim(filename) // filesuffix, NF90_NOWRITE, ncid)
+    istat = nf90_inq_varid(ncid, trim(v3dd_name(iv3d)), varid)
+    call ncio_close(ncid)
+    if ( istat == 0 ) then
     call FILE_read( filename,              & ! [IN]
                     trim(v3dd_name(iv3d)), & ! [IN]
                     var3D,                 & ! [OUT]
                     rankid=PRC_myrank,     & ! [IN]
                     step=step_             ) ! [IN]
+    else
+      write(6,'(A,A15,A)') " 3D var ", trim(v3dd_name(iv3d))," not found. skipped."
+      var3D = 0.0
+    end if
 
     forall (i=1:nlon, j=1:nlat, k=1:nlev) v3dg_RP(k+KHALO,i+IHALO,j+JHALO,iv3d) = var3D(i,j,k) ! use FORALL to change order of dimensions
   end do
@@ -990,11 +1042,20 @@ subroutine read_history(filename,step,v3dg,v2dg)
       step_ = 1
     endif
 
-    call FILE_read( filename,              & ! [IN]
+    call ncio_open(trim(filename) // filesuffix, NF90_NOWRITE, ncid)
+    istat = nf90_inq_varid(ncid, trim(v2dd_name(iv2d)), varid)
+    call ncio_close(ncid)
+    if ( istat == 0 ) then
+     call FILE_read( filename,              & ! [IN]
                     trim(v2dd_name(iv2d)), & ! [IN]
                     var2D,                 & ! [OUT]
                     rankid=PRC_myrank,     & ! [IN]
                     step=step_             ) ! [IN]
+    else
+      write(6,'(A,A15,A)') " 2D var ", trim(v2dd_name(iv2d))," not found. skipped."
+      var2D = 0.0
+    end if
+
 
     v2dg_RP(IS:IE,JS:JE,iv2d) = var2D(:,:)
   end do

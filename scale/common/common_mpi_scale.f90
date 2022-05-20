@@ -1176,7 +1176,7 @@ subroutine read_ens_history_iter(iter, step, v3dg, v2dg)
       filename = HISTORY_MDET_IN_BASENAME
     end if
 
-    if (SLOT_END == 1 .and. SLOT_BASE == 1) then !!! 3D-LETKF
+    if (SLOT_START == SLOT_END .and. SLOT_START == SLOT_BASE) then !!! 3D-LETKF without history files 
       call filename_replace_mem(ATMOS_RESTART_IN_BASENAME, im)
       call filename_replace_mem(ATMOS_DYN_RESTART_IN_BASENAME, im)
       call filename_replace_mem(ATMOS_PHY_BL_RESTART_IN_BASENAME, im)
