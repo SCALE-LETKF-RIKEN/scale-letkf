@@ -1357,7 +1357,7 @@ subroutine obs_local(ri, rj, rlev, rz, nvar, hdxf, rdiag, rloc, dep, nobsl, depd
             iob = nobs_use(n)
 
             call obs_local_cal(ri, rj, rlev, rz, nvar, iob, ic2, ndist_dummy, nrloc, nrdiag)
-            if (nrloc == 0.0d0) cycle
+            if (nrloc == 0.0_r_size) cycle
 
             nobsl = nobsl + 1
             hdxf(nobsl,:) = obsda_sort%ensval(1:MEMBER,iob)
