@@ -325,7 +325,7 @@ fi
 
 if ((RUN_LEVEL <= 1)); then
   if ((DISK_MODE == 3)); then
-    config_file_save $TMP/config || exit $?
+    config_file_save $TMPROOT/config || exit $?
   else
     config_file_save || exit $?
   fi
