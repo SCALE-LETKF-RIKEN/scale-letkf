@@ -1719,7 +1719,7 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
                                  obsdep_g_nobs, obsdep_g_set, &
                                  obsdep_g_idx, obsdep_g_qc,   &
                                  obsdep_g_omb, obsdep_g_oma,  &
-                                 obsdep_g_omb_emean )
+                                 obsdep_g_omb_emean, obsdep_g_sprd )
         else
           if ( LOG_OUT ) write (6,'(A,I6.6,2A)') 'MYRANK ', myrank,' is writing an obsda file ', trim(OBSDEP_OUT_BASENAME)//'.dat'
           call write_obs_dep( trim(OBSDEP_OUT_BASENAME)//'.dat', &

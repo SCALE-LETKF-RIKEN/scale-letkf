@@ -2470,7 +2470,7 @@ subroutine write_obs_all(obs, missing, file_suffix)
   return
 end subroutine write_obs_all
 
-subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em , sprd )
+subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, sprd )
   use netcdf
   use common_ncio
   implicit none
