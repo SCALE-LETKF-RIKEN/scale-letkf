@@ -811,6 +811,7 @@ subroutine set_scalelib(execname)
   case ('OBSOPE ', 'OBSMAKE')
     call read_nml_obs_error
     call read_nml_obsope
+    call read_nml_letkf
     call read_nml_letkf_radar
   case ('OBSSIM ')
     call read_nml_obssim
@@ -1140,23 +1141,6 @@ END SUBROUTINE gather_grd_mpi
 ! Read ensemble SCALE history files, one file per time (iter)
 !-------------------------------------------------------------------------------
 subroutine read_ens_history_iter(iter, step, v3dg, v2dg)
-  use mod_atmos_vars,        only: ATMOS_RESTART_IN_BASENAME
-  use mod_atmos_dyn_vars,    only: ATMOS_DYN_RESTART_IN_BASENAME
-  use mod_atmos_phy_bl_vars, only: ATMOS_PHY_BL_RESTART_IN_BASENAME
-  use mod_atmos_phy_lt_vars, only: ATMOS_PHY_LT_RESTART_IN_BASENAME
-  use mod_atmos_phy_ae_vars, only: ATMOS_PHY_AE_RESTART_IN_BASENAME
-  use mod_atmos_phy_ch_vars, only: ATMOS_PHY_CH_RESTART_IN_BASENAME
-  use mod_atmos_phy_rd_vars, only: ATMOS_PHY_RD_RESTART_IN_BASENAME
-  use mod_atmos_phy_sf_vars, only: ATMOS_PHY_SF_RESTART_IN_BASENAME
-  use mod_atmos_phy_tb_vars, only: ATMOS_PHY_TB_RESTART_IN_BASENAME
-  use mod_atmos_phy_cp_vars, only: ATMOS_PHY_CP_RESTART_IN_BASENAME
-  use mod_ocean_vars,        only: OCEAN_RESTART_IN_BASENAME
-  use mod_land_vars,         only: LAND_RESTART_IN_BASENAME
-  use mod_urban_vars,        only: URBAN_RESTART_IN_BASENAME
-  use mod_ocean_admin, only: OCEAN_do
-  use mod_land_admin,  only: LAND_do
-  use mod_urban_admin, only: URBAN_do
-
   implicit none
   integer, intent(in) :: iter
   integer, intent(in) :: step
@@ -1177,20 +1161,19 @@ subroutine read_ens_history_iter(iter, step, v3dg, v2dg)
     end if
 
     if (SLOT_START == SLOT_END .and. SLOT_START == SLOT_BASE) then !!! 3D-LETKF without history files 
-      call filename_replace_mem(ATMOS_RESTART_IN_BASENAME, im)
-      call filename_replace_mem(ATMOS_DYN_RESTART_IN_BASENAME, im)
-      call filename_replace_mem(ATMOS_PHY_BL_RESTART_IN_BASENAME, im)
-      call filename_replace_mem(ATMOS_PHY_LT_RESTART_IN_BASENAME, im)
-      call filename_replace_mem(ATMOS_PHY_AE_RESTART_IN_BASENAME, im)
-      call filename_replace_mem(ATMOS_PHY_CH_RESTART_IN_BASENAME, im)
-      call filename_replace_mem(ATMOS_PHY_RD_RESTART_IN_BASENAME, im)
-      call filename_replace_mem(ATMOS_PHY_SF_RESTART_IN_BASENAME, im)
-      call filename_replace_mem(ATMOS_PHY_TB_RESTART_IN_BASENAME, im)
-      call filename_replace_mem(ATMOS_PHY_CP_RESTART_IN_BASENAME, im)
-      if (OCEAN_do) call filename_replace_mem(OCEAN_RESTART_IN_BASENAME, im)
-      if (LAND_do)  call filename_replace_mem(LAND_RESTART_IN_BASENAME, im)
-      if (URBAN_do) call filename_replace_mem(URBAN_RESTART_IN_BASENAME, im)
-      call read_restart_trans_history(v3dg, v2dg)
+
+      if (im >= 1 .and. im <= nens) then
+        if (im <= MEMBER) then
+          filename = GUES_IN_BASENAME
+          call filename_replace_mem(filename, im)
+        else if (im == mmean) then
+          filename = GUES_MEAN_INOUT_BASENAME
+        else if (im == mmdet) then
+          filename = GUES_MDET_IN_BASENAME
+        end if
+      end if
+      call read_restart_trans_history(filename,v3dg, v2dg)
+
     else
 
 #ifdef PNETCDF
