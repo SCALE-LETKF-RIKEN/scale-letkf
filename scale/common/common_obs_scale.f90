@@ -2445,7 +2445,7 @@ subroutine write_obs_all(obs, missing, file_suffix)
   character(len=*), intent(in), optional :: file_suffix
   logical :: missing_
   integer :: iof, strlen1, strlen2
-  character(200) :: filestr
+  character(200) :: filestr=''
 
   missing_ = .true.
   IF(present(missing)) missing_ = missing
