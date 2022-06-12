@@ -2035,7 +2035,7 @@ SUBROUTINE write_obs(cfile,obs,append,missing)
   IF(present(missing)) missing_ = missing
 
   IF(append_) THEN
-    OPEN(iunit,FILE=cfile,FORM='unformatted',ACCESS='append')
+    OPEN(iunit,FILE=cfile,FORM='unformatted',POSITION='append')
   ELSE
     OPEN(iunit,FILE=cfile,FORM='unformatted',ACCESS='sequential')
   END IF
@@ -2122,7 +2122,7 @@ SUBROUTINE write_obs_da(cfile,obsda,im,append)
   IF(present(append)) append_ = append
   IF(append_) THEN
     IF(obsda%nobs <= 0) RETURN
-    OPEN(iunit,FILE=cfile,FORM='unformatted',ACCESS='append',STATUS='replace')
+    OPEN(iunit,FILE=cfile,FORM='unformatted',POSITION='append',STATUS='replace')
   ELSE
     OPEN(iunit,FILE=cfile,FORM='unformatted',ACCESS='sequential',STATUS='replace')
   END IF
@@ -2363,7 +2363,7 @@ SUBROUTINE write_obs_radar(cfile,obs,append,missing)
   IF(present(missing)) missing_ = missing
 
   IF(append_) THEN
-    OPEN(iunit,FILE=cfile,FORM='unformatted',ACCESS='append')
+    OPEN(iunit,FILE=cfile,FORM='unformatted',POSITION='append')
   ELSE
     OPEN(iunit,FILE=cfile,FORM='unformatted',ACCESS='sequential')
   END IF

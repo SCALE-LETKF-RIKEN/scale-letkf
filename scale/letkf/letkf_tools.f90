@@ -1873,7 +1873,7 @@ subroutine relax_beta(ri, rj, rz, beta)
     end if
 #endif
     if (dist_bdy < 1.0d0) then
-      beta = max(dist_bdy, 0.0d0)
+      beta = max(dist_bdy, 0.0_r_size)
     end if
   end if
 

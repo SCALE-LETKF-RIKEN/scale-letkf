@@ -789,7 +789,7 @@ subroutine write_grd_mpi(filename, nv3dgrd, nv2dgrd, step, v3d, v2d)
     iunit = 55
     inquire (iolength=iolen) iolen
     open (iunit, file=trim(filename), form='unformatted', access='direct', &
-          status='unknown', convert='native', recl=nlong*nlatg*iolen)
+          status='unknown', recl=nlong*nlatg*iolen)
     irec = (nlev * nv3dgrd + nv2dgrd) * (step-1)
   end if
 

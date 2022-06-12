@@ -394,8 +394,8 @@ SUBROUTINE com_distll(ndim,alon,alat,blon,blat,dist)
     lat2 = blat(i) * pi * r180
 
     cosd(i) = SIN(lat1)*SIN(lat2) + COS(lat1)*COS(lat2)*COS(lon2-lon1)
-    cosd(i) = MIN( 1.d0,cosd(i))
-    cosd(i) = MAX(-1.d0,cosd(i))
+    cosd(i) = MIN( 1.0_r_size,cosd(i))
+    cosd(i) = MAX(-1.0_r_size,cosd(i))
 
     dist(i) = ACOS( cosd(i) ) * re
   END DO
@@ -422,8 +422,8 @@ SUBROUTINE com_distll_1(alon,alat,blon,blat,dist)
   lat2 = blat * pi * r180
 
   cosd = SIN(lat1)*SIN(lat2) + COS(lat1)*COS(lat2)*COS(lon2-lon1)
-  cosd = MIN( 1.d0,cosd)
-  cosd = MAX(-1.d0,cosd)
+  cosd = MIN( 1.0_r_size,cosd)
+  cosd = MAX(-1.0_r_size,cosd)
 
   dist = ACOS( cosd ) * re
 
