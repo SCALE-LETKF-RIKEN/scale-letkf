@@ -99,11 +99,11 @@ while ((time_s <= ETIME)); do
         for mm in $(seq $fmember); do
           m=$(((c-1) * fmember + mm))
           mkdir -p ${TMPROOT}/${name_m[$m]}
-          for d in $(seq $DOMNUM); do
-            pathin="${INDIR[$d]}/${time}/anal/${name_m[$m]}"
-            path="$TMPROOT/${name_m[$m]}_d$(printf $DOMAIN_FMT $d)"
-            ln -sf $pathin $path
-          done
+#          for d in $(seq $DOMNUM); do
+#            pathin="${INDIR[$d]}/${time}/anal/${name_m[$m]}"
+#            path="$TMPROOT/${name_m[$m]}_d$(printf $DOMAIN_FMT $d)"
+#            ln -sf $pathin $path
+#          done
 #            for q in $(seq ${SCALE_NP[$d]}); do
 #              pathin="${INDIR[$d]}/${time}/anal/${name_m[$m]}${CONNECTOR}init$(scale_filename_sfx $((q-1)))"
 #              path="$TMPROOT/${name_m[$m]}/init.d$(printf $DOMAIN_FMT $d)_$(datetime_scale $time)$(scale_filename_sfx $((q-1)))"
@@ -1102,7 +1102,7 @@ IF_VERF=${IF_VERF:-0}
 IF_EFSO=${IF_EFSO:-0}
 ISTEP=${ISTEP:-1}
 FSTEP=${FSTEP:-$nsteps}
-CONF_MODE=${CONF_MODE:-"dynamic"}
+CONF_MODE=${CONF_MODE:-"static"}
 TIME_LIMIT=${TIME_LIMIT:-"0:30:00"}
 
 #-------------------------------------------------------------------------------

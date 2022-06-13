@@ -34,7 +34,6 @@ DATA_BDY_NICAM=              # Directory of the boundary data in NICAM format (n
 DATA_BDY_GRADS="$DATADIR/scale-letkf-test-suite/exp/18km_Japan/bdy"
 
 OBS="$DATADIR/scale-letkf-test-suite/obs/prepbufr_Japan"
-OBSNCEP=
 
 #===============================================================================
 # model/data file options
@@ -110,7 +109,6 @@ SCALE_NP=8          # Number of processes to run SCALE
 
 NNODES=$(( ( MEMBER + 1 ) * ( SCALE_NP / PPN ) ))
 
-BGJOB_INT='0.1s'   # Interval of multiple background job submissions
 
 #===============================================================================
 # Temporary directories to store runtime files

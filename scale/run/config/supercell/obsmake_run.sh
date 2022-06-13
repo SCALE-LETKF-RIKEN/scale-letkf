@@ -89,7 +89,7 @@ stage_in server || exit $?
 mkdir -p $TMP/log
 mkdir -p $TMP/obsin
 mkdir -p $TMP/config
-mkdir -p $OUTDIR/obs
+mkdir -p $OBS
 
 ln -s $DIR/obs/obsmake $TMP/. 
 cp $OBSIN $TMP/obsin/obsin.dat
@@ -115,8 +115,9 @@ cat $SCRP_DIR/config.nml.obsmake | sed \
     -e "/!--OBS_IN_NAME--/a OBS_IN_NAME=\"$TMP/obsin/obsin.dat\","  \
     -e "/!--OBS_IN_FORMAT--/a OBS_IN_FORMAT=\"${OBS_IN_FORMAT}\","  \
     -e "/!--PPN--/a PPN=$PPN,"  \
-    -e "/!--LETKF_TOPOGRAPHY_IN_BASENAME--/a LETKF_TOPOGRAPHY_IN_BASENAME=\"$OUTDIR/topo/topo\"," \
-    -e "/!--HISTORY_IN_BASENAME--/a HISTORY_IN_BASENAME=\"$OUTDIR/nature/fcst/mean/history\"," \
+    -e "/!--LETKF_TOPOGRAPHY_IN_BASENAME--/a LETKF_TOPOGRAPHY_IN_BASENAME=\"$OUTDIR/const/topo/topo\"," \
+    -e "/!--HISTORY_IN_BASENAME--/a HISTORY_IN_BASENAME=\"$OUTDIR/nature/hist/history\"," \
+    -e "/!--GUES_IN_BASENAME--/a GUES_IN_BASENAME=\"$OUTDIR/nature/init/init_$(datetime_scale $time)\"," \
     -e "/!--SLOT_START--/a SLOT_START=$nslot,"  \
     -e "/!--SLOT_END--/a SLOT_END=$nslot,"  \
     -e "/!--SLOT_BASE--/a SLOT_BASE=$nslot,"  \
@@ -126,15 +127,19 @@ cat $SCRP_DIR/config.nml.obsmake | sed \
 cat $SCRP_DIR/config.nml.scale | sed \
     -e "/!--TIME_STARTDATE--/a TIME_STARTDATE = ${time:0:4}, ${time:4:2}, ${time:6:2}, ${time:8:2}, ${time:10:2}, ${time:12:2}," \
     -e "/!--TIME_DURATION--/a TIME_DURATION = ${LCYCLE}.D0," \
-    -e "/!--RESTART_IN_BASENAME--/a RESTART_IN_BASENAME=\"$OUTDIR/nature/anal/init_00000101-000000.000\","  \
-    -e "/!--RESTART_OUT_BASENAME--/a RESTART_OUT_BASENAME=\"$OUTDIR/nature/anal/init\","  \
+    -e "/!--RESTART_IN_BASENAME--/a RESTART_IN_BASENAME=\"$OUTDIR/nature/init/init_$(datetime_scale $time)\","  \
+    -e "/!--RESTART_OUT_BASENAME--/a RESTART_OUT_BASENAME=\"$OUTDIR/nature/init/init\","  \
     -e "/!--TOPOGRAPHY_IN_BASENAME--/a TOPOGRAPHY_IN_BASENAME=\"$OUTDIR/const/topo/topo\"," \
-    -e "/!--FILE_HISTORY_DEFAULT_BASENAME--/a FILE_HISTORY_DEFAULT_BASENAME=\"$OUTDIR/nature/fcst/mean/history\"," \
+    -e "/!--FILE_HISTORY_DEFAULT_BASENAME--/a FILE_HISTORY_DEFAULT_BASENAME=\"$OUTDIR/nature/hist/history\"," \
 >> $conf_file
 
   time_list="$time_list $time"
   time=$(datetime $time $LCYCLE s)
 done
+
+# Overwrite NNODES
+NNODES_USE=$(( SCALE_NP / PPN ))
+echo "NNODES=$NNODES_USE" >> $TMP/config.main
 
 #===============================================================================
 # Creat a job script
@@ -146,13 +151,14 @@ echo "[$(datetime_now)] Create a job script '$jobscrp'"
 # FUGAKU
 if [ "$PRESET" = 'FUGAKU' ]; then
 
-  if [ "$RSCGRP" == "" ] ; then
+  if (( NNODES_USE > 384 )) ; then
+    RSCGRP="large"
+  else
     RSCGRP="small"
   fi
+  TPROC=$((NNODES_USE*PPN))
 
-  TPROC=$((NNODES*PPN))
-
-  VOLUMES="/"$(readlink /data/$(id -ng) | cut -d "/" -f 2)
+  VOLUMES="/"$(readlink /data/${GROUP} | cut -d "/" -f 2)
   if [ $VOLUMES != "/vol0004" ] ;then
     VOLUMES="${VOLUMES}:/vol0004" # spack
   fi
@@ -160,7 +166,7 @@ if [ "$PRESET" = 'FUGAKU' ]; then
 cat > $jobscrp << EOF
 #!/bin/sh 
 #
-#
+#PJM -g ${GROUP} 
 #PJM -x PJM_LLIO_GFSCACHE=${VOLUMES}
 #PJM -L "rscgrp=${RSCGRP}"
 #PJM -L "node=$(((TPROC+3)/4))"
@@ -250,12 +256,14 @@ EOF
 
 else
 
-if [ $NNODES -lt 4 ] ; then
+if [ $NNODES_USE -lt 4 ] ; then
   RSCGRP=s
-elif [ $NNODES -le 16 ] ; then
+elif [ $NNODES_USE -le 16 ] ; then
   RSCGRP=m
+elif [ $NNODES_USE -le 24 ] ; then
+  RSCGRP=l
 else
-  echo "too many nodes required. " $NNODES " > 16"
+  echo "too many nodes required. " $NNODES_USE " > 16"
   exit 1
 fi
 
@@ -264,7 +272,7 @@ cat > $jobscrp << EOF
 #!/bin/sh
 #PBS -N exec_obsmake
 #PBS -q ${RSCGRP}
-#PBS -l nodes=${NNODES}:ppn=${PPN}
+#PBS -l nodes=${NNODES_USE}:ppn=${PPN}
 #PBS -l walltime=${TIME_LIMIT}
 #
 #
@@ -274,14 +282,28 @@ cd \${PBS_O_WORKDIR}
 export FORT_FMT_RECL=400
 export GFORTRAN_UNBUFFERED_ALL=Y
 
-source /etc/profile.d/modules.sh 
+EOF
+
+if [ "$SCALE_SYS" == "Linux64-gnu-ompi" ] ; then
+
+cat >> $jobscrp << EOF
+
+source /etc/profile.d/modules.sh
 module unload mpt/2.12
-module load intelmpi/5.1.2.150
+module unload intelcompiler/16.0.1.150
+module unload intelmpi/5.1.2.150
+module unload hdf5/1.8.16-intel
+module unload netcdf4/4.3.3.1-intel
+module unload netcdf4/fortran-4.4.2-intel
+module load gcc/4.7.2
+module load openmpi/2.0.4-gcc
+module load hdf5/1.8.16
+module load netcdf4/4.3.3.1
+module load netcdf4/fortran-4.4.2
+module load lapack/3.6.0
 
-
-export OMP_NUM_THREADS=${THREADS}
+export OMP_NUM_THREADS=1
 export KMP_AFFINITY=compact
-
 
 ulimit -s unlimited
 
@@ -291,12 +313,41 @@ cd $TMP
 . ./config.main
 
 for time in $time_list ; do 
+    mpirun --mca btl openib,sm,self --bind-to core ./obsmake $TMP/config/obsmake_\${time}.conf log/obsmake || exit \$?
+    cp $TMP/obsin/obsin.dat.out $OBS/${OBSNAME[1]}_\${time}.dat
+done
+
+
+EOF
+
+else
+
+cat >> $jobscrp << EOF
+
+source /etc/profile.d/modules.sh 
+module unload mpt/2.12
+module load intelmpi/5.1.2.150
+
+export OMP_NUM_THREADS=${THREADS}
+export KMP_AFFINITY=compact
+
+export LD_LIBRARY_PATH="/home/seiya/lib:$LD_LIBRARY_PATH"
+
+ulimit -s unlimited
+
+cd $TMP
+
+. ./src/func_util.sh
+. ./config.main
+ 
+for time in $time_list ; do 
     mpirunf - ./obsmake $TMP/config/obsmake_\${time}.conf log/obsmake || exit \$?
     cp $TMP/obsin/obsin.dat.out $OBS/${OBSNAME[1]}_\${time}.dat
 done
 
 EOF
 
+fi 
 
   echo "[$(datetime_now)] Run obsmake job on PJM"
   echo

@@ -34,7 +34,6 @@ DATA_BDY_NICAM=              # Directory of the boundary data in NICAM format (n
 DATA_BDY_GRADS=""
 
 OBS="$OUTDIR/obs"
-OBSNCEP=
 
 #===============================================================================
 # model/data file options
@@ -78,7 +77,7 @@ BDYCYCLE_INT=300
 
 PARENT_REF_TIME=
 
-ENABLE_PARAM_USER=1     # 0: Do not enable the 'PARAM_USER' section of the SCALE namelist
+ENABLE_PARAM_USER=0     # 0: Do not enable the 'PARAM_USER' section of the SCALE namelist
                         # 1: Enable the 'PARAM_USER' section of the SCALE namelist (require 'config.nml.scale_user' and customized version of SCALE)
 
 OCEAN_INPUT=1           # 0: No ocean input (use cycling ocean variables)
@@ -96,7 +95,7 @@ OBSNAME[1]=obs
 #===============================================================================
 # Cycling settings
 
-WINDOW_S=0     # SCALE forecast time when the assimilation window starts (second)
+WINDOW_S=300     # SCALE forecast time when the assimilation window starts (second)
 WINDOW_E=300     # SCALE forecast time when the assimilation window ends (second)
 LCYCLE=300       # Length of a DA cycle (second)
 LTIMESLOT=300     # Timeslot interval for 4D-LETKF (second)
@@ -114,7 +113,6 @@ SCALE_NP=16        # Number of processes to run SCALE
 
 NNODES=$(( ( MEMBER + 1 ) * ( SCALE_NP / PPN ) ))
 
-BGJOB_INT='0.1s'   # Interval of multiple background job submissions
 
 #===============================================================================
 # Temporary directories to store runtime files

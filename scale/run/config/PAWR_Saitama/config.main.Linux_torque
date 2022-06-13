@@ -6,7 +6,6 @@
 #===============================================================================
 
 PRESET='Linux_torque'
-RSCGRP="small"
 
 #===============================================================================
 
@@ -34,7 +33,6 @@ DATA_BDY_NICAM=              # Directory of the boundary data in NICAM format (n
 DATA_BDY_GRADS=
 
 OBS="$DATADIR/scale-letkf-test-suite/obs/PAWR_Saitama"
-OBSNCEP=
 
 OBSNUM=1
 OBSNAME[1]=radar
@@ -120,7 +118,6 @@ SCALE_NP=16        # Number of processes to run SCALE
 
 NNODES=$(( ( MEMBER + 1 ) * ( SCALE_NP / PPN ) ))
 
-BGJOB_INT='0.1s'   # Interval of multiple background job submissions
 
 #===============================================================================
 # Temporary directories to store runtime files
@@ -173,5 +170,7 @@ MPIRUN="impijob"
 # Machine-independent source file
 
 . config.rc
+
+USE_INIT_FROM_BDY=1
 
 #===============================================================================

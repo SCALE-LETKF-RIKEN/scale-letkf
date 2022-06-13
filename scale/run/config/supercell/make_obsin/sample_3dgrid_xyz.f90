@@ -2,25 +2,23 @@ program main
 use common_ncio
 implicit real(a-h,o-z)
 
+integer,parameter::nx=40,ny=40,nz=10
+
+real(4),parameter::vlonl=134.4,vlonr=136.0
+real(4),parameter::vlatl=34.0,vlatr=35.2
+real(4),parameter::vzb=100.0,vzt=1000.0 !!! hPa
+
 real(4),allocatable::axlon(:,:),axlat(:,:),axz(:),pres(:,:,:)
 
-integer,parameter::nelm=3
-integer,parameter::elms(nelm)=(/4001,4002,4004/) !! ze, vr, ze(zero)
-real(4),parameter::errs(nelm)=(/5.0,3.0,5.0/)     
-real(4),parameter::vdist_limit = 80.0e3
-
-real(4),parameter::er=6400.0e3
-real(4),parameter::drad=3.141592/180.0
+integer,parameter::nelm=4
+integer,parameter::elms(nelm)=(/2819,2820,3073,3331/) !! U,V,T,RH 
+real(4),parameter::errs(nelm)=(/3.0,3.0,1.0,5.0/)     !! U,V,T,RH(%) 
 
 real(4)::wk(8)
 character(len=200)::cfile
 character(len=200)::ncfile_in='history_merge.pe000000.nc'
 
 integer::ncid, vidlon, vidlat,vidz
-
-real(4),parameter::radar_lon = 135.232
-real(4),parameter::radar_lat = 34.662
-real(4),parameter::radar_z   = 0.0  
 
   call ncio_open( trim(ncfile_in), nf90_nowrite, ncid )
   call ncio_check( nf90_inq_dimid(ncid, "x", vidlon))
@@ -45,39 +43,25 @@ real(4),parameter::radar_z   = 0.0
   call ncio_check( nf90_get_var(ncid, vidz, pres))
   call ncio_close( ncid ) 
 
-!cfile="test_obs_3d_xyp.dat"
-cfile="test.dat"
+cfile="test_obs_3d_xyp.dat"
 
 open (21, file=trim(cfile), form='unformatted', access='sequential', convert='big_endian')
 
-! Radar header
-write(21) radar_lon
-write(21) radar_lat
-write(21) radar_z
-
-do ilon=1,nlon
-do ilat=1,nlat
-do ilev=1,nlev
-
-  vdist=  (er*drad*(axlat(ilon,ilat)-radar_lat))**2  &
-        + (er*cos(drad*radar_lat)*drad*(axlon(ilon,ilat)-radar_lon))**2 & 
-        + (axz(ilev)-radar_z)**2
-  vdist=sqrt(vdist)
-  if(vdist < vdist_limit)then
-    do ie=1,nelm
-      wk(1)=elms(ie)!!! elm radar ref
-      wk(2)=axlon(ilon,ilat)
-      wk(3)=axlat(ilon,ilat)
-      wk(4)=axz(ilev)
-      wk(5)=10.0  !!! dat (dummy)
-      wk(6)=errs(ie)   !!! err
-      wk(7)=22.0  !!! typ PHARAD
-      wk(8)=0.0   !!! dif
-      write(21,iostat=ios) wk(1:7)
-    end do
-  else 
-  end if
-
+do iy=1,ny
+do ix=1,nx
+do iz=1,nz
+do ie=1,nelm
+  wk(1)=real(elms(ie))  
+  wk(2)=axlon(ix,iy)
+  wk(3)=axlat(ix,iy)
+!  wk(4)=axz(iz)
+  wk(4)=pres(ix,iy,iz)
+  wk(5)=10.0  !!! dat
+  wk(6)=errs(ie)   !!! err 
+  wk(7)=1.0  !!! typ ADPUPA
+  wk(8)=0.0   !!! dif
+  write(21,iostat=ios) wk(1:8)
+end do
 end do
 end do
 end do

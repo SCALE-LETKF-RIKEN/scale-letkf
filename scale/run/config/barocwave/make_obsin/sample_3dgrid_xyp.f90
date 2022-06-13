@@ -5,22 +5,14 @@ implicit real(a-h,o-z)
 real(4),allocatable::axlon(:,:),axlat(:,:),axz(:),pres(:,:,:)
 
 integer,parameter::nelm=3
-integer,parameter::elms(nelm)=(/4001,4002,4004/) !! ze, vr, ze(zero)
-real(4),parameter::errs(nelm)=(/5.0,3.0,5.0/)     
-real(4),parameter::vdist_limit = 80.0e3
-
-real(4),parameter::er=6400.0e3
-real(4),parameter::drad=3.141592/180.0
+integer,parameter::elms(nelm)=(/2819,2820,3073/) !! U,V,T 
+real(4),parameter::errs(nelm)=(/3.0,3.0,1.0/)    !! U,V,T 
 
 real(4)::wk(8)
 character(len=200)::cfile
 character(len=200)::ncfile_in='history_merge.pe000000.nc'
 
 integer::ncid, vidlon, vidlat,vidz
-
-real(4),parameter::radar_lon = 135.232
-real(4),parameter::radar_lat = 34.662
-real(4),parameter::radar_z   = 0.0  
 
   call ncio_open( trim(ncfile_in), nf90_nowrite, ncid )
   call ncio_check( nf90_inq_dimid(ncid, "x", vidlon))
@@ -50,34 +42,22 @@ cfile="test.dat"
 
 open (21, file=trim(cfile), form='unformatted', access='sequential', convert='big_endian')
 
-! Radar header
-write(21) radar_lon
-write(21) radar_lat
-write(21) radar_z
-
 do ilon=1,nlon
 do ilat=1,nlat
 do ilev=1,nlev
-
-  vdist=  (er*drad*(axlat(ilon,ilat)-radar_lat))**2  &
-        + (er*cos(drad*radar_lat)*drad*(axlon(ilon,ilat)-radar_lon))**2 & 
-        + (axz(ilev)-radar_z)**2
-  vdist=sqrt(vdist)
-  if(vdist < vdist_limit)then
-    do ie=1,nelm
-      wk(1)=elms(ie)!!! elm radar ref
-      wk(2)=axlon(ilon,ilat)
-      wk(3)=axlat(ilon,ilat)
-      wk(4)=axz(ilev)
-      wk(5)=10.0  !!! dat (dummy)
-      wk(6)=errs(ie)   !!! err
-      wk(7)=22.0  !!! typ PHARAD
-      wk(8)=0.0   !!! dif
-      write(21,iostat=ios) wk(1:7)
-    end do
-  else 
-  end if
-
+do ie=1,nelm
+  wk(1)=real(elms(ie))  
+  wk(2)=axlon(ilon,ilat)
+  wk(3)=axlat(ilon,ilat)
+!  wk(4)=axz(iz)
+  wk(4)=pres(ilon,ilat,ilev) * 0.01 !!! hPa
+  wk(5)=10.0  !!! dat
+  wk(6)=errs(ie)   !!! err 
+  wk(7)=1.0  !!! typ ADPUPA
+  wk(8)=0.0   !!! dif
+  write(21,iostat=ios) wk(1:8)
+end do
+!  write(*,'(F6.1,5F14.4)') wk(1:6)
 end do
 end do
 end do

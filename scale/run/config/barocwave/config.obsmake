@@ -5,16 +5,16 @@
 #
 #===============================================================================
 
-STIME='00000101010000'
-ETIME='00000101020000'
+STIME='20010101000000'
+ETIME='20010131000000'
 TIME_LIMIT='00:30:00'
 CYCLE=1
 
-BASETIME='00000101000000' ### nature/hist/history.pe000000.nc
-FCSTOUT=300
+BASETIME='20010101000000' ### nature/hist/history.pe000000.nc
+FCSTOUT=86400
 
 
-OBSIN=$SCRP_DIR/make_obsin/test_obs_3d_radar.dat
-OBS_IN_FORMAT="RADAR"
+OBSIN=$SCRP_DIR/make_obsin/test.dat
+OBS_IN_FORMAT="PREPBUFR"
 
 #===============================================================================

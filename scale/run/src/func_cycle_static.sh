@@ -1096,7 +1096,7 @@ config_file_scale_core (){
       mkdir -p ${OUTDIR[$d]}/$atime/gues/${name_m[$mlocal]}
       mkdir -p ${OUTDIR[$d]}/$time/hist/${name_m[$mlocal]}
 
-      if (( MKINIT == 1 && USE_INIT_FROM_BDY == 1 )) ; then
+      if (( MAKEINIT == 1 && USE_INIT_FROM_BDY == 1 )) ; then
         RESTART_IN_BASENAME[$d]="${BOUNDARY_PATH[$d]}/bdy/${mem_bdy}/init_bdy"
       else
         RESTART_IN_BASENAME[$d]="${RESTART_IN_PATH[$d]}/anal/${name_m[$mlocal]}/init"
@@ -1190,7 +1190,7 @@ config_file_scale_core (){
       conf_file="$TMPS/${name_m[$mlocal]}/run.d${dfmt}_${time}.conf"
       echo "$conf" > ${conf_file}
 
-      if [ -e "$SCRP_DIR/config.nml.scale_user" ]; then
+      if ((ENABLE_PARAM_USER == 1)) && [ -e "$SCRP_DIR/config.nml.scale_user" ]; then
         conf="$(cat $SCRP_DIR/config.nml.scale_user)"
         if ((OCEAN_INPUT == 1)); then
           if ((OCEAN_FORMAT == 99)); then
@@ -1318,7 +1318,7 @@ STIME=$(datetime $STIME)
 ETIME=$(datetime ${ETIME:-$STIME})
 ISTEP=${ISTEP:-1}
 FSTEP=${FSTEP:-$nsteps}
-CONF_MODE=${CONF_MODE:-"dynamic"}
+CONF_MODE=${CONF_MODE:-"static"}
 TIME_LIMIT=${TIME_LIMIT:-"0:30:00"}
 
 #-------------------------------------------------------------------------------
