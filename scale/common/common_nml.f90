@@ -306,8 +306,8 @@ MODULE common_nml
   real(r_size) :: OBSERR_V = 1.0d0
   real(r_size) :: OBSERR_T = 1.0d0
   real(r_size) :: OBSERR_Q = 0.001d0
-  real(r_size) :: OBSERR_RH = 10.0d0
-  real(r_size) :: OBSERR_PS = 100.0d0
+  real(r_size) :: OBSERR_RH = 0.1d0   !(kg/kg)
+  real(r_size) :: OBSERR_PS = 100.0d0 !(Pa)
   real(r_size) :: OBSERR_RADAR_REF = 5.0d0
   real(r_size) :: OBSERR_RADAR_VR = 3.0d0
   real(r_size) :: OBSERR_TCX = 50.0d3 ! (m)

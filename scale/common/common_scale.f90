@@ -1460,14 +1460,19 @@ end subroutine state_trans_inv
 !-------------------------------------------------------------------------------
 subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
   use scale_atmos_grid_cartesC_index, only: &
-      IS, IE, JS, JE, KS, KE, KA
+      IA, IS, IE, JA, JS, JE, KS, KE, KA
   use scale_comm_cartesC, only: &
       COMM_vars8, &
       COMM_wait
   use scale_atmos_grid_cartesC_metric, only: &
       ROTC => ATMOS_GRID_CARTESC_METRIC_ROTC
   use scale_const, only: &
-      UNDEF => CONST_UNDEF
+      UNDEF => CONST_UNDEF,&
+      Rdry   => CONST_Rdry, &
+      Rvap   => CONST_Rvap
+  use scale_atmos_saturation, only: &
+      ATMOS_SATURATION_psat_all
+
   implicit none
 
   real(RP), intent(in) :: v3dg(nlev,nlon,nlat,nv3d)
@@ -1482,6 +1487,8 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
   integer :: i, j, k, iv3d, iv2d
 
   real(RP) :: utmp, vtmp
+  real(RP) :: qdry, Rtot
+  real(RP) :: psat(nlevh,nlonh,nlath)
 
   ! Variables that can be directly copied
   !---------------------------------------------------------
@@ -1520,6 +1527,26 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
   !---------------------------------------------------------
 
   !v3dgh_RP(KS:KE,IS:IE,JS:JE,iv3dd_rh) = 0.0_RP ! tentative [[RH calculator]]
+
+  call ATMOS_SATURATION_psat_all( &
+               KA, KS, KE, IA, IS, IE, JA, JS, JE, &
+               v3dgh_RP(:,:,:,iv3dd_t), & ! (in)
+               psat(:,:,:)  ) ! (out)
+
+!$omp parallel do private(k,i,j,qdry,Rtot) schedule(static) collapse(2)
+  do j = JS, JE
+  do i = IS, IE
+    do k = KS, KE
+      qdry  = 1.0d0
+      do iv3d = iv3dd_q, iv3dd_qg ! loop over all moisture variables
+        qdry  = qdry - v3dgh_RP(k,i,j,iv3d)
+      enddo
+      Rtot  = Rdry  * qdry + Rvap * v3dgh_RP(k,i,j,iv3dd_q)
+    
+      v3dgh_RP(k,i,j,iv3dd_rh) =  v3dgh_RP(k,i,j,iv3dd_q) * v3dgh_RP(k,i,j,iv3dd_p) / psat(k,i,j) * Rvap / Rtot 
+    end do
+  end do
+  end do
 
   ! Calculate height based the the topography and vertical coordinate
   !---------------------------------------------------------

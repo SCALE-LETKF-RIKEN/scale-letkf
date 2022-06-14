@@ -1633,7 +1633,11 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step)
   monit_type(uid_obs(id_t_obs)) = .true.
   monit_type(uid_obs(id_tv_obs)) = .true.
   monit_type(uid_obs(id_q_obs)) = .true.
-!  monit_type(uid_obs(id_rh_obs)) = .true.
+  if (nobs(uid_obs(id_rh_obs)) > nobs(uid_obs(id_q_obs)))then
+    monit_type(uid_obs(id_rh_obs)) = .true.
+  else
+    monit_type(uid_obs(id_q_obs)) = .true.
+  end if
   monit_type(uid_obs(id_ps_obs)) = .true.
   if (DEPARTURE_STAT_RADAR) then
     monit_type(uid_obs(id_radar_ref_obs)) = .true.

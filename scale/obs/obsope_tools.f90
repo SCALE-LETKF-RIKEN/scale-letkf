@@ -650,6 +650,9 @@ SUBROUTINE obsmake_cal(obs)
 
         if (obs(iof)%dat(n) /= undef .and. obs(iof)%err(n) /= undef) then
           obs(iof)%dat(n) = obs(iof)%dat(n) + obs(iof)%err(n) * error(ns+n)
+          if (any(obs(iof)%elm(n) == (/id_t_obs,id_tv_obs,id_q_obs,id_rh_obs,id_ps_obs/))) then
+            obs(iof)%dat(n) = max(obs(iof)%dat(n), 0.0_r_size)
+          end if
         end if
 
 !print *, '######', obs%elm(n), obs%dat(n)
