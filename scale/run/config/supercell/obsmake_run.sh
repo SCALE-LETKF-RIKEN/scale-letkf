@@ -16,8 +16,8 @@ myname="$(basename "$0")"
 #===============================================================================
 # Configuration
 
-. config.main || exit $?
-. config.obsmake || exit $?
+. ./config.main || exit $?
+. ./config.obsmake || exit $?
 
 . src/func_datetime.sh || exit $?
 . src/func_util.sh || exit $?

@@ -8,7 +8,7 @@
 STIME='20190610060000'
 ETIME=$STIME
 TIME_LIMIT='01:00:00'
-
+MEMBERS='mean'
 
 ISTEP=
 FSTEP=
@@ -17,7 +17,7 @@ CONF_MODE='static'
 #===============================================================================
 # Forecast settings
 
-FCSTLEN=600      # SCALE forecast length in the forecast mode (second)
+FCSTLEN=540      # SCALE forecast length in the forecast mode (second)
 FCSTOUT=30
 
 

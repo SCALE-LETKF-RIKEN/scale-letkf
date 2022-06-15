@@ -21,7 +21,7 @@ INDIR="$DATADIR/scale-letkf-test-suite/exp/18km_Japan/init"
 
 SCALEDIR="$DIR/../.."        # Directory of the SCALE model
 
-DATA_TOPO=$INDIR             # Directory of the prepared topo files
+DATA_TOPO="$DATADIR/scale-letkf-test-suite/exp/18km_Japan/init" # Directory of the prepared topo files
 DATA_TOPO_BDY_SCALE=
 DATA_LANDUSE=$DATA_TOPO      # Directory of the prepared landuse files
 DATA_BDY_SCALE=              # Directory of the boundary data in SCALE history format (parent domain)
@@ -157,6 +157,6 @@ PYTHON="python"
 #===============================================================================
 # Machine-independent source file
 
-. config.rc
+. ./config.rc
 
 #===============================================================================

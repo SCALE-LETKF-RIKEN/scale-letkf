@@ -23,8 +23,8 @@ fi
 #===============================================================================
 # Configuration
 
-. config.main || exit $?
-. config.${job} || exit $?
+. ./config.main || exit $?
+. ./config.${job} || exit $?
 
 . src/func_datetime.sh || exit $?
 . src/func_util.sh || exit $?

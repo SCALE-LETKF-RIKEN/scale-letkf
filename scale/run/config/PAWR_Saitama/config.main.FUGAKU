@@ -170,7 +170,7 @@ PYTHON="python"
 #===============================================================================
 # Machine-independent source file
 
-. config.rc
+. ./config.rc
 
 USE_INIT_FROM_BDY=1
 

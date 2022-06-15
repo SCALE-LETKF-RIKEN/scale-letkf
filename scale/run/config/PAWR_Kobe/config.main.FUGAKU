@@ -94,6 +94,14 @@ obselm[2]='vr'
 obselm[3]='qcf'
 
 #===============================================================================
+# PAWR decoder 
+
+PAWR_DECODE=1
+PAWR_RAW="$DATADIR/scale-letkf-test-suite/obs/PAWR_Kobe/raw"
+FNAME_PAWR_RAW="obs.pawr<type>"
+OBS="$INDIR/obs_letkf"
+
+#===============================================================================
 # Cycling settings
 
 WINDOW_S=30     # SCALE forecast time when the assimilation window starts (second)
@@ -162,7 +170,7 @@ PYTHON="python"
 #===============================================================================
 # Machine-independent source file
 
-. config.rc
+. ./config.rc
 
 USE_INIT_FROM_BDY=1
 

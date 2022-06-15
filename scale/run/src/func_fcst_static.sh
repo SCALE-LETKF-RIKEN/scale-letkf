@@ -575,6 +575,96 @@ while ((time_s <= ETIME)); do
           nbdy_max=0
         fi
 
+        if ((nbdy > nbdy_max)); then
+          for ibdy in $(seq $((nbdy_max+1)) $nbdy); do
+            time_bdy=${bdy_times[$ibdy]}
+
+            if ((BDY_FORMAT == 1)); then
+              if ((BDY_ENS == 1)); then
+                for m in $(seq $m_run_onecycle); do
+                  if ((m == mmean)); then
+                    mem_bdy="$BDY_MEAN"
+                  else
+                    mem_bdy="${name_m[$m]}"
+                  fi
+                  for q in $(seq $mem_np_bdy_); do
+                    pathin="${DATA_BDY_SCALE}/${time_bdy}/${BDY_SCALE_DIR}/${mem_bdy}${CONNECTOR}history$(scale_filename_bdy_sfx $((q-1)))"
+                    path="bdy/${name_m[$m]}/bdyorg_$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))$(scale_filename_bdy_sfx $((q-1)))"
+                    #echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
+                    ln -sf  $pathin $TMP/$path
+                  done
+                done
+              else
+                for q in $(seq $mem_np_bdy_); do
+                  pathin="${DATA_BDY_SCALE}/${time_bdy}/${BDY_SCALE_DIR}/${BDY_MEAN}${CONNECTOR}history$(scale_filename_bdy_sfx $((q-1)))"
+                  path="bdy/mean/bdyorg_$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))$(scale_filename_bdy_sfx $((q-1)))"
+                  #echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
+                  ln -sf  $pathin $TMP/$path
+                done
+              fi
+
+            elif ((BDY_FORMAT == 2 || BDY_FORMAT == 4)); then
+
+              if ((BDY_FORMAT == 2)); then
+                data_bdy_i="$DATA_BDY_WRF"
+                filenum=1
+                filename_prefix[1]='wrfout_'
+                filename_suffix[1]=''
+                filenamein_prefix[1]=''
+                filenamein_suffix[1]=''
+              elif ((BDY_FORMAT == 4)); then
+                data_bdy_i="$DATA_BDY_GRADS"
+                filenum=3
+                filename_prefix[1]='atm_'
+                filename_suffix[1]='.grd'
+                filenamein_prefix[1]='atm_'
+                filenamein_suffix[1]='.grd'
+                filename_prefix[2]='sfc_'
+                filename_suffix[2]='.grd'
+                filenamein_prefix[2]='sfc_'
+                filenamein_suffix[2]='.grd'
+                filename_prefix[3]='land_'
+                filename_suffix[3]='.grd'
+                filenamein_prefix[3]='lnd_'
+                filenamein_suffix[3]='.grd'
+              fi
+
+              if ((BDY_ENS == 1)); then
+                for m in $(seq $m_run_onecycle); do
+                  if ((m == mmean)); then
+                    mem_bdy="$BDY_MEAN"
+                  else
+                    mem_bdy="${name_m[$m]}"
+                  fi
+                  for ifile in $(seq $filenum); do
+                    if ((BDY_ROTATING == 1)); then
+                      pathin="${data_bdy_i}/${time}/${mem_bdy}/${filename_prefix[$ifile]}${time_bdy}${filename_suffix[$ifile]}"
+                    else
+                      pathin="${data_bdy_i}/${mem_bdy}/${filename_prefix[$ifile]}${time_bdy}${filename_suffix[$ifile]}"
+                    fi
+                    path="bdy/${name_m[$m]}/bdyorg_${filenamein_prefix[$ifile]}$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))${filenamein_suffix[$ifile]}"
+                    #echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
+                    ln -sf  $pathin $TMP/$path
+                  done
+                done
+              else
+                for ifile in $(seq $filenum); do
+                  if ((BDY_ROTATING == 1)); then
+                    pathin="${data_bdy_i}/${time}/${BDY_MEAN}/${filename_prefix[$ifile]}${time_bdy}${filename_suffix[$ifile]}"
+                  else
+                    pathin="${data_bdy_i}/${BDY_MEAN}/${filename_prefix[$ifile]}${time_bdy}${filename_suffix[$ifile]}"
+                  fi
+                  path="bdy/mean/bdyorg_${filenamein_prefix[$ifile]}$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))${filenamein_suffix[$ifile]}"
+                  #echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
+                  ln -sf  $pathin $TMP/$path
+                done
+              fi
+
+            fi # [ BDY_FORMAT == 2 || BDY_FORMAT == 4 ]
+          done # [ ibdy in $(seq $((nbdy_max+1)) $nbdy) ]
+          nbdy_max=$nbdy
+        fi
+
         ith=0
         for mm in $(seq $m_run_onecycle); do
           ith=$((ith+1))
@@ -641,97 +731,6 @@ done # [ ((time_s <= ETIME)) ]
 config_file_init_core (){ 
 
 m=$1
-        if ((nbdy > nbdy_max)); then
-          for ibdy in $(seq $((nbdy_max+1)) $nbdy); do
-            time_bdy=${bdy_times[$ibdy]}
-
-            if ((BDY_FORMAT == 1)); then
-
-              if ((BDY_ENS == 1)); then
-                  if ((m == mmean)); then
-                    mem_bdy="$BDY_MEAN"
-                  else
-                    mem_bdy="${name_m[$m]}"
-                  fi
-                  for q in $(seq $mem_np_bdy_); do
-                    pathin="${DATA_BDY_SCALE}/${time_bdy}/${BDY_SCALE_DIR}/${mem_bdy}${CONNECTOR}history$(scale_filename_bdy_sfx $((q-1)))"
-                    path="bdy/${name_m[$m]}/bdyorg_$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))$(scale_filename_bdy_sfx $((q-1)))"
-                    #echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
-                    ln -sf  $pathin $TMP/$path
-                  done
-              else
-                if ((m == mmean)); then
-                for q in $(seq $mem_np_bdy_); do
-                  pathin="${DATA_BDY_SCALE}/${time_bdy}/${BDY_SCALE_DIR}/${BDY_MEAN}${CONNECTOR}history$(scale_filename_bdy_sfx $((q-1)))"
-                  path="bdy/mean/bdyorg_$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))$(scale_filename_bdy_sfx $((q-1)))"
-                  #echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
-                  ln -sf  $pathin $TMP/$path
-                done
-                fi
-              fi
-
-            elif ((BDY_FORMAT == 2 || BDY_FORMAT == 4)); then
-
-              if ((BDY_FORMAT == 2)); then
-                data_bdy_i="$DATA_BDY_WRF"
-                filenum=1
-                filename_prefix[1]='wrfout_'
-                filename_suffix[1]=''
-                filenamein_prefix[1]=''
-                filenamein_suffix[1]=''
-              elif ((BDY_FORMAT == 4)); then
-                data_bdy_i="$DATA_BDY_GRADS"
-                filenum=3
-                filename_prefix[1]='atm_'
-                filename_suffix[1]='.grd'
-                filenamein_prefix[1]='atm_'
-                filenamein_suffix[1]='.grd'
-                filename_prefix[2]='sfc_'
-                filename_suffix[2]='.grd'
-                filenamein_prefix[2]='sfc_'
-                filenamein_suffix[2]='.grd'
-                filename_prefix[3]='land_'
-                filename_suffix[3]='.grd'
-                filenamein_prefix[3]='lnd_'
-                filenamein_suffix[3]='.grd'
-              fi
-
-              if ((BDY_ENS == 1)); then
-                  if ((m == mmean)); then
-                    mem_bdy="$BDY_MEAN"
-                  else
-                    mem_bdy="${name_m[$m]}"
-                  fi
-                  for ifile in $(seq $filenum); do
-                    if ((BDY_ROTATING == 1)); then
-                      pathin="${data_bdy_i}/${time}/${mem_bdy}/${filename_prefix[$ifile]}${time_bdy}${filename_suffix[$ifile]}"
-                    else
-                      pathin="${data_bdy_i}/${mem_bdy}/${filename_prefix[$ifile]}${time_bdy}${filename_suffix[$ifile]}"
-                    fi
-                    path="bdy/${name_m[$m]}/bdyorg_${filenamein_prefix[$ifile]}$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))${filenamein_suffix[$ifile]}"
-                    #echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
-                    ln -sf  $pathin $TMP/$path
-                  done
-              else
-                if ((m == mmean)); then
-                for ifile in $(seq $filenum); do
-                  if ((BDY_ROTATING == 1)); then
-                    pathin="${data_bdy_i}/${time}/${BDY_MEAN}/${filename_prefix[$ifile]}${time_bdy}${filename_suffix[$ifile]}"
-                  else
-                    pathin="${data_bdy_i}/${BDY_MEAN}/${filename_prefix[$ifile]}${time_bdy}${filename_suffix[$ifile]}"
-                  fi
-                  path="bdy/mean/bdyorg_${filenamein_prefix[$ifile]}$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))${filenamein_suffix[$ifile]}"
-                  #echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
-                  ln -sf  $pathin $TMP/$path
-                done
-                fi
-              fi
-
-            fi # [ BDY_FORMAT == 2 || BDY_FORMAT == 4 ]
-          done # [ ibdy in $(seq $((nbdy_max+1)) $nbdy) ]
-          nbdy_max=$nbdy
-        fi
-
 
           if ((BDY_ENS == 1)); then
             mem_bdy=${name_m[$m]}
@@ -938,7 +937,14 @@ m=$1
             conf="$(echo "$conf" | \
                 sed -e "/!--ATMOS_BOUNDARY_IN_BASENAME--/a ATMOS_BOUNDARY_IN_BASENAME = \"bdy/${mem_bdy}/bdy_$(datetime_scale $time)\",")"
           fi
-          if [ ! -e "$SCRP_DIR/config.nml.scale_user" ]; then
+          mkdir -p $CONFIG_DIR/f$(printf $MEMBER_FMT $m)
+          mkdir -p $TMP/f$(printf $MEMBER_FMT $m)
+          conf_file="$TMP/f$(printf $MEMBER_FMT $m)/run.d${dfmt}_${time_s}.conf"
+          #echo "  $conf_file"
+          echo "$conf" > ${conf_file}
+
+          if ((ENABLE_PARAM_USER == 1)) && [ -e "$SCRP_DIR/config.nml.scale_user" ]; then
+            conf="$(cat $SCRP_DIR/config.nml.scale_user)"
             if ((OCEAN_INPUT == 1)); then
               if ((OCEAN_FORMAT == 99)); then
                 conf="$(echo "$conf" | \
@@ -951,12 +957,8 @@ m=$1
                     sed -e "/!--LAND_RESTART_IN_BASENAME--/a LAND_RESTART_IN_BASENAME = \"$OUTDIR/$time/bdy/${mem_bdy}/init_bdy.d${dfmt}_$(datetime_scale $time)\",")"
               fi
             fi
+            echo "$conf" >> ${conf_file}
           fi
-          mkdir -p $CONFIG_DIR/f$(printf $MEMBER_FMT $m)
-          mkdir -p $TMP/f$(printf $MEMBER_FMT $m)
-          conf_file="$TMP/f$(printf $MEMBER_FMT $m)/run.d${dfmt}_${time_s}.conf"
-          #echo "  $conf_file"
-          echo "$conf" > ${conf_file}
 
 #          if ((stage_config == 1)); then
 #            if ((DISK_MODE == 3)); then

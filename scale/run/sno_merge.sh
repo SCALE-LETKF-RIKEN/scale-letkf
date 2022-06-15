@@ -17,7 +17,7 @@ tint=21600 # [second]
 tstart='2018-07-05 0:10:00'
 tend=$tstart
 
-. config.main
+. ./config.main
 RUNDIR="${TMP}_sno"
 
 

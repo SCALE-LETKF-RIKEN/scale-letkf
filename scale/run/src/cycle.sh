@@ -30,8 +30,8 @@ job='cycle'
 #===============================================================================
 # Configuration
 
-. config.main || exit $?
-. config.${job} || exit $?
+. ./config.main || exit $?
+. ./config.${job} || exit $?
 
 . src/func_datetime.sh || exit $?
 . src/func_util.sh || exit $?
@@ -137,11 +137,11 @@ atime=$(datetime $time $LCYCLE s)
 loop=0
 
 #-------------------------------------------------------------------------------
-while ((10#${time} <= 10#${ETIME})); do
+while ((time <= ETIME)); do
 #-------------------------------------------------------------------------------
   timefmt="$(datetime_fmt ${time})"
   loop=$((loop+1))
-  if ((10#$(datetime $time $LCYCLE s) > 10#${ETIME})); then
+  if (($(datetime $time $LCYCLE s) > ETIME)); then
     e_flag=1
   fi
   obstime $time || exit $?
@@ -222,7 +222,7 @@ while ((10#${time} <= 10#${ETIME})); do
           echo "[$(datetime_now)] ${time}: ${stepname[$s]} ...skipped (use prepared init files)" >&2
           continue
         fi
-        if ((SKIP_BDYINIT == 1 && $(datetime $time -$BDYINT s) < 10#${btime} && 10#${time} != 10#${btime})); then
+        if ((SKIP_BDYINIT == 1 && $(datetime $time -$BDYINT s) < btime && time != btime)); then
           echo "[$(datetime_now)] ${time}: ${stepname[$s]} ...skipped (use boundary files produced in a previous cycle)" >&2
           continue
         else

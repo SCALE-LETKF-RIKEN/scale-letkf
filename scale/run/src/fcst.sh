@@ -28,8 +28,8 @@ job='fcst'
 #===============================================================================
 # Configuration
 
-. config.main || exit $?
-. config.${job} || exit $?
+. ./config.main || exit $?
+. ./config.${job} || exit $?
 
 #. src/func_distribute.sh || exit $?
 . src/func_datetime.sh || exit $?
