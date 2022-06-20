@@ -755,7 +755,7 @@ m=$1
             exit 1
           fi
           if ((BDY_FORMAT == 4)); then
-            BASENAME_ORG="${TMPROOT_BDYDATA}/bdy/${mem_bdy}/gradsbdy.conf"
+            BASENAME_ORG="${TMPROOT_BDYDATA}/bdy/${mem_bdy}/gradsbdy_${time}.conf"
           else
             if ((nbdy <= 1)); then
               bdy_no_suffix="_$(printf %05d 0)"
@@ -843,7 +843,7 @@ m=$1
           #if ((BDY_FORMAT == 4 && (BDY_ENS == 0 || m == 1))); then
           if ((BDY_FORMAT == 4 )) ; then
             mkdir -p $CONFIG_DIR/${mem_bdy}
-            conf_file="$TMP/bdy/${mem_bdy}/gradsbdy.conf"
+            conf_file="$TMP/bdy/${mem_bdy}/gradsbdy_${time}.conf"
             #echo "  $conf_file"
             if ((nbdy <= 1)); then
               bdy_no_suffix="_$(printf %05d 0)"

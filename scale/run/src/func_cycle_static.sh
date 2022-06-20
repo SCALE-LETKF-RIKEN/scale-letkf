@@ -967,7 +967,7 @@ echo
         exit 1
       fi
       if ((BDY_FORMAT == 4)); then
-        BASENAME_ORG="${TMPROOT_BDYDATA}/${mem_bdy}/gradsbdy.conf"
+        BASENAME_ORG="${TMPROOT_BDYDATA}/${mem_bdy}/gradsbdy_${time}.conf"
       else
         if ((nbdy <= 1)); then
           bdy_no_suffix="_$(printf %05d 0)"
@@ -1033,7 +1033,7 @@ echo
 
       #if ((BDY_FORMAT == 4 && (BDY_ENS == 0 || m == 1))); then
       if ((BDY_FORMAT == 4 )); then
-        conf_file="$TMP/${mem_bdy}/gradsbdy.conf"
+        conf_file="$TMP/${mem_bdy}/gradsbdy_${time}.conf"
         if ((nbdy <= 1)); then
           bdy_no_suffix="_$(printf %05d 0)"
         else
@@ -1136,6 +1136,12 @@ config_file_scale_core (){
         RESTART_OUT_ADDITIONAL_BASENAME=
       fi
 
+      if ((WINDOW_S == LCYCLE && WINDOW_E == LCYCLE));then
+        HISTORY_OUT_WAIT=$((LCYCLE+LTIMESLOT)) ### 3D-LETKF : suppress history output
+      else
+        HISTORY_OUT_WAIT=0
+      fi
+
       if ((d == 1)); then
         conf_file_src=$SCRP_DIR/config.nml.scale
       else
@@ -1168,6 +1174,7 @@ config_file_scale_core (){
               -e "/!--LANDUSE_IN_BASENAME--/a LANDUSE_IN_BASENAME = \"${DATA_LANDUSE}/const/landuse/landuse\"," \
               -e "/!--FILE_HISTORY_DEFAULT_BASENAME--/a FILE_HISTORY_DEFAULT_BASENAME = \"${HISTORY_PATH[$d]}/hist/${name_m[$mlocal]}/history\"," \
               -e "/!--FILE_HISTORY_DEFAULT_TINTERVAL--/a FILE_HISTORY_DEFAULT_TINTERVAL = ${CYCLEFOUT}.D0," \
+              -e "/!--FILE_HISTORY_OUTPUT_WAIT--/a FILE_HISTORY_OUTPUT_WAIT = ${HISTORY_OUT_WAIT}.D0," \
               -e "/!--MONITOR_OUT_BASENAME--/a MONITOR_OUT_BASENAME = \"log/scale.${name_m[$mlocal]}.d${dfmt}.monitor_${time}\"," \
               -e "/!--LAND_PROPERTY_IN_FILENAME--/a LAND_PROPERTY_IN_FILENAME = \"${TMPROOT_CONSTDB}/dat/land/param.bucket.conf\"," \
               -e "/!--DOMAIN_CATALOGUE_FNAME--/a DOMAIN_CATALOGUE_FNAME = \"latlon_domain_catalogue.d${dfmt}.txt\"," \

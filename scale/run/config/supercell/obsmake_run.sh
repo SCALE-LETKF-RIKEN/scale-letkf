@@ -254,7 +254,8 @@ EOF
   job_end_check_PJM $jobid
   res=$?
 
-else
+# qsub
+elif [ "$PRESET" = 'Linux_torque' ]; then
 
 if [ $NNODES_USE -lt 4 ] ; then
   RSCGRP=s
@@ -267,7 +268,6 @@ else
   exit 1
 fi
 
-# qsub
 cat > $jobscrp << EOF
 #!/bin/sh
 #PBS -N exec_obsmake
@@ -357,7 +357,21 @@ fi
   
   job_end_check_torque $jobid
   res=$?
+# direct
+elif [ "$PRESET" = 'Linux' ]; then
 
+  echo "[$(datetime_now)] Run ${job} job on PJM"
+  echo
+
+  cd $TMPS
+  for time in $(echo $time_list) ; do 
+    mpirunf - ./obsmake $TMPS/config/obsmake_${time}.conf log/obsmake || exit $?
+    cp $TMPS/obsin/obsin.dat.out $OBS/${OBSNAME[1]}_${time}.dat
+  done
+
+else
+  echo "PRESET '$PRESET' is not supported."
+  exit 1
 fi
 
 #===============================================================================

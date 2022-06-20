@@ -182,7 +182,7 @@ EOF
   fi # USE_SPACK
 
 cat << EOF >>  $jobscrp 
-./${job}.sh "$STIME" "$ETIME" "$MEMBERS" "$CYCLE" "$CYCLE_SKIP" "$IF_VERF" "$IF_EFSO" "$ISTEP" "$FSTEP" "$CONF_MODE" || exit \$?
+./${job}.sh "$STIME" "$ETIME" "$ISTEP" "$FSTEP" "$CONF_MODE" || exit \$?
 
 EOF
 
@@ -208,7 +208,7 @@ EOF
   res=$?
 
 # qsub
-else
+elif [ "$PRESET" = 'Linux_torque' ]; then
 
 if [ $NNODES -lt 4 ] ; then
   RSCGRP=s
@@ -217,7 +217,7 @@ elif [ $NNODES -le 16 ] ; then
 elif [ $NNODES -le 24 ] ; then
   RSCGRP=l
 else
-  echo "too many nodes required. " $NNODES " > 16"
+  echo "too many nodes required. " $NNODES " > 24"
   exit 1
 fi
 
@@ -291,6 +291,19 @@ EOF
   job_end_check_torque $jobid
   res=$?
 
+# direct
+elif [ "$PRESET" = 'Linux' ]; then
+
+  echo "[$(datetime_now)] Run ${job} job on PJM"
+  echo
+
+  cd $TMPS
+
+  ./${job}.sh "$STIME" "$ETIME" "$ISTEP" "$FSTEP" "$CONF_MODE" &> run_progress || exit $?
+
+else
+  echo "PRESET '$PRESET' is not supported."
+  exit 1
 fi
 
 #===============================================================================
