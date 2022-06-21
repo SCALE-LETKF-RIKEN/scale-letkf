@@ -25,7 +25,9 @@ fi
 . ./config.${job} || exit $?
 
 . src/func_datetime.sh || exit $?
+. src/func_distribute.sh || exit $?
 . src/func_util.sh || exit $?
+
 . src/func_common_static.sh || exit $?
 . src/func_${job}_static.sh || exit $?
 
@@ -58,7 +60,7 @@ safe_init_tmpdir $TMP || exit $?
 echo "[$(datetime_now)] Determine the distibution schemes"
 
 safe_init_tmpdir $NODEFILE_DIR || exit $?
-#distribute_fcst "$MEMBERS" $CYCLE - $NODEFILE_DIR || exit $?
+distribute_fcst "$MEMBERS" $CYCLE "(0)" $NODEFILE_DIR || exit $?
 
 if ((CYCLE == 0)); then
   CYCLE=$cycle_auto

@@ -107,7 +107,9 @@ PPN=4               # Number of processes per node
 
 THREADS=12          # Number of threads per process
 
-SCALE_NP=40         # Number of processes to run SCALE
+SCALE_NP_X=20       # = PRC_NUM_X
+SCALE_NP_Y=2        # = PRC_NUM_Y
+SCALE_NP=$(( SCALE_NP_X  * SCALE_NP_Y )) # Number of processes to run SCALE
 
 if (( DET_RUN == 1 ));then
   NNODES=$(( ( MEMBER + 2 ) * ( SCALE_NP / PPN ) ))

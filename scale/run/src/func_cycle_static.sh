@@ -11,14 +11,29 @@ staging_list_static () {
 #
 # Usage: staging_list_static
 #-------------------------------------------------------------------------------
-# common section
 
 declare -a mem_np_
 
+if ((PNETCDF == 1)); then
+  local mem_np_=1
+else
+  local mem_np_=$mem_np
+fi
+if ((PNETCDF_BDY_SCALE == 1)); then
+  local mem_np_bdy_=1
+else
+  local mem_np_bdy_=$((DATA_BDY_SCALE_PRC_NUM_X*DATA_BDY_SCALE_PRC_NUM_Y))
+  if (( mem_np_bdy_ < 1 )) && (( BDY_FORMAT < 4 ))  && (( BDY_FORMAT > 0 )); then
+    echo "[Error] $0: Specify DATA_BDY_SCALE_PRC_NUM_X/Y" >&2
+    exit 1
+  fi
+fi
+
+#-------------------------------------------------------------------------------
+# common section
+
 staging_list_common_static cycle
 
-mkdir -p ${TMPROOT}/topo
-mkdir -p ${TMPROOT}/landuse
 mkdir -p ${TMPROOT}/dat
 mkdir -p ${TMPROOT}/log
 
@@ -36,7 +51,6 @@ for m in $(seq $MEMBER); do
   name_m[$m]=$(printf $MEMBER_FMT $m)
   mkdir -p $TMP/${name_m[$m]}
 done
-mkdir -p $TMP/sprd
 
 totalnp=$((PPN*NNODES))
 SCALE_NP_TOTAL=0
@@ -183,6 +197,106 @@ while ((time <= ETIME)); do
 #    fi
 #  fi
 
+  # bdy (parent)
+  #-------------------
+  if ((BDY_FORMAT > 0 && q == 1)) ; then
+    bdy_setting $time $CYCLEFLEN $BDYCYCLE_INT "$BDYINT" "$PARENT_REF_TIME" "$BDY_SINGLE_FILE"
+    if ((BDY_ROTATING == 1 || ${bdy_times[1]} != time_bdy_start_prev)); then
+      time_bdy_start_prev=${bdy_times[1]}
+      nbdy_max=0
+    fi
+    if ((nbdy > nbdy_max)); then
+      for ibdy in $(seq $((nbdy_max+1)) $nbdy); do
+        time_bdy=${bdy_times[$ibdy]}
+
+        if ((BDY_FORMAT == 1)); then
+
+          if ((BDY_ENS == 1)); then
+              if ((m == mmean)); then
+                mem_bdy="$BDY_MEAN"
+              else
+                mem_bdy="${name_m[$m]}"
+              fi
+              for qb in $(seq $mem_np_bdy_); do
+                pathin="${DATA_BDY_SCALE}/${time_bdy}/${BDY_SCALE_DIR}/${mem_bdy}${CONNECTOR_BDY}history$(scale_filename_bdy_sfx $((qb-1)))"
+                path="${name_m[$m]}/bdyorg_$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))$(scale_filename_bdy_sfx $((qb-1)))"
+                echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
+                #ln -sf $pathin $TMP/$path
+              done
+          else
+            if ((m == mmean)); then
+              for qb in $(seq $mem_np_bdy_); do
+                pathin="${DATA_BDY_SCALE}/${time_bdy}/${BDY_SCALE_DIR}/${BDY_MEAN}${CONNECTOR_BDY}history$(scale_filename_bdy_sfx $((qb-1)))"
+                path="mean/bdyorg_$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))$(scale_filename_bdy_sfx $((qb-1)))"
+                echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
+                #ln -sf $pathin $TMP/$path
+              done
+            fi 
+          fi
+
+        elif ((BDY_FORMAT == 2 || BDY_FORMAT == 4)); then
+
+          if ((BDY_FORMAT == 2)); then
+            data_bdy_i="$DATA_BDY_WRF"
+            filenum=1
+            filename_prefix[1]='wrfout_'
+            filename_suffix[1]=''
+            filenamein_prefix[1]=''
+            filenamein_suffix[1]=''
+          elif ((BDY_FORMAT == 4)); then
+            data_bdy_i="$DATA_BDY_GRADS"
+            filenum=3
+            filename_prefix[1]='atm_'
+            filename_suffix[1]='.grd'
+            filenamein_prefix[1]='atm_'
+            filenamein_suffix[1]='.grd'
+            filename_prefix[2]='sfc_'
+            filename_suffix[2]='.grd'
+            filenamein_prefix[2]='sfc_'
+            filenamein_suffix[2]='.grd'
+            filename_prefix[3]='land_'
+            filename_suffix[3]='.grd'
+            filenamein_prefix[3]='lnd_'
+            filenamein_suffix[3]='.grd'
+          fi
+
+          if ((BDY_ENS == 1)); then
+              if ((m == mmean)); then
+                mem_bdy="$BDY_MEAN"
+              else
+                mem_bdy="${name_m[$m]}"
+              fi
+              for ifile in $(seq $filenum); do
+                if ((BDY_ROTATING == 1)); then
+                  pathin="${data_bdy_i}/${time}/${mem_bdy}/${filename_prefix[$ifile]}${time_bdy}${filename_suffix[$ifile]}"
+                else
+                  pathin="${data_bdy_i}/${mem_bdy}/${filename_prefix[$ifile]}${time_bdy}${filename_suffix[$ifile]}"
+                fi
+                path="${name_m[$m]}/bdyorg_${filenamein_prefix[$ifile]}$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))${filenamein_suffix[$ifile]}"
+                echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
+                #ln -sf  $pathin $TMP/$path
+              done
+          else
+            if ((m == mmean)); then
+            for ifile in $(seq $filenum); do
+              if ((BDY_ROTATING == 1)); then
+                  pathin="${data_bdy_i}/${time}/${BDY_MEAN}/${filename_prefix[$ifile]}${time_bdy}${filename_suffix[$ifile]}"
+                else
+                  pathin="${data_bdy_i}/${BDY_MEAN}/${filename_prefix[$ifile]}${time_bdy}${filename_suffix[$ifile]}"
+                fi
+                path="mean/bdyorg_${filenamein_prefix[$ifile]}$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))${filenamein_suffix[$ifile]}"
+                echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
+                #ln -sf  $pathin $TMP/$path
+              done
+            fi
+          fi
+
+        fi # [ BDY_FORMAT == 2 || BDY_FORMAT == 4 ]
+      done # [ ibdy in $(seq $((nbdy_max+1)) $nbdy) ]
+      nbdy_max=$nbdy
+    fi
+  fi # [ BDY_FORMAT > 0 ]
+
   # bdy (prepared)
   #-------------------
   if ((BDY_FORMAT == 0)); then
@@ -190,36 +304,36 @@ while ((time <= ETIME)); do
       if ((DISK_MODE == 3)); then
             pathin="${DATA_BDY_SCALE_PREP[1]}/${time}/bdy/${BDY_MEAN}${CONNECTOR}boundary${sfx}"
             path="mean/bdy${tsfx}"
-            #echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST}.${snode}
-            ln -sf $pathin $TMP/$path
+            echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST}.${snode}
+            #ln -sf $pathin $TMP/$path
           if ((USE_INIT_FROM_BDY == 1)); then
                 pathin="${DATA_BDY_SCALE_PREP[$d]}/${time}/bdy/${BDY_MEAN}${CONNECTOR}init_bdy${sfx}"
                 path="mean/init${dom}${tsfx}"
-                #echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST}.${snode}
-                ln -sf $pathin $TMP/$path
+                echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST}.${snode}
+                #ln -sf $pathin $TMP/$path
           fi
       else
           pathin="${DATA_BDY_SCALE_PREP[1]}/${time}/bdy/${BDY_MEAN}${CONNECTOR}boundary${sfx}"
           path="mean/bdy${tsfx}"
-          #echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST}
-          ln -sf $pathin $TMP/$path
+          echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST}
+          #ln -sf $pathin $TMP/$path
         if ((USE_INIT_FROM_BDY == 1)); then
               pathin="${DATA_BDY_SCALE_PREP[$d]}/${time}/bdy/${BDY_MEAN}${CONNECTOR}init_bdy${sfx}"
               path="mean/init${dom}${tsfx}"
-              #echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST}
-              ln -sf $pathin $TMP/$path
+              echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST}
+              #ln -sf $pathin $TMP/$path
         fi
       fi
     elif ((BDY_ENS == 1)); then
           pathin="${DATA_BDY_SCALE_PREP[1]}/${time}/bdy/${name_m[$m]}${CONNECTOR}boundary${sfx}"
           path="${name_m[$m]}/bdy${tsfx}"
-          #echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST}.${snode}
-          ln -sf $pathin $TMP/$path
+          echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST}.${snode}
+          #ln -sf $pathin $TMP/$path
         if ((USE_INIT_FROM_BDY == 1)); then
               pathin="${DATA_BDY_SCALE_PREP[$d]}/${time}/bdy/${name_m[$m]}${CONNECTOR}init_bdy${sfx}"
               path="${name_m[$m]}/init${dom}${tsfx}"
-              #echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST}.${snode}
-              ln -sf $pathin $TMP/$path
+              echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST}.${snode}
+              #ln -sf $pathin $TMP/$path
         fi
     fi
   fi
@@ -229,8 +343,8 @@ while ((time <= ETIME)); do
   if ((loop == 1 && ADDINFL == 1)); then
           pathin="${DATA_ADDINFL[$d]}/const/addi/${name_m[$m]}${CONNECTOR}init${sfx}"
           path="${name_m[$m]}/addi${dom}${sfx}"
-          #echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST}.${snode}
-          ln -sf $pathin $TMP/$path
+          echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST}.${snode}
+          #ln -sf $pathin $TMP/$path
   fi
 
   #-------------------
@@ -294,19 +408,19 @@ while ((time <= ETIME)); do
 
   # anal
   #-------------------
-#  if ((  ( (OUT_OPT <= 4 || (OUT_OPT <= 5 && loop % OUT_CYCLE_SKIP == 0) || atime > ETIME)  && m <= mtot ) || \
-#         ( OUT_OPT <= 7 && (m == $mmean || (DET_RUN==1 && m==$mmdet) ) ) )) ; then 
-#        path="${name_m[$m]}/anal${dom}${atsfx}"
-#        pathout="${OUTDIR[$d]}/${atime}/anal/${name_m[$m]}${CONNECTOR}init${sfx}"
-##        echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${mem2node[$(((m-1)*mem_np+${SCALE_NP_S[$d]}+q))]}
-#        echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST_NOLINK}.${mem2node[$(((m-1)*mem_np+${SCALE_NP_S[$d]}+q))]}
-#        if ((m == mmean && SPRD_OUT == 1)); then
-#          path="sprd/anal${dom}${atsfx}"
-#          pathout="${OUTDIR[$d]}/${atime}/anal/sprd${CONNECTOR}init${sfx}"
-##          echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${mem2node[$(((m-1)*mem_np+${SCALE_NP_S[$d]}+q))]}
-#          echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST_NOLINK}.${mem2node[$(((m-1)*mem_np+${SCALE_NP_S[$d]}+q))]}
-#        fi
-#  fi
+  if ((  ( (OUT_OPT <= 4 || (OUT_OPT <= 5 && loop % OUT_CYCLE_SKIP == 0) || atime > ETIME)  && m <= mtot ) || \
+         ( OUT_OPT <= 7 && (m == mmean || (DET_RUN==1 && m==mmdet) ) ) )) ; then 
+        path="${name_m[$m]}/anal${dom}${atsfx}"
+        pathout="${OUTDIR[$d]}/${atime}/anal/${name_m[$m]}${CONNECTOR}init${sfx}"
+#        echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${snode}
+        echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST_NOLINK}.${snode}
+        if ((m == mmean && SPRD_OUT == 1)); then
+          path="sprd/anal${dom}${atsfx}"
+          pathout="${OUTDIR[$d]}/${atime}/anal/sprd${CONNECTOR}init${sfx}"
+#          echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${snode}
+          echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST_NOLINK}.${snode}
+        fi
+  fi
 
   # gues
   #-------------------
@@ -364,77 +478,81 @@ while ((time <= ETIME)); do
   # log
   #-------------------
 
-  log_nfmt="-${PROCESS_FMT}"
-  m_out=0
-  m_init_out=0
-  p_out=1
-  if ((LOG_TYPE == 1 && m == 1)); then
-    m_out=1
-    m_init_out=1
-  else
-    if (( m <= mtot)) ;then
-      m_out=1
-    fi 
-    if ((BDY_ENS == 1 && m <= mtot)) || (( DISK_MODE <= 2 && m == 1 )) ;then
-      m_init_out=1
-    fi
-  fi
+#  log_nfmt="-${PROCESS_FMT}"
+#  m_out=0
+#  m_init_out=0
+#  p_out=1
+#  if ((LOG_TYPE == 1 && m == 1)); then
+#    m_out=1
+#    m_init_out=1
+#  else
+#    if (( m <= mtot)) ;then
+#      m_out=1
+#    fi 
+#    if ((BDY_ENS == 1 && m <= mtot)) || (( DISK_MODE <= 2 && m == 1 )) ;then
+#      m_init_out=1
+#    fi
+#  fi
 
-  if ((LOG_TYPE != 1 )) || (( LOG_TYPE == 1 && sproc == 1)) ; then
-    p_out=1
-    p=$sproc
-  fi
+#  if ((LOG_TYPE != 1 )) || (( LOG_TYPE == 1 && sproc == 1)) ; then
+#    p_out=1
+#    p=$sproc
+#  fi
 
-  if ((BDY_FORMAT != 0 && LOG_OPT <= 2)); then
-    if (( m_out == 1));then
-        path="log/scale_init.${name_m[$m]}${dom}.LOG_${time}${SCALE_SFX_NONC_0}"
-        pathout="${OUTDIR[$d]}/${time}/log/scale_init/${name_m[$m]}_LOG${SCALE_SFX_NONC_0}"
-        echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${snode}
-    fi
-    if (( p_out == 1));then
-      if ((nitmax == 1)); then
-        path="log/scale-rm_init_ens.NOUT_${time}$(printf -- "${log_nfmt}" $((p-1)))"
-        pathout="${OUTDIR[1]}/${time}/log/scale_init/NOUT$(printf -- "${log_nfmt}" $((p-1)))"
-        echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${snode}
-      else
-        for it in $(seq $((BDY_ENS == 1 ? nitmax : 1))); do
-          path="log/scale-rm_init_ens.NOUT_${time}_${it}$(printf -- "${log_nfmt}" $((p-1)))"
-          pathout="${OUTDIR[1]}/${time}/log/scale_init/NOUT-${it}$(printf -- "${log_nfmt}" $((p-1)))"
-          echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${snode}
-        done
-      fi
-    fi
-  fi
-  if ((LOG_OPT <= 3)); then
-    for m in $mlist; do
-        path="log/scale.${name_m[$m]}${dom}.LOG_${time}${SCALE_SFX_NONC_0}"
-        pathout="${OUTDIR[$d]}/${time}/log/scale/${name_m[$m]}_LOG${SCALE_SFX_NONC_0}"
-        echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${snode}
-        path="log/scale.${name_m[$m]}${dom}.monitor_${time}${SCALE_SFX_NONC_0}"
-        pathout="${OUTDIR[$d]}/${time}/log/scale/${name_m[$m]}_monitor${SCALE_SFX_NONC_0}"
-        echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${snode}
-    done
-    for p in $plist; do
-      if ((nitmax == 1)); then
-        path="log/scale-rm_ens.NOUT_${time}$(printf -- "${log_nfmt}" $((p-1)))"
-        pathout="${OUTDIR[1]}/${time}/log/scale/NOUT$(printf -- "${log_nfmt}" $((p-1)))"
-        echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${snode}
-      else
-        for it in $(seq $nitmax); do
-          path="log/scale-rm_ens.NOUT_${time}_${it}$(printf -- "${log_nfmt}" $((p-1)))"
-          pathout="${OUTDIR[1]}/${time}/log/scale/NOUT-${it}$(printf -- "${log_nfmt}" $((p-1)))"
-          echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${snode}
-        done
-      fi
-    done
-  fi
-  if ((LOG_OPT <= 4)); then
-    for p in $plist; do
-      path="log/letkf.NOUT_${atime}$(printf -- "${log_nfmt}" $((p-1)))"
-      pathout="${OUTDIR[1]}/${atime}/log/letkf/NOUT$(printf -- "${log_nfmt}" $((p-1)))"
-      echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${snode}
-    done
-  fi
+#  if ((BDY_FORMAT != 0 && LOG_OPT <= 2)); then
+#    if (( m_out == 1));then
+#     if (( q == 1 )); then
+#        path="log/scale_init.${name_m[$m]}${dom}.LOG_${time}${SCALE_SFX_NONC_0}"
+#        pathout="${OUTDIR[$d]}/${time}/log/scale_init/${name_m[$m]}_LOG${SCALE_SFX_NONC_0}"
+#        echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${snode}
+#     fi
+#    fi
+#    if (( p_out == 1));then
+#      if ((nitmax == 1)); then
+#        path="log/scale-rm_init_ens.NOUT_${time}$(printf -- "${log_nfmt}" $((p-1)))"
+#        pathout="${OUTDIR[1]}/${time}/log/scale_init/NOUT$(printf -- "${log_nfmt}" $((p-1)))"
+#        echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${snode}
+#      else
+#        for it in $(seq $((BDY_ENS == 1 ? nitmax : 1))); do
+#          path="log/scale-rm_init_ens.NOUT_${time}_${it}$(printf -- "${log_nfmt}" $((p-1)))"
+#          pathout="${OUTDIR[1]}/${time}/log/scale_init/NOUT-${it}$(printf -- "${log_nfmt}" $((p-1)))"
+#          echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${snode}
+#        done
+#      fi
+#    fi
+#  fi
+#  if ((LOG_OPT <= 3)); then
+#    for m in $mlist; do
+#      if (( q == 1 )); then
+#        path="log/scale.${name_m[$m]}${dom}.LOG_${time}${SCALE_SFX_NONC_0}"
+#        pathout="${OUTDIR[$d]}/${time}/log/scale/${name_m[$m]}_LOG${SCALE_SFX_NONC_0}"
+#        echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${snode}
+#        path="log/scale.${name_m[$m]}${dom}.monitor_${time}${SCALE_SFX_NONC_0}"
+#        pathout="${OUTDIR[$d]}/${time}/log/scale/${name_m[$m]}_monitor${SCALE_SFX_NONC_0}"
+#        echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${snode}
+#      fi
+#    done
+#    for p in $plist; do
+#      if ((nitmax == 1)); then
+#        path="log/scale-rm_ens.NOUT_${time}$(printf -- "${log_nfmt}" $((p-1)))"
+#        pathout="${OUTDIR[1]}/${time}/log/scale/NOUT$(printf -- "${log_nfmt}" $((p-1)))"
+#        echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${snode}
+#      else
+#        for it in $(seq $nitmax); do
+#          path="log/scale-rm_ens.NOUT_${time}_${it}$(printf -- "${log_nfmt}" $((p-1)))"
+#          pathout="${OUTDIR[1]}/${time}/log/scale/NOUT-${it}$(printf -- "${log_nfmt}" $((p-1)))"
+#          echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${snode}
+#        done
+#      fi
+#    done
+#  fi
+#  if ((LOG_OPT <= 4)); then
+#    for p in $plist; do
+#      path="log/letkf.NOUT_${atime}$(printf -- "${log_nfmt}" $((p-1)))"
+#      pathout="${OUTDIR[1]}/${atime}/log/letkf/NOUT$(printf -- "${log_nfmt}" $((p-1)))"
+#      echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${snode}
+#    done
+#  fi
 
 
   time=$(datetime $time $LCYCLE s)
@@ -468,23 +586,6 @@ local stage_config=1
 if [ "$CONFIG_DIR" = '-' ]; then
   CONFIG_DIR="$TMPROOT"
   stage_config=0
-fi
-
-#-------------------------------------------------------------------------------
-
-if ((PNETCDF == 1)); then
-  local mem_np_=1
-else
-  local mem_np_=$mem_np
-fi
-if ((PNETCDF_BDY_SCALE == 1)); then
-  local mem_np_bdy_=1
-else
-  local mem_np_bdy_=$((DATA_BDY_SCALE_PRC_NUM_X*DATA_BDY_SCALE_PRC_NUM_Y))
-  if (( mem_np_bdy_ < 1 )) && (( BDY_FORMAT < 4 ))  && (( BDY_FORMAT > 0 )); then
-    echo "[Error] $0: Specify DATA_BDY_SCALE_PRC_NUM_X/Y" >&2
-    exit 1
-  fi
 fi
 
 #-------------------------------------------------------------------------------
@@ -642,102 +743,6 @@ while ((time <= ETIME)); do
 #      exit 1
 #    fi
 
-    if ((BDY_ROTATING == 1 || ${bdy_times[1]} != time_bdy_start_prev)); then
-      time_bdy_start_prev=${bdy_times[1]}
-      nbdy_max=0
-    fi
-    if ((nbdy > nbdy_max)); then
-      for ibdy in $(seq $((nbdy_max+1)) $nbdy); do
-        time_bdy=${bdy_times[$ibdy]}
-
-        if ((BDY_FORMAT == 1)); then
-
-          if ((BDY_ENS == 1)); then
-            for m in $(seq $mtot); do
-              if ((m == mmean)); then
-                mem_bdy="$BDY_MEAN"
-              else
-                mem_bdy="${name_m[$m]}"
-              fi
-              for q in $(seq $mem_np_bdy_); do
-                pathin="${DATA_BDY_SCALE}/${time_bdy}/${BDY_SCALE_DIR}/${mem_bdy}${CONNECTOR_BDY}history$(scale_filename_bdy_sfx $((q-1)))"
-                path="${name_m[$m]}/bdyorg_$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))$(scale_filename_bdy_sfx $((q-1)))"
-                #echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
-                ln -sf $pathin $TMP/$path
-              done
-            done
-          else
-            for q in $(seq $mem_np_bdy_); do
-              pathin="${DATA_BDY_SCALE}/${time_bdy}/${BDY_SCALE_DIR}/${BDY_MEAN}${CONNECTOR_BDY}history$(scale_filename_bdy_sfx $((q-1)))"
-              path="mean/bdyorg_$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))$(scale_filename_bdy_sfx $((q-1)))"
-              #echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
-              ln -sf $pathin $TMP/$path
-            done
-          fi
-
-        elif ((BDY_FORMAT == 2 || BDY_FORMAT == 4)); then
-
-          if ((BDY_FORMAT == 2)); then
-            data_bdy_i="$DATA_BDY_WRF"
-            filenum=1
-            filename_prefix[1]='wrfout_'
-            filename_suffix[1]=''
-            filenamein_prefix[1]=''
-            filenamein_suffix[1]=''
-          elif ((BDY_FORMAT == 4)); then
-            data_bdy_i="$DATA_BDY_GRADS"
-            filenum=3
-            filename_prefix[1]='atm_'
-            filename_suffix[1]='.grd'
-            filenamein_prefix[1]='atm_'
-            filenamein_suffix[1]='.grd'
-            filename_prefix[2]='sfc_'
-            filename_suffix[2]='.grd'
-            filenamein_prefix[2]='sfc_'
-            filenamein_suffix[2]='.grd'
-            filename_prefix[3]='land_'
-            filename_suffix[3]='.grd'
-            filenamein_prefix[3]='lnd_'
-            filenamein_suffix[3]='.grd'
-          fi
-
-          if ((BDY_ENS == 1)); then
-            for m in $(seq $mtot); do
-              if ((m == mmean)); then
-                mem_bdy="$BDY_MEAN"
-              else
-                mem_bdy="${name_m[$m]}"
-              fi
-              for ifile in $(seq $filenum); do
-                if ((BDY_ROTATING == 1)); then
-                  pathin="${data_bdy_i}/${time}/${mem_bdy}/${filename_prefix[$ifile]}${time_bdy}${filename_suffix[$ifile]}"
-                else
-                  pathin="${data_bdy_i}/${mem_bdy}/${filename_prefix[$ifile]}${time_bdy}${filename_suffix[$ifile]}"
-                fi
-                path="${name_m[$m]}/bdyorg_${filenamein_prefix[$ifile]}$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))${filenamein_suffix[$ifile]}"
-                #echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
-                ln -sf  $pathin $TMP/$path
-              done
-            done
-          else
-            for ifile in $(seq $filenum); do
-              if ((BDY_ROTATING == 1)); then
-                pathin="${data_bdy_i}/${time}/${BDY_MEAN}/${filename_prefix[$ifile]}${time_bdy}${filename_suffix[$ifile]}"
-              else
-                pathin="${data_bdy_i}/${BDY_MEAN}/${filename_prefix[$ifile]}${time_bdy}${filename_suffix[$ifile]}"
-              fi
-              path="mean/bdyorg_${filenamein_prefix[$ifile]}$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))${filenamein_suffix[$ifile]}"
-              #echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
-              ln -sf  $pathin $TMP/$path
-            done
-          fi
-
-        fi # [ BDY_FORMAT == 2 || BDY_FORMAT == 4 ]
-      done # [ ibdy in $(seq $((nbdy_max+1)) $nbdy) ]
-      nbdy_max=$nbdy
-    fi
-
-
     HISTORY_PATH[$d]=${OUTDIR[$d]}/$time
     RESTART_IN_PATH[$d]=${INDIR[$d]}/$time
     RESTART_OUT_PATH[$d]=${OUTDIR[$d]}/${atime}
@@ -794,7 +799,8 @@ while ((time <= ETIME)); do
   OBS_IN_NAME_LIST=
   for iobs in $(seq $OBSNUM); do
     if [ "${OBSNAME[$iobs]}" != '' ]; then
-      OBS_IN_NAME_LIST="${OBS_IN_NAME_LIST}'${TMPROOT_OBS}/obs/${OBSNAME[$iobs]}_${atime}.dat', "
+      #OBS_IN_NAME_LIST="${OBS_IN_NAME_LIST}'${TMPROOT_OBS}/obs/${OBSNAME[$iobs]}_${atime}.dat', "
+      OBS_IN_NAME_LIST="${OBS_IN_NAME_LIST}'${OBS}/${OBSNAME[$iobs]}_${atime}.dat', "
     fi
   done
 

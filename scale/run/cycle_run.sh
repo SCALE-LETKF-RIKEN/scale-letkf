@@ -27,6 +27,7 @@ fi
 . ./config.${job} || exit $?
 
 . src/func_datetime.sh || exit $?
+. src/func_distribute.sh || exit $?
 . src/func_util.sh || exit $?
 
 . src/func_common_static.sh || exit $?
@@ -61,7 +62,7 @@ safe_init_tmpdir $TMP || exit $?
 echo "[$(datetime_now)] Determine the distibution schemes"
 
 safe_init_tmpdir $NODEFILE_DIR || exit $?
-#distribute_da_cycle - $NODEFILE_DIR || exit $? # TEST
+distribute_da_cycle "(0)" $NODEFILE_DIR || exit $? # TEST
 
 #===============================================================================
 # Determine the staging list

@@ -114,10 +114,11 @@ PPN=8             # Number of processes per node ???
 
 THREADS=1         # Number of threads per process ???
 
-SCALE_NP=16        # Number of processes to run SCALE
+SCALE_NP_X=4        # = PRC_NUM_X
+SCALE_NP_Y=4        # = PRC_NUM_Y
+SCALE_NP=$(( SCALE_NP_X  * SCALE_NP_Y )) # Number of processes to run SCALE
 
 NNODES=$(( ( MEMBER + 1 ) * ( SCALE_NP / PPN ) ))
-
 
 #===============================================================================
 # Temporary directories to store runtime files

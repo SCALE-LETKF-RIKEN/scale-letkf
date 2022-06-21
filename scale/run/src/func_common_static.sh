@@ -32,13 +32,13 @@ done
 
 if [ "$TOPO_FORMAT" != 'prep' ]; then
   mkdir -p $TMP/dat/topo/${TOPO_FORMAT}
-  ln -sf ${DATADIR}/topo/${TOPO_FORMAT}/Products $TMP/dat/topo/${TOPO_FORMAT}/Products
-  #echo "${DATADIR}/topo/${TOPO_FORMAT}/Products/|dat/topo/${TOPO_FORMAT}/Products/" >> ${STAGING_DIR}/${STGINLIST_CONSTDB}
+  #ln -sf ${DATADIR}/topo/${TOPO_FORMAT}/Products $TMP/dat/topo/${TOPO_FORMAT}/Products
+  echo "${DATADIR}/topo/${TOPO_FORMAT}/Products/|dat/topo/${TOPO_FORMAT}/Products/" >> ${STAGING_DIR}/${STGINLIST_CONSTDB}
 fi
 if [ "$LANDUSE_FORMAT" != 'prep' ]; then
   mkdir -p $TMP/dat/landuse/${LANDUSE_FORMAT}
-  ln -sf ${DATADIR}/landuse/${LANDUSE_FORMAT}/Products $TMP/dat/landuse/${LANDUSE_FORMAT}/Products
-  #echo "${DATADIR}/landuse/${LANDUSE_FORMAT}/Products/|dat/landuse/${LANDUSE_FORMAT}/Products/" >> ${STAGING_DIR}/${STGINLIST_CONSTDB}
+  #ln -sf ${DATADIR}/landuse/${LANDUSE_FORMAT}/Products $TMP/dat/landuse/${LANDUSE_FORMAT}/Products
+  echo "${DATADIR}/landuse/${LANDUSE_FORMAT}/Products/|dat/landuse/${LANDUSE_FORMAT}/Products/" >> ${STAGING_DIR}/${STGINLIST_CONSTDB}
 fi
 
 #-------------------------------------------------------------------------------
@@ -54,8 +54,8 @@ if [ "$JOBTYPE" = 'cycle' ]; then
 #      if [ "${OBSNAME[$iobs]}" != '' ] && [ -e ${OBS}/${OBSNAME[$iobs]}_${time}.dat ]; then
       if [ "${OBSNAME[$iobs]}" != '' ] ; then
         mkdir -p ${OBS}
-        #echo "${OBS}/${OBSNAME[$iobs]}_${time}.dat|obs/${OBSNAME[$iobs]}_${time}.dat" >> ${STAGING_DIR}/${STGINLIST_OBS}
-        ln -sf ${OBS}/${OBSNAME[$iobs]}_${time}.dat $TMP/obs/${OBSNAME[$iobs]}_${time}.dat
+        echo "${OBS}/${OBSNAME[$iobs]}_${time}.dat|obs/${OBSNAME[$iobs]}_${time}.dat" >> ${STAGING_DIR}/${STGINLIST_OBS}
+#        ln -sf ${OBS}/${OBSNAME[$iobs]}_${time}.dat $TMP/obs/${OBSNAME[$iobs]}_${time}.dat
       fi
     done
     time=$(datetime $time $LCYCLE s)
@@ -103,7 +103,7 @@ fi
 
 # domain catalogue
 #-------------------
-if ((LOG_OPT <= 3)); then
+if ((LOG_OPT <= 3 && BDY_FORMAT == 1)); then
   for d in $(seq $DOMNUM); do
     path="latlon_domain_catalogue.d$(printf $DOMAIN_FMT $d).txt"
     pathout="${OUTDIR[$d]}/const/log/latlon_domain_catalogue.txt"

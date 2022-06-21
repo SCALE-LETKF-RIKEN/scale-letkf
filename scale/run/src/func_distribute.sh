@@ -67,9 +67,7 @@ if [ "$MAX_NP" != 'none' ] && ((mem_np > MAX_NP)); then
 fi
 
 #-------------------------------------------------------------------------------
-# Re-calculate $mem_nodes, and calculate
-# the period that members run on repeated nodes ($repeat_mems), and
-# the number of members that can be run parallelly ($parallel_mems).
+# Re-calculate $mem_nodes
 
 mem_nodes=$(((mem_np-1)/PPN_APPAR+1))
 if ((mem_nodes > NNODES_APPAR)); then
@@ -134,17 +132,33 @@ local ns=0
 local n
 local p
 
-if ((USE_CACHE == 0)); then
-  for n in $(seq $NNODES_APPAR); do
-    for p in $(seq $((ns+1)) $((ns+PPN_APPAR))); do
-      proc2node[$p]=$n
-      if ((SAVE_CACHE == 1)); then
-        echo "proc2node[$p]=$n" >> $NODEFILEDIR/distr
-      fi
-    done
-    ns=$((ns+PPN_APPAR))
-  done
-fi # ((USE_CACHE == 0))
+
+PPN_X=${PPN_X:-$PPN}
+if ((PPN_X > SCALE_NP_X));then
+  PPN_X=$SCALE_NP_X
+fi 
+PPN_Y=${PPN_Y:-$((PPN/PPN_X))}
+SCALE_NNODES=$(( SCALE_NP / PPN ))
+SCALE_NNODES_X=$((SCALE_NP_X / PPN_X ))
+SCALE_NNODES_Y=$(( SCALE_NP_Y / PPN_Y ))
+
+NNODES_X=${NNODES_X:-$NNODES}
+NNODES_Y=${NNODES_Y:-1}
+NNODES_Z=${NNODES_Z:-1}
+
+### Moved to the following part 
+
+#if ((USE_CACHE == 0)); then
+#  for n in $(seq $NNODES_APPAR); do
+#    for p in $(seq $((ns+1)) $((ns+PPN_APPAR))); do
+#      proc2node[$p]=$n
+#      if ((SAVE_CACHE == 1)); then
+#        echo "proc2node[$p]=$n" >> $NODEFILEDIR/distr
+#      fi
+#    done
+#    ns=$((ns+PPN_APPAR))
+#  done
+#fi # ((USE_CACHE == 0))
 
 if ((mem_nodes > 1)); then
   n_mem=$((NNODES_APPAR / mem_nodes))
@@ -175,12 +189,34 @@ if ((USE_CACHE == 0)); then
         qs=0
         for nn in $(seq 0 $((mem_nodes-1))); do
           if ((nn < tmod)); then
+            echo "ERROR :: nn < tmod is not supported :: tmod = " $tmod
+            exit 1
             tppnt=$((tppn+1))
           else
             tppnt=$tppn
+	    if ((mem_nodes != SCALE_NNODES)) ; then
+              echo "ERROR :: mem_nodes not equal to SCALE_NNODES " $mem_nodes $SCALE_NNODES
+              exit 1
+            else
+              nny=$((nn/SCALE_NNODES_X))
+              nnx=$((nn-nny*SCALE_NNODES_X))
+              ppny=$((SCALE_NP_Y/SCALE_NNODES_Y))
+              ppnx=$((SCALE_NP_X/SCALE_NNODES_X))
+            fi
+	    if ((tppnt != PPN)) ; then
+              echo "ERROR :: tppnt not equal to PPN" $tppnt $PPN 
+              exit 1
+            fi 
           fi
           for q in $(seq 0 $((tppnt-1))); do
-            ip=$(((n+nn)*PPN_APPAR + i*mem_np + q))
+             ipy=$((q/ppnx+nny*ppny))
+             ipx=$((q-(q/ppnx)*ppny+nnx*ppnx))
+             ip=$((n*PPN_APPAR + i*mem_np + ipy * SCALE_NP_X + ipx))
+#             echo $nn $nny $nnx $q $ipy $ipx $ip
+#             if ((q == $((tppnt-1)))) ; then 
+#                exit 1 
+#             fi
+
             if ((m <= MEM)); then
               mem2node[$(((m-1)*mem_np+qs+1))]=$((n+nn+1))
               mem2proc[$(((m-1)*mem_np+qs+1))]=$((ip+1))
@@ -195,6 +231,9 @@ if ((USE_CACHE == 0)); then
                   echo "proc2group[$((ip+1))]=$m" >> $NODEFILEDIR/distr
                   echo "proc2grpproc[$((ip+1))]=$((qs+1))" >> $NODEFILEDIR/distr
                 fi
+###
+                proc2node[$((ip+1))]=$((n+nn+1))
+###
               fi
             fi
             qs=$((qs+1))
@@ -251,7 +290,26 @@ if ((USE_CACHE == 0)); then
       echo "node_m[$m]=\"${node_m_out[$m]}\"" >> $NODEFILEDIR/distr
     done
   fi
+
+
+
+  for n in $(seq $NNODES_APPAR); do
+    for p in $(seq $((ns+1)) $((ns+PPN_APPAR))); do
+###      proc2node[$p]=$n
+      if ((SAVE_CACHE == 1)); then
+        echo "proc2node[$p]=$n" >> $NODEFILEDIR/distr
+      fi
+    done
+    ns=$((ns+PPN_APPAR))
+  done
+
+
+
+
 fi # ((USE_CACHE == 0))
+
+
+
 
 
 #-------------------------------------------------------------------------------
@@ -328,7 +386,7 @@ if [ "$NODEFILEDIR" != '-' ] && [ ! -d "$NODEFILEDIR" ]; then
 fi
 
 if [ -s "${NODEFILEDIR}/proc" ] && [ -s "${NODEFILEDIR}/node" ]; then
-#  echo "[INFO] $FUNCNAME: Skip creating 'proc' and 'node' files because they already exist." >&2
+  echo "[INFO] $FUNCNAME: Skip creating 'proc' and 'node' files because they already exist." >&2
   NODELIST='-'
 fi
 
@@ -342,9 +400,9 @@ if [ -s "${NODEFILEDIR}/distr" ]; then
   SAVE_CACHE=0
 fi
 
-#if ((SAVE_CACHE == 1)); then
-#  echo "[INFO] $FUNCNAME: Save 'distr' file cache." >&2
-#fi
+if ((SAVE_CACHE == 1)); then
+  echo "[INFO] $FUNCNAME: Save 'distr' file cache." >&2
+fi
 
 #-------------------------------------------------------------------------------
 # Set up node names
@@ -363,6 +421,45 @@ elif [ "$NODELIST" = '(0)' ]; then
           echo "node[$(((n-1)*appar_npn+p))]=\"($((n-1)))\"" >> $NODEFILEDIR/distr
         fi
       done
+    done
+  fi # ((use_cache == 0))
+elif [ "$NODELIST" = '(0,0)' ]; then
+  local nx
+  local ny
+  local n=0
+  if ((use_cache == 0)); then
+    for ny in $(seq $NNODES_Y); do
+    for nx in $(seq $NNODES_X); do
+        n=$((n+1))
+        node[$n]="($((nx-1)),$((ny-1)))"
+        if ((SAVE_CACHE == 1)); then
+          echo "node[$((n-1))]=\"($((nx-1)),$((ny-1)))\"" >> $NODEFILEDIR/distr
+        fi
+    done
+    done
+  fi # ((use_cache == 0))
+elif [ "$NODELIST" = '(0,0,0)' ]; then
+  local nx
+  local ny
+  local nz
+  local nxs
+  local nys
+  local n=0
+  if ((use_cache == 0)); then
+    for nz in $(seq $NNODES_Z); do
+    for ny in $(seq $((NNODES_Y/SCALE_NNODES_Y))); do
+    for nx in $(seq $((NNODES_X/SCALE_NNODES_X))); do
+      for nys in $(seq $SCALE_NNODES_Y); do 
+      for nxs in $(seq $SCALE_NNODES_X); do 
+        n=$((n+1))
+        node[$n]="($(((nx-1)*SCALE_NNODES_X+nxs-1)),$(((ny-1)*SCALE_NNODES_Y+nys-1)),$((nz-1)))"
+        if ((SAVE_CACHE == 1)); then
+          echo "node[$n]=\"($(((nx-1)*SCALE_NNODES_X+nxs-1)),$(((ny-1)*SCALE_NNODES_Y+nys-1)),$((nz-1)))\"" >> $NODEFILEDIR/distr
+        fi
+      done
+      done
+    done
+    done
     done
   fi # ((use_cache == 0))
 else
@@ -398,6 +495,19 @@ if ((DET_RUN == 1)); then
   name_m[$mmdet]='mdet'
 fi
 
+if ((NUM_DACYCLE_FCST_MEM > 0));then
+  local ipara 
+  local iens
+  local m=0
+  for ipara in $(seq $DACYCLE_FCST_PARALLEL) ; do
+  for iens in $(seq $DACYCLE_FCST_ENSEMBLE) ; do
+    m=`expr $m + 1`
+    mtot=`expr $mtot + 1`
+    name_m[$mtot]='f'$(printf $MEMBER_FMT $m)
+  done
+  done
+fi
+
 #-------------------------------------------------------------------------------
 # Set up the distribution of members on nodes
 
@@ -406,7 +516,7 @@ set_mem_np $mtot $SCALE_NP_TOT $SCALE_NP_TOT
 set_mem2node $mtot $use_cache $SAVE_CACHE
 
 if ((use_cache == 1)); then
-#  echo "[INFO] $FUNCNAME: Use 'distr' file cache." >&2
+  echo "[INFO] $FUNCNAME: Use 'distr' file cache." >&2
   . ${NODEFILEDIR}/distr
 fi
 
@@ -414,7 +524,7 @@ fi
 # Create nodefiles
 
 if [ "$NODELIST" != '-' ] && [ "$NODEFILEDIR" != '-' ]; then
-#  echo "[INFO] $FUNCNAME: Save 'proc', 'node' files." >&2
+  echo "[INFO] $FUNCNAME: Save 'proc', 'node' files." >&2
   local p
   for p in $(seq $totalnp); do  
     echo ${node[${proc2node[$p]}]} >> $NODEFILEDIR/proc

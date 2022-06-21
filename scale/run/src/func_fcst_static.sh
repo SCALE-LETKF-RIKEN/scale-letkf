@@ -11,9 +11,26 @@ staging_list_static () {
 #
 # Usage: staging_list_static
 #-------------------------------------------------------------------------------
-# common section
 
 declare -a mem_np_
+
+if ((PNETCDF == 1)); then
+  local mem_np_=1
+else
+  local mem_np_=$mem_np
+fi
+if ((PNETCDF_BDY_SCALE == 1)); then
+  local mem_np_bdy_=1
+else
+  local mem_np_bdy_=$((DATA_BDY_SCALE_PRC_NUM_X*DATA_BDY_SCALE_PRC_NUM_Y))
+  if (( mem_np_bdy_ < 1 )) && (( BDY_FORMAT < 4 ))  && (( BDY_FORMAT > 0 )); then
+    echo "[Error] $0: Specify DATA_BDY_SCALE_PRC_NUM_X/Y" >&2
+    exit 1
+  fi
+fi
+
+#-------------------------------------------------------------------------------
+# common section
 
 staging_list_common_static fcst
 
@@ -49,8 +66,6 @@ if (( nitmax < 1 )) ; then
 #  exit 1
 fi
 
-mkdir -p ${TMPROOT}/topo
-mkdir -p ${TMPROOT}/landuse
 mkdir -p ${TMPROOT}/dat
 mkdir -p ${TMPROOT}/log
 
@@ -76,6 +91,48 @@ if [ "${SOUNDING}" != "" ] ; then
 fi 
 
 #-------------------------------------------------------------------------------
+ith=0
+for c in $(seq $CYCLE); do
+for mm in $(seq $fmember) ; do
+  for q in $(seq ${mem_np_[$d]}); do
+      ith=$((ith+1))
+      staging_list_fcst_core $c $mm $q &
+      if (( ith == SHELL_PROCS )) ; then 
+         wait 
+         ith=0
+      fi
+  done
+done
+done
+wait
+
+}
+
+staging_list_fcst_core() {
+
+### tentative 
+if ((DOMNUM > 1)); then
+  echo "not supported."
+  exit 0 
+fi
+
+d=1
+dom=".d$(printf $DOMAIN_FMT $d)" ###
+udom="_d$(printf $DOMAIN_FMT $d)" ###
+
+### Local variables
+c=$1
+mm=$2
+q=$3
+
+m=$(((c-1) * fmember + mm))
+
+  sfx=$(scale_filename_sfx $((q-1)))
+
+  sproc=$(((m-1)*mem_np+q))
+  snode=${mem2node[${sproc}]}
+  msnode=${mem2node[$(((mmean-1)*mem_np+q))]}
+
 # time-variant outputs
 
 lcycles=$((LCYCLE * CYCLE_SKIP))
@@ -84,10 +141,11 @@ loop=0
 while ((time_s <= ETIME)); do
   loop=$((loop+1))
 
-  for c in $(seq $CYCLE); do
     time=$(datetime $time_s $((lcycles * (c-1))) s)
+
     if ((time <= ETIME)); then
       ftime=$(datetime $time $FCSTLEN s)
+      tsfx="_"$(datetime_scale $time)${sfx}
 
       #-------------------
       # stage-in
@@ -96,46 +154,30 @@ while ((time_s <= ETIME)); do
       # anal
       #-------------------
       if ((MAKEINIT != 1)); then
-        for mm in $(seq $fmember); do
-          m=$(((c-1) * fmember + mm))
           mkdir -p ${TMPROOT}/${name_m[$m]}
 #          for d in $(seq $DOMNUM); do
 #            pathin="${INDIR[$d]}/${time}/anal/${name_m[$m]}"
-#            path="$TMPROOT/${name_m[$m]}_d$(printf $DOMAIN_FMT $d)"
+#            path="$TMPROOT/${name_m[$m]}${udom}"
 #            ln -sf $pathin $path
 #          done
-#            for q in $(seq ${SCALE_NP[$d]}); do
-#              pathin="${INDIR[$d]}/${time}/anal/${name_m[$m]}${CONNECTOR}init$(scale_filename_sfx $((q-1)))"
-#              path="$TMPROOT/${name_m[$m]}/init.d$(printf $DOMAIN_FMT $d)_$(datetime_scale $time)$(scale_filename_sfx $((q-1)))"
+#              pathin="${INDIR[$d]}/${time}/anal/${name_m[$m]}${CONNECTOR}init${sfx}"
+#              path="$TMPROOT/${name_m[$m]}/init${dom}${tsfx}"
 #              echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST}.${mem2node[$(((m-1)*mem_np+${SCALE_NP[$d]}+q))]}
-#            done
-        done
       fi
 
 #      # topo
 #      #-------------------
 #      if ((loop == 1)) && [ "$TOPO_FORMAT" = 'prep' ]; then
 #        if ((DISK_MODE == 3)); then
-#          for mm in $(seq $fmember); do
-#            m=$(((c-1) * fmember + mm))
-#            for d in $(seq $DOMNUM); do
-#              for q in $(seq ${SCALE_NP[$d]}); do
-#                pathin="${DATA_TOPO[$d]}/const/${CONNECTOR_TOPO}topo$(scale_filename_sfx $((q-1)))"
-#                path="${TMPROOT}/topo/topo.d$(printf $DOMAIN_FMT $d)$(scale_filename_sfx $((q-1)))"
+#                pathin="${DATA_TOPO[$d]}/const/${CONNECTOR_TOPO}topo${sfx}"
+#                path="${TMPROOT}/topo/topo${dom}${sfx}"
 #                ln -sf $pathin $path
 ##                echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST}.${mem2node[$(((m-1)*mem_np+${SCALE_NP[$d]}+q))]}
-#              done
-#            done
-#          done
-#        elif ((c == 1)); then
-#          for d in $(seq $DOMNUM); do
-#            for q in $(seq ${SCALE_NP[$d]}); do
-#              pathin="${DATA_TOPO[$d]}/const/${CONNECTOR_TOPO}topo$(scale_filename_sfx $((q-1)))"
-#              path="${TMPROOT}/topo/topo.d$(printf $DOMAIN_FMT $d)$(scale_filename_sfx $((q-1)))"
+#        elif ((c == 1 && m == 1)); then
+#              pathin="${DATA_TOPO[$d]}/const/${CONNECTOR_TOPO}topo${sfx}"
+#              path="${TMPROOT}/topo/topo${dom}${sfx}"
 #              ln -sf $pathin $path
 ##              echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST}
-#            done
-#          done
 #        fi
 #      fi
 
@@ -151,28 +193,117 @@ while ((time_s <= ETIME)); do
 #      #-------------------
 #      if ((loop == 1)) && [ "$LANDUSE_FORMAT" = 'prep' ]; then
 #        if ((DISK_MODE == 3)); then
-#          for mm in $(seq $fmember); do
-#            m=$(((c-1) * fmember + mm))
-#            for d in $(seq $DOMNUM); do
-#              for q in $(seq ${SCALE_NP[$d]}); do
-#                pathin="${DATA_LANDUSE[$d]}/const/${CONNECTOR_LANDUSE}landuse$(scale_filename_sfx $((q-1)))"
-#                path="${TMPROOT}/landuse/landuse.d$(printf $DOMAIN_FMT $d)$(scale_filename_sfx $((q-1)))"
+#                pathin="${DATA_LANDUSE[$d]}/const/${CONNECTOR_LANDUSE}landuse${sfx}"
+#                path="${TMPROOT}/landuse/landuse${dom}${sfx}"
 #                ln -sf $pathin $path
 ##                echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST}.${mem2node[$(((m-1)*mem_np+${SCALE_NP[$d]}+q))]}
-#              done
-#            done
-#          done
-#        elif ((c == 1)); then
-#          for d in $(seq $DOMNUM); do
-#            for q in $(seq ${SCALE_NP[$d]}); do
-#              pathin="${DATA_LANDUSE[$d]}/const/${CONNECTOR_LANDUSE}landuse$(scale_filename_sfx $((q-1)))"
-#              path="${TMPROOT}/landuse/landuse.d$(printf $DOMAIN_FMT $d)$(scale_filename_sfx $((q-1)))"
+#        elif ((c == 1 && m == 1)); then
+#              pathin="${DATA_LANDUSE[$d]}/const/${CONNECTOR_LANDUSE}landuse${sfx}"
+#              path="${TMPROOT}/landuse/landuse.d$(printf $DOMAIN_FMT $d)${sfx}"
 #              ln -sf $pathin $path
 ##              echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST}
-#            done
-#          done
 #        fi
 #      fi
+
+      # bdy (parent)
+      #-------------------
+
+      if ((BDY_FORMAT > 0 && q == 1)) ; then
+        bdy_setting $time $FCSTLEN $BDYCYCLE_INT "$BDYINT" "$PARENT_REF_TIME" "$BDY_SINGLE_FILE"
+  
+        if ((BDY_ROTATING == 1 || ${bdy_times[1]} != time_bdy_start_prev)); then
+          time_bdy_start_prev=${bdy_times[1]}
+          nbdy_max=0
+        fi
+
+        if ((nbdy > nbdy_max)); then
+          for ibdy in $(seq $((nbdy_max+1)) $nbdy); do
+            time_bdy=${bdy_times[$ibdy]}
+
+            if ((BDY_FORMAT == 1)); then
+              if ((BDY_ENS == 1)); then
+                  if ((m == mmean)); then
+                    mem_bdy="$BDY_MEAN"
+                  else
+                    mem_bdy="${name_m[$m]}"
+                  fi
+                  for qs in $(seq $mem_np_bdy_); do
+                    pathin="${DATA_BDY_SCALE}/${time_bdy}/${BDY_SCALE_DIR}/${mem_bdy}${CONNECTOR}history$(scale_filename_bdy_sfx $((qs-1)))"
+                    path="bdy/${name_m[$m]}/bdyorg_$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))$(scale_filename_bdy_sfx $((qs-1)))"
+                    echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
+                    #ln -sf  $pathin $TMP/$path
+                  done
+              else
+                if ((m == mmean)); then
+                  for qs in $(seq $mem_np_bdy_); do
+                    pathin="${DATA_BDY_SCALE}/${time_bdy}/${BDY_SCALE_DIR}/${BDY_MEAN}${CONNECTOR}history$(scale_filename_bdy_sfx $((qs-1)))"
+                    path="bdy/mean/bdyorg_$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))$(scale_filename_bdy_sfx $((qs-1)))"
+                    echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
+                    #ln -sf  $pathin $TMP/$path
+                  done
+                fi
+              fi
+
+            elif ((BDY_FORMAT == 2 || BDY_FORMAT == 4)); then
+
+              if ((BDY_FORMAT == 2)); then
+                data_bdy_i="$DATA_BDY_WRF"
+                filenum=1
+                filename_prefix[1]='wrfout_'
+                filename_suffix[1]=''
+                filenamein_prefix[1]=''
+                filenamein_suffix[1]=''
+              elif ((BDY_FORMAT == 4)); then
+                data_bdy_i="$DATA_BDY_GRADS"
+                filenum=3
+                filename_prefix[1]='atm_'
+                filename_suffix[1]='.grd'
+                filenamein_prefix[1]='atm_'
+                filenamein_suffix[1]='.grd'
+                filename_prefix[2]='sfc_'
+                filename_suffix[2]='.grd'
+                filenamein_prefix[2]='sfc_'
+                filenamein_suffix[2]='.grd'
+                filename_prefix[3]='land_'
+                filename_suffix[3]='.grd'
+                filenamein_prefix[3]='lnd_'
+                filenamein_suffix[3]='.grd'
+              fi
+
+              if ((BDY_ENS == 1)); then
+                if ((m == mmean)); then
+                  mem_bdy="$BDY_MEAN"
+                else
+                  mem_bdy="${name_m[$m]}"
+                fi
+                for ifile in $(seq $filenum); do
+                  if ((BDY_ROTATING == 1)); then
+                    pathin="${data_bdy_i}/${time}/${mem_bdy}/${filename_prefix[$ifile]}${time_bdy}${filename_suffix[$ifile]}"
+                  else
+                    pathin="${data_bdy_i}/${mem_bdy}/${filename_prefix[$ifile]}${time_bdy}${filename_suffix[$ifile]}"
+                  fi
+                  path="bdy/${name_m[$m]}/bdyorg_${filenamein_prefix[$ifile]}$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))${filenamein_suffix[$ifile]}"
+                  echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
+                  #ln -sf  $pathin $TMP/$path
+                done
+              else
+                for ifile in $(seq $filenum); do
+                  if ((BDY_ROTATING == 1)); then
+                    pathin="${data_bdy_i}/${time}/${BDY_MEAN}/${filename_prefix[$ifile]}${time_bdy}${filename_suffix[$ifile]}"
+                  else
+                    pathin="${data_bdy_i}/${BDY_MEAN}/${filename_prefix[$ifile]}${time_bdy}${filename_suffix[$ifile]}"
+                  fi
+                  path="bdy/mean/bdyorg_${filenamein_prefix[$ifile]}$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))${filenamein_suffix[$ifile]}"
+                  echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
+                  #ln -sf  $pathin $TMP/$path
+                done
+              fi
+
+            fi # [ BDY_FORMAT == 2 || BDY_FORMAT == 4 ]
+          done # [ ibdy in $(seq $((nbdy_max+1)) $nbdy) ]
+          nbdy_max=$nbdy
+        fi
+      fi
 
       # bdy (prepared)
       #-------------------
@@ -200,107 +331,76 @@ while ((time_s <= ETIME)); do
 #      # anal
 #      #-------------------
 #      if ((MAKEINIT == 1)); then
-#        for mm in $(seq $fmember); do
-#          m=$(((c-1) * fmember + mm))
-#          for d in $(seq $DOMNUM); do
-#            for q in $(seq ${SCALE_NP[$d]}); do
-#              path="${name_m[$m]}/init.d$(printf $DOMAIN_FMT $d)_$(datetime_scale $time)$(scale_filename_sfx $((q-1)))"
-#              pathout="${OUTDIR[$d]}/${time}/anal/${name_m[$m]}${CONNECTOR}init$(scale_filename_sfx $((q-1)))"
+#              path="${name_m[$m]}/init${dom}${tsfx}"
+#              pathout="${OUTDIR[$d]}/${time}/anal/${name_m[$m]}${CONNECTOR}init${sfx}"
 ##              echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${mem2node[$(((m-1)*mem_np+${SCALE_NP_S[$d]}+q))]}
 #              echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST_NOLINK}.${mem2node[$(((m-1)*mem_np+${SCALE_NP[$d]}+q))]}
-#            done
-#          done
-#        done
 #      fi
 #
 #      # topo
 #      #-------------------
 #      if ((loop == 1 && c == 1 && TOPOOUT_OPT <= 1)) && [ "$TOPO_FORMAT" != 'prep' ]; then
-#        for d in $(seq $DOMNUM); do
-#          for q in $(seq ${SCALE_NP[$d]}); do
+#        if ((m == 1)) ; then
 #            path="topo/topo.d$(printf $DOMAIN_FMT $d)$(scale_filename_sfx $((q-1)))"
 #            pathout="${OUTDIR[$d]}/const/${CONNECTOR_TOPO}topo$(scale_filename_sfx $((q-1)))"
 ##            echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${mem2node[$((${SCALE_NP_S[$d]}+q))]}
 #            echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST_NOLINK}.${mem2node[$((${SCALE_NP[$d]}+q))]}
-#          done
-#        done
+#        fi
 #      fi
 #
 #      # landuse
 #      #-------------------
 #      if ((loop == 1 && c == 1 && LANDUSEOUT_OPT <= 1)) && [ "$LANDUSE_FORMAT" != 'prep' ]; then
-#        for d in $(seq $DOMNUM); do
-#          for q in $(seq ${SCALE_NP[$d]}); do
-#            path="llanduse/anduse.d$(printf $DOMAIN_FMT $d)$(scale_filename_sfx $((q-1)))"
-#            pathout="${OUTDIR[$d]}/const/${CONNECTOR_LANDUSE}landuse$(scale_filename_sfx $((q-1)))"
+#        if ((m == 1)); then 
+#            path="llanduse/anduse.d$(printf $DOMAIN_FMT $d)${sfx}"
+#            pathout="${OUTDIR[$d]}/const/${CONNECTOR_LANDUSE}landuse${sfx}"
 ##            echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${mem2node[$((${SCALE_NP_S[$d]}+q))]}
 #            echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST_NOLINK}.${mem2node[$((${SCALE_NP[$d]}+q))]}
-#          done
-#        done
+#        fi
 #      fi
 #
 #      # bdy
 #      #-------------------
 #      if ((BDY_FORMAT != 0)); then
 #        if ((BDY_ENS == 1 && BDYOUT_OPT <= 1)); then
-#          for mm in $(seq $fmember); do
-#            m=$(((c-1) * fmember + mm))
-#            for q in $(seq ${SCALE_NP[1]}); do
-#              path="${name_m[$m]}/bdy_$(datetime_scale $time)$(scale_filename_sfx $((q-1)))"
-#              pathout="${OUTDIR[1]}/${time}/bdy/${name_m[$m]}${CONNECTOR}boundary$(scale_filename_sfx $((q-1)))"
-##              echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${mem2node[$(((m-1)*mem_np+q))]}
-#              echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST_NOLINK}.${mem2node[$(((m-1)*mem_np+q))]}
-#            done
+#              path="${name_m[$m]}/bdy${tsfx}"
+#              pathout="${OUTDIR[1]}/${time}/bdy/${name_m[$m]}${CONNECTOR}boundary${sfx}"
+##              echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${snode}
+#              echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST_NOLINK}.${snode}
 #            if ((USE_INIT_FROM_BDY == 1)); then
-#              for d in $(seq $DOMNUM); do
-#                for q in $(seq ${SCALE_NP[$d]}); do
-#                  path="${name_m[$m]}/init.d$(printf $DOMAIN_FMT $d)_$(datetime_scale $time)$(scale_filename_sfx $((q-1)))"
-#                  pathout="${OUTDIR[$d]}/${time}/bdy/${name_m[$m]}${CONNECTOR}init_bdy$(scale_filename_sfx $((q-1)))"
+#                  path="${name_m[$m]}/init${dom}${tsfx}"
+#                  pathout="${OUTDIR[$d]}/${time}/bdy/${name_m[$m]}${CONNECTOR}init_bdy${sfx}"
 ##                  echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${mem2node[$(((m-1)*mem_np+${SCALE_NP_S[$d]}+q))]}
 #                  echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST_NOLINK}.${mem2node[$(((m-1)*mem_np+${SCALE_NP[$d]}+q))]}
-#                done
-#              done
 #            fi
-#          done
 #        elif ((BDYOUT_OPT <= 2)); then
-#          for q in $(seq ${SCALE_NP[1]}); do
+#          if ((m == 1)); then
 #            path="mean/bdy_$(datetime_scale $time)$(scale_filename_sfx $((q-1)))"
-#            pathout="${OUTDIR[1]}/${time}/bdy/mean${CONNECTOR}boundary$(scale_filename_sfx $((q-1)))"
+#            pathout="${OUTDIR[1]}/${time}/bdy/mean${CONNECTOR}boundary${sfx}"
 ##            echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${mem2node[$q]}
-#            echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST_NOLINK}.${mem2node[$(((mmean-1)*mem_np+q))]}
-#          done
-#          if ((USE_INIT_FROM_BDY == 1)); then
-#            for d in $(seq $DOMNUM); do
-#              for q in $(seq ${SCALE_NP[$d]}); do
-#                path="mean/init.d$(printf $DOMAIN_FMT $d)_$(datetime_scale $time)$(scale_filename_sfx $((q-1)))"
-#                pathout="${OUTDIR[$d]}/${time}/bdy/mean${CONNECTOR}init_bdy$(scale_filename_sfx $((q-1)))"
+#            echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST_NOLINK}.${msnode}
+#            if ((USE_INIT_FROM_BDY == 1)); then
+#                path="mean/init${dom}${tsfx}"
+#                pathout="${OUTDIR[$d]}/${time}/bdy/mean${CONNECTOR}init_bdy${sfx}"
 ##                echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${mem2node[$(((mmean-1)*mem_np+${SCALE_NP[$d]}+q))]}
 #                echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST_NOLINK}.${mem2node[$(((mmean-1)*mem_np+${SCALE_NP[$d]}+q))]}
-#              done
-#            done
+#            fi
 #          fi
 #        fi
 #      fi
 #
 #      # fcst
 #      #-------------------
-#      for mm in $(seq $fmember); do
-#        m=$(((c-1) * fmember + mm))
-#        for d in $(seq $DOMNUM); do
-#          for q in $(seq ${SCALE_NP[$d]}); do
-#            path="${name_m[$m]}/hist.d$(printf $DOMAIN_FMT $d)_$(datetime_scale $time)$(scale_filename_sfx $((q-1)))"
-#            pathout="${OUTDIR[$d]}/${time}/fcst/${name_m[$m]}${CONNECTOR}history$(scale_filename_sfx $((q-1)))"
+#            path="${name_m[$m]}/hist${dom}${tsfx}"
+#            pathout="${OUTDIR[$d]}/${time}/fcst/${name_m[$m]}${CONNECTOR}history${sfx}"
 ##            echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${mem2node[$(((m-1)*mem_np+${SCALE_NP[$d]}+q))]}
 #            echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST_NOLINK}.${mem2node[$(((m-1)*mem_np+${SCALE_NP[$d]}+q))]}
 #            if ((OUT_OPT <= 1)); then
-#              path="${name_m[$m]}/fcst.d$(printf $DOMAIN_FMT $d)_$(datetime_scale $time)_$(datetime_scale $ftime)$(scale_filename_sfx $((q-1)))"
-#              pathout="${OUTDIR[$d]}/${time}/fcst/${name_m[$m]}${CONNECTOR}init_${ftime}$(scale_filename_sfx $((q-1)))"
+#              path="${name_m[$m]}/fcst${dom}_$(datetime_scale $time)_$(datetime_scale $ftime)${sfx}"
+#              pathout="${OUTDIR[$d]}/${time}/fcst/${name_m[$m]}${CONNECTOR}init_${ftime}${sfx}"
 ##              echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST}.${mem2node[$(((m-1)*mem_np+${SCALE_NP[$d]}+q))]}
 #              echo "${pathout}|${path}|${loop}" >> ${STAGING_DIR}/${STGOUTLIST_NOLINK}.${mem2node[$(((m-1)*mem_np+${SCALE_NP[$d]}+q))]}
 #            fi
-#          done
-#        done
-#      done
 #
 #      # log
 #      #-------------------
@@ -380,7 +480,6 @@ while ((time_s <= ETIME)); do
 #
       #-------------------
     fi # [ ((time <= ETIME)) ]
-  done # [ c in $(seq $CYCLE) ]
 
   time_s=$(datetime $time_s $((lcycles * CYCLE)) s)
 done # [ ((time_s <= ETIME)) ]
@@ -411,23 +510,6 @@ local stage_config=1
 if [ "$CONFIG_DIR" = '-' ]; then
   CONFIG_DIR="$TMPROOT"
   stage_config=0
-fi
-
-#-------------------------------------------------------------------------------
-
-if ((PNETCDF == 1)); then
-  local mem_np_=1
-else
-  local mem_np_=$mem_np
-fi
-if ((PNETCDF_BDY_SCALE == 1)); then
-  local mem_np_bdy_=1
-else
-  local mem_np_bdy_=$((DATA_BDY_SCALE_PRC_NUM_X*DATA_BDY_SCALE_PRC_NUM_Y))
-  if (( mem_np_bdy_ < 1 )) && (( BDY_FORMAT < 4 ))  && (( BDY_FORMAT > 0 )); then
-    echo "[Error] $0: Specify DATA_BDY_SCALE_PRC_NUM_X/Y" >&2
-    exit 1
-  fi
 fi
 
 #-------------------------------------------------------------------------------
@@ -570,100 +652,7 @@ while ((time_s <= ETIME)); do
           exit 1
         fi
 
-        if ((BDY_ROTATING == 1 || ${bdy_times[1]} != time_bdy_start_prev)); then
-          time_bdy_start_prev=${bdy_times[1]}
-          nbdy_max=0
-        fi
 
-        if ((nbdy > nbdy_max)); then
-          for ibdy in $(seq $((nbdy_max+1)) $nbdy); do
-            time_bdy=${bdy_times[$ibdy]}
-
-            if ((BDY_FORMAT == 1)); then
-              if ((BDY_ENS == 1)); then
-                for m in $(seq $m_run_onecycle); do
-                  if ((m == mmean)); then
-                    mem_bdy="$BDY_MEAN"
-                  else
-                    mem_bdy="${name_m[$m]}"
-                  fi
-                  for q in $(seq $mem_np_bdy_); do
-                    pathin="${DATA_BDY_SCALE}/${time_bdy}/${BDY_SCALE_DIR}/${mem_bdy}${CONNECTOR}history$(scale_filename_bdy_sfx $((q-1)))"
-                    path="bdy/${name_m[$m]}/bdyorg_$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))$(scale_filename_bdy_sfx $((q-1)))"
-                    #echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
-                    ln -sf  $pathin $TMP/$path
-                  done
-                done
-              else
-                for q in $(seq $mem_np_bdy_); do
-                  pathin="${DATA_BDY_SCALE}/${time_bdy}/${BDY_SCALE_DIR}/${BDY_MEAN}${CONNECTOR}history$(scale_filename_bdy_sfx $((q-1)))"
-                  path="bdy/mean/bdyorg_$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))$(scale_filename_bdy_sfx $((q-1)))"
-                  #echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
-                  ln -sf  $pathin $TMP/$path
-                done
-              fi
-
-            elif ((BDY_FORMAT == 2 || BDY_FORMAT == 4)); then
-
-              if ((BDY_FORMAT == 2)); then
-                data_bdy_i="$DATA_BDY_WRF"
-                filenum=1
-                filename_prefix[1]='wrfout_'
-                filename_suffix[1]=''
-                filenamein_prefix[1]=''
-                filenamein_suffix[1]=''
-              elif ((BDY_FORMAT == 4)); then
-                data_bdy_i="$DATA_BDY_GRADS"
-                filenum=3
-                filename_prefix[1]='atm_'
-                filename_suffix[1]='.grd'
-                filenamein_prefix[1]='atm_'
-                filenamein_suffix[1]='.grd'
-                filename_prefix[2]='sfc_'
-                filename_suffix[2]='.grd'
-                filenamein_prefix[2]='sfc_'
-                filenamein_suffix[2]='.grd'
-                filename_prefix[3]='land_'
-                filename_suffix[3]='.grd'
-                filenamein_prefix[3]='lnd_'
-                filenamein_suffix[3]='.grd'
-              fi
-
-              if ((BDY_ENS == 1)); then
-                for m in $(seq $m_run_onecycle); do
-                  if ((m == mmean)); then
-                    mem_bdy="$BDY_MEAN"
-                  else
-                    mem_bdy="${name_m[$m]}"
-                  fi
-                  for ifile in $(seq $filenum); do
-                    if ((BDY_ROTATING == 1)); then
-                      pathin="${data_bdy_i}/${time}/${mem_bdy}/${filename_prefix[$ifile]}${time_bdy}${filename_suffix[$ifile]}"
-                    else
-                      pathin="${data_bdy_i}/${mem_bdy}/${filename_prefix[$ifile]}${time_bdy}${filename_suffix[$ifile]}"
-                    fi
-                    path="bdy/${name_m[$m]}/bdyorg_${filenamein_prefix[$ifile]}$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))${filenamein_suffix[$ifile]}"
-                    #echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
-                    ln -sf  $pathin $TMP/$path
-                  done
-                done
-              else
-                for ifile in $(seq $filenum); do
-                  if ((BDY_ROTATING == 1)); then
-                    pathin="${data_bdy_i}/${time}/${BDY_MEAN}/${filename_prefix[$ifile]}${time_bdy}${filename_suffix[$ifile]}"
-                  else
-                    pathin="${data_bdy_i}/${BDY_MEAN}/${filename_prefix[$ifile]}${time_bdy}${filename_suffix[$ifile]}"
-                  fi
-                  path="bdy/mean/bdyorg_${filenamein_prefix[$ifile]}$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))${filenamein_suffix[$ifile]}"
-                  #echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
-                  ln -sf  $pathin $TMP/$path
-                done
-              fi
-
-            fi # [ BDY_FORMAT == 2 || BDY_FORMAT == 4 ]
-          done # [ ibdy in $(seq $((nbdy_max+1)) $nbdy) ]
-          nbdy_max=$nbdy
-        fi
 
         ith=0
         for mm in $(seq $m_run_onecycle); do
@@ -782,6 +771,7 @@ m=$1
               RESTART_OUT_BASENAME=${OUTDIR[$d]}/$time/bdy/${mem_bdy}/init_bdy
             fi
 
+            mkdir -p ${OUTDIR[$d]}/const/topo
             mkdir -p ${OUTDIR[$d]}/$time/log/fcst_scale_init
 
             conf="$(cat $conf_file_src | \
