@@ -79,7 +79,7 @@ fi
 #===============================================================================
 # Determine the staging list and then stage in
 
-if ((RUN_LEVEL <= 1)) && ((ISTEP == 1)); then
+if ((RUN_LEVEL <= 1)) && ((DISK_MODE >= 2)) && ((ISTEP == 1)); then
   echo "[$(datetime_now)] Initialization (stage in)" >&2
 
   safe_init_tmpdir $STAGING_DIR || exit $?
@@ -273,7 +273,7 @@ while ((time <= ETIME)); do
 #-------------------------------------------------------------------------------
 # Online stage out
 
-  if ((RUN_LEVEL <= 3)); then
+  if ((RUN_LEVEL <= 3)) && ((DISK_MODE >= 2)); then
     if ((ONLINE_STGOUT == 1)); then
       online_stgout_bgjob $loop $time &
     fi
@@ -299,7 +299,7 @@ done
 #===============================================================================
 # Stage out
 
-if ((RUN_LEVEL <= 3)); then
+if ((RUN_LEVEL <= 3)) && ((DISK_MODE >= 2)); then
   if ((ONLINE_STGOUT == 1)); then
     wait
   else

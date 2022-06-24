@@ -589,6 +589,7 @@ PARENT_REF_TIME=$(datetime $PARENT_REF_TIME)
 #-------------------------------------------------------------------------------
 # compute $parent_start_time based on $PARENT_REF_TIME and $PARENT_LCYCLE
 
+
 parent_start_time=$PARENT_REF_TIME
 if (( BDY_FORMAT > 0 )) ;then
 local parent_start_time_prev=$parent_start_time

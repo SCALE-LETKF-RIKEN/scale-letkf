@@ -110,45 +110,24 @@ SCALE_NP_X=4        # = PRC_NUM_X
 SCALE_NP_Y=4        # = PRC_NUM_Y
 SCALE_NP=$(( SCALE_NP_X  * SCALE_NP_Y )) # Number of processes to run SCALE
 
-NNODES=$(( ( MEMBER + 1 ) * ( SCALE_NP / PPN ) ))
-
+if (( DET_RUN == 1 ));then
+  NNODES=$(( ( MEMBER + 2 ) * ( SCALE_NP / PPN ) ))
+else
+  NNODES=$(( ( MEMBER + 1 ) * ( SCALE_NP / PPN ) ))
+fi
 
 #===============================================================================
 # Temporary directories to store runtime files
-
-ONLINE_STGOUT=0             # Stage out right after each cycle (do not wait until the end of the job)?
-                            #  0: No
-                            #  1: Yes
 
 SYSNAME="$(basename $OUTDIR)"                # A unique name in the machine
 TMPSUBDIR="scale-letkf_${SYSNAME}"           # (used to identify multiple runs in the same time)
 
 TMP="$DIR/tmp/$TMPSUBDIR" # Temporary directory shared among all nodes
-TMPS="$DIR/tmp/$TMPSUBDIR"  # Temporary directory only on the server node
-#TMPS="$TMP"  # Temporary directory only on the server node
+TMPS="$TMP"  # Temporary directory only on the server node
 TMPL="$TMP"
-
-CLEAR_TMP=0                 # Clear temporary directories after the completion of job?
-                            #  0: No
-                            #  1: Yes
-
-USE_LLIO_BIN=0   # Use LLIO-transfer for binary files ? (effective only on Fugaku) 
-                 # 0: No 
-                 # 1: Yes
-
-USE_LLIO_DAT=0   # Use LLIO-transfer for shared data files ? (effective only on Fugaku) 
-                 # 0: No 
-                 # 1: Yes
-
-USE_SPACK=0 # 1: Use spack in job scripts
-            # 0: Not use spack in job scripts
-            #    SCALE environment paramters (e.g., SCALE_NETCDF_C) should be exported
 
 #===============================================================================
 # Environmental settings
-
-SCP='cp -L'
-SCP_HOSTPREFIX=''
 
 STAGE_THREAD=8
 TAR_THREAD=8
@@ -157,8 +136,6 @@ PYTHON="python"
 
 MPI_TYPE='impi'
 MPIRUN="impijob"
-
-#BUFRBIN=
 
 #===============================================================================
 # Machine-independent source file

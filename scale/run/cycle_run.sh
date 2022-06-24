@@ -93,9 +93,10 @@ cp -r ${SCRP_DIR}/src ${TMP}/
 #===============================================================================
 # Stage in
 
-echo "[$(datetime_now)] Initialization (stage in)"
-
-stage_in server || exit $?
+if ((DISK_MODE == 1)); then
+  echo "[$(datetime_now)] Initialization (stage in)"
+  stage_in server || exit $?
+fi
 
 #===============================================================================
 # Creat a job script and submit a job
@@ -310,9 +311,10 @@ fi
 #===============================================================================
 # Stage out
 
-echo "[$(datetime_now)] Finalization (stage out)"
-
-stage_out server || exit $?
+if ((DISK_MODE == 1));then
+  echo "[$(datetime_now)] Finalization (stage out)"
+  stage_out server || exit $?
+fi
 
 #===============================================================================
 # Finalization
@@ -326,9 +328,9 @@ config_file_save $TMPS || exit $?
 
 archive_log
 
-#if ((CLEAR_TMP == 1)); then
-#  safe_rm_tmpdir $TMP
-#fi
+if ((CLEAR_TMP == 1)); then
+  safe_rm_tmpdir $TMP
+fi
 
 #===============================================================================
 
