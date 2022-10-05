@@ -14,10 +14,13 @@ ENABLE_SAITAMA_MPW = F
 # Libraries
 #-----------------
 
-#LAPACK_LIB = -mkl=sequential
+#LAPACK_LIB = -I/usr/local/include -llapack -lblas
 LAPACK_LIB = $(SCALE_MATHLIB_LIBS)
 
-#BUFR_LIB   = -L/data/opt/bufrlib/10.1.0_intel/lib -lbufrlib
+# NCEP_BUFR_LIB is available from https://github.com/NOAA-EMC/NCEPLIBS
+#NCEPBUFR_LIB   = /mnt/humet-hdd01/honda/work/NCEPLIBS-bufr/lib64
+#BUFR_LIB   = -L$(NCEPBUFR_LIB) -lbufr_4 -lbufr_8 -lbufr_d
+BUFR_LIB   = -L/data/opt/bufrlib/10.1.0_intel/lib -lbufrlib
 
 USE_MTX_KEVD = F
 SINGLE_EVP = F
@@ -31,7 +34,6 @@ FOPTS     = $(FOPTS_SCALE)
 
 FOPTS_EXE  = $(FOPTS)
 
-#FMCMODEL  = -mcmodel=medium -shared-intel
 FBYTESWAP = -convert little_endian
 FFREE     = -free
 FFIXED    = -fixed

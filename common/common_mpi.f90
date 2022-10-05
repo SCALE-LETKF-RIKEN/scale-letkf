@@ -8,9 +8,9 @@ MODULE common_mpi
 !
 !=======================================================================
   USE common, only: r_size, r_dble, r_sngl
+  USE mpi
   IMPLICIT NONE
   PUBLIC
-  INCLUDE 'mpif.h'
 
   INTEGER,SAVE :: nprocs
   INTEGER,SAVE :: myrank
