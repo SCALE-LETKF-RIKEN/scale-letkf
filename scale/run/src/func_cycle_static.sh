@@ -563,7 +563,7 @@ for d in $(seq $DOMNUM); do
   PRC_DOMAINS_LIST="$PRC_DOMAINS_LIST${SCALE_NP[$d]}, "
 done
 
-if ((  ( "$TOPO_FORMAT" != "prep"  &&  "$TOPO_FORMAT" != "none" ) || ( "$LANDUSE_FORMAT" != "prep"  &&  "$LANDUSE_FORMAT" != "none" ) )) ; then
+if [ "$TOPO_FORMAT" = "GTOPO30" ] || [ "$TOPO_FORMAT" = "DEM50M" ] || [ "$LANDUSE_FORMAT" = "GLCCv2" ] || [ "$LANDUSE_FORMAT" = "LU100M" ] ; then
 
   mkdir -p $OUTDIR/const/topo
   mkdir -p $OUTDIR/const/landuse

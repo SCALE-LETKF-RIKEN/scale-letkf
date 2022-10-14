@@ -498,7 +498,7 @@ for d in $(seq $DOMNUM); do
   PRC_DOMAINS_LIST="$PRC_DOMAINS_LIST${SCALE_NP[$d]}, "
 done
 
-if ((  ( "$TOPO_FORMAT" != "prep"  &&  "$TOPO_FORMAT" != "none" ) || ( "$LANDUSE_FORMAT" != "prep"  &&  "$LANDUSE_FORMAT" != "none" ) )) ; then
+if [ "$TOPO_FORMAT" = "GTOPO30" ] || [ "$TOPO_FORMAT" = "DEM50M" ] || [ "$LANDUSE_FORMAT" = "GLCCv2" ] || [ "$LANDUSE_FORMAT" = "LU100M" ] ; then
   mkdir -p $OUTDIR/const/topo
   mkdir -p $OUTDIR/const/landuse
   config_file_scale_launcher fcst fcst_scale-rm_pp_ens "f<member>/pp" 1
@@ -540,8 +540,8 @@ if ((  ( "$TOPO_FORMAT" != "prep"  &&  "$TOPO_FORMAT" != "none" ) || ( "$LANDUSE
     DIR_SRC_TOPO=${TMP}/dat/topo
     DIR_SRC_LANDUSE=${TMP}/dat/landuse
   else
-    DIR_TOPO="${DATA_TOPO}/const"
-    DIR_LANDUSE="${DATA_LANDUSE}/const"
+    DIR_TOPO="${DATA_TOPO}"
+    DIR_LANDUSE="${DATA_LANDUSE}"
     DIR_SRC_TOPO=${DATADIR}/topo
     DIR_SRC_LANDUSE=${DATADIR}/landuse
   fi
