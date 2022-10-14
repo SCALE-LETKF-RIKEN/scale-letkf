@@ -213,7 +213,11 @@ while ((time <= ETIME)); do
                 pathin="${data_bdy_i}/${mem_bdy}/${filename_prefix[$ifile]}${time_bdy}${filename_suffix[$ifile]}"
               fi
               path="${name_m[$m]}/bdyorg_${filenamein_prefix[$ifile]}$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))${filenamein_suffix[$ifile]}"
-              echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
+              if ((DISK_MODE_BDYDATA >= 1)); then
+                echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
+              else
+                ln -sf  $pathin $TMP/$path
+              fi
             done
           else
             if ((m==mmean || (job == "fcst" && m==1) ));then
