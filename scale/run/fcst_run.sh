@@ -140,7 +140,7 @@ cat > $jobscrp << EOF
 #PJM -g ${GROUP} 
 #PJM -x PJM_LLIO_GFSCACHE=${VOLUMES}
 #PJM -L "rscgrp=${RSCGRP}"
-#PJM -L "node=$(((TPROC+3)/4))"
+#PJM -L "node=$(((TPROC+PPN-1)/PPN))"
 #PJM -L "elapse=${TIME_LIMIT}"
 #PJM --mpi "max-proc-per-node=${PPN}"
 #PJM -j
