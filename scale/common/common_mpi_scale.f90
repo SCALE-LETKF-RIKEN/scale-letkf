@@ -1729,6 +1729,7 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
       deallocate (obsdep_omb)
       deallocate (obsdep_oma)
       deallocate (obsdep_sprd)
+      deallocate (obsdep_omb_emean)
     end if
   end if ! [ myrank_e == mmean_rank_e ]
 

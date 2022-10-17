@@ -1624,7 +1624,7 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step)
       end if
 
 !!! ensemble perturbation output
-      obsdep_sprd(n)=sqrt ( sum(   ( obsda_sort%ensval(:,nn) - sum(obsda_sort%ensval(:,nn))/MEMBER ) **2 ) / MEMBER  )
+      obsdep_sprd(n) = sqrt( sum( ( obsda_sort%ensval(:,nn) - sum(obsda_sort%ensval(:,nn))/MEMBER ) **2 ) / ( MEMBER - 1 ) )
 
       if (LOG_LEVEL >= 3) then
         write (6, '(2I6,2F8.2,4F12.4,I3)') &
@@ -2517,6 +2517,7 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
   integer :: lev_varid, dat_varid, qc_varid
   integer :: dif_varid, err_varid
   integer :: omb_varid, oma_varid, omb_em_varid, sprd_varid
+  integer :: typ_varid
 
   character(len=*), parameter :: DIM_NAME = "number"
   character(len=*), parameter :: ELM_NAME = "elm"
@@ -2531,6 +2532,7 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
   character(len=*), parameter :: OMA_NAME = "oma"
   character(len=*), parameter :: OMB_EM_NAME = "omb_emean"
   character(len=*), parameter :: SPRD_NAME = "sprd"
+  character(len=*), parameter :: TYP_NAME = "typ"
 
   character(len=*), parameter :: ELM_LONGNAME = "observation id"
   character(len=*), parameter :: LON_LONGNAME = "longitude"
@@ -2544,6 +2546,7 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
   character(len=*), parameter :: OMA_LONGNAME = "observation-minus-analysis"
   character(len=*), parameter :: OMB_EM_LONGNAME = "observation-minus-background-ensemble-mean"
   character(len=*), parameter :: SPRD_LONGNAME = "ensemble spread in observation space"
+  character(len=*), parameter :: TYP_LONGNAME = "observation platform type"
 
   integer :: nobs_l(nobs)
   integer :: n
@@ -2552,6 +2555,7 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
   real(r_sngl) :: lon_l(nobs), lat_l(nobs)
   real(r_sngl) :: lev_l(nobs), dat_l(nobs)
   real(r_sngl) :: dif_l(nobs), err_l(nobs)
+  integer :: typ_l(nobs)
 
   do n = 1, nobs
     nobs_l(n) = n
@@ -2563,6 +2567,8 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
     dat_l(n) = real( obs(set(n))%dat(idx(n)), r_sngl )
     dif_l(n) = real( obs(set(n))%dif(idx(n)), r_sngl )
     err_l(n) = real( obs(set(n))%err(idx(n)), r_sngl )
+
+    typ_l(n) = int( obs(set(n))%typ(idx(n)) )
   enddo
 
   ! Create the file. 
@@ -2583,6 +2589,7 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
   call ncio_check( nf90_def_var(ncid, QC_NAME,  NF90_INT,  dimid,  qc_varid) )
   call ncio_check( nf90_def_var(ncid, DIF_NAME, NF90_REAL, dimid, dif_varid) )
   call ncio_check( nf90_def_var(ncid, ERR_NAME, NF90_REAL, dimid, err_varid) )
+  call ncio_check( nf90_def_var(ncid, TYP_NAME, NF90_INT,  dimid, typ_varid) )
 
   call ncio_check( nf90_def_var(ncid, OMB_NAME, NF90_REAL, dimid, omb_varid) )
   call ncio_check( nf90_def_var(ncid, OMA_NAME, NF90_REAL, dimid, oma_varid) )
@@ -2598,6 +2605,7 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
   call ncio_check( nf90_put_att(ncid, qc_varid,  "long_name", QC_LONGNAME  ) )
   call ncio_check( nf90_put_att(ncid, dif_varid, "long_name", DIF_LONGNAME ) )
   call ncio_check( nf90_put_att(ncid, err_varid, "long_name", ERR_LONGNAME ) )
+  call ncio_check( nf90_put_att(ncid, typ_varid, "long_name", TYP_LONGNAME ) )
 
   call ncio_check( nf90_put_att(ncid, omb_varid, "long_name", OMB_LONGNAME ) )
   call ncio_check( nf90_put_att(ncid, oma_varid, "long_name", OMA_LONGNAME ) )
@@ -2627,6 +2635,8 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
                    count=(/nobs/) ) )
   call ncio_check( nf90_put_var(ncid, err_varid, err_l, start=(/1/), &
                    count=(/nobs/) ) )
+  call ncio_check( nf90_put_var(ncid, typ_varid, typ_l, start=(/1/), &
+                   count=(/nobs/) ) )
 
   call ncio_check( nf90_put_var(ncid, omb_varid, omb,   start=(/1/), &
                    count=(/nobs/) ) )
@@ -2636,7 +2646,6 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
                    count=(/nobs/) ) )
   if (present(sprd)) call ncio_check( nf90_put_var(ncid, sprd_varid, sprd, start=(/1/), &
                    count=(/nobs/) ) )
-
 
   ! Close the file. 
   call ncio_check( nf90_close(ncid) )
