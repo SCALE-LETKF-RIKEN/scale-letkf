@@ -1079,6 +1079,21 @@ subroutine read_history(filename,step,v3dg,v2dg)
 !$omp end parallel do
   endif
 
+  if ( trim( v2dd_name(iv2dd_u10m) ) == "U10" .and. &
+       trim( v2dd_name(iv2dd_v10m) ) == "V10" ) then
+!$omp parallel do private(i,j,utmp,vtmp) schedule(static) collapse(1)
+    do j = JS, JE
+    do i = IS, IE
+      utmp = v2dg_RP(i,j,iv2dd_u10m)
+      vtmp = v2dg_RP(i,j,iv2dd_v10m)
+
+      v2dg_RP(i,j,iv2dd_u10m) = utmp * ROTC(i,j,1) - vtmp * ROTC(i,j,2)
+      v2dg_RP(i,j,iv2dd_v10m) = utmp * ROTC(i,j,2) + vtmp * ROTC(i,j,1)
+    enddo
+    enddo
+!$omp end parallel do
+  endif
+
   ! Communicate halo
   !-------------
 !$omp parallel do private(i,j,iv3d) schedule(static) collapse(2)
