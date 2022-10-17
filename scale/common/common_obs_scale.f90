@@ -263,13 +263,14 @@ end subroutine set_common_obs_scale
 !  0: non-staggered grid
 !  1: staggered grid
 !-----------------------------------------------------------------------
-SUBROUTINE Trans_XtoY(elm,ri,rj,rk,lon,lat,v3d,v2d,yobs,qc,stggrd)
+SUBROUTINE Trans_XtoY(elm,ri,rj,rk,lon,lat,v3d,v2d,yobs,qc,stggrd,typ)
   IMPLICIT NONE
   INTEGER,INTENT(IN) :: elm
   REAL(r_size),INTENT(IN) :: ri,rj,rk
   REAL(r_size),INTENT(IN) :: lon,lat
   REAL(r_size),INTENT(IN) :: v3d(nlevh,nlonh,nlath,nv3dd)
   REAL(r_size),INTENT(IN) :: v2d(nlonh,nlath,nv2dd)
+  integer, intent(in), optional :: typ
   REAL(r_size),INTENT(OUT) :: yobs
   INTEGER,INTENT(OUT) :: qc
   INTEGER,INTENT(IN),OPTIONAL :: stggrd
@@ -290,6 +291,19 @@ SUBROUTINE Trans_XtoY(elm,ri,rj,rk,lon,lat,v3d,v2d,yobs,qc,stggrd)
       CALL itpl_3d(v3d(:,:,:,iv3dd_u),rk,ri,rj,u)
       CALL itpl_3d(v3d(:,:,:,iv3dd_v),rk,ri,rj,v)
     end if
+
+    if ( present( typ ) ) then
+      if ( obtypelist(typ) == 'ASCATW' ) then
+        if (stggrd_ == 1) then
+          call itpl_2d(v2d(:,:,iv2dd_u10m),ri-0.5_r_size,rj,u)
+          call itpl_2d(v2d(:,:,iv2dd_v10m),ri,rj-0.5_r_size,v)
+        else
+          call itpl_2d(v2d(:,:,iv2dd_u10m),ri,rj,u)
+          call itpl_2d(v2d(:,:,iv2dd_v10m),ri,rj,v)
+        end if
+      endif
+    endif
+
     if (elm == id_u_obs) then
       yobs = u
     else
@@ -1067,7 +1081,7 @@ END SUBROUTINE calc_ref_vr
 ! rk = 0.0d0  : surface observation
 !-----------------------------------------------------------------------
 !OCL SERIAL
-SUBROUTINE phys2ijk(p_full,elem,ri,rj,rlev,rk,qc)
+SUBROUTINE phys2ijk(p_full,elem,ri,rj,rlev,rk,qc,typ)
   use scale_atmos_grid_cartesC_index, only: &
       KHALO
   IMPLICIT NONE
@@ -1077,6 +1091,7 @@ SUBROUTINE phys2ijk(p_full,elem,ri,rj,rlev,rk,qc)
   REAL(r_size),INTENT(IN) :: ri
   REAL(r_size),INTENT(IN) :: rj
   REAL(r_size),INTENT(IN) :: rlev ! pressure levels (for 3D variable only)
+  integer, intent(in), optional :: typ ! observation type
   REAL(r_size),INTENT(OUT) :: rk
   INTEGER,INTENT(OUT) :: qc
   REAL(r_size) :: ak
@@ -1102,6 +1117,12 @@ SUBROUTINE phys2ijk(p_full,elem,ri,rj,rlev,rk,qc)
   IF(elem > 9999) THEN ! surface observation
     rk = rlev
   ELSE
+    if ( present( typ ) ) then
+      if ( obtypelist(typ) == 'ASCATW' ) then
+        rk = real( KHALO, r_size )
+        return
+      endif
+    endif
     !
     ! horizontal interpolation
     !
