@@ -405,10 +405,10 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
           !=====================================================================
           case (obsfmt_prepbufr)
           !---------------------------------------------------------------------
-            call phys2ijk(v3dg(:,:,:,iv3dd_p), obs(iof)%elm(n), ril, rjl, obs(iof)%lev(n), rk, obsda%qc(nn))
+            call phys2ijk(v3dg(:,:,:,iv3dd_p), obs(iof)%elm(n), ril, rjl, obs(iof)%lev(n), rk, obsda%qc(nn), typ=obs(iof)%typ(n))
             if (obsda%qc(nn) == iqc_good) then
               call Trans_XtoY(obs(iof)%elm(n), ril, rjl, rk, &
-                              obs(iof)%lon(n), obs(iof)%lat(n), v3dg, v2dg, obsda%val(nn), obsda%qc(nn))
+                              obs(iof)%lon(n), obs(iof)%lat(n), v3dg, v2dg, obsda%val(nn), obsda%qc(nn), typ=obs(iof)%typ(n))
             end if
           !=====================================================================
           case (obsfmt_radar)
@@ -566,10 +566,10 @@ SUBROUTINE obsmake_cal(obs)
               !=================================================================
               case (obsfmt_prepbufr)
               !-----------------------------------------------------------------
-                call phys2ijk(v3dg(:,:,:,iv3dd_p),obs(iof)%elm(n),ril,rjl,obs(iof)%lev(n),rk,iqc)
+                call phys2ijk(v3dg(:,:,:,iv3dd_p),obs(iof)%elm(n),ril,rjl,obs(iof)%lev(n),rk,iqc,typ=obs(iof)%typ(n))
                 if (iqc == iqc_good) then
                   call Trans_XtoY(obs(iof)%elm(n),ril,rjl,rk, &
-                                  obs(iof)%lon(n),obs(iof)%lat(n),v3dg,v2dg,obs(iof)%dat(n),iqc)
+                                  obs(iof)%lon(n),obs(iof)%lat(n),v3dg,v2dg,obs(iof)%dat(n),iqc,typ=obs(iof)%typ(n))
                 end if
               !=================================================================
               case (obsfmt_radar)
