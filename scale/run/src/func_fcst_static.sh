@@ -510,13 +510,10 @@ if [ "$TOPO_FORMAT" = "GTOPO30" ] || [ "$TOPO_FORMAT" = "DEM50M" ] || [ "$LANDUS
       BDYTOPO=${TMP}/bdytopo/bdytopo
     else
       BDYCATALOGUE=${DATA_TOPO_BDY_SCALE}/const/log/latlon_domain_catalogue.txt
-      BDYTOPO=${DATA_TOPO_BDY_SCALE}/const/topo
+      BDYTOPO=${DATA_TOPO_BDY_SCALE}/const/topo/topo
+      OFFLINE_PARENT_BASENAME=${BDYTOPO}
     fi
   fi
-
-#  if ((BDY_FORMAT == 1)) && [ "$TOPO_FORMAT" != 'prep' ]; then
-#    OFFLINE_PARENT_BASENAME="$COPYTOPO"
-#  fi
 
   if [ "$TOPO_FORMAT" != 'prep' ] && [ "$TOPO_FORMAT" != 'none' ]; then
     CONVERT_TOPO='.true.'
@@ -805,7 +802,7 @@ m=$1
                     -e "/!--LAND_PROPERTY_IN_FILENAME--/a LAND_PROPERTY_IN_FILENAME = \"${CONSTDB_PATH}/land/param.bucket.conf\",")"
             if ((BDY_FORMAT == 1)); then
               conf="$(echo "$conf" | \
-                  sed -e "/!--OFFLINE_PARENT_BASENAME--/a OFFLINE_PARENT_BASENAME = \"${TMPROOT_BDYDATA}/bdy/${mem_bdy}/bdyorg_$(datetime_scale $time_bdy_start_prev)_$(printf %05d 0)\"," \
+                  sed -e "/!--OFFLINE_PARENT_BASENAME--/a OFFLINE_PARENT_BASENAME = \"${TMPROOT_BDYDATA}/${mem_bdy}/bdyorg_$(datetime_scale $time_bdy_start_prev)_$(printf %05d 0)\"," \
                       -e "/!--OFFLINE_PARENT_PRC_NUM_X--/a OFFLINE_PARENT_PRC_NUM_X = ${DATA_BDY_SCALE_PRC_NUM_X}," \
                       -e "/!--OFFLINE_PARENT_PRC_NUM_Y--/a OFFLINE_PARENT_PRC_NUM_Y = ${DATA_BDY_SCALE_PRC_NUM_Y}," \
                       -e "/!--LATLON_CATALOGUE_FNAME--/a LATLON_CATALOGUE_FNAME = \"${LATLON_CATALOGUE_FNAME}\",")"
