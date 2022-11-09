@@ -85,7 +85,8 @@ safe_init_tmpdir $STAGING_DIR || exit $?
 staging_list_static || exit $?
 config_file_list $TMPS/config || exit $?
 
-NNODES_USE=$(( fmember * ( SCALE_NP / PPN ) ))
+#NNODES_USE=$(( fmember * ( SCALE_NP / PPN ) ))
+NNODES_USE=$NNODES
 echo "NNODES=$NNODES_USE" >> $TMP/config.main
 
 #-------------------------------------------------------------------------------

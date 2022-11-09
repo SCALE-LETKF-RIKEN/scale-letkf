@@ -229,9 +229,31 @@ while ((time <= ETIME)); do
           btime=$(datetime $btime $BDYINT s)
         fi
 
+        if [ "$PRESET" = 'FUGAKU' ] && (( BDY_TMP == 1 )) ; then
+           BDY_TMPDIR_TOP=/local/$time/bdy
+           BDY_TMPDIRS=
+           for mmmm in `seq -f %04g 1 ${MEMBER}` ; do
+             BDY_TMPDIRS=${BDY_TMPDIRS}" "$BDY_TMPDIR_TOP/${mmmm}
+           done
+           BDY_TMPDIRS=${BDY_TMPDIRS}" "${BDY_TMPDIR_TOP}/mean
+           BDY_TMPDIRS=${BDY_TMPDIRS}" "${BDY_TMPDIR_TOP}/mdet
+           mpiexec mkdir -p ${BDY_TMPDIRS}
+        fi
+
       fi
+
       if ((s == 3)); then
         logd=$OUTDIR/$time/log/scale
+
+        if [ "$PRESET" = 'FUGAKU' ] && (( HIST_TMP == 1 )) ; then
+           HIST_TMPDIR_TOP=/local/$time/hist
+           HIST_TMPDIRS=
+           for mmmm in `seq -f %04g 1 ${MEMBER}`' mean mdet' ; do 
+             HIST_TMPDIRS=${HIST_TMPDIRS}" "$HIST_TMPDIR_TOP/${mmmm}
+           done
+           mpiexec mkdir -p ${HIST_TMPDIRS}
+        fi
+
       fi
       if ((s == 4)); then
         logd=$OUTDIR/$atime/log/letkf
@@ -275,6 +297,14 @@ while ((time <= ETIME)); do
 
         echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: end" >&2
       done
+
+      if [ "$PRESET" = 'FUGAKU' ] ; then
+        if (( s == 5 && HIST_TMP == 1)) ; then
+          mpiexec rm -rf ${HIST_TMPDIR_TOP}
+        elif (( s == 4 && BDY_TMP == 1)) ; then
+          mpiexec rm -rf ${BDY_TMPDIR_TOP}
+        fi
+      fi
 
     fi
   done

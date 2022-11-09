@@ -139,6 +139,13 @@ cat > $jobscrp << EOF
 #PJM --mpi "max-proc-per-node=${PPN}"
 #PJM -j
 #PJM -s
+EOF
+
+  if (( HIST_TMP == 1 )) || (( BDY_TMP == 1 )); then
+    echo "#PJM --llio localtmp-size=${LLIO_TMP_SIZE}Gi" >> $jobscrp
+  fi
+
+cat >> $jobscrp << EOF
 #
 #
 export PARALLEL=${THREADS}

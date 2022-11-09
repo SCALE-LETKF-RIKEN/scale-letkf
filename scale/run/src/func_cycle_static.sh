@@ -726,6 +726,11 @@ while ((time <= ETIME)); do
       RESTART_OUT_PATH[$d]=${OUTDIR[$d]}/${time}/anal
       BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time/bdy
       CONSTDB_PATH=$SCALEDIR/data
+
+      if [ $PRESET = 'FUGAKU' ] && (( BDY_TMP == 1 )) ; then
+        BOUNDARY_PATH[$d]=/local/$time/bdy
+      fi
+
     fi
 
     if ((BDY_ROTATING == 1 || ${bdy_times[1]} != time_bdy_start_prev)); then
@@ -766,6 +771,11 @@ while ((time <= ETIME)); do
       TOPO_PATH="${DATA_TOPO}/const"
       LANDUSE_PATH="${DATA_LANDUSE}/const"
       HISTORY_PATH[$d]=${OUTDIR[$d]}/$time/hist/
+
+      if [ $PRESET = 'FUGAKU' ] && (( HIST_TMP == 1)) ; then
+        HISTORY_PATH[$d]=/local/$time/hist/
+      fi
+
       if ((MAKEINIT == 0)) &&  ((time == STIME)) ; then
       RESTART_IN_PATH[$d]=${INDIR[$d]}/$time/anal
       else
@@ -774,6 +784,11 @@ while ((time <= ETIME)); do
       RESTART_OUT_PATH[$d]=${OUTDIR[$d]}/${atime}/anal
       BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time/bdy
       CONSTDB_PATH=$SCALEDIR/data
+
+      if [ $PRESET = 'FUGAKU' ] && (( BDY_TMP == 1 )) ; then
+        BOUNDARY_PATH[$d]=/local/$time/bdy
+      fi
+
     fi
  
     ith=0
