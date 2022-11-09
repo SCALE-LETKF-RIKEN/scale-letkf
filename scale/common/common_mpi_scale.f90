@@ -330,7 +330,7 @@ subroutine set_common_mpi_grid
     call mpi_timer('set_common_mpi_grid:rij_cal:', 2)
 
     if (allocated(topo2d)) then
-      write (6, '(1x,A,A15,A)') '*** Read 2D var: ', trim(topo2d_name), ' -- skipped because it was read previously'
+      if ( LOG_OUT ) write (6, '(1x,A,A15,A)') '*** Read 2D var: ', trim(topo2d_name), ' -- skipped because it was read previously'
 #ifdef LETKF_DEBUG
 #ifdef PNETCDF
       if (FILE_AGGREGATE) then
