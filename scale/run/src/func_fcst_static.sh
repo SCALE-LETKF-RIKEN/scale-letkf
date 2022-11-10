@@ -644,6 +644,10 @@ while ((time_s <= ETIME)); do
           CONSTDB_PATH=$SCALEDIR/data
         fi
 
+        if [ $PRESET = 'FUGAKU' ] && (( BDY_TMP == 1 )) && (( BDY_ENS == 1 )); then
+          BOUNDARY_PATH[$d]=/local/$time/bdy
+        fi
+
         if ((BDY_ROTATING == 1 || ${bdy_times[1]} != time_bdy_start_prev)); then
           time_bdy_start_prev=${bdy_times[1]}
         fi
@@ -681,22 +685,27 @@ while ((time_s <= ETIME)); do
   else
     RESTART_OUTPUT='.false.'
   fi
-    if ((DISK_MODE >= 1));then
-      TOPO_PATH=${TMP}
-      LANDUSE_PATH=${TMP}
-      HISTORY_PATH[$d]=${TMP}
-      RESTART_IN_PATH[$d]=${TMP}
-      BOUNDARY_PATH[$d]=${TMP}
-      CONSTDB_PATH=$TMPROOT_CONSTDB/dat
-    else
-      TOPO_PATH="${DATA_TOPO}/const"
-      LANDUSE_PATH="${DATA_LANDUSE}/const"
-      HISTORY_PATH[$d]=${OUTDIR[$d]}/$time/fcst
-      RESTART_IN_PATH[$d]=${INDIR[$d]}/$time/anal
-      RESTART_OUT_PATH[$d]=${OUTDIR[$d]}/$time/fcst
-      BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time/bdy
-      CONSTDB_PATH=$SCALEDIR/data
-    fi
+
+  if ((DISK_MODE >= 1));then
+    TOPO_PATH=${TMP}
+    LANDUSE_PATH=${TMP}
+    HISTORY_PATH[$d]=${TMP}
+    RESTART_IN_PATH[$d]=${TMP}
+    BOUNDARY_PATH[$d]=${TMP}
+    CONSTDB_PATH=$TMPROOT_CONSTDB/dat
+  else
+    TOPO_PATH="${DATA_TOPO}/const"
+    LANDUSE_PATH="${DATA_LANDUSE}/const"
+    HISTORY_PATH[$d]=${OUTDIR[$d]}/$time/fcst
+    RESTART_IN_PATH[$d]=${INDIR[$d]}/$time/anal
+    RESTART_OUT_PATH[$d]=${OUTDIR[$d]}/$time/fcst
+    BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time/bdy
+    CONSTDB_PATH=$SCALEDIR/data
+  fi
+
+  if [ $PRESET = 'FUGAKU' ] && (( BDY_TMP == 1 )) && (( BDY_ENS == 1 )); then
+    BOUNDARY_PATH[$d]=/local/$time/bdy
+  fi
  
   for c in $(seq $CYCLE); do
     time=$(datetime $time_s $((lcycles * (c-1))) s)

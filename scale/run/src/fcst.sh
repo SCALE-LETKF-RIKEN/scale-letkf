@@ -234,6 +234,16 @@ while ((time <= ETIME)); do
         fi
       fi
       if ((s == 2)); then
+
+        if [ "$PRESET" = 'FUGAKU' ] && (( BDY_TMP == 1 )) && (( BDY_ENS == 1 )); then
+           BDY_TMPDIR_TOP=/local/$time/bdy
+           BDY_TMPDIRS=
+           for mmmm in 'mean' 'mdet' `seq -f %04g 1 ${MEMBER}` ; do 
+             BDY_TMPDIRS=${BDY_TMPDIRS}" "$BDY_TMPDIR_TOP/${mmmm}
+           done
+           mpiexec mkdir -p ${BDY_TMPDIRS}
+        fi
+
         logd=$OUTDIR/$time/log/fcst_scale_init
         if ((BDY_FORMAT == 0)); then
           echo "[$(datetime_now)] ${time}: ${stepname[$s]} ...skipped (use prepared boundary files)" >&2
@@ -266,6 +276,13 @@ while ((time <= ETIME)); do
 
         echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: end" >&2
       done
+
+      if [ "$PRESET" = 'FUGAKU' ] ; then
+        if (( s == 3 && BDY_TMP == 1 && BDY_ENS == 1 )) ; then
+          mpiexec rm -rf ${BDY_TMPDIR_TOP}
+        fi
+      fi
+
 
     fi
   done
