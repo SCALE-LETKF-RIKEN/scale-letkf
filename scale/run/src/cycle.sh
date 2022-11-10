@@ -232,11 +232,9 @@ while ((time <= ETIME)); do
         if [ "$PRESET" = 'FUGAKU' ] && (( BDY_TMP == 1 )) ; then
            BDY_TMPDIR_TOP=/local/$time/bdy
            BDY_TMPDIRS=
-           for mmmm in `seq -f %04g 1 ${MEMBER}` ; do
+           for mmmm in 'mean' 'mdet' `seq -f %04g 1 ${MEMBER}` ; do
              BDY_TMPDIRS=${BDY_TMPDIRS}" "$BDY_TMPDIR_TOP/${mmmm}
            done
-           BDY_TMPDIRS=${BDY_TMPDIRS}" "${BDY_TMPDIR_TOP}/mean
-           BDY_TMPDIRS=${BDY_TMPDIRS}" "${BDY_TMPDIR_TOP}/mdet
            mpiexec mkdir -p ${BDY_TMPDIRS}
         fi
 
@@ -248,7 +246,7 @@ while ((time <= ETIME)); do
         if [ "$PRESET" = 'FUGAKU' ] && (( HIST_TMP == 1 )) ; then
            HIST_TMPDIR_TOP=/local/$time/hist
            HIST_TMPDIRS=
-           for mmmm in `seq -f %04g 1 ${MEMBER}`' mean mdet' ; do 
+           for mmmm in 'mean' 'mdet' `seq -f %04g 1 ${MEMBER}` ; do 
              HIST_TMPDIRS=${HIST_TMPDIRS}" "$HIST_TMPDIR_TOP/${mmmm}
            done
            mpiexec mkdir -p ${HIST_TMPDIRS}

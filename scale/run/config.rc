@@ -43,7 +43,11 @@ else
   exit 1
 fi
 
-if [ "$PRESET" != 'FUGAKU' ]; then
+if [ "$PRESET" == 'FUGAKU' ]; then
+  LLIO_TMP_SIZE=${LLIO_TMP_SIZE:-10}
+  HIST_TMP=${HIST_TMP:-0}
+  BDY_TMP=${BDY_TMP:-0}
+else
   USE_LLIO_BIN=0
   USE_LLIO_DAT=0
   USE_LLIO_TMP=0

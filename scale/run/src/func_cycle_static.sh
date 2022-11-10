@@ -773,7 +773,7 @@ while ((time <= ETIME)); do
       HISTORY_PATH[$d]=${OUTDIR[$d]}/$time/hist/
 
       if [ $PRESET = 'FUGAKU' ] && (( HIST_TMP == 1)) ; then
-        HISTORY_PATH[$d]=/local/$time/hist/
+        HISTORY_PATH[$d]=/local/$time/hist
       fi
 
       if ((MAKEINIT == 0)) &&  ((time == STIME)) ; then

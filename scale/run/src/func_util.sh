@@ -207,9 +207,8 @@ elif [ "$PRESET" = 'FUGAKU' ]; then
   res=$?
   if ((res != 0)); then
     echo "[Error] mpiexec  -std-proc $STDOUT -n $((NNODES*PPN)) $PROG $CONF $ARGS" >&2
-#    echo "        Exit code: $res" >&2
-#    exit $res
-    echo "### continue (tentative)" >&2
+    echo "        Exit code: $res" >&2
+    exit $res
   fi
 
 
