@@ -56,11 +56,15 @@ echo "[$(datetime_now)] Create and clean the temporary directory"
 #fi
 safe_init_tmpdir $TMP || exit $?
 
+# copy config files
+cp $SCRP_DIR/config.nml.* ${TMP}/
+cp $SCRP_DIR/config.[c,f,r]* ${TMP}/
+cp $SCRP_DIR/config.main.${PRESET} ${TMP}/
+
 #===============================================================================
 # Determine the distibution schemes
 
 echo "[$(datetime_now)] Determine the distibution schemes"
-
 safe_init_tmpdir $NODEFILE_DIR || exit $?
 distribute_da_cycle "(0)" $NODEFILE_DIR || exit $? # TEST
 
@@ -69,7 +73,7 @@ distribute_da_cycle "(0)" $NODEFILE_DIR || exit $? # TEST
 
 echo "[$(datetime_now)] Determine the staging list"
 
-cat $SCRP_DIR/config.main | \
+cat $TMP/config.main.${PRESET} | \
     sed -e "/\(^DIR=\| DIR=\)/c DIR=\"$DIR\"" \
     > $TMP/config.main
 
@@ -85,8 +89,6 @@ config_file_list $TMPS/config || exit $?
 #-------------------------------------------------------------------------------
 # Add shell scripts and node distribution files into the staging list
 
-cp ${SCRP_DIR}/config.rc ${TMP}/
-cp ${SCRP_DIR}/config.${job} ${TMP}/
 cp ${SCRP_DIR}/src/${job}.sh ${TMP}/
 cp -r ${SCRP_DIR}/src ${TMP}/
 
@@ -141,7 +143,7 @@ cat > $jobscrp << EOF
 #PJM -s
 EOF
 
-  if (( HIST_TMP == 1 )) || (( BDY_TMP == 1 )); then
+  if (( HIST_TMP == 1 )) || (( BDY_TMP == 1 )) || (( ANAL_TMP == 1 )); then
     echo "#PJM --llio localtmp-size=${LLIO_TMP_SIZE}Gi" >> $jobscrp
   fi
 

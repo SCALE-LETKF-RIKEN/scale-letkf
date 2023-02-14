@@ -252,6 +252,17 @@ while ((time <= ETIME)); do
            mpiexec mkdir -p ${HIST_TMPDIRS}
         fi
 
+        if [ "$PRESET" = 'FUGAKU' ] && (( ANAL_TMP == 1 )) ; then
+           ANAL_TMPDIR_TOP_OLD=/local/$time/anal" "/local/$time/gues
+           ANAL_TMPDIR_TOP=/local/$atime/anal
+           ANAL_TMPDIRS=
+           for mmmm in 'mean' 'mdet' 'sprd' '../gues/mean' '../gues/mdet' '../gues/sprd' `seq -f %04g 1 ${MEMBER}` ; do 
+             ANAL_TMPDIRS=${ANAL_TMPDIRS}" "$ANAL_TMPDIR_TOP/${mmmm}
+           done
+           mpiexec mkdir -p ${ANAL_TMPDIRS}
+        fi
+
+
       fi
       if ((s == 4)); then
         logd=$OUTDIR/$atime/log/letkf
@@ -299,6 +310,8 @@ while ((time <= ETIME)); do
       if [ "$PRESET" = 'FUGAKU' ] ; then
         if (( s == 5 && HIST_TMP == 1)) ; then
           mpiexec rm -rf ${HIST_TMPDIR_TOP}
+        elif (( s == 5 && ANAL_TMP == 1)) ; then
+          mpiexec rm -rf ${ANAL_TMPDIR_TOP_OLD}
         elif (( s == 4 && BDY_TMP == 1)) ; then
           mpiexec rm -rf ${BDY_TMPDIR_TOP}
         fi

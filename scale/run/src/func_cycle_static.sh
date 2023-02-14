@@ -136,7 +136,6 @@ fi ### DISK_MODE >= 1
 #-------------------------------------------------------------------------------
 
 ith=0
-
 for m in $(seq $mtot) ; do
   for q in $(seq ${mem_np_}); do
       if ((DISK_MODE >= 1));then
@@ -613,7 +612,7 @@ if [ "$TOPO_FORMAT" = "GTOPO30" ] || [ "$TOPO_FORMAT" = "DEM50M" ] || [ "$LANDUS
     SRC_LANDUSE_PATH=${DATADIR}/landuse
   fi
 
-  conf_file_src=$SCRP_DIR/config.nml.scale_pp
+  conf_file_src=${TMP}/config.nml.scale_pp
   conf="$(cat $conf_file_src | \
            sed -e "/!--IO_LOG_BASENAME--/a IO_LOG_BASENAME = \"$OUTDIR/$time/log/scale_pp/LOG\"," \
                -e "/!--FILE_AGGREGATE--/a FILE_AGGREGATE = ${FILE_AGGREGATE}," \
@@ -776,12 +775,24 @@ while ((time <= ETIME)); do
         HISTORY_PATH[$d]=/local/$time/hist
       fi
 
+      loop_prev=$((loop-1))
+      loop_next=$((loop+1))
       if ((MAKEINIT == 0)) &&  ((time == STIME)) ; then
-      RESTART_IN_PATH[$d]=${INDIR[$d]}/$time/anal
+        RESTART_IN_PATH[$d]=${INDIR[$d]}/$time/anal
       else
-      RESTART_IN_PATH[$d]=${OUTDIR[$d]}/$time/anal
+        RESTART_IN_PATH[$d]=${OUTDIR[$d]}/$time/anal
       fi 
       RESTART_OUT_PATH[$d]=${OUTDIR[$d]}/${atime}/anal
+
+      if [ $PRESET = 'FUGAKU' ] && (( ANAL_TMP == 1 )) ; then
+         if (( loop_prev % ANAL_TMP_SKIP != 0 )); then
+           RESTART_IN_PATH[$d]=/local/$time/anal
+         fi
+         if (( loop % ANAL_TMP_SKIP != 0 && atime <= ETIME )); then
+           RESTART_OUT_PATH[$d]=/local/$atime/anal
+         fi
+      fi
+
       BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time/bdy
       CONSTDB_PATH=$SCALEDIR/data
 
@@ -860,11 +871,11 @@ while ((time <= ETIME)); do
     fi
 
     if ((d == 1)); then
-      conf_file_src=$SCRP_DIR/config.nml.letkf
+      conf_file_src=$TMP/config.nml.letkf
 #      conf_file_src2=$SCRP_DIR/config.nml.scale
       conf_file="$TMP/config/letkf_${atime}.conf"
     else
-      conf_file_src=$SCRP_DIR/config.nml.letkf.d$d
+      conf_file_src=$TMP/config.nml.letkf.d$d
       #conf_file_src2=$SCRP_DIR/config.nml.scale.d$d
       conf_file="$TMP/config/letkf.d${dfmt}_${atime}.conf"
     fi
@@ -900,7 +911,7 @@ while ((time <= ETIME)); do
       RESTART_IN_BASENAME_SCALE="${RESTART_OUT_PATH[$d]}/../gues/<member>/init"
     fi
 
-    cat $SCRP_DIR/config.nml.ensmodel | \
+    cat $TMP/config.nml.ensmodel | \
         sed -e "/!--MEMBER--/a MEMBER = $MEMBER," \
             -e "/!--CONF_FILES--/a CONF_FILES = \"letkf.d<domain>_${atime}.conf\"," \
             -e "/!--DET_RUN--/a DET_RUN = ${DET_RUN_TF}," \
@@ -973,6 +984,11 @@ done
 
 echo
 
+#
+echo "backup"
+cp $TMPS/config/*.conf $OUTDIR/config/
+echo
+
 #-------------------------------------------------------------------------------
 }
 
@@ -1021,9 +1037,9 @@ echo
         dfmt=$(printf $DOMAIN_FMT $d)
 
         if ((d == 1)); then
-          conf_file_src=$SCRP_DIR/config.nml.scale_init
+          conf_file_src=$TMP/config.nml.scale_init
         else
-          conf_file_src=$SCRP_DIR/config.nml.scale_init.d$d
+          conf_file_src=$TMP/config.nml.scale_init.d$d
         fi
 
         if (((loop == 1 && MAKEINIT == 1) || USE_INIT_FROM_BDY == 1)); then
@@ -1085,7 +1101,7 @@ echo
         else
           bdy_no_suffix=
         fi
-        cat $SCRP_DIR/config.nml.grads_boundary | \
+        cat $TMP/config.nml.grads_boundary | \
             sed -e "s#--DIR--/bdyatm#${TMPROOT_BDYDATA}/${mem_bdy}/bdyorg_atm_$(datetime_scale $time_bdy_start_prev)${bdy_no_suffix}#g" \
                 -e "s#--DIR--/bdysfc#${TMPROOT_BDYDATA}/${mem_bdy}/bdyorg_sfc_$(datetime_scale $time_bdy_start_prev)${bdy_no_suffix}#g" \
                 -e "s#--DIR--/bdyland#${TMPROOT_BDYDATA}/${mem_bdy}/bdyorg_lnd_$(datetime_scale $time_bdy_start_prev)${bdy_no_suffix}#g" \
@@ -1210,9 +1226,9 @@ config_file_scale_core (){
       fi
 
       if ((d == 1)); then
-        conf_file_src=$SCRP_DIR/config.nml.scale
+        conf_file_src=$TMP/config.nml.scale
       else
-        conf_file_src=$SCRP_DIR/config.nml.scale.d$d
+        conf_file_src=$TMP/config.nml.scale.d$d
       fi
  
       if ((mlocal==mmean)); then
@@ -1264,8 +1280,8 @@ config_file_scale_core (){
       conf_file="$TMPS/${name_m[$mlocal]}/run.d${dfmt}_${time}.conf"
       echo "$conf" > ${conf_file}
 
-      if ((ENABLE_PARAM_USER == 1)) && [ -e "$SCRP_DIR/config.nml.scale_user" ]; then
-        conf="$(cat $SCRP_DIR/config.nml.scale_user)"
+      if ((ENABLE_PARAM_USER == 1)) && [ -e "$TMP/config.nml.scale_user" ]; then
+        conf="$(cat $TMP/config.nml.scale_user)"
         if ((OCEAN_INPUT == 1)); then
           if ((OCEAN_FORMAT == 99)); then
 #            conf="$(echo "$conf" | \
