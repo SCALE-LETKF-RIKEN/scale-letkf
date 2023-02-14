@@ -809,10 +809,11 @@ while ((time <= ETIME)); do
   OBS_IN_NAME_LIST=
   for iobs in $(seq $OBSNUM); do
     if [ "${OBSNAME[$iobs]}" != '' ]; then
+      OBSFOOT[$iobs]=${OBSFOOT[$iobs]:-dat}
       if ((DISK_MODE_OBS >= 1)); then
-        OBS_IN_NAME_LIST="${OBS_IN_NAME_LIST}'${TMPROOT_OBS}/obs/${OBSNAME[$iobs]}_${atime}.dat', "
+        OBS_IN_NAME_LIST="${OBS_IN_NAME_LIST}'${TMPROOT_OBS}/obs/${OBSNAME[$iobs]}_${atime}.${OBSFOOT[$iobs]}', "
       else
-        OBS_IN_NAME_LIST="${OBS_IN_NAME_LIST}'${OBS}/${OBSNAME[$iobs]}_${atime}.dat', "
+        OBS_IN_NAME_LIST="${OBS_IN_NAME_LIST}'${OBS}/${OBSNAME[$iobs]}_${atime}.${OBSFOOT[$iobs]}', "
       fi
     fi
   done

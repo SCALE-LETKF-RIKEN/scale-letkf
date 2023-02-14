@@ -132,6 +132,7 @@ MODULE common_obs_scale
   character(obsformatlenmax), parameter :: obsfmt_prepbufr = 'PREPBUFR'
   character(obsformatlenmax), parameter :: obsfmt_radar    = 'RADAR'
   character(obsformatlenmax), parameter :: obsfmt_h08      = 'HIMAWARI8'
+  character(obsformatlenmax), parameter :: obsfmt_radar_nc = 'RADAR-NC'
 !  integer, parameter :: nobsformats = 3
 !  character(obsformatlenmax), parameter :: obsformat(nobsformats) = &
 !    (/obsfmt_prepbufr, obsfmt_radar, obsfmt_h08/)
@@ -1591,7 +1592,7 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step)
                           v3dgh,v2dgh,ohx(n),oqc(n),stggrd=1,typ=obs(iset)%typ(iidx))
         end if
       !=========================================================================
-      case (obsfmt_radar)
+      case (obsfmt_radar, obsfmt_radar_nc )
       !-------------------------------------------------------------------------
         if (DEPARTURE_STAT_RADAR) then
           call phys2ijkz(v3dgh(:,:,:,iv3dd_hgt),ril,rjl,obs(iset)%lev(iidx),rkz,oqc(n))
@@ -2440,6 +2441,8 @@ subroutine read_obs_all(obs)
       call get_nobs(trim(OBS_IN_NAME(iof)),8,obs(iof)%nobs)
     case (obsfmt_radar)
       call get_nobs_radar(trim(OBS_IN_NAME(iof)), obs(iof)%nobs, obs(iof)%meta(1), obs(iof)%meta(2), obs(iof)%meta(3))
+    case (obsfmt_radar_nc)
+      call get_nobs_radar_nc(trim(OBS_IN_NAME(iof)), obs(iof)%nobs, obs(iof)%meta(1), obs(iof)%meta(2), obs(iof)%meta(3))
     case default
       write(6,*) '[Error] Unsupported observation file format!'
       stop
@@ -2456,6 +2459,8 @@ subroutine read_obs_all(obs)
       call read_obs(trim(OBS_IN_NAME(iof)),obs(iof))
     case (obsfmt_radar)
       call read_obs_radar(trim(OBS_IN_NAME(iof)),obs(iof))
+    case (obsfmt_radar_nc)
+      call read_obs_radar_nc( trim( OBS_IN_NAME(iof) ), obs(iof) )
     end select
   end do ! [ iof = 1, OBS_IN_NUM ]
 
@@ -2848,5 +2853,173 @@ subroutine write_obsnum_nc( filename, nctype, typ_ctype, elm_u_ctype, num_bqc, n
 
   return
 end subroutine write_obsnum_nc
+
+subroutine get_nobs_radar_nc( cfile, nn, radarlon, radarlat, radarz )
+  use netcdf
+  use common_ncio
+  implicit none
+
+  character(*), intent(in) :: cfile
+  integer, intent(out) :: nn
+  real(r_size), intent(out) :: radarlon, radarlat, radarz
+
+  integer :: ncid
+
+  ! Open the file. 
+  call ncio_check( nf90_open( trim( cfile ), nf90_nowrite, ncid ) ) 
+
+  ! Get obs num
+  call ncio_check( nf90_get_att(ncid, nf90_global, "num_valid_obs", nn ))
+
+  ! Get radar location
+  call ncio_check( nf90_get_att(ncid, nf90_global, "radar_lon", radarlon ) )
+  call ncio_check( nf90_get_att(ncid, nf90_global, "radar_lat", radarlat ) )
+  call ncio_check( nf90_get_att(ncid, nf90_global, "radar_hgt", radarz   ) )
+
+  ! Close the file. 
+  call ncio_check( nf90_close(ncid) )
+  return
+end subroutine get_nobs_radar_nc
+
+subroutine read_obs_radar_nc( cfile, obs )
+  use common_nml
+  use netcdf
+  use common_ncio
+  use scale_atmos_grid_cartesC, only: &
+      DX, &
+      DY
+  implicit none
+
+  character(*), intent(in) :: cfile
+  type(obs_info), intent(inout) :: obs
+
+  real, allocatable :: obs1d(:)
+  real, allocatable :: x1d(:)
+  real, allocatable :: y1d(:)
+  real, allocatable :: z1d(:)
+  real, allocatable :: tdiff1d(:) ! time difference for 4D LETKF
+  integer :: nobs ! size 
+
+  integer :: ncid
+  integer :: dimid
+  integer :: varid
+  integer :: varid_x, varid_y, varid_z
+  integer :: varid_tdiff
+
+  integer :: start_nc(1)
+  integer :: count_nc(1)
+
+  character(len=15), parameter :: VHVAR_NAME = 'RadialVelocity'
+  character(len=15), parameter :: ZHVAR_NAME = 'Reflectivity'
+  character(len=15) :: VARNAME_SELECT
+
+  integer :: obsid
+
+  integer :: n
+
+  real(r_size) :: radarlon, radarlat, radarz
+  real(r_size) :: radar_rig, radar_rjg
+
+  real(r_size) :: rig, rjg
+  real(r_size) :: lon, lat
+  real(r_size) :: oerr
+
+  ! Open the file. 
+  call ncio_check( nf90_open( trim( cfile ), nf90_nowrite, ncid ) ) 
+
+  ! Get dimension size
+  call ncio_check( nf90_inq_dimid( ncid, "nobs", dimid ) )
+  call ncio_check( nf90_inquire_dimension( ncid, dimid, len=nobs ) )
+
+  ! Get radar location
+  call ncio_check( nf90_get_att(ncid, nf90_global, "radar_lon", radarlon ) )
+  call ncio_check( nf90_get_att(ncid, nf90_global, "radar_lat", radarlat ) )
+  call ncio_check( nf90_get_att(ncid, nf90_global, "radar_hgt", radarz   ) )
+
+  call phys2ij( radarlon, radarlat, radar_rig, radar_rjg )
+
+  ! Get obsid
+  call ncio_check( nf90_get_att(ncid, nf90_global, "obsid", obsid ) )
+
+  select case( obsid )
+    case ( id_radar_ref_obs )
+      VARNAME_SELECT = trim( ZHVAR_NAME )
+      oerr = OBSERR_RADAR_REF
+    case ( id_radar_vr_obs  )
+      VARNAME_SELECT = trim( VHVAR_NAME )
+      oerr = OBSERR_RADAR_VR
+    case default
+      write(6,*) 'Invalid obsid. Stop'
+      stop
+  end select
+
+  ! Get variable id
+  call ncio_check( nf90_inq_varid( ncid, trim( VARNAME_SELECT ), varid ) )
+  call ncio_check( nf90_inq_varid( ncid, "x", varid_x ) )
+  call ncio_check( nf90_inq_varid( ncid, "y", varid_y ) )
+  call ncio_check( nf90_inq_varid( ncid, "z", varid_z ) )
+  if ( RADAR_OBS_4D ) then
+    call ncio_check( nf90_inq_varid( ncid, "tdiff", varid_tdiff ) )
+  endif
+
+  ! Allocate variable
+  allocate( obs1d   (nobs) )  
+  allocate( x1d     (nobs) )  
+  allocate( y1d     (nobs) )  
+  allocate( z1d     (nobs) )  
+  allocate( tdiff1d (nobs) )  
+  
+  start_nc = [ 1 ]
+  count_nc = [ nobs ]
+
+  call ncio_check( nf90_get_var( ncid, varid, obs1d, &
+                      start=start_nc, count=count_nc ) )
+
+  call ncio_check( nf90_get_var( ncid, varid_x, x1d, &
+                      start=start_nc, count=count_nc ) )
+
+  call ncio_check( nf90_get_var( ncid, varid_y, y1d, &
+                      start=start_nc, count=count_nc ) )
+
+  call ncio_check( nf90_get_var( ncid, varid_z, z1d, &
+                      start=start_nc, count=count_nc ) )
+
+  if ( RADAR_OBS_4D ) then
+     call ncio_check( nf90_get_var( ncid, varid_tdiff, tdiff1d, &
+                         start=start_nc, count=count_nc ) )
+  endif
+
+  n = 0
+  do n = 1, nobs
+    rig = real( x1d(n) / DX, kind=r_size ) + radar_rig
+    rjg = real( y1d(n) / DY, kind=r_size ) + radar_rjg
+
+    call ij2phys( rig, rjg, lon, lat )
+    obs%elm(n) = obsid
+    obs%lon(n) = real( lon, kind=r_size )
+    obs%lat(n) = real( lat, kind=r_size )
+    obs%lev(n) = real( z1d(n), kind=r_size )
+    if ( obsid == id_radar_ref_obs ) then
+      obs%dat(n) = real( 10**(obs1d(n)*0.1), kind=r_size ) ! dBZ to dB
+    else
+      obs%dat(n) = real( obs1d(n), kind=r_size )
+    endif
+    obs%err(n) = oerr
+    obs%typ(n) = 22
+    if ( RADAR_OBS_4D ) then
+      obs%dif(n) = real( tdiff1d(n), kind=r_size )
+    else
+      obs%dif(n) = real( 0.0, kind=r_size )
+    endif
+  enddo
+
+  deallocate( x1d, y1d, z1d )
+  deallocate( obs1d )
+
+  ! Close the file. 
+  call ncio_check( nf90_close(ncid) )
+
+  return
+end subroutine read_obs_radar_nc
 
 END MODULE common_obs_scale

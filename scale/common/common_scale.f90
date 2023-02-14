@@ -80,7 +80,7 @@ MODULE common_scale
   INTEGER,PARAMETER :: iv2dd_t2m=6
   INTEGER,PARAMETER :: iv2dd_q2m=7
   CHARACTER(vname_max),PARAMETER :: v3dd_name(nv3dd) = &
-     (/'U         ', 'V         ', 'W         ', 'T         ', 'PRES      ', &
+     (/'Umet      ', 'Vmet      ', 'W         ', 'T         ', 'PRES      ', &
        'QV        ', 'QC        ', 'QR        ', 'QI        ', 'QS        ', 'QG        ', 'RH        ', 'height    '/)
   LOGICAL,PARAMETER :: v3dd_hastime(nv3dd) = &
      (/.true., .true., .true., .true., .true., &

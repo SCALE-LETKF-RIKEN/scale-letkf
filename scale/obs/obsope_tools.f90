@@ -411,7 +411,7 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
                               obs(iof)%lon(n), obs(iof)%lat(n), v3dg, v2dg, obsda%val(nn), obsda%qc(nn), typ=obs(iof)%typ(n))
             end if
           !=====================================================================
-          case (obsfmt_radar)
+          case (obsfmt_radar, obsfmt_radar_nc)
           !---------------------------------------------------------------------
             if (obs(iof)%lev(n) > RADAR_ZMAX) then
               obsda%qc(nn) = iqc_radar_vhi
@@ -572,7 +572,7 @@ SUBROUTINE obsmake_cal(obs)
                                   obs(iof)%lon(n),obs(iof)%lat(n),v3dg,v2dg,obs(iof)%dat(n),iqc,typ=obs(iof)%typ(n))
                 end if
               !=================================================================
-              case (obsfmt_radar)
+              case (obsfmt_radar, obsfmt_radar_nc )
               !-----------------------------------------------------------------
                 call phys2ijkz(v3dg(:,:,:,iv3dd_hgt),ril,rjl,obs(iof)%lev(n),rkz,iqc)
                 if (iqc == iqc_good) then
