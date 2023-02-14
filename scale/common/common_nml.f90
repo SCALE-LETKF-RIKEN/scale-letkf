@@ -240,6 +240,7 @@ MODULE common_nml
   LOGICAL               :: OBSDEP_OUT = .true.
   character(filelenmax) :: OBSDEP_OUT_BASENAME = 'obsdep'
   LOGICAL               :: OBSDEP_OUT_NC = .false.
+  logical               :: OBSDEP_OUT_NOQC = .false.
   logical               :: OBSNUM_OUT_NC = .false.
   character(filelenmax) :: OBSNUM_OUT_NC_BASENAME = 'obsnum'
   LOGICAL               :: OBSGUES_OUT = .false.                  !XXX not implemented yet...
@@ -256,6 +257,7 @@ MODULE common_nml
   logical :: USE_OBSERR_RADAR_VR = .false.
 
   logical :: RADAR_OBS_4D = .false.
+  logical :: RADAR_OBS_IN_DBZ = .false.
 
   REAL(r_size) :: RADAR_REF_THRES_DBZ = 15.0d0 !Threshold of rain/no rain
   INTEGER :: MIN_RADAR_REF_MEMBER_OBSRAIN = 1          !Ensemble members with reflectivity greather than RADAR_REF_THRES_DBZ
@@ -300,6 +302,10 @@ MODULE common_nml
 
   logical :: RADAR_PQV = .false. ! Pseudo qv DA for radar
   real(r_size) :: RADAR_PQV_OMB = 25.0d0 ! Threshold Obs-B for pseudo qv DA for radar
+
+  !Yokota et al.(2018JGRA, Y18) additive inflation method
+  logical :: RADAR_ADDITIVE_Y18 = .false.        ! switch of additive inflation for radar reflectivity obs 
+  integer :: RADAR_ADDITIVE_Y18_MINMEM = 0 ! If the number of precipitating members is smaller than this threshold, use Y18 method
 
   !--- PARAM_OBS_ERROR
   real(r_size) :: OBSERR_U = 1.0d0
@@ -838,6 +844,7 @@ subroutine read_nml_letkf_monitor
     OBSDEP_OUT, &
     OBSDEP_OUT_BASENAME, &
     OBSDEP_OUT_NC, &
+    OBSDEP_OUT_NOQC, &
     OBSNUM_OUT_NC, &
     OBSNUM_OUT_NC_BASENAME, &
     OBSGUES_OUT, &
@@ -876,6 +883,7 @@ subroutine read_nml_letkf_radar
     USE_OBSERR_RADAR_REF, &
     USE_OBSERR_RADAR_VR, &
     RADAR_OBS_4D, &
+    RADAR_OBS_IN_DBZ, &
     RADAR_REF_THRES_DBZ, &
     MIN_RADAR_REF_MEMBER_OBSRAIN, &
     MIN_RADAR_REF_MEMBER_OBSNORAIN, &
@@ -898,7 +906,9 @@ subroutine read_nml_letkf_radar
     RADAR_THIN_LETKF_HGRID_SIZE, &
     RADAR_THIN_LETKF_VGRID_SIZE, &
     RADAR_PQV, &
-    RADAR_PQV_OMB
+    RADAR_PQV_OMB, &
+    RADAR_ADDITIVE_Y18, &
+    RADAR_ADDITIVE_Y18_MINMEM
 
   rewind(IO_FID_CONF)
   read(IO_FID_CONF,nml=PARAM_LETKF_RADAR,iostat=ierr)
@@ -913,6 +923,10 @@ subroutine read_nml_letkf_radar
   if (RADAR_REF_THRES_DBZ < MIN_RADAR_REF_DBZ) then
     RADAR_REF_THRES_DBZ = MIN_RADAR_REF_DBZ
   end if
+
+  if ( RADAR_ADDITIVE_Y18 ) then
+    MIN_RADAR_REF_MEMBER_OBSRAIN = RADAR_ADDITIVE_Y18_MINMEM 
+  endif
 
   if (LOG_LEVEL >= 2) then
     write(6, nml=PARAM_LETKF_RADAR)

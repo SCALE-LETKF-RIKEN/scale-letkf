@@ -376,10 +376,22 @@ SUBROUTINE set_letkf_obs
                   '*  (lon,lat)=(',obs(iof)%lon(iidx),',',obs(iof)%lat(iidx),'), mem_ref=', &
                   mem_ref,', ref_obs=', obs(iof)%dat(iidx)
           end if
-          if ( .not. RADAR_PQV ) cycle
+         
+          !if ( .not. RADAR_PQV ) cycle
           ! When RADAR_PQV=True, pseudo qv obs is assimilated even if mem_ref is
           ! too small
         end if
+
+        if ( RADAR_ADDITIVE_Y18 ) then
+          if ( mem_ref < RADAR_ADDITIVE_Y18_MINMEM ) then
+            ! Ensemble mean of HX (B in O-B) is assumed to be [MIN_RADAR_REF_DBZ + LOW_REF_SHIFT],
+            ! which is a clear sky reflectivity
+            ! *Ensemble mean of obsda%epert should be zero
+            obsda%ensval(1:MEMBER,n) = obsda%epert(1:MEMBER,n) + MIN_RADAR_REF_DBZ + LOW_REF_SHIFT
+            obsda%qc(n) = iqc_good
+          endif
+        endif
+
       else
       ! Obs: No rain
         if (mem_ref < MIN_RADAR_REF_MEMBER_OBSNORAIN) then

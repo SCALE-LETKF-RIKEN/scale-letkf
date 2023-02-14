@@ -122,6 +122,8 @@ MODULE common_obs_scale
     ! For Himawari-8 assimilation, LETKF uses obsda%lev instead of obs%lev.
     ! 
     REAL(r_size),ALLOCATABLE :: ensval(:,:)
+    real(r_size), allocatable :: epert(:,:) ! ensemble perturbation (Y18)
+    real(r_size), allocatable :: pert(:)    ! ensemble perturbation from each member (Y18)
     REAL(r_size),ALLOCATABLE :: eqv(:,:) ! qv (ensemble)
     REAL(r_size),ALLOCATABLE :: qv(:)    ! qv (mean)
     REAL(r_size),ALLOCATABLE :: tm(:)    ! temp (mean)
@@ -352,7 +354,10 @@ END SUBROUTINE Trans_XtoY
 !-----------------------------------------------------------------------
 ! 
 !-----------------------------------------------------------------------
-SUBROUTINE Trans_XtoY_radar(elm,radar_lon,radar_lat,radar_z,ri,rj,rk,lon,lat,lev,v3d,v2d,yobs,qc,stggrd)
+SUBROUTINE Trans_XtoY_radar(elm,radar_lon,radar_lat,radar_z,ri,rj,rk,lon,lat,lev,v3d,v2d,yobs,qc,stggrd,&
+                            mv3d,slope3d,ref_add,use_shift)
+  use scale_atmos_grid_cartesC_index, only: &
+      KHALO
   IMPLICIT NONE
   INTEGER,INTENT(IN) :: elm
   REAL(r_size),INTENT(IN) :: ri,rj,rk,radar_lon,radar_lat,radar_z !!!!! Use only, ri, rj, rk eventually... (radar_lon,lat,z in ri,rj,rk)
@@ -362,6 +367,10 @@ SUBROUTINE Trans_XtoY_radar(elm,radar_lon,radar_lat,radar_z,ri,rj,rk,lon,lat,lev
   REAL(r_size),INTENT(OUT) :: yobs
   INTEGER,INTENT(OUT) :: qc
   INTEGER,INTENT(IN),OPTIONAL :: stggrd
+  real(r_size), intent(in), optional :: mv3d(nlevh,nlonh,nlath,nv3dd)
+  real(r_size), intent(in), optional :: slope3d(nlevh,nv3dd)
+  real(r_size), intent(out), optional :: ref_add
+  logical, intent(in), optional :: use_shift
   INTEGER :: stggrd_ = 0
 
   REAL(r_size) :: qvr,qcr,qrr,qir,qsr,qgr,ur,vr,wr,tr,pr !,rhr
@@ -372,13 +381,18 @@ SUBROUTINE Trans_XtoY_radar(elm,radar_lon,radar_lat,radar_z,ri,rj,rk,lon,lat,lev
   real(RP) :: lon_RP(1,1), lat_RP(1,1)
   real(RP) :: rotc_RP(2)
 
+  real(r_size) :: pert, mean, slope
+  integer :: iv3d, k
+
+  logical :: use_shift_ = .true.
+
 !  integer :: ierr
 !  REAL(r_dble) :: rrtimer00,rrtimer
 !  rrtimer00 = MPI_WTIME()
 
 
   if (present(stggrd)) stggrd_ = stggrd
-
+  if ( present( use_shift ) ) use_shift_ = use_shift
 
   yobs = undef
   qc = iqc_good
@@ -475,7 +489,15 @@ SUBROUTINE Trans_XtoY_radar(elm,radar_lon,radar_lat,radar_z,ri,rj,rk,lon,lat,lev
 !!!!    else                      !!!!!! --------- Pesudo RH: TO BE DONE...
     if (radar_ref < MIN_RADAR_REF) then
       qc = iqc_ref_low
-      yobs = MIN_RADAR_REF_DBZ + LOW_REF_SHIFT  !!! even if the above qc is bad, still return the value
+      if ( use_shift_ ) then
+        yobs = MIN_RADAR_REF_DBZ + LOW_REF_SHIFT  !!! even if the above qc is bad, still return the value
+      else
+        if ( radar_ref > 0.0_r_size ) then
+          yobs = 10.0d0 * log10(radar_ref)
+        else
+          yobs = -10.0_r_size
+        endif
+      endif
     else
       yobs = 10.0d0 * log10(radar_ref)
     end if
@@ -489,7 +511,19 @@ SUBROUTINE Trans_XtoY_radar(elm,radar_lon,radar_lat,radar_z,ri,rj,rk,lon,lat,lev
     qc = iqc_otype
   END SELECT
 
-
+  if ( RADAR_ADDITIVE_Y18 ) then
+    if ( present( mv3d ) .and. present( slope3d ) .and. present( ref_add ) ) then
+      ref_add = 0.0_r_size
+      do iv3d = 1, nv3dd
+        call itpl_3d( mv3d(:,:,:,iv3d), rk, ri, rj, mean )
+        call itpl_3d(  v3d(:,:,:,iv3d), rk, ri, rj, pert )
+        pert = pert - mean
+        call itpl_1d( slope3d(:,iv3d), rk, slope )
+        ref_add = ref_add + pert * slope
+      enddo
+    endif
+  endif
+  
 !  rrtimer = MPI_WTIME()
 !  WRITE(6,'(A,F18.10)') '###### Trans_XtoY_radar:conversion:',rrtimer-rrtimer00
 !  rrtimer00=rrtimer
@@ -1389,6 +1423,21 @@ END SUBROUTINE ij2phys
 !-----------------------------------------------------------------------
 ! Interpolation
 !-----------------------------------------------------------------------
+subroutine itpl_1d(var,rk,var5)
+  implicit none
+  real(r_size), intent(in) :: var(nlevh)
+  real(r_size), intent(in) :: rk
+  real(r_size), intent(out) :: var5
+  real(r_size) :: ak
+  integer :: k
+
+  k = ceiling( rk )
+  ak = rk - real(k-1,r_size)
+
+  var5 = var(k-1) * (1 - ak) + var(k) * ak
+
+  return
+end subroutine itpl_1d
 SUBROUTINE itpl_2d(var,ri,rj,var5)
   IMPLICIT NONE
   REAL(r_size),INTENT(IN) :: var(nlonh,nlath)
@@ -1491,6 +1540,8 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step)
   real(r_size),allocatable :: ohx(:)
   integer,allocatable :: oqc(:)
 
+  integer :: m
+  real(r_size) :: obsdep_mean
 
   call state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
 
@@ -1527,7 +1578,7 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step)
 !  obs_idx_TCY = -1
 !  obs_idx_TCP = -1
 
-!$omp parallel do private(n,nn,iset,iidx,ril,rjl,rk,rkz)
+!$omp parallel do private(n,nn,iset,iidx,ril,rjl,rk,rkz,m,obsdep_mean)
   do n = 1, nnobs
 
     if (use_key) then
@@ -1624,8 +1675,22 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step)
         obsdep_omb_emean(n) = obsda_sort%val(nn)
       end if
 
+      if ( OBSDEP_OUT_NOQC ) then
+        obsdep_qc(n) = iqc_good
+      endif
+
 !!! ensemble perturbation output
-      obsdep_sprd(n) = sqrt( sum( ( obsda_sort%ensval(:,nn) - sum(obsda_sort%ensval(:,nn))/MEMBER ) **2 ) / ( MEMBER - 1 ) )
+      obsdep_mean = obsda_sort%ensval(1,nn)
+      do m = 2, MEMBER
+        obsdep_mean = obsdep_mean + obsda_sort%ensval(m,nn)
+      enddo
+      obsdep_mean = obsdep_mean / real( MEMBER, kind=r_size )
+
+      obsdep_sprd(n) = ( obsda_sort%ensval(1,nn) - obsdep_mean )**2
+      do m = 2, MEMBER
+        obsdep_sprd(n) = obsdep_sprd(n) + ( obsda_sort%ensval(m,nn) - obsdep_mean )**2
+      enddo
+      obsdep_sprd(n) = sqrt( obsdep_sprd(n) / ( MEMBER - 1 ) )
 
       if (LOG_LEVEL >= 3) then
         write (6, '(2I6,2F8.2,4F12.4,I3)') &
@@ -1876,7 +1941,17 @@ SUBROUTINE obs_da_value_allocate(obsda,member)
 
     allocate( obsda%eqv (member,obsda%nobs) )
     obsda%eqv = 0.0d0
+
   end if
+
+  if ( RADAR_ADDITIVE_Y18 ) then
+    allocate( obsda%pert (obsda%nobs) )
+    obsda%pert = 0.0_r_size
+    if (member > 0) then
+      allocate( obsda%epert (member,obsda%nobs) )
+      obsda%epert = 0.0_r_size
+    endif
+  endif
 
   RETURN
 END SUBROUTINE obs_da_value_allocate
@@ -1895,6 +1970,10 @@ SUBROUTINE obs_da_value_deallocate(obsda)
   IF(ALLOCATED(obsda%val   )) DEALLOCATE(obsda%val   )
   IF(ALLOCATED(obsda%ensval)) DEALLOCATE(obsda%ensval)
   IF(ALLOCATED(obsda%qc    )) DEALLOCATE(obsda%qc    )
+
+  if ( allocated(obsda%eqv ) ) deallocate( obsda%eqv )
+  if ( allocated(obsda%pert ) ) deallocate( obsda%pert )
+  if ( allocated(obsda%epert ) ) deallocate( obsda%epert )
 
   RETURN
 END SUBROUTINE obs_da_value_deallocate
@@ -3000,7 +3079,11 @@ subroutine read_obs_radar_nc( cfile, obs )
     obs%lat(n) = real( lat, kind=r_size )
     obs%lev(n) = real( z1d(n), kind=r_size )
     if ( obsid == id_radar_ref_obs ) then
-      obs%dat(n) = real( 10**(obs1d(n)*0.1), kind=r_size ) ! dBZ to dB
+      if ( RADAR_OBS_IN_DBZ ) then
+        obs%dat(n) = real( 10**(obs1d(n)*0.1), kind=r_size ) ! dBZ to dB
+      else
+        obs%dat(n) = real( obs1d(n), kind=r_size )           ! dB
+      endif
     else
       obs%dat(n) = real( obs1d(n), kind=r_size )
     endif
