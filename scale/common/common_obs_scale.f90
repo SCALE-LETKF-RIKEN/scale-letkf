@@ -335,7 +335,9 @@ SUBROUTINE Trans_XtoY(elm,ri,rj,rk,lon,lat,v3d,v2d,yobs,qc,stggrd,typ)
 !  CASE(id_rain_obs) ! RAIN                        ############# (not finished)
 !    CALL itpl_2d(v2d(:,:,iv2dd_rain),ri,rj,yobs) !#############
   CASE(id_rh_obs) ! RH
-    CALL itpl_3d(v3d(:,:,:,iv3dd_rh),rk,ri,rj,yobs)
+    write(6,'(a)') 'Relative humidity obs is not supoorted'
+    stop
+!    CALL itpl_3d(v3d(:,:,:,iv3dd_rh),rk,ri,rj,yobs)
 !  CASE(id_tclon_obs)
 !    CALL tctrk(v2d(:,:,iv2d_ps),v2d(:,:,iv2d_t2),ri,rj,dummy)
 !    yobs = dummy(1)
