@@ -1,6 +1,6 @@
 include ../configure
 
-PROGS   = letkf
+PROGS   = letkf efso
 
 OBJS    = letkf_obs.o letkf_tools.o
 
@@ -46,6 +46,16 @@ letkf_tools.o:	letkf_tools.f90 letkf_obs.o $(COMMON_DIR)
 
 $(OBS_DIR):	FORCE
 	$(MAKE) -C $@ obsope_tools.o
+
+efso:	efso.o efso_tools.o $(OBJS) $(COMMON_DIR) $(OBS_DIR)
+	$(FC) $(FOPTS) $(FMCMODEL) -o efso efso.o \
+	$(COMMON_OBJS) $(OBS_OBJS) $(OBJS) $(SCALE_RM_OBJS) $(LIBS)
+
+efso.o:	efso.f90 efso_tools.o $(OBJS) $(COMMON_DIR) $(OBS_DIR)
+	$(FC) $(FOPTS) -c $< -I$(COMMON_DIR) -I$(OBS_DIR) $(INCS)
+
+efso_tools.o:	efso_tools.f90 $(COMMON_DIR)
+	$(FC) $(FOPTS) -c $< -I$(COMMON_DIR) $(INCS)
 
 clean:
 	rm -f *.o *.mod *.lst $(PROGS) letkf

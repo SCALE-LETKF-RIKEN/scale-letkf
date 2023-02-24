@@ -1366,32 +1366,34 @@ end subroutine obs_choose_ext
 
 !  RETURN
 !END SUBROUTINE monit_output
-!!-----------------------------------------------------------------------
-!! Read observation diagnostics for EFSO
-!!  Adapted from Y.Ohta's EFSO code for SPEEDY-LETKF   2013/07/17 D.Hotta
-!!  Modified, renamed from 'read_monit_obs' to 'set_efso_obs', 2013/12/26 Guo-Yuan Lien
-!!-----------------------------------------------------------------------
-!SUBROUTINE set_efso_obs
-!  IMPLICIT NONE
-!  REAL(r_size),ALLOCATABLE :: tmpdep(:)
-!  INTEGER,ALLOCATABLE :: tmpqc0(:,:)
-!  INTEGER,ALLOCATABLE :: tmpqc(:)
-!  INTEGER :: nj(0:nlat-1)
-!  INTEGER :: njs(1:nlat-1)
-!  INTEGER :: l,im,i,j,n,nn,ierr
-!  CHARACTER(14) :: obsguesfile='obsguesNNN.dat'
-!  CHARACTER(14) :: obsanalfile='obsanalNNN.dat'
+!-----------------------------------------------------------------------
+! Read observation diagnostics for EFSO
+!  Adapted from Y.Ohta's EFSO code for SPEEDY-LETKF   2013/07/17 D.Hotta
+!  Modified, renamed from 'read_monit_obs' to 'set_efso_obs', 2013/12/26 Guo-Yuan Lien
+!-----------------------------------------------------------------------
+subroutine set_efso_obs
+  implicit none
 
-!  WRITE(6,'(A)') 'Hello from set_efso_obs'
+  REAL(r_size),ALLOCATABLE :: tmpdep(:)
+  INTEGER,ALLOCATABLE :: tmpqc0(:,:)
+  INTEGER,ALLOCATABLE :: tmpqc(:)
+  INTEGER :: nj(0:nlat-1)
+  INTEGER :: njs(1:nlat-1)
+  INTEGER :: l,im,i,j,n,nn,ierr
+  CHARACTER(14) :: obsguesfile='obsguesNNN.dat'
+
+  integer :: nobs
+
+  write(6,'(A)') 'Hello from set_efso_obs'
 
 !  dist_zero = SIGMA_OBS * SQRT(10.0d0/3.0d0) * 2.0d0
 !  dist_zero_rain = SIGMA_OBS_RAIN * SQRT(10.0d0/3.0d0) * 2.0d0
 !  dist_zerov = SIGMA_OBSV * SQRT(10.0d0/3.0d0) * 2.0d0
 !  dist_zerov_rain = SIGMA_OBSV_RAIN * SQRT(10.0d0/3.0d0) * 2.0d0
 
-!  CALL get_nobs_mpi(obsanalfile,10,nobs)
-!  WRITE(6,'(I10,A)') nobs,' TOTAL OBSERVATIONS INPUT'
-!  IF(nobs == 0) RETURN
+!  call get_nobs_nc_mpi( trim(OBSDEP_OUT_BASENAME)//'.nc', nobs )
+  WRITE(6,'(I10,A)') nobs,' TOTAL OBSERVATIONS INPUT'
+  IF(nobs == 0) RETURN
 !!
 !! INITIALIZE GLOBAL VARIABLES
 !!
@@ -1426,7 +1428,7 @@ end subroutine obs_choose_ext
 !!
 !  CALL read_obs2_mpi(obsanalfile,nobs,MEMBER,obselm,obslon,obslat,obslev, &
 !                     obsdat,obserr,obstyp,obsdif,obshdxf,tmpqc0)
-
+!
 !!$OMP PARALLEL DO SCHEDULE(DYNAMIC) PRIVATE(n,i)
 !  DO n=1,nobs
 !    tmpdep(n) = obshdxf(n,1)
@@ -1497,7 +1499,7 @@ end subroutine obs_choose_ext
 !!$OMP END DO
 !!$OMP END PARALLEL
 
-!  RETURN
-!END SUBROUTINE set_efso_obs
+  return
+end subroutine set_efso_obs
 
-END MODULE letkf_obs
+end module letkf_obs
