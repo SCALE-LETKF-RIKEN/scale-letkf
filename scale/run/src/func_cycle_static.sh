@@ -1338,15 +1338,15 @@ stepexecdir[5]="$TMPRUN/letkf"
 stepexecname[5]="letkf"
 
 if (( PRESET == "FUGAKU" )) && (( USE_LLIO_BIN == 1 )); then
-  stepexecbin[1]="$DIR/ensmodel/scale-rm_pp_ens"
-  stepexecbin[2]="$DIR/ensmodel/scale-rm_init_ens"
-  stepexecbin[3]="$DIR/ensmodel/scale-rm_ens"
+  stepexecbin[1]="$TMP/scale-rm_pp_ens"
+  stepexecbin[2]="$TMP/scale-rm_init_ens"
+  stepexecbin[3]="$TMP/scale-rm_ens"
   if (( OBSOPE_RUN == 0 )) && (( PAWR_DECODE == 1 )) ; then
     stepexecbin[4]="$DIR/obs/dec_pawr"
   else
     stepexecbin[4]="$DIR/obs/obsope"
   fi
-  stepexecbin[5]="$DIR/letkf/letkf"
+  stepexecbin[5]="$TMP/letkf"
 else
   for i in `seq $nsteps`; do
      stepexecbin[$i]="./${stepexecname[$i]}"
