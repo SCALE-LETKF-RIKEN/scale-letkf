@@ -153,6 +153,8 @@ while ((time <= ETIME)); do
           if ((BDY_ENS == 1)); then
               if ((m == mmean)); then
                 mem_bdy="$BDY_MEAN"
+              elif (( m == mmgue && EFSO_RUN == 1 )); then
+                mem_bdy="$BDY_MEAN"
               else
                 mem_bdy="${name_m[$m]}"
               fi
@@ -295,6 +297,11 @@ if ((DET_RUN == 1)); then
   DET_RUN_TF='.true.'
 fi
 
+EFSO_RUN_TF='.false.'
+if (( EFSO_RUN == 1 )); then
+  EFSO_RUN_TF='.true.'
+fi
+
 conf_file="${MODEL_NAME}_${time}.conf"
 
 echo "  $conf_file"
@@ -304,6 +311,7 @@ cat $SCRP_DIR/config.nml.ensmodel | \
         -e "/!--CONF_FILES--/a CONF_FILES = \"${CONF_NAME}.d<domain>_${time}.conf\"," \
         -e "/!--CONF_FILES_SEQNUM--/a CONF_FILES_SEQNUM = $CONF_FILES_SEQNUM," \
         -e "/!--DET_RUN--/a DET_RUN = $DET_RUN_TF," \
+        -e "/!--EFSO_RUN--/a EFSO_RUN = $EFSO_RUN_TF," \
         -e "/!--PPN--/a PPN = $PPN_APPAR," \
         -e "/!--MEM_NODES--/a MEM_NODES = $mem_nodes," \
         -e "/!--NUM_DOMAIN--/a NUM_DOMAIN = $DOMNUM," \

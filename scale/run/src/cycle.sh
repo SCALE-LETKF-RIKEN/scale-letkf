@@ -114,9 +114,12 @@ cd $TMPROOT
 
 #-------------------------------------------------------------------------------
 
-mtot=$((MEMBER+1))
+mtot=$(( MEMBER + 1 ))
 if (( DET_RUN == 1 )); then
-  mtot=$((MEMBER+2))
+  mtot=$(( mtot + 1 ))
+fi
+if (( EFSO_RUN == 1 )); then
+  mtot=$(( mtot + 1 ))
 fi
 
 totalnp=$((PPN*NNODES))
@@ -232,7 +235,7 @@ while ((time <= ETIME)); do
         if [ "$PRESET" = 'FUGAKU' ] && (( BDY_TMP == 1 )) ; then
            BDY_TMPDIR_TOP=/local/$time/bdy
            BDY_TMPDIRS=
-           for mmmm in 'mean' 'mdet' `seq -f %04g 1 ${MEMBER}` ; do
+           for mmmm in 'mean' 'mdet' 'mgue' `seq -f %04g 1 ${MEMBER}` ; do
              BDY_TMPDIRS=${BDY_TMPDIRS}" "$BDY_TMPDIR_TOP/${mmmm}
            done
            mpiexec mkdir -p ${BDY_TMPDIRS}
@@ -246,7 +249,7 @@ while ((time <= ETIME)); do
         if [ "$PRESET" = 'FUGAKU' ] && (( HIST_TMP == 1 )) ; then
            HIST_TMPDIR_TOP=/local/$time/hist
            HIST_TMPDIRS=
-           for mmmm in 'mean' 'mdet' `seq -f %04g 1 ${MEMBER}` ; do 
+           for mmmm in 'mean' 'mdet' 'mgue' `seq -f %04g 1 ${MEMBER}` ; do 
              HIST_TMPDIRS=${HIST_TMPDIRS}" "$HIST_TMPDIR_TOP/${mmmm}
            done
            mpiexec mkdir -p ${HIST_TMPDIRS}
@@ -275,6 +278,9 @@ while ((time <= ETIME)); do
       fi
       if ((s == 5)); then
         logd=$OUTDIR/$atime/log/letkf
+      fi
+      if (( s == 6 )); then
+        logd=$OUTDIR/$atime/log/efso
       fi
       ######
 

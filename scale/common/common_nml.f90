@@ -31,6 +31,7 @@ MODULE common_nml
   character(len=memflen), parameter :: memf_mean = 'mean'
   character(len=memflen), parameter :: memf_mdet = 'mdet'
   character(len=memflen), parameter :: memf_sprd = 'sprd'
+  character(len=memflen), parameter :: memf_mgue = 'mgue' ! deterministic forecast from the mean of the first guess (for EFSO)
 
   integer, parameter :: domflen = 2                           ! Length of formatted domain strings
   character(len=8), parameter :: domf_notation = '<domain>'   ! Notation of the domain string
@@ -43,6 +44,8 @@ MODULE common_nml
 
   logical :: DET_RUN = .false.
   logical :: DET_RUN_CYCLED = .true.
+
+  logical :: EFSO_RUN = .false.
 
   !--- PARAM_MODEL
   character(len=10) :: MODEL = 'scale-rm'
@@ -98,6 +101,7 @@ MODULE common_nml
   character(filelenmax) :: GUES_IN_BASENAME = 'gues.@@@@'
   character(filelenmax) :: GUES_MEAN_INOUT_BASENAME = ''
   character(filelenmax) :: GUES_MDET_IN_BASENAME = ''
+  character(filelenmax) :: GUES_MGUE_IN_BASENAME = ''
   logical               :: GUES_SPRD_OUT = .true.
   character(filelenmax) :: GUES_SPRD_OUT_BASENAME = ''
   character(filelenmax) :: ANAL_OUT_BASENAME = 'anal.@@@@'
@@ -360,7 +364,8 @@ subroutine read_nml_ensemble
     CONF_FILES, &
     CONF_FILES_SEQNUM, &
     DET_RUN, &
-    DET_RUN_CYCLED
+    DET_RUN_CYCLED, &
+    EFSO_RUN
 
   rewind(IO_FID_CONF)
   read(IO_FID_CONF,nml=PARAM_ENSEMBLE,iostat=ierr)
@@ -570,6 +575,7 @@ subroutine read_nml_letkf
     GUES_IN_BASENAME, &
     GUES_MEAN_INOUT_BASENAME, &
     GUES_MDET_IN_BASENAME, &
+    GUES_MGUE_IN_BASENAME, &
     GUES_SPRD_OUT, &
     GUES_SPRD_OUT_BASENAME, &
     ANAL_OUT_BASENAME, &
@@ -665,6 +671,12 @@ subroutine read_nml_letkf
     GUES_MDET_IN_BASENAME = GUES_IN_BASENAME
     call filename_replace_mem(GUES_MDET_IN_BASENAME, memf_mdet)
   end if
+
+  if (trim(GUES_MGUE_IN_BASENAME) == '') then
+    GUES_MGUE_IN_BASENAME = GUES_IN_BASENAME
+    call filename_replace_mem( GUES_MGUE_IN_BASENAME, memf_mgue )
+  end if
+
   if (trim(GUES_SPRD_OUT_BASENAME) == '') then
     GUES_SPRD_OUT_BASENAME = GUES_IN_BASENAME
     call filename_replace_mem(GUES_SPRD_OUT_BASENAME, memf_sprd)

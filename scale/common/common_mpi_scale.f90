@@ -65,9 +65,13 @@ module common_mpi_scale
   integer,save :: mmdetin = -99  ! 
   integer,save :: mmdetobs = -99 ! 
 
+  integer, save :: mmgue = -99
+
   integer,save :: mmean_rank_e = -1
   integer,save :: mmdet_rank_e = -1
   integer,save :: msprd_rank_e = -1
+
+  integer, save :: mmgue_rank_e = -1
 
   integer,save :: MPI_COMM_u, nprocs_u, myrank_u
   integer,save :: MPI_COMM_a, nprocs_a, myrank_a
@@ -512,7 +516,7 @@ mem_loop: DO it = 1, nitmax
   ! settings related to mdet (only valid when mem >= MEMBER+2)
   !----------------------------------------------------------------
   if (mem >= MEMBER+2 .and. DET_RUN) then
-    mmdet = MEMBER+2
+    mmdet = MEMBER + 2
     if (DET_RUN_CYCLED) then
       mmdetin = mmdet
     else
@@ -527,6 +531,18 @@ mem_loop: DO it = 1, nitmax
     end if
 #endif
   end if
+
+  if ( mem >= MEMBER + 2 .and. EFSO_RUN ) then
+    if ( DET_RUN ) then
+      mmgue = MEMBER + 3
+    else
+      mmgue = MEMBER + 2
+    endif
+
+    mmgue_rank_e = mod( mmgue-1, n_mem*n_mempn )
+
+  endif
+
 
   call mpi_timer('set_mem_node_proc:', 2)
 
@@ -1211,7 +1227,7 @@ subroutine read_ens_mpi(v3d, v2d)
 
     ! Note: read all members + mdetin
     ! 
-    if ((im >= 1 .and. im <= MEMBER) .or. im == mmdetin) then
+    if ( ( im >= 1 .and. im <= MEMBER ) .or. im == mmdetin .or. im == mmgue ) then
       if (im <= MEMBER) then
         filename = GUES_IN_BASENAME
         call filename_replace_mem(filename, im)
@@ -1219,6 +1235,8 @@ subroutine read_ens_mpi(v3d, v2d)
         filename = GUES_MEAN_INOUT_BASENAME
       else if (im == mmdet) then
         filename = GUES_MDET_IN_BASENAME
+      else if ( im == mmgue ) then
+        filename = GUES_MGUE_IN_BASENAME
       end if
 
 !      write (6,'(A,I6.6,3A,I6.6,A)') 'MYRANK ',myrank,' is reading a file ',filename,'.pe',myrank_d,'.nc'

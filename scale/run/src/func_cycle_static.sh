@@ -38,16 +38,26 @@ if ((DISK_MODE == 1)) ;then
   staging_list_common_static cycle
 fi
 
-mtot=$((MEMBER+1))
-mmean=$((MEMBER+1))
+mtot=$(( MEMBER + 1 ))
+mmean=$(( MEMBER + 1 ))
 name_m[$mmean]='mean'
 mkdir -p $TMP/mean
 if (( DET_RUN == 1 )); then
-  mtot=$((MEMBER+2))
-  mmdet=$((MEMBER+2))
+  mtot=$(( mtot + 1 ))
+  mmdet=$(( mmean + 1 ))
   name_m[$mmdet]='mdet'
   mkdir -p $TMP/mdet
+else
+  mmdet=$mmean
 fi
+
+if (( EFSO_RUN == 1 )); then
+  mtot=$(( mtot + 1 ))
+  mmgue=$(( mmdet + 1 ))
+  name_m[$mmgue]='mgue'
+  mkdir -p $TMP/mgue
+fi
+
 
 for m in $(seq $MEMBER); do
   name_m[$m]=$(printf $MEMBER_FMT $m)
@@ -841,6 +851,12 @@ while ((time <= ETIME)); do
   if ((DET_RUN == 1)); then
     DET_RUN_TF='.true.'
   fi
+
+  EFSO_RUN_TF='.false.'
+  if (( EFSO_RUN == 1 )); then
+    EFSO_RUN_TF='.true.'
+  fi
+
   OBSDA_OUT='.false.'
   if ((OBSOUT_OPT <= 2)); then
     OBSDA_OUT='.true.'
@@ -918,6 +934,7 @@ while ((time <= ETIME)); do
         sed -e "/!--MEMBER--/a MEMBER = $MEMBER," \
             -e "/!--CONF_FILES--/a CONF_FILES = \"letkf.d<domain>_${atime}.conf\"," \
             -e "/!--DET_RUN--/a DET_RUN = ${DET_RUN_TF}," \
+            -e "/!--EFSO_RUN--/a EFSO_RUN = ${EFSO_RUN_TF}," \
             -e "/!--PPN--/a PPN = $PPN_APPAR," \
             -e "/!--MEM_NODES--/a MEM_NODES = $mem_nodes," \
             -e "/!--NUM_DOMAIN--/a NUM_DOMAIN = $DOMNUM," \
@@ -1158,6 +1175,8 @@ config_file_scale_core (){
 #        RESTART_IN_POSTFIX_TIMELABEL_TF=".true."
 #      fi
 
+      RESTART_OUTPUT_TF=".true."
+
       mkdir -p ${OUTDIR[$d]}/$atime/anal/${name_m[$mlocal]}
       mkdir -p ${OUTDIR[$d]}/$atime/gues/${name_m[$mlocal]}
       mkdir -p ${OUTDIR[$d]}/$time/hist/${name_m[$mlocal]}
@@ -1211,6 +1230,8 @@ config_file_scale_core (){
         else
           RESTART_OUT_ADDITIONAL_BASENAME="\"${RESTART_OUT_PATH[$d]}/../gues/mdet/init\", "
         fi
+      elif [ "${name_m[$mlocal]}" == 'mgue' ]; then
+        RESTART_OUTPUT_TF=".false."
       elif ((OUT_OPT <= 3)); then
         RESTART_OUT_ADDITIONAL_COPIES=1
         if ((DISK_MODE >= 1)); then
@@ -1254,7 +1275,7 @@ config_file_scale_core (){
               -e "/!--ONLINE_IAM_DAUGHTER--/a ONLINE_IAM_DAUGHTER = ${ONLINE_IAM_DAUGHTER}," \
               -e "/!--RESTART_IN_BASENAME--/a RESTART_IN_BASENAME = \"${RESTART_IN_BASENAME[$d]}\"," \
               -e "/!--RESTART_IN_POSTFIX_TIMELABEL--/a RESTART_IN_POSTFIX_TIMELABEL = ${RESTART_IN_POSTFIX_TIMELABEL_TF}," \
-              -e "/!--RESTART_OUTPUT--/a RESTART_OUTPUT = .true.," \
+              -e "/!--RESTART_OUTPUT--/a RESTART_OUTPUT = ${RESTART_OUTPUT_TF}," \
               -e "/!--RESTART_OUT_BASENAME--/a RESTART_OUT_BASENAME = \"${RESTART_OUT_BASENAME[$d]}\"," \
               -e "/!--RESTART_OUT_POSTFIX_TIMELABEL--/a RESTART_OUT_POSTFIX_TIMELABEL = ${RESTART_OUT_POSTFIX_TIMELABEL_TF}," \
               -e "/!--TOPOGRAPHY_IN_BASENAME--/a TOPOGRAPHY_IN_BASENAME = \"${TOPO_PATH}/topo/topo\"," \
