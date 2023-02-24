@@ -110,13 +110,12 @@ cp ${ENSMODEL_DIR}/scale-rm_pp_ens ${TMPROOT}/scale-rm_pp_ens
 cp ${ENSMODEL_DIR}/scale-rm_init_ens ${TMPROOT}/scale-rm_init_ens
 cp ${ENSMODEL_DIR}/scale-rm_ens ${TMPROOT}/scale-rm_ens
  
-if (( OBSOPE_RUN == 1 )) ;then
-  cp ${OBSUTIL_DIR}/obsope ${TMPROOT}/obsope
-fi
+cp ${OBSUTIL_DIR}/obsope ${TMPROOT}/obsope
 if (( PAWR_DECODE == 1 )) ;then
   cp ${OBSUTIL_DIR}/dec_pawr ${TMPROOT}/dec_pawr
 fi
 cp ${LETKF_DIR}/letkf ${TMPROOT}/letkf
+cp ${LETKF_DIR}/efso ${TMPROOT}/efso
 
 #-------------------------------------------------------------------------------
 # database
@@ -874,17 +873,21 @@ while ((time <= ETIME)); do
       conf_file_src=$TMP/config.nml.letkf
 #      conf_file_src2=$SCRP_DIR/config.nml.scale
       conf_file="$TMP/config/letkf_${atime}.conf"
+      conf_file_efso="$TMP/config/efso_${atime}.conf"
     else
       conf_file_src=$TMP/config.nml.letkf.d$d
       #conf_file_src2=$SCRP_DIR/config.nml.scale.d$d
       conf_file="$TMP/config/letkf.d${dfmt}_${atime}.conf"
+      conf_file_efso="$TMP/config/efso.d${dfmt}_${atime}.conf"
     fi
 
     conf_file_src2="$TMP/${name_m[$mmean]}/run.d${dfmt}_${time}.conf"
  
     rm -rf ${OUTDIR[$d]}/$atime/log/letkf
+    rm -rf ${OUTDIR[$d]}/$atime/log/efso
     rm -rf ${OUTDIR[$d]}/$atime/obs
     mkdir -p ${OUTDIR[$d]}/$atime/log/letkf
+    mkdir -p ${OUTDIR[$d]}/$atime/log/efso
     mkdir -p ${OUTDIR[$d]}/$atime/obs
 
     OBSDEP_OUT_TF=".false."
@@ -957,6 +960,7 @@ while ((time <= ETIME)); do
         sed -e "s#^RESTART_IN_BASENAME.*#RESTART_IN_BASENAME = \"${RESTART_IN_BASENAME_SCALE}\", #g " \
             -e "s#^TIME_STARTDATE\ =.*#TIME_STARTDATE\ =\ ${atime:0:4},\ ${atime:4:2},\ ${atime:6:2},\ ${atime:8:2},\ ${atime:10:2},\ ${atime:12:2}, #g" \
         >> ${conf_file}
+    cp ${conf_file} ${conf_file_efso}
 
 #    if ((stage_config == 1)); then
 #      echo "$CONFIG_DIR/${conf_file}|${conf_file}" >> ${STAGING_DIR}/${STGINLIST}
@@ -1310,7 +1314,7 @@ setting () {
 #-------------------------------------------------------------------------------
 # define steps
 
-nsteps=5
+nsteps=6
 stepname[1]='Run SCALE pp'
 stepexecdir[1]="$TMPRUN/scale_pp"
 stepexecname[1]="scale-rm_pp_ens"
@@ -1337,6 +1341,10 @@ stepname[5]='Run LETKF'
 stepexecdir[5]="$TMPRUN/letkf"
 stepexecname[5]="letkf"
 
+stepname[6]='Run EFSO'
+stepexecdir[6]="$TMPRUN/efso"
+stepexecname[6]="efso"
+
 if (( PRESET == "FUGAKU" )) && (( USE_LLIO_BIN == 1 )); then
   stepexecbin[1]="$TMP/scale-rm_pp_ens"
   stepexecbin[2]="$TMP/scale-rm_init_ens"
@@ -1347,6 +1355,7 @@ if (( PRESET == "FUGAKU" )) && (( USE_LLIO_BIN == 1 )); then
     stepexecbin[4]="$DIR/obs/obsope"
   fi
   stepexecbin[5]="$TMP/letkf"
+  stepexecbin[6]="$TMP/efso"
 else
   for i in `seq $nsteps`; do
      stepexecbin[$i]="./${stepexecname[$i]}"
@@ -1407,7 +1416,7 @@ TIME_LIMIT="${1:-$TIME_LIMIT}"
 STIME=$(datetime $STIME)
 ETIME=$(datetime ${ETIME:-$STIME})
 ISTEP=${ISTEP:-1}
-FSTEP=${FSTEP:-$nsteps}
+FSTEP=${FSTEP:-5}
 CONF_MODE=${CONF_MODE:-"static"}
 TIME_LIMIT=${TIME_LIMIT:-"0:30:00"}
 
