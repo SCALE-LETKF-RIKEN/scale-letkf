@@ -166,11 +166,15 @@ while ((time <= ETIME)); do
                 fi
               done
           else
-            if ((m == mmean)); then
-              for q in $(seq $mem_np_bdy_); do
-                pathin="${DATA_BDY_SCALE}/${time_bdy}/${BDY_SCALE_DIR}/${BDY_MEAN}${CONNECTOR_BDY}history$(scale_filename_bdy_sfx $((q-1)))"
-                path="mean/bdyorg_$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))$(scale_filename_bdy_sfx $((q-1)))"
-                echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
+            if ((m == 1)); then
+              for qb in $(seq $mem_np_bdy_); do
+                pathin="${DATA_BDY_SCALE}/${time_bdy}/${BDY_SCALE_DIR}/${BDY_MEAN}${CONNECTOR_BDY}history$(scale_filename_bdy_sfx $((qb-1)))"
+                path="mean/bdyorg_$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))$(scale_filename_bdy_sfx $((qb-1)))"
+                if ((DISK_MODE_BDYDATA >= 1)); then
+                  echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
+                else
+                  ln -sf $pathin $TMP/$path
+                fi
               done
             fi
           fi

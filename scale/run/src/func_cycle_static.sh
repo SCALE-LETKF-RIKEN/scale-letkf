@@ -1130,7 +1130,7 @@ config_file_scale_core (){
         RESTART_IN_BASENAME[$d]="${RESTART_IN_PATH[$d]}/${name_m[$mlocal]}/anal"
         RESTART_OUT_BASENAME[$d]="${RESTART_OUT_PATH[$d]}/${name_m[$mlocal]}/anal"
       else
-        if (( MAKEINIT == 1 && USE_INIT_FROM_BDY == 1 )) ; then
+        if (( MAKEINIT == 1 )) && (( loop == 1 | USE_INIT_FROM_BDY == 1 )) ; then
           RESTART_IN_BASENAME[$d]="${BOUNDARY_PATH[$d]}/${mem_bdy}/init_bdy"
         else
           RESTART_IN_BASENAME[$d]="${RESTART_IN_PATH[$d]}/${name_m[$mlocal]}/init"
