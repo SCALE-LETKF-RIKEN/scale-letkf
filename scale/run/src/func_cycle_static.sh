@@ -937,7 +937,13 @@ while ((time <= ETIME)); do
     if (( PAWR_DECODE == 1 )) ; then
       conf_file_dec_pawr="$TMP/config/dec_pawr_${atime}.conf"
       PAWR_IN_PATH="${PAWR_RAW}/${FNAME_PAWR_RAW}"
-      OUT_PAWR_SUPEROB_PATH="${TMPROOT_OBS}/obs/${OBSNAME[$iobs]}"
+      if (( DISK_MODE_OBS >= 1)) ;then
+        OUT_PAWR_SUPEROB_PATH="${TMPROOT_OBS}/obs/${OBSNAME[$iobs]}"
+        mkdir -p ${TMPROOT_OBS}/obs
+      else
+        OUT_PAWR_SUPEROB_PATH="${OBS}/${OBSNAME[$iobs]}"
+        mkdir -p $OBS
+      fi
       cat ${conf_file} | \
       sed -e "/!--PAWR_IN_PATH--/a PAWR_IN_PATH = \"${PAWR_IN_PATH}\"," \
           -e "/!--OUT_PAWR_SUPEROB_PATH--/a OUT_PAWR_SUPEROB_PATH = \"${OUT_PAWR_SUPEROB_PATH}\", " \
