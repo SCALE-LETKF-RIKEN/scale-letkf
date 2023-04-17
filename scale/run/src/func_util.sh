@@ -156,7 +156,16 @@ progdir=$(dirname $PROG)
 
 #-------------------------------------------------------------------------------
 
-if [ "$MPI_TYPE" = 'sgimpt' ]; then
+if [ "$SCALE_SYS" == 'Linux64-gnu-ompi' ] ; then
+  
+  mpirun --mca btl openib,sm,self --bind-to core $PROG $CONF $STDOUT $ARGS
+  if ((res != 0)); then
+    echo "[Error] mpirun $PROG $CONF $STDOUT $ARGS" >&2
+    echo "        Exit code: $res" >&2
+    exit $res
+  fi
+
+elif [ "$MPI_TYPE" = 'sgimpt' ]; then
 
   local HOSTLIST=$(cat ${NODEFILE_DIR}/${NODEFILE})
   HOSTLIST=$(echo $HOSTLIST | sed 's/  */,/g')
@@ -255,7 +264,8 @@ fi
 
 #-------------------------------------------------------------------------------
 
-if [ "$MPI_TYPE" = 'sgimpt' ]; then
+
+if [ "$MPI_TYPE" == 'sgimpt' ]; then
 
   if [ "$PROC_OPT" == 'all' ]; then
     local HOSTLIST=$(cat ${NODEFILE_DIR}/${NODEFILE})
@@ -273,7 +283,7 @@ if [ "$MPI_TYPE" = 'sgimpt' ]; then
     exit $res
   fi
 
-elif [ "$MPI_TYPE" = 'openmpi' ]; then
+elif [ "$MPI_TYPE" == 'openmpi' ]; then
 
   if [ "$PROC_OPT" == 'all' ]; then
     NNP=$(cat ${NODEFILE_DIR}/${NODEFILE} | wc -l)
@@ -578,6 +588,7 @@ PARENT_REF_TIME=$(datetime $PARENT_REF_TIME)
 
 #-------------------------------------------------------------------------------
 # compute $parent_start_time based on $PARENT_REF_TIME and $PARENT_LCYCLE
+
 
 parent_start_time=$PARENT_REF_TIME
 if (( BDY_FORMAT > 0 )) ;then

@@ -47,8 +47,9 @@ PROGRAM dec_prepbufr
   REAL(r_sngl) :: wk(8)
 
 
-  real(r_sngl) :: vtcd
-  integer :: vtcdi
+!  real(r_sngl) :: vtcd
+  ! https://www.emc.ncep.noaa.gov/mmb/data_processing/prepbufr.doc/table_14.htm
+  integer, parameter :: vtcdi = 8
 
   INTEGER :: iunit = 90
   !
@@ -58,8 +59,8 @@ PROGRAM dec_prepbufr
   CALL OPENBF(11,'IN',11)
   CALL DATELEN(10)
 
-  call UFBQCD(11,'VIRTMP',vtcd)
-  vtcdi = nint(vtcd)
+!  call UFBQCD(11,'VIRTMP',vtcd)
+!  vtcdi = nint(vtcd)
 
   !
   ! Main loop

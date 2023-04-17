@@ -32,13 +32,13 @@ done
 
 if [ "$TOPO_FORMAT" != 'prep' ]; then
   mkdir -p $TMP/dat/topo/${TOPO_FORMAT}
-  ln -sf ${DATADIR}/topo/${TOPO_FORMAT}/Products $TMP/dat/topo/${TOPO_FORMAT}/Products
-  #echo "${DATADIR}/topo/${TOPO_FORMAT}/Products/|dat/topo/${TOPO_FORMAT}/Products/" >> ${STAGING_DIR}/${STGINLIST_CONSTDB}
+  #ln -sf ${DATADIR}/topo/${TOPO_FORMAT}/Products $TMP/dat/topo/${TOPO_FORMAT}/Products
+  echo "${DATADIR}/topo/${TOPO_FORMAT}/Products/|dat/topo/${TOPO_FORMAT}/Products/" >> ${STAGING_DIR}/${STGINLIST_CONSTDB}
 fi
 if [ "$LANDUSE_FORMAT" != 'prep' ]; then
   mkdir -p $TMP/dat/landuse/${LANDUSE_FORMAT}
-  ln -sf ${DATADIR}/landuse/${LANDUSE_FORMAT}/Products $TMP/dat/landuse/${LANDUSE_FORMAT}/Products
-  #echo "${DATADIR}/landuse/${LANDUSE_FORMAT}/Products/|dat/landuse/${LANDUSE_FORMAT}/Products/" >> ${STAGING_DIR}/${STGINLIST_CONSTDB}
+  #ln -sf ${DATADIR}/landuse/${LANDUSE_FORMAT}/Products $TMP/dat/landuse/${LANDUSE_FORMAT}/Products
+  echo "${DATADIR}/landuse/${LANDUSE_FORMAT}/Products/|dat/landuse/${LANDUSE_FORMAT}/Products/" >> ${STAGING_DIR}/${STGINLIST_CONSTDB}
 fi
 
 #-------------------------------------------------------------------------------
@@ -54,8 +54,8 @@ if [ "$JOBTYPE" = 'cycle' ]; then
 #      if [ "${OBSNAME[$iobs]}" != '' ] && [ -e ${OBS}/${OBSNAME[$iobs]}_${time}.dat ]; then
       if [ "${OBSNAME[$iobs]}" != '' ] ; then
         mkdir -p ${OBS}
-        #echo "${OBS}/${OBSNAME[$iobs]}_${time}.dat|obs/${OBSNAME[$iobs]}_${time}.dat" >> ${STAGING_DIR}/${STGINLIST_OBS}
-        ln -sf ${OBS}/${OBSNAME[$iobs]}_${time}.dat $TMP/obs/${OBSNAME[$iobs]}_${time}.dat
+        echo "${OBS}/${OBSNAME[$iobs]}_${time}.dat|obs/${OBSNAME[$iobs]}_${time}.dat" >> ${STAGING_DIR}/${STGINLIST_OBS}
+#        ln -sf ${OBS}/${OBSNAME[$iobs]}_${time}.dat $TMP/obs/${OBSNAME[$iobs]}_${time}.dat
       fi
     done
     time=$(datetime $time $LCYCLE s)
@@ -103,7 +103,7 @@ fi
 
 # domain catalogue
 #-------------------
-if ((LOG_OPT <= 3)); then
+if ((LOG_OPT <= 3 && BDY_FORMAT == 1)); then
   for d in $(seq $DOMNUM); do
     path="latlon_domain_catalogue.d$(printf $DOMAIN_FMT $d).txt"
     pathout="${OUTDIR[$d]}/const/log/latlon_domain_catalogue.txt"
@@ -112,6 +112,144 @@ if ((LOG_OPT <= 3)); then
 fi
 
 #-------------------------------------------------------------------------------
+}
+
+staging_list_core_bdyorg () {
+
+### Local variables
+m=$1
+q=$2
+
+if [ "$job" == "cycle" ];then
+  FLEN=$CYCLEFLEN
+elif [ "$job" == "fcst" ];then
+  FLEN=$FCSTLEN
+else
+  echo '$job = '$job' not supported.'
+  exit 1
+fi
+
+time=$STIME
+loop=0
+time_bdy_start_prev=0
+
+while ((time <= ETIME)); do
+  loop=$((loop+1))
+
+  # bdy (parent)
+  #-------------------
+  if ((BDY_FORMAT > 0 && q == 1)) ; then
+    bdy_setting $time $FLEN $BDYCYCLE_INT "$BDYINT" "$PARENT_REF_TIME" "$BDY_SINGLE_FILE"
+    if ((BDY_ROTATING == 1)) || [ ${bdy_times[1]} != $time_bdy_start_prev ] ; then
+      time_bdy_start_prev=${bdy_times[1]}
+      nbdy_max=0
+    fi
+    if ((nbdy > nbdy_max)); then
+      for ibdy in $(seq $((nbdy_max+1)) $nbdy); do
+        time_bdy=${bdy_times[$ibdy]}
+
+        if ((BDY_FORMAT == 1)); then
+
+          if ((BDY_ENS == 1)); then
+              if ((m == mmean)); then
+                mem_bdy="$BDY_MEAN"
+              else
+                mem_bdy="${name_m[$m]}"
+              fi
+              for qb in $(seq $mem_np_bdy_); do
+                pathin="${DATA_BDY_SCALE}/${time_bdy}/${BDY_SCALE_DIR}/${mem_bdy}${CONNECTOR_BDY}history$(scale_filename_bdy_sfx $((qb-1)))"
+                path="${name_m[$m]}/bdyorg_$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))$(scale_filename_bdy_sfx $((qb-1)))"
+                if ((DISK_MODE_BDYDATA >= 1)); then
+                  echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
+                else
+                  ln -sf $pathin $TMP/$path
+                fi
+              done
+          else
+            if ((m == 1)); then
+              for qb in $(seq $mem_np_bdy_); do
+                pathin="${DATA_BDY_SCALE}/${time_bdy}/${BDY_SCALE_DIR}/${BDY_MEAN}${CONNECTOR_BDY}history$(scale_filename_bdy_sfx $((qb-1)))"
+                path="mean/bdyorg_$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))$(scale_filename_bdy_sfx $((qb-1)))"
+                if ((DISK_MODE_BDYDATA >= 1)); then
+                  echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
+                else
+                  ln -sf $pathin $TMP/$path
+                fi
+              done
+            fi
+          fi
+
+        elif ((BDY_FORMAT == 2 || BDY_FORMAT == 4)); then
+          if ((BDY_FORMAT == 2)); then
+            data_bdy_i="$DATA_BDY_WRF"
+            filenum=1
+            filename_prefix[1]='wrfout_'
+            filename_suffix[1]=''
+            filenamein_prefix[1]=''
+            filenamein_suffix[1]=''
+          elif ((BDY_FORMAT == 4)); then
+            data_bdy_i="$DATA_BDY_GRADS"
+            filenum=3
+            filename_prefix[1]='atm_'
+            filename_suffix[1]='.grd'
+            filenamein_prefix[1]='atm_'
+            filenamein_suffix[1]='.grd'
+            filename_prefix[2]='sfc_'
+            filename_suffix[2]='.grd'
+            filenamein_prefix[2]='sfc_'
+            filenamein_suffix[2]='.grd'
+            filename_prefix[3]='land_'
+            filename_suffix[3]='.grd'
+            filenamein_prefix[3]='lnd_'
+            filenamein_suffix[3]='.grd'
+          fi
+
+          if ((BDY_ENS == 1)); then
+            if ((m == mmean)); then
+              mem_bdy="$BDY_MEAN"
+            else
+              mem_bdy="${name_m[$m]}"
+            fi
+            for ifile in $(seq $filenum); do
+              if ((BDY_ROTATING == 1)); then
+                pathin="${data_bdy_i}/${time}/${mem_bdy}/${filename_prefix[$ifile]}${time_bdy}${filename_suffix[$ifile]}"
+              else
+                pathin="${data_bdy_i}/${mem_bdy}/${filename_prefix[$ifile]}${time_bdy}${filename_suffix[$ifile]}"
+              fi
+              path="${name_m[$m]}/bdyorg_${filenamein_prefix[$ifile]}$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))${filenamein_suffix[$ifile]}"
+              if ((DISK_MODE_BDYDATA >= 1)); then
+                echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
+              else
+                ln -sf  $pathin $TMP/$path
+              fi
+            done
+          else
+            if ((m==mmean || (job == "fcst" && m==1) ));then
+              for ifile in $(seq $filenum); do
+                if ((BDY_ROTATING == 1)); then
+                  pathin="${data_bdy_i}/${time}/${BDY_MEAN}/${filename_prefix[$ifile]}${time_bdy}${filename_suffix[$ifile]}"
+                else
+                  pathin="${data_bdy_i}/${BDY_MEAN}/${filename_prefix[$ifile]}${time_bdy}${filename_suffix[$ifile]}"
+                fi
+                path="mean/bdyorg_${filenamein_prefix[$ifile]}$(datetime_scale $time_bdy_start_prev)_$(printf %05d $((ibdy-1)))${filenamein_suffix[$ifile]}"
+                if ((DISK_MODE_BDYDATA >= 1)); then
+                  echo "${pathin}|${path}" >> ${STAGING_DIR}/${STGINLIST_BDYDATA}
+                else
+                  ln -sf  $pathin $TMP/$path
+                fi
+              done
+            fi
+          fi
+
+        fi # [ BDY_FORMAT == 2 || BDY_FORMAT == 4 ]
+      done # [ ibdy in $(seq $((nbdy_max+1)) $nbdy) ]
+      nbdy_max=$nbdy
+    fi
+  fi # [ BDY_FORMAT > 0 ]
+
+  time=$(datetime $time $LCYCLE s)
+done # [ ((time <= ETIME)) ]
+
 }
 
 #===============================================================================

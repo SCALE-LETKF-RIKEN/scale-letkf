@@ -41,7 +41,7 @@ obssim:	obssim.o $(OBS) $(COMMON_DIR)
 	$(COMMON_OBJS) $(OBJS) $(SCALE_RM_OBJS) $(LIBS)
 dec_prepbufr:	dec_prepbufr.o $(COMMON_DIR)
 	$(FC) $(FOPTS) -o dec_prepbufr dec_prepbufr.o $(COMMON_OBJS) \
-	$(LIBS) $(BUFR_LIB)
+	$(SCALE_RM_OBJS) $(LIBS) $(BUFR_LIB)
 dec_pawr: dec_pawr.o $(COMMON_DIR)
 	$(FC) $(FOPTS) $(FMCMODEL) -o dec_pawr dec_pawr.o \
 	$(COMMON_OBJS) $(OBJS_PAWR) $(SCALE_RM_OBJS) $(LIBS)

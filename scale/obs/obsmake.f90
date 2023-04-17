@@ -40,8 +40,6 @@ PROGRAM obsmake
 
 !-----------------------------------------------------------------------
 
-  call set_common_conf( myrank )
-
   call set_mem_node_proc(1)
   call set_scalelib('OBSMAKE')
 

@@ -1357,7 +1357,7 @@ subroutine obs_local(ri, rj, rlev, rz, nvar, hdxf, rdiag, rloc, dep, nobsl, depd
             iob = nobs_use(n)
 
             call obs_local_cal(ri, rj, rlev, rz, nvar, iob, ic2, ndist_dummy, nrloc, nrdiag)
-            if (nrloc == 0.0d0) cycle
+            if (nrloc == 0.0_r_size) cycle
 
             nobsl = nobsl + 1
             hdxf(nobsl,:) = obsda_sort%ensval(1:MEMBER,iob)
@@ -1873,7 +1873,7 @@ subroutine relax_beta(ri, rj, rz, beta)
     end if
 #endif
     if (dist_bdy < 1.0d0) then
-      beta = max(dist_bdy, 0.0d0)
+      beta = max(dist_bdy, 0.0_r_size)
     end if
   end if
 

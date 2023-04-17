@@ -17,7 +17,7 @@ tint=21600 # [second]
 tstart='2018-07-05 0:10:00'
 tend=$tstart
 
-. config.main
+. ./config.main
 RUNDIR="${TMP}_sno"
 
 
@@ -226,10 +226,24 @@ if [ "$PRESET" = 'FUGAKU' ]; then
 #    SNO_NODE=12
 #  fi
 
+  CVOLUME=$(pwd | cut -d "/" -f 2) # current volume (e.g., /vol0X0Y or /vol000X)
+  NUM_VOLUME=${CVOLUME:4:1} # get number of current volume 
+
+  if [ "$NUM_VOLUME" = "0" ] ; then
+    VOLUMES=${CVOLUME}
+  else
+    VOLUMES="/vol000${NUM_VOLUME}"
+  fi
+
+  if [ $VOLUMES != "/vol0004" ] ;then
+    VOLUMES="${VOLUMES}:/vol0004" # spack
+  fi
+
 cat << EOF >> $jobsh
 #!/bin/sh 
 #
-#
+#PJM -g ${GROUP} 
+#PJM -x PJM_LLIO_GFSCACHE=${VOLUMES}
 #PJM -L "rscgrp=small"
 #PJM -L "node=${SNO_NODE}"
 #PJM -L "elapse=00:30:00"
@@ -292,6 +306,108 @@ EOF
     echo "" >> $jobsh
   fi
 
+# qsub
+elif [ "$PRESET" = 'Linux_torque' ]; then
+
+if [ $SNO_NODE -lt 4 ] ; then
+  RSCGRP=s
+elif [ $SNO_NODE -le 16 ] ; then
+  RSCGRP=m
+elif [ $SNO_NODE -le 24 ] ; then
+  RSCGRP=l
+else
+  echo "too many nodes required. " $SNO_NODE " > 24"
+  exit 1
+fi
+
+cat > $jobscrp << EOF
+#!/bin/sh
+#PBS -N $job
+#PBS -q $RSCGRP
+#PBS -l nodes=${SNO_NODE}:ppn=${PPN}
+#PBS -l walltime=${TIME_LIMIT}
+#
+#
+
+cd \${PBS_O_WORKDIR}
+export FORT_FMT_RECL=400
+export GFORTRAN_UNBUFFERED_ALL=Y
+
+EOF
+
+if [ "$SCALE_SYS" == "Linux64-gnu-ompi" ] ; then
+
+cat >> $jobscrp << EOF
+
+source /etc/profile.d/modules.sh
+module unload mpt/2.12
+module unload intelcompiler/16.0.1.150
+module unload intelmpi/5.1.2.150
+module unload hdf5/1.8.16-intel
+module unload netcdf4/4.3.3.1-intel
+module unload netcdf4/fortran-4.4.2-intel
+module load gcc/4.7.2
+module load openmpi/2.0.4-gcc
+module load hdf5/1.8.16
+module load netcdf4/4.3.3.1
+module load netcdf4/fortran-4.4.2
+module load lapack/3.6.0
+
+export OMP_NUM_THREADS=1
+export KMP_AFFINITY=compact
+
+EOF
+
+else
+
+cat >> $jobscrp << EOF
+
+source /etc/profile.d/modules.sh 
+module unload mpt/2.12
+module load intelmpi/5.1.2.150
+
+export OMP_NUM_THREADS=${THREADS}
+export KMP_AFFINITY=compact
+
+export LD_LIBRARY_PATH="/home/seiya/lib:$LD_LIBRARY_PATH"
+EOF
+
+
+fi 
+
+cat >> $jobscrp << EOF
+ulimit -s unlimited
+
+echo "[\$(date "+%Y/%m/%d %H:%M:%S")] Start SNO"
+
+mpirun --mca btl openib,sm,self --bind-to core ${SNOBIN} ${conf_bulk}.\${PJM_BULKNUM} log/NOUT || exit \$?
+
+echo "[\$(date "+%Y/%m/%d %H:%M:%S")] End SNO"
+
+EOF
+
+  echo "[$(datetime_now)] Run ${job} job on PJM"
+  echo
+
+  job_submit_torque $jobscrp
+  echo
+  
+  job_end_check_torque $jobid
+  res=$?
+
+# direct
+elif [ "$PRESET" = 'Linux' ]; then
+
+  echo "[$(datetime_now)] Run ${job} job on PJM"
+  echo
+
+  cd $TMPS
+
+./${job}.sh "$STIME" "$ETIME" "$MEMBERS" "$CYCLE" "$CYCLE_SKIP" "$IF_VERF" "$IF_EFSO" "$ISTEP" "$FSTEP" "$CONF_MODE" &> run_progress || exit $?
+
+else
+  echo "PRESET '$PRESET' is not supported."
+  exit 1
 fi
 
 cd ${RUNDIR}

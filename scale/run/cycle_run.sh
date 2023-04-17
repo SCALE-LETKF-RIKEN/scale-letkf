@@ -15,7 +15,7 @@ myname="$(basename "$0")"
 job='cycle'
 
 GROUP=${GROUP:-$(id -ng)}
-if [ "$GROUP" == "fugaku" ] ;
+if [ "$GROUP" == "fugaku" ] ; then
   echo 'specify group name $GROUP in which you want to submit the job'
   exit 1
 fi
@@ -23,10 +23,11 @@ fi
 #===============================================================================
 # Configuration
 
-. config.main || exit $?
-. config.${job} || exit $?
+. ./config.main || exit $?
+. ./config.${job} || exit $?
 
 . src/func_datetime.sh || exit $?
+. src/func_distribute.sh || exit $?
 . src/func_util.sh || exit $?
 
 . src/func_common_static.sh || exit $?
@@ -61,7 +62,7 @@ safe_init_tmpdir $TMP || exit $?
 echo "[$(datetime_now)] Determine the distibution schemes"
 
 safe_init_tmpdir $NODEFILE_DIR || exit $?
-#distribute_da_cycle - $NODEFILE_DIR || exit $? # TEST
+distribute_da_cycle "(0)" $NODEFILE_DIR || exit $? # TEST
 
 #===============================================================================
 # Determine the staging list
@@ -92,9 +93,10 @@ cp -r ${SCRP_DIR}/src ${TMP}/
 #===============================================================================
 # Stage in
 
-echo "[$(datetime_now)] Initialization (stage in)"
-
-stage_in server || exit $?
+if ((DISK_MODE == 1)); then
+  echo "[$(datetime_now)] Initialization (stage in)"
+  stage_in server || exit $?
+fi
 
 #===============================================================================
 # Creat a job script and submit a job
@@ -113,7 +115,15 @@ if [ "$PRESET" = 'FUGAKU' ]; then
   fi
   TPROC=$((NNODES*PPN))
 
-  VOLUMES="/"$(readlink /data/$(id -ng) | cut -d "/" -f 2)
+  CVOLUME=$(pwd | cut -d "/" -f 2) # current volume (e.g., /vol0X0Y or /vol000X)
+  NUM_VOLUME=${CVOLUME:4:1} # get number of current volume 
+
+  if [ "$NUM_VOLUME" = "0" ] ; then
+    VOLUMES=${CVOLUME}
+  else
+    VOLUMES="/vol000${NUM_VOLUME}"
+  fi
+
   if [ $VOLUMES != "/vol0004" ] ;then
     VOLUMES="${VOLUMES}:/vol0004" # spack
   fi
@@ -182,7 +192,7 @@ EOF
   fi # USE_SPACK
 
 cat << EOF >>  $jobscrp 
-./${job}.sh "$STIME" "$ETIME" "$MEMBERS" "$CYCLE" "$CYCLE_SKIP" "$IF_VERF" "$IF_EFSO" "$ISTEP" "$FSTEP" "$CONF_MODE" || exit \$?
+./${job}.sh "$STIME" "$ETIME" "$ISTEP" "$FSTEP" "$CONF_MODE" || exit \$?
 
 EOF
 
@@ -208,14 +218,16 @@ EOF
   res=$?
 
 # qsub
-else
+elif [ "$PRESET" = 'Linux_torque' ]; then
 
 if [ $NNODES -lt 4 ] ; then
   RSCGRP=s
 elif [ $NNODES -le 16 ] ; then
   RSCGRP=m
+elif [ $NNODES -le 24 ] ; then
+  RSCGRP=l
 else
-  echo "too many nodes required. " $NNODES " > 16"
+  echo "too many nodes required. " $NNODES " > 24"
   exit 1
 fi
 
@@ -228,23 +240,53 @@ cat > $jobscrp << EOF
 #
 #
 
-
 cd \${PBS_O_WORKDIR}
-
-
 export FORT_FMT_RECL=400
 export GFORTRAN_UNBUFFERED_ALL=Y
+
+EOF
+
+if [ "$SCALE_SYS" == "Linux64-gnu-ompi" ] ; then
+
+cat >> $jobscrp << EOF
+
+source /etc/profile.d/modules.sh
+module unload mpt/2.12
+module unload intelcompiler/16.0.1.150
+module unload intelmpi/5.1.2.150
+module unload hdf5/1.8.16-intel
+module unload netcdf4/4.3.3.1-intel
+module unload netcdf4/fortran-4.4.2-intel
+module load gcc/4.7.2
+module load openmpi/2.0.4-gcc
+module load hdf5/1.8.16
+module load netcdf4/4.3.3.1
+module load netcdf4/fortran-4.4.2
+module load lapack/3.6.0
+
+export OMP_NUM_THREADS=1
+export KMP_AFFINITY=compact
+
+EOF
+
+else
+
+cat >> $jobscrp << EOF
 
 source /etc/profile.d/modules.sh 
 module unload mpt/2.12
 module load intelmpi/5.1.2.150
 
-
 export OMP_NUM_THREADS=${THREADS}
 export KMP_AFFINITY=compact
 
 export LD_LIBRARY_PATH="/home/seiya/lib:$LD_LIBRARY_PATH"
+EOF
 
+
+fi 
+
+cat >> $jobscrp << EOF
 ulimit -s unlimited
 
 ./${job}.sh "$STIME" "$ETIME" "$ISTEP" "$FSTEP" "$CONF_MODE" &> run_progress || exit \$?
@@ -252,21 +294,35 @@ EOF
 
   echo "[$(datetime_now)] Run ${job} job on PJM"
   echo
-  
+
   job_submit_torque $jobscrp
   echo
   
   job_end_check_torque $jobid
   res=$?
 
+# direct
+elif [ "$PRESET" = 'Linux' ]; then
+
+  echo "[$(datetime_now)] Run ${job} job on PJM"
+  echo
+
+  cd $TMPS
+
+  ./${job}.sh "$STIME" "$ETIME" "$ISTEP" "$FSTEP" "$CONF_MODE" &> run_progress || exit $?
+
+else
+  echo "PRESET '$PRESET' is not supported."
+  exit 1
 fi
 
 #===============================================================================
 # Stage out
 
-echo "[$(datetime_now)] Finalization (stage out)"
-
-stage_out server || exit $?
+if ((DISK_MODE == 1));then
+  echo "[$(datetime_now)] Finalization (stage out)"
+  stage_out server || exit $?
+fi
 
 #===============================================================================
 # Finalization
@@ -280,9 +336,9 @@ config_file_save $TMPS || exit $?
 
 archive_log
 
-#if ((CLEAR_TMP == 1)); then
-#  safe_rm_tmpdir $TMP
-#fi
+if ((CLEAR_TMP == 1)); then
+  safe_rm_tmpdir $TMP
+fi
 
 #===============================================================================
 

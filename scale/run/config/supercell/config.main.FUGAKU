@@ -6,7 +6,6 @@
 #===============================================================================
 
 PRESET='FUGAKU'
-RSCGRP="small"
 
 #===============================================================================
 
@@ -14,7 +13,7 @@ DIR="$(cd "$(pwd)/.." && pwd)"    # Root directory of the SCALE-LETKF
 
 DATADIR=${SCALE_DB}          # Directory of the SCALE database
 
-OUTDIR=/data/$(id -ng)/$(id -nu)/test_scale/result/supercell ### EDIT HERE ### 
+OUTDIR=/data/${GROUP}/$(id -nu)/test_scale/result/supercell ### EDIT HERE ### 
 INDIR="$OUTDIR"
 
 #===============================================================================
@@ -35,7 +34,6 @@ DATA_BDY_NICAM=              # Directory of the boundary data in NICAM format (n
 DATA_BDY_GRADS=""
 
 OBS="$OUTDIR/obs"
-OBSNCEP=
 
 #===============================================================================
 # model/data file options
@@ -79,7 +77,7 @@ BDYCYCLE_INT=300
 
 PARENT_REF_TIME=
 
-ENABLE_PARAM_USER=1     # 0: Do not enable the 'PARAM_USER' section of the SCALE namelist
+ENABLE_PARAM_USER=0     # 0: Do not enable the 'PARAM_USER' section of the SCALE namelist
                         # 1: Enable the 'PARAM_USER' section of the SCALE namelist (require 'config.nml.scale_user' and customized version of SCALE)
 
 OCEAN_INPUT=1           # 0: No ocean input (use cycling ocean variables)
@@ -97,7 +95,7 @@ OBSNAME[1]=obs
 #===============================================================================
 # Cycling settings
 
-WINDOW_S=0     # SCALE forecast time when the assimilation window starts (second)
+WINDOW_S=300     # SCALE forecast time when the assimilation window starts (second)
 WINDOW_E=300     # SCALE forecast time when the assimilation window ends (second)
 LCYCLE=300       # Length of a DA cycle (second)
 LTIMESLOT=300     # Timeslot interval for 4D-LETKF (second)
@@ -111,29 +109,30 @@ PPN=4               # Number of processes per node
 
 THREADS=12          # Number of threads per process
 
-SCALE_NP=16        # Number of processes to run SCALE
+SCALE_NP_X=4        # = PRC_NUM_X
+SCALE_NP_Y=4        # = PRC_NUM_Y
+SCALE_NP=$(( SCALE_NP_X  * SCALE_NP_Y )) # Number of processes to run SCALE
 
-NNODES=$(( ( MEMBER + 1 ) * ( SCALE_NP / PPN ) ))
-
-BGJOB_INT='0.1s'   # Interval of multiple background job submissions
+if (( DET_RUN == 1 ));then
+  NNODES=$(( ( MEMBER + 2 ) * ( SCALE_NP / PPN ) ))
+else
+  NNODES=$(( ( MEMBER + 1 ) * ( SCALE_NP / PPN ) ))
+fi
 
 #===============================================================================
 # Temporary directories to store runtime files
 
-ONLINE_STGOUT=0             # Stage out right after each cycle (do not wait until the end of the job)?
-                            #  0: No
-                            #  1: Yes
-
+DISK_MODE=0      # Disk I/O mode
+                 # 0: direct I/O -- no intermediate files in $TMP
+                 # 1: use symbolic links in $TMP 
+                 # 2: staging -- copy files to/from $TMP 
+                 # 3: staging -- copy files to/from $TMPL for each node (effective only on Fugaku)
+ 
 TMPSUBDIR="supercell"  # (used to identify multiple runs in the same time)
 
 TMP="$DIR/tmp/$TMPSUBDIR" # Temporary directory shared among all nodes
-TMPS="$DIR/tmp/$TMPSUBDIR"  # Temporary directory only on the server node
-#TMPS="$TMP"  # Temporary directory only on the server node
+TMPS="$TMP"  # Temporary directory only on the server node
 TMPL="$TMP"
-
-CLEAR_TMP=0                 # Clear temporary directories after the completion of job?
-                            #  0: No
-                            #  1: Yes
 
 USE_LLIO_BIN=0   # Use LLIO-transfer for binary files ? (effective only on Fugaku) 
                  # 0: No 
@@ -150,19 +149,14 @@ USE_SPACK=0 # 1: Use spack in job scripts
 #===============================================================================
 # Environmental settings
 
-SCP='cp -L'
-SCP_HOSTPREFIX=''
-
 STAGE_THREAD=8
 TAR_THREAD=8
 
 PYTHON="python"
 
-#BUFRBIN=
-
 #===============================================================================
 # Machine-independent source file
 
-. config.rc
+. ./config.rc
 
 #===============================================================================

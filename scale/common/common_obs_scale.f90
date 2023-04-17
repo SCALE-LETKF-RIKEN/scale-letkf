@@ -263,13 +263,14 @@ end subroutine set_common_obs_scale
 !  0: non-staggered grid
 !  1: staggered grid
 !-----------------------------------------------------------------------
-SUBROUTINE Trans_XtoY(elm,ri,rj,rk,lon,lat,v3d,v2d,yobs,qc,stggrd)
+SUBROUTINE Trans_XtoY(elm,ri,rj,rk,lon,lat,v3d,v2d,yobs,qc,stggrd,typ)
   IMPLICIT NONE
   INTEGER,INTENT(IN) :: elm
   REAL(r_size),INTENT(IN) :: ri,rj,rk
   REAL(r_size),INTENT(IN) :: lon,lat
   REAL(r_size),INTENT(IN) :: v3d(nlevh,nlonh,nlath,nv3dd)
   REAL(r_size),INTENT(IN) :: v2d(nlonh,nlath,nv2dd)
+  integer, intent(in), optional :: typ
   REAL(r_size),INTENT(OUT) :: yobs
   INTEGER,INTENT(OUT) :: qc
   INTEGER,INTENT(IN),OPTIONAL :: stggrd
@@ -290,6 +291,19 @@ SUBROUTINE Trans_XtoY(elm,ri,rj,rk,lon,lat,v3d,v2d,yobs,qc,stggrd)
       CALL itpl_3d(v3d(:,:,:,iv3dd_u),rk,ri,rj,u)
       CALL itpl_3d(v3d(:,:,:,iv3dd_v),rk,ri,rj,v)
     end if
+
+    if ( present( typ ) ) then
+      if ( obtypelist(typ) == 'ASCATW' ) then
+        if (stggrd_ == 1) then
+          call itpl_2d(v2d(:,:,iv2dd_u10m),ri-0.5_r_size,rj,u)
+          call itpl_2d(v2d(:,:,iv2dd_v10m),ri,rj-0.5_r_size,v)
+        else
+          call itpl_2d(v2d(:,:,iv2dd_u10m),ri,rj,u)
+          call itpl_2d(v2d(:,:,iv2dd_v10m),ri,rj,v)
+        end if
+      endif
+    endif
+
     if (elm == id_u_obs) then
       yobs = u
     else
@@ -1067,7 +1081,7 @@ END SUBROUTINE calc_ref_vr
 ! rk = 0.0d0  : surface observation
 !-----------------------------------------------------------------------
 !OCL SERIAL
-SUBROUTINE phys2ijk(p_full,elem,ri,rj,rlev,rk,qc)
+SUBROUTINE phys2ijk(p_full,elem,ri,rj,rlev,rk,qc,typ)
   use scale_atmos_grid_cartesC_index, only: &
       KHALO
   IMPLICIT NONE
@@ -1077,6 +1091,7 @@ SUBROUTINE phys2ijk(p_full,elem,ri,rj,rlev,rk,qc)
   REAL(r_size),INTENT(IN) :: ri
   REAL(r_size),INTENT(IN) :: rj
   REAL(r_size),INTENT(IN) :: rlev ! pressure levels (for 3D variable only)
+  integer, intent(in), optional :: typ ! observation type
   REAL(r_size),INTENT(OUT) :: rk
   INTEGER,INTENT(OUT) :: qc
   REAL(r_size) :: ak
@@ -1102,6 +1117,12 @@ SUBROUTINE phys2ijk(p_full,elem,ri,rj,rlev,rk,qc)
   IF(elem > 9999) THEN ! surface observation
     rk = rlev
   ELSE
+    if ( present( typ ) ) then
+      if ( obtypelist(typ) == 'ASCATW' ) then
+        rk = real( KHALO, r_size )
+        return
+      endif
+    endif
     !
     ! horizontal interpolation
     !
@@ -1563,11 +1584,11 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step)
       case (obsfmt_prepbufr)
       !-------------------------------------------------------------------------
         call phys2ijk(v3dgh(:,:,:,iv3dd_p),obs(iset)%elm(iidx), &
-                      ril,rjl,obs(iset)%lev(iidx),rk,oqc(n))
+                      ril,rjl,obs(iset)%lev(iidx),rk,oqc(n),typ=obs(iset)%typ(iidx))
         if (oqc(n) == iqc_good) then
           call Trans_XtoY(obs(iset)%elm(iidx),ril,rjl,rk, &
                           obs(iset)%lon(iidx),obs(iset)%lat(iidx), &
-                          v3dgh,v2dgh,ohx(n),oqc(n),stggrd=1)
+                          v3dgh,v2dgh,ohx(n),oqc(n),stggrd=1,typ=obs(iset)%typ(iidx))
         end if
       !=========================================================================
       case (obsfmt_radar)
@@ -1603,7 +1624,7 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step)
       end if
 
 !!! ensemble perturbation output
-      obsdep_sprd(n)=sqrt ( sum(   ( obsda_sort%ensval(:,nn) - sum(obsda_sort%ensval(:,nn))/MEMBER ) **2 ) / MEMBER  )
+      obsdep_sprd(n) = sqrt( sum( ( obsda_sort%ensval(:,nn) - sum(obsda_sort%ensval(:,nn))/MEMBER ) **2 ) / ( MEMBER - 1 ) )
 
       if (LOG_LEVEL >= 3) then
         write (6, '(2I6,2F8.2,4F12.4,I3)') &
@@ -1633,7 +1654,11 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step)
   monit_type(uid_obs(id_t_obs)) = .true.
   monit_type(uid_obs(id_tv_obs)) = .true.
   monit_type(uid_obs(id_q_obs)) = .true.
-!  monit_type(uid_obs(id_rh_obs)) = .true.
+  if (nobs(uid_obs(id_rh_obs)) > nobs(uid_obs(id_q_obs)))then
+    monit_type(uid_obs(id_rh_obs)) = .true.
+  else
+    monit_type(uid_obs(id_q_obs)) = .true.
+  end if
   monit_type(uid_obs(id_ps_obs)) = .true.
   if (DEPARTURE_STAT_RADAR) then
     monit_type(uid_obs(id_radar_ref_obs)) = .true.
@@ -2035,7 +2060,7 @@ SUBROUTINE write_obs(cfile,obs,append,missing)
   IF(present(missing)) missing_ = missing
 
   IF(append_) THEN
-    OPEN(iunit,FILE=cfile,FORM='unformatted',ACCESS='append')
+    OPEN(iunit,FILE=cfile,FORM='unformatted',POSITION='append')
   ELSE
     OPEN(iunit,FILE=cfile,FORM='unformatted',ACCESS='sequential')
   END IF
@@ -2122,7 +2147,7 @@ SUBROUTINE write_obs_da(cfile,obsda,im,append)
   IF(present(append)) append_ = append
   IF(append_) THEN
     IF(obsda%nobs <= 0) RETURN
-    OPEN(iunit,FILE=cfile,FORM='unformatted',ACCESS='append',STATUS='replace')
+    OPEN(iunit,FILE=cfile,FORM='unformatted',POSITION='append',STATUS='replace')
   ELSE
     OPEN(iunit,FILE=cfile,FORM='unformatted',ACCESS='sequential',STATUS='replace')
   END IF
@@ -2363,7 +2388,7 @@ SUBROUTINE write_obs_radar(cfile,obs,append,missing)
   IF(present(missing)) missing_ = missing
 
   IF(append_) THEN
-    OPEN(iunit,FILE=cfile,FORM='unformatted',ACCESS='append')
+    OPEN(iunit,FILE=cfile,FORM='unformatted',POSITION='append')
   ELSE
     OPEN(iunit,FILE=cfile,FORM='unformatted',ACCESS='sequential')
   END IF
@@ -2445,7 +2470,7 @@ subroutine write_obs_all(obs, missing, file_suffix)
   character(len=*), intent(in), optional :: file_suffix
   logical :: missing_
   integer :: iof, strlen1, strlen2
-  character(200) :: filestr
+  character(200) :: filestr=''
 
   missing_ = .true.
   IF(present(missing)) missing_ = missing
@@ -2470,7 +2495,7 @@ subroutine write_obs_all(obs, missing, file_suffix)
   return
 end subroutine write_obs_all
 
-subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em , sprd )
+subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, sprd )
   use netcdf
   use common_ncio
   implicit none
@@ -2492,6 +2517,7 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em , sp
   integer :: lev_varid, dat_varid, qc_varid
   integer :: dif_varid, err_varid
   integer :: omb_varid, oma_varid, omb_em_varid, sprd_varid
+  integer :: typ_varid
 
   character(len=*), parameter :: DIM_NAME = "number"
   character(len=*), parameter :: ELM_NAME = "elm"
@@ -2506,6 +2532,7 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em , sp
   character(len=*), parameter :: OMA_NAME = "oma"
   character(len=*), parameter :: OMB_EM_NAME = "omb_emean"
   character(len=*), parameter :: SPRD_NAME = "sprd"
+  character(len=*), parameter :: TYP_NAME = "typ"
 
   character(len=*), parameter :: ELM_LONGNAME = "observation id"
   character(len=*), parameter :: LON_LONGNAME = "longitude"
@@ -2519,6 +2546,7 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em , sp
   character(len=*), parameter :: OMA_LONGNAME = "observation-minus-analysis"
   character(len=*), parameter :: OMB_EM_LONGNAME = "observation-minus-background-ensemble-mean"
   character(len=*), parameter :: SPRD_LONGNAME = "ensemble spread in observation space"
+  character(len=*), parameter :: TYP_LONGNAME = "observation platform type"
 
   integer :: nobs_l(nobs)
   integer :: n
@@ -2527,6 +2555,7 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em , sp
   real(r_sngl) :: lon_l(nobs), lat_l(nobs)
   real(r_sngl) :: lev_l(nobs), dat_l(nobs)
   real(r_sngl) :: dif_l(nobs), err_l(nobs)
+  integer :: typ_l(nobs)
 
   do n = 1, nobs
     nobs_l(n) = n
@@ -2538,6 +2567,8 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em , sp
     dat_l(n) = real( obs(set(n))%dat(idx(n)), r_sngl )
     dif_l(n) = real( obs(set(n))%dif(idx(n)), r_sngl )
     err_l(n) = real( obs(set(n))%err(idx(n)), r_sngl )
+
+    typ_l(n) = int( obs(set(n))%typ(idx(n)) )
   enddo
 
   ! Create the file. 
@@ -2558,6 +2589,7 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em , sp
   call ncio_check( nf90_def_var(ncid, QC_NAME,  NF90_INT,  dimid,  qc_varid) )
   call ncio_check( nf90_def_var(ncid, DIF_NAME, NF90_REAL, dimid, dif_varid) )
   call ncio_check( nf90_def_var(ncid, ERR_NAME, NF90_REAL, dimid, err_varid) )
+  call ncio_check( nf90_def_var(ncid, TYP_NAME, NF90_INT,  dimid, typ_varid) )
 
   call ncio_check( nf90_def_var(ncid, OMB_NAME, NF90_REAL, dimid, omb_varid) )
   call ncio_check( nf90_def_var(ncid, OMA_NAME, NF90_REAL, dimid, oma_varid) )
@@ -2573,6 +2605,7 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em , sp
   call ncio_check( nf90_put_att(ncid, qc_varid,  "long_name", QC_LONGNAME  ) )
   call ncio_check( nf90_put_att(ncid, dif_varid, "long_name", DIF_LONGNAME ) )
   call ncio_check( nf90_put_att(ncid, err_varid, "long_name", ERR_LONGNAME ) )
+  call ncio_check( nf90_put_att(ncid, typ_varid, "long_name", TYP_LONGNAME ) )
 
   call ncio_check( nf90_put_att(ncid, omb_varid, "long_name", OMB_LONGNAME ) )
   call ncio_check( nf90_put_att(ncid, oma_varid, "long_name", OMA_LONGNAME ) )
@@ -2602,6 +2635,8 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em , sp
                    count=(/nobs/) ) )
   call ncio_check( nf90_put_var(ncid, err_varid, err_l, start=(/1/), &
                    count=(/nobs/) ) )
+  call ncio_check( nf90_put_var(ncid, typ_varid, typ_l, start=(/1/), &
+                   count=(/nobs/) ) )
 
   call ncio_check( nf90_put_var(ncid, omb_varid, omb,   start=(/1/), &
                    count=(/nobs/) ) )
@@ -2611,7 +2646,6 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em , sp
                    count=(/nobs/) ) )
   if (present(sprd)) call ncio_check( nf90_put_var(ncid, sprd_varid, sprd, start=(/1/), &
                    count=(/nobs/) ) )
-
 
   ! Close the file. 
   call ncio_check( nf90_close(ncid) )

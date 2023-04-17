@@ -43,6 +43,12 @@ else
   exit 1
 fi
 
+if [ "$PRESET" != 'FUGAKU' ]; then
+  USE_LLIO_BIN=0
+  USE_LLIO_DAT=0
+  USE_LLIO_TMP=0
+fi
+
 #===============================================================================
 # Default values
 
@@ -57,6 +63,8 @@ RUN_LEVEL=${RUN_LEVEL:-0}
 
 #-------------------------------------------------------------------------------
 
+TMPS="${TMPS:-$TMP}"
+TMPL="${TMPL:-$TMP}"
 TMPSL="${TMPSL:-$TMPS}"
 
 #-------------------------------------------------------------------------------
@@ -148,7 +156,7 @@ else
   PPN_APPAR=$PPN
 fi
 
-CLEAR_TMP=${CLEAR_TMP:-1}
+CLEAR_TMP=${CLEAR_TMP:-0}
 
 #===============================================================================
 # Dependent variables
@@ -167,14 +175,6 @@ USE_INIT_FROM_BDY=0
 if (((OCEAN_INPUT == 1 && OCEAN_FORMAT == 99) || \
      (LAND_INPUT == 1 && LAND_FORMAT == 99))); then
   USE_INIT_FROM_BDY=1
-fi
-
-#-------------------------------------------------------------------------------
-
-if ((DISK_MODE <= 2)); then
-  PROC_OPT='one'
-else
-  PROC_OPT='alln'
 fi
 
 #-------------------------------------------------------------------------------
@@ -225,16 +225,31 @@ ENSMODEL_DIR="$DIR/ensmodel"
 
 #-------------------------------------------------------------------------------
 
-DISK_MODE=${DISK_MODE:-2}
+DISK_MODE=${DISK_MODE:-1}
 DISK_MODE_CONSTDB=${DISK_MODE_CONSTDB:-$DISK_MODE}
 DISK_MODE_BDYDATA=${DISK_MODE_BDYDATA:-$DISK_MODE}
 DISK_MODE_OBS=${DISK_MODE_OBS:-$DISK_MODE}
 
 #-------------------------------------------------------------------------------
 
+ONLINE_STGOUT=${ONLINE_STGOUT:-0}
+
+#-------------------------------------------------------------------------------
+
+if ((DISK_MODE <= 2)); then
+  PROC_OPT='one'
+else
+  PROC_OPT='alln'
+fi
+
+#-------------------------------------------------------------------------------
+
 USE_TMP_LINK=0
 USE_TMPL=0
-if ((DISK_MODE == 1)); then
+if ((DISK_MODE == 0)); then
+  TMPROOT="$TMP"
+  USE_TMP_LINK=0
+elif ((DISK_MODE == 1)); then
   TMPROOT="$TMP"
   USE_TMP_LINK=1
 elif ((DISK_MODE == 2)); then
@@ -243,7 +258,10 @@ elif ((DISK_MODE == 3)); then
   TMPROOT="$TMPL"
   USE_TMPL=1
 fi
-if ((DISK_MODE_CONSTDB == 1)); then
+if ((DISK_MODE_CONSTDB == 0)); then
+  TMPROOT_CONSTDB="$TMP"
+  USE_TMP_LINK=0
+elif ((DISK_MODE_CONSTDB == 1)); then
   TMPROOT_CONSTDB="$TMP"
   USE_TMP_LINK=1
 elif ((DISK_MODE_CONSTDB == 2)); then
@@ -252,7 +270,10 @@ elif ((DISK_MODE_CONSTDB == 3)); then
   TMPROOT_CONSTDB="$TMPL"
   USE_TMPL=1
 fi
-if ((DISK_MODE_BDYDATA == 1)); then
+if ((DISK_MODE_BDYDATA == 0)); then
+  TMPROOT_BDYDATA="$TMP"
+  USE_TMP_LINK=0
+elif ((DISK_MODE_BDYDATA == 1)); then
   TMPROOT_BDYDATA="$TMP"
   USE_TMP_LINK=1
 elif ((DISK_MODE_BDYDATA == 2)); then
@@ -261,7 +282,10 @@ elif ((DISK_MODE_BDYDATA == 3)); then
   TMPROOT_BDYDATA="$TMPL"
   USE_TMPL=1
 fi
-if ((DISK_MODE_OBS == 1)); then
+if ((DISK_MODE_OBS == 0)); then
+  TMPROOT_OBS="$TMP"
+  USE_TMP_LINK=0
+elif ((DISK_MODE_OBS == 1)); then
   TMPROOT_OBS="$TMP"
   USE_TMP_LINK=1
 elif ((DISK_MODE_OBS == 2)); then

@@ -30,8 +30,8 @@ job='cycle'
 #===============================================================================
 # Configuration
 
-. config.main || exit $?
-. config.${job} || exit $?
+. ./config.main || exit $?
+. ./config.${job} || exit $?
 
 . src/func_datetime.sh || exit $?
 . src/func_util.sh || exit $?
@@ -74,17 +74,17 @@ echo "[$(datetime_now)] ### 4" >&2
 #===============================================================================
 # Determine the staging list and then stage in
 
-if ((RUN_LEVEL <= 1)) && ((ISTEP == 1)); then
+if ((RUN_LEVEL <= 2)) && ((DISK_MODE >= 2)) && ((ISTEP == 1)); then
   echo "[$(datetime_now)] Initialization (stage in)" >&2
-
-  safe_init_tmpdir $STAGING_DIR || exit $?
-  staging_list_static || exit $?
-  if ((DISK_MODE == 3)); then
-    config_file_list $TMP/config || exit $?
-  else
-    config_file_list || exit $?
+  if ((RUN_LEVEL <= 1)) && ((ISTEP == 1)); then
+    safe_init_tmpdir $STAGING_DIR || exit $?
+    staging_list_static || exit $?
+    if ((DISK_MODE == 3)); then
+      config_file_list $TMP/config || exit $?
+    else
+      config_file_list || exit $?
+    fi
   fi
-
   stage_in node || exit $?
 fi
 
@@ -218,6 +218,9 @@ while ((time <= ETIME)); do
         if ((BDY_FORMAT == 0)); then
           echo "[$(datetime_now)] ${time}: ${stepname[$s]} ...skipped (use prepared boundary files)" >&2
           continue
+        elif ((BDY_FORMAT == 5)); then
+          echo "[$(datetime_now)] ${time}: ${stepname[$s]} ...skipped (use prepared init files)" >&2
+          continue
         fi
         if ((SKIP_BDYINIT == 1 && $(datetime $time -$BDYINT s) < btime && time != btime)); then
           echo "[$(datetime_now)] ${time}: ${stepname[$s]} ...skipped (use boundary files produced in a previous cycle)" >&2
@@ -279,7 +282,7 @@ while ((time <= ETIME)); do
 #-------------------------------------------------------------------------------
 # Online stage out
 
-  if ((RUN_LEVEL <= 3)); then
+  if ((RUN_LEVEL <= 3)) && ((DISK_MODE >= 2)); then
     if ((ONLINE_STGOUT == 1)); then
       online_stgout_bgjob $loop $time &
     fi
@@ -306,7 +309,7 @@ done
 #===============================================================================
 # Stage out
 
-if ((RUN_LEVEL <= 3)); then
+if ((RUN_LEVEL <= 3)) && ((DISK_MODE >= 2)); then
   if ((ONLINE_STGOUT == 1)); then
     wait
   else
@@ -322,7 +325,7 @@ fi
 
 if ((RUN_LEVEL <= 1)); then
   if ((DISK_MODE == 3)); then
-    config_file_save $TMP/config || exit $?
+    config_file_save $TMPROOT/config || exit $?
   else
     config_file_save || exit $?
   fi

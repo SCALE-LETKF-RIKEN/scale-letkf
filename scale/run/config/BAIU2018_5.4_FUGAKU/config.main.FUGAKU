@@ -6,13 +6,12 @@
 #===============================================================================
 
 PRESET='FUGAKU'
-RSCGRP="large"
 
 #===============================================================================
 
 DIR="$(cd "$(pwd)/.." && pwd)"    # Root directory of the SCALE-LETKF
 
-OUTDIR=/data/$(id -ng)/$(id -nu)/test_scale/result/BAIU2018_5.4 ### EDIT HERE ### 
+OUTDIR=/data/${GROUP}/$(id -nu)/test_scale/result/BAIU2018_5.4 ### EDIT HERE ### 
 INDIR=$OUTDIR
 
 #===============================================================================
@@ -34,7 +33,6 @@ DATA_BDY_NICAM=              # Directory of the boundary data in NICAM format (n
 DATA_BDY_GRADS="$DATA_BDY_SCALE/grads_test"
 
 OBS="$DATADIR/scale-letkf-test-suite/obs/BAIU2018_5.4"
-OBSNCEP=
 
 #===============================================================================
 # model/data file options
@@ -108,30 +106,22 @@ PPN=4              # Number of processes per node
 
 THREADS=12          # Number of threads per process
 
-SCALE_NP=$((48*16))        # Number of processes to run SCALE
+SCALE_NP_X=32        # = PRC_NUM_X
+SCALE_NP_Y=24        # = PRC_NUM_Y
+SCALE_NP=$(( SCALE_NP_X  * SCALE_NP_Y )) # Number of processes to run SCALE
 
 NNODES=$(( ( MEMBER + 1 ) * ( SCALE_NP / PPN ) ))
 
-BGJOB_INT='0.1s'   # Interval of multiple background job submissions
 
 #===============================================================================
 # Temporary directories to store runtime files
-
-ONLINE_STGOUT=0             # Stage out right after each cycle (do not wait until the end of the job)?
-                            #  0: No
-                            #  1: Yes
 
 SYSNAME="$(basename $OUTDIR)"                # A unique name in the machine
 TMPSUBDIR="scale-letkf_${SYSNAME}"           # (used to identify multiple runs in the same time)
 
 TMP="$DIR/tmp/$TMPSUBDIR" # Temporary directory shared among all nodes
-TMPS="$DIR/tmp/$TMPSUBDIR"  # Temporary directory only on the server node
-#TMPS="$TMP"  # Temporary directory only on the server node
+TMPS="$TMP"  # Temporary directory only on the server node
 TMPL="$TMP"
-
-CLEAR_TMP=0                 # Clear temporary directories after the completion of job?
-                            #  0: No
-                            #  1: Yes
 
 USE_LLIO_BIN=1   # Use LLIO-transfer for binary files ? (effective only on Fugaku) 
                  # 0: No 
@@ -148,19 +138,14 @@ USE_SPACK=0 # 1: Use spack in job scripts
 #===============================================================================
 # Environmental settings
 
-SCP='cp -L'
-SCP_HOSTPREFIX=''
-
 STAGE_THREAD=8
 TAR_THREAD=8
 
 PYTHON="python"
 
-#BUFRBIN=
-
 #===============================================================================
 # Machine-independent source file
 
-. config.rc
+. ./config.rc
 
 #===============================================================================
