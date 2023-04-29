@@ -278,6 +278,24 @@ while ((time <= ETIME)); do
       fi
       if ((s == 5)); then
         logd=$OUTDIR/$atime/log/letkf
+        if ((SPRD_OUT==1)); then
+            mkdir -p $OUTDIR/$atime/anal/sprd
+            cp -r $OUTDIR/$atime/anal/mean/* $OUTDIR/$atime/anal/sprd/ 
+            mnsp="mean sprd"
+        else
+            mnsp="mean"
+        fi
+        if ((OUT_OPT <= 3)) ;then
+          for mem in $(seq -f %04g $MEMBER) $mnsp ; do
+            mkdir -p $OUTDIR/$atime/gues/$mem
+            cp -r $OUTDIR/$atime/anal/$mem/* $OUTDIR/$atime/gues/$mem/
+          done
+        elif ((OUT_OPT <= 6)) ;then
+          for mem in $mnsp ;do
+            mkdir -p $OUTDIR/$atime/gues/$mem
+            cp -r $OUTDIR/$atime/anal/$mem/* $OUTDIR/$atime/gues/$mem/ 
+          done       
+        fi
       fi
       if (( s == 6 )); then
         logd=$OUTDIR/$atime/log/efso

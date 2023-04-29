@@ -1231,11 +1231,6 @@ config_file_scale_core (){
         RESTART_OUT_BASENAME[$d]="${RESTART_OUT_PATH[$d]}/${name_m[$mlocal]}/init"
       fi
 
-      if [ "${name_m[$mlocal]}" == 'mean' ]; then ###### using a variable for 'mean', 'mdet', 'sprd'
-        mkdir -p ${OUTDIR[$d]}/$atime/gues/mean
-        mkdir -p ${OUTDIR[$d]}/$atime/gues/sprd
-        mkdir -p ${OUTDIR[$d]}/$atime/anal/sprd
-
       if ((WINDOW_S == LCYCLE && WINDOW_E == LCYCLE));then
         HISTORY_OUT_WAIT=$((LCYCLE+LTIMESLOT)) ### 3D-LETKF : suppress history output
       else
