@@ -40,6 +40,8 @@ program scaleles_ens
   integer :: universal_myrank
   integer :: global_comm
   integer :: local_comm
+  integer :: intercomm_parent ! not used
+  integer :: intercomm_child
 
   character(len=H_LONG) :: confname_domains(PRC_DOMAIN_nlim)
   character(len=H_LONG) :: confname_mydom
@@ -109,7 +111,9 @@ program scaleles_ens
                            .false.,          & ! [IN]
                            COLOR_REORDER,    & ! [IN]
                            local_comm,       & ! [OUT]
-                           idom              ) ! [OUT]
+                           idom,             & ! [OUT]
+                           intercomm_parent, & ! [OUT]           
+                           intercomm_child )   ! [OUT]
 
     do it = 1, nitmax
       im = myrank_to_mem(it)
@@ -134,10 +138,10 @@ program scaleles_ens
         end if
         if ( LOG_OUT ) WRITE(6,'(A,I6.6,2A)') 'MYRANK ',universal_myrank,' is running a model with configuration file: ', trim(confname)
 
-        call rm_driver ( local_comm,     &
-                         trim(confname), &
-                         "",             & 
-                         .false.         )
+        call rm_driver ( local_comm,       &
+                       intercomm_parent, &
+                       intercomm_child,  &
+                       trim(confname)  )
       end if
     end do ! [ it = 1, nitmax ]
 

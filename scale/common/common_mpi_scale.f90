@@ -606,8 +606,7 @@ subroutine set_scalelib(execname)
   use scale_file_cartesC, only: &
     FILE_CARTESC_setup
   use scale_comm_cartesC, only: &
-    COMM_setup, &
-    COMM_regist
+    COMM_setup
   use scale_comm_cartesC_nest, only: &
     COMM_CARTESC_NEST_setup
   use scale_topography, only: &
@@ -709,6 +708,8 @@ subroutine set_scalelib(execname)
   character(len=7) :: execname_ = ''
 
   integer :: id
+  integer :: intercomm_parent ! not used
+  integer :: intercomm_child
 
   if (present(execname)) execname_ = execname
 
@@ -782,7 +783,9 @@ subroutine set_scalelib(execname)
                           .false.,          & ! [IN]
                           .false.,          & ! [IN] no reordering
                           local_comm,       & ! [OUT]
-                          mydom           )   ! [OUT]
+                          mydom,            & ! [OUT]
+                          intercomm_parent, & ! [OUT]           
+                          intercomm_child )   ! [OUT]
  
   MPI_COMM_d = local_comm
 
@@ -925,7 +928,6 @@ subroutine set_scalelib(execname)
 
   ! setup mpi communication
   call COMM_setup
-  call COMM_regist( KA, IA, JA, IHALO, JHALO, id )
 
   ! setup topography
   call TOPOGRAPHY_setup
