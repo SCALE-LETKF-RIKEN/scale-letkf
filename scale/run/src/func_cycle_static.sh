@@ -99,10 +99,10 @@ fi
 # database
 
 cat >> ${STAGING_DIR}/${STGINLIST_CONSTDB} << EOF
-${SCALEDIR}/data/rad|dat/rad
-${SCALEDIR}/data/land|dat/land
-${SCALEDIR}/data/urban|dat/urban
-${SCALEDIR}/data/lightning|dat/lightning
+${SCALEDIR}/scale-rm/test/data/rad|dat/rad
+${SCALEDIR}/scale-rm/test/data/land|dat/land
+${SCALEDIR}/scale-rm/test/data/urban|dat/urban
+${SCALEDIR}/scale-rm/test/data/lightning|dat/lightning
 EOF
 
 if [ "${SOUNDING}" != "" ] ; then
@@ -131,10 +131,10 @@ cp ${LETKF_DIR}/efso ${TMPROOT}/efso
 # database
 
 mkdir -p ${TMPROOT}/dat
-cp -r ${SCALEDIR}/data/rad ${TMPROOT}/dat/rad
-cp -r ${SCALEDIR}/data/land ${TMPROOT}/dat/land
-cp -r ${SCALEDIR}/data/urban ${TMPROOT}/dat/urban
-cp -r ${SCALEDIR}/data/lightning ${TMPROOT}/dat/lightning
+cp -r ${SCALEDIR}/scale-rm/test/data/rad ${TMPROOT}/dat/rad
+cp -r ${SCALEDIR}/scale-rm/test/data/land ${TMPROOT}/dat/land
+cp -r ${SCALEDIR}/scale-rm/test/data/urban ${TMPROOT}/dat/urban
+cp -r ${SCALEDIR}/scale-rm/test/data/lightning ${TMPROOT}/dat/lightning
 
 if [ "${SOUNDING}" != "" ] ; then
   cp ${SOUNDING} ${TMPROOT}/dat/
@@ -734,12 +734,11 @@ while ((time <= ETIME)); do
       RESTART_IN_PATH[$d]=${INDIR[$d]}/$time/anal
       RESTART_OUT_PATH[$d]=${OUTDIR[$d]}/${time}/anal
       BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time/bdy
-      CONSTDB_PATH=$SCALEDIR/data
 
+      CONSTDB_PATH=$SCALEDIR/scale-rm/test/data
       if [ $PRESET = 'FUGAKU' ] && (( BDY_LLIO_TMP == 1 )) ; then
         BOUNDARY_PATH[$d]=/local/$time/bdy
       fi
-
     fi
 
     if ((BDY_ROTATING == 1 || ${bdy_times[1]} != time_bdy_start_prev)); then
@@ -804,8 +803,8 @@ while ((time <= ETIME)); do
       fi
 
       BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time/bdy
-      CONSTDB_PATH=$SCALEDIR/data
 
+      CONSTDB_PATH=$SCALEDIR/scale-rm/test/data
       if [ $PRESET = 'FUGAKU' ] && (( BDY_LLIO_TMP == 1 )) ; then
         BOUNDARY_PATH[$d]=/local/$time/bdy
       fi
@@ -1237,90 +1236,6 @@ config_file_scale_core (){
         mkdir -p ${OUTDIR[$d]}/$atime/gues/sprd
         mkdir -p ${OUTDIR[$d]}/$atime/anal/sprd
 
-        RESTART_OUT_ADDITIONAL_COPIES=1
-        if ((DISK_MODE >= 1)); then
-          RESTART_OUT_ADDITIONAL_BASENAME="\"${RESTART_OUT_PATH[$d]}/mean/gues\", "
-        else
-          RESTART_OUT_ADDITIONAL_BASENAME="\"${RESTART_OUT_PATH[$d]}/../gues/mean/init\", "
-        fi
-        if ((SPRD_OUT == 1)); then
-          RESTART_OUT_ADDITIONAL_COPIES=$((RESTART_OUT_ADDITIONAL_COPIES+2))
-        if ((DISK_MODE >= 1)); then
-          RESTART_OUT_ADDITIONAL_BASENAME="$RESTART_OUT_ADDITIONAL_BASENAME\"${RESTART_OUT_PATH[$d]}/sprd/anal\", "
-          RESTART_OUT_ADDITIONAL_BASENAME="$RESTART_OUT_ADDITIONAL_BASENAME\"${RESTART_OUT_PATH[$d]}/sprd/gues\", "
-        else
-          RESTART_OUT_ADDITIONAL_BASENAME="$RESTART_OUT_ADDITIONAL_BASENAME\"${RESTART_OUT_PATH[$d]}/../anal/sprd/init\", "
-          RESTART_OUT_ADDITIONAL_BASENAME="$RESTART_OUT_ADDITIONAL_BASENAME\"${RESTART_OUT_PATH[$d]}/../gues/sprd/init\", "
-        fi
-        fi
-
-        if (( EFSO_RUN > 0 )) ; then
-          RESTART_OUT_ADDITIONAL_COPIES=$((RESTART_OUT_ADDITIONAL_COPIES+1))
-          # forecast from the analysis ensemble mean
-          if ((DISK_MODE >= 1)); then
-            RESTART_OUT_ADDITIONAL_BASENAME="$RESTART_OUT_ADDITIONAL_BASENAME\"${HISTORY_PATH[$d]}/${name_m[$mlocal]}/anal\", "
-          else
-            RESTART_OUT_ADDITIONAL_BASENAME="$RESTART_OUT_ADDITIONAL_BASENAME\"${HISTORY_PATH[$d]}/${name_m[$mlocal]}/init\", "
-          fi
-        fi
-
-#        if ((RTPS_INFL_OUT == 1)); then
-#          RESTART_OUT_ADDITIONAL_COPIES=$((RESTART_OUT_ADDITIONAL_COPIES+1))
-#          RESTART_OUT_ADDITIONAL_BASENAME="$RESTART_OUT_ADDITIONAL_BASENAME\"rtpsinfl.d$dfmt\", "
-#        fi
-#        if ((NOBS_OUT == 1)); then
-#          RESTART_OUT_ADDITIONAL_COPIES=$((RESTART_OUT_ADDITIONAL_COPIES+1))
-#          RESTART_OUT_ADDITIONAL_BASENAME="$RESTART_OUT_ADDITIONAL_BASENAME\"nobs.d$dfmt\", "
-#        fi
-      elif [ "${name_m[$mlocal]}" == 'mdet' ]; then
-        mkdir -p ${OUTDIR[$d]}/$atime/anal/mdet
-        RESTART_OUT_ADDITIONAL_COPIES=1
-        if ((DISK_MODE >= 1)); then
-          RESTART_OUT_ADDITIONAL_BASENAME="\"${RESTART_OUT_PATH[$d]}/mdet/gues\", "
-        else
-          RESTART_OUT_ADDITIONAL_BASENAME="\"${RESTART_OUT_PATH[$d]}/../gues/mdet/init\", "
-        fi
-
-      elif [ "${name_m[$mlocal]}" == 'mgue' ]; then
-        RESTART_OUT_ADDITIONAL_COPIES=0
-
-        if ((DISK_MODE >= 1)) ;then
-          RESTART_IN_BASENAME[$d]="${RESTART_IN_PATH[$d]}/../gues/mean/gues"
-        else
-          RESTART_IN_BASENAME[$d]="${RESTART_IN_PATH[$d]}/../gues/mean/init"
-        fi
-
-        if (( EFSO_RUN > 0 )) ; then
-          # forecast from the first guess ensemble mean
-          if ((DISK_MODE >= 1)); then
-            RESTART_OUT_BASENAME[$d]=${HISTORY_PATH[$d]}/${name_m[$mlocal]}/anal
-          else
-            RESTART_OUT_BASENAME[$d]=${HISTORY_PATH[$d]}/${name_m[$mlocal]}/init
-          fi
-        fi
-
-      elif (( EFSO_RUN > 0 )) ; then
-        # Ensemble forecast perturbation for EFSO
-        RESTART_OUT_ADDITIONAL_COPIES=1
-
-        if ((DISK_MODE >= 1)); then
-          RESTART_OUT_ADDITIONAL_BASENAME="$RESTART_OUT_ADDITIONAL_BASENAME\"${HISTORY_PATH[$d]}/${name_m[$mlocal]}/anal\", "
-        else
-          RESTART_OUT_ADDITIONAL_BASENAME="$RESTART_OUT_ADDITIONAL_BASENAME\"${HISTORY_PATH[$d]}/${name_m[$mlocal]}/init\", "
-        fi
-
-      elif ((OUT_OPT <= 3)); then
-        RESTART_OUT_ADDITIONAL_COPIES=1
-        if ((DISK_MODE >= 1)); then
-          RESTART_OUT_ADDITIONAL_BASENAME="\"${RESTART_OUT_PATH[$d]}/${name_m[$mlocal]}/gues\", "
-        else
-          RESTART_OUT_ADDITIONAL_BASENAME="\"${RESTART_OUT_PATH[$d]}/../gues/${name_m[$mlocal]}/init\", "
-        fi
-      else
-        RESTART_OUT_ADDITIONAL_COPIES=0
-        RESTART_OUT_ADDITIONAL_BASENAME=
-      fi
-
       if ((WINDOW_S == LCYCLE && WINDOW_E == LCYCLE));then
         HISTORY_OUT_WAIT=$((LCYCLE+LTIMESLOT)) ### 3D-LETKF : suppress history output
       else
@@ -1370,13 +1285,11 @@ config_file_scale_core (){
               -e "/!--ATMOS_PHY_RD_MSTRN_HYGROPARA_IN_FILENAME--/a ATMOS_PHY_RD_MSTRN_HYGROPARA_IN_FILENAME = \"${CONSTDB_PATH}/rad/VARDATA.RM29\"," \
               -e "/!--ATMOS_PHY_RD_PROFILE_CIRA86_IN_FILENAME--/a ATMOS_PHY_RD_PROFILE_CIRA86_IN_FILENAME = \"${CONSTDB_PATH}/rad/cira.nc\"," \
               -e "/!--ATMOS_PHY_RD_PROFILE_MIPAS2001_IN_BASENAME--/a ATMOS_PHY_RD_PROFILE_MIPAS2001_IN_BASENAME = \"${CONSTDB_PATH}/rad/MIPAS\"," \
-              -e "/!--ATMOS_PHY_LT_LUT_FILENAME--/a ATMOS_PHY_LT_LUT_FILENAME = \"${CONSTDB_PATH}/lightning/LUT_TK1978_v.txt\"," \
-              -e "/!--TIME_END_RESTART_OUT--/a TIME_END_RESTART_OUT = ${TIME_END_RESTART_OUT_TF}," \
-              -e "/!--RESTART_OUT_ADDITIONAL_COPIES--/a RESTART_OUT_ADDITIONAL_COPIES = ${RESTART_OUT_ADDITIONAL_COPIES}," \
-              -e "/!--RESTART_OUT_ADDITIONAL_BASENAME--/a RESTART_OUT_ADDITIONAL_BASENAME = ${RESTART_OUT_ADDITIONAL_BASENAME}")"
+              -e "/!--ATMOS_PHY_LT_LUT_FILENAME--/a ATMOS_PHY_LT_LUT_FILENAME = \"${CONSTDB_PATH}/lightning/LUT_TK1978_v.txt\"," )" 
       if ((d == 1)); then
         conf="$(echo "$conf" | \
-            sed -e "/!--ATMOS_BOUNDARY_IN_BASENAME--/a ATMOS_BOUNDARY_IN_BASENAME = \"${BOUNDARY_PATH[$d]}/${mem_bdy}/boundary\"," )"
+            sed -e "/!--ATMOS_BOUNDARY_IN_BASENAME--/a ATMOS_BOUNDARY_IN_BASENAME = \"${BOUNDARY_PATH[$d]}/${mem_bdy}/boundary\"," \
+                -e "/!--ATMOS_BOUNDARY_UPDATE_DT--/a ATMOS_BOUNDARY_UPDATE_DT = ${BDYINT}.D0," )"
       fi
 
       conf_file="$TMPS/${name_m[$mlocal]}/run.d${dfmt}_${time}.conf"

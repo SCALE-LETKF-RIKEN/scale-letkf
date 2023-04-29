@@ -87,10 +87,10 @@ EOF
 # database
 
 cat >> ${STAGING_DIR}/${STGINLIST_CONSTDB} << EOF
-${SCALEDIR}/data/rad|dat/rad
-${SCALEDIR}/data/land|dat/land
-${SCALEDIR}/data/urban|dat/urban
-${SCALEDIR}/data/lightning|dat/lightning
+${SCALEDIR}/scale-rm/test/data/rad|dat/rad
+${SCALEDIR}/scale-rm/test/data/land|dat/land
+${SCALEDIR}/scale-rm/test/data/urban|dat/urban
+${SCALEDIR}/scale-rm/test/data/lightning|dat/lightning
 EOF
 
 if [ "${SOUNDING}" != "" ] ; then
@@ -112,10 +112,10 @@ cp ${ENSMODEL_DIR}/scale-rm_ens ${TMPROOT}/scale-rm_ens
 # database
 
 mkdir -p ${TMPROOT}/dat
-cp -r ${SCALEDIR}/data/rad ${TMPROOT}/dat/rad
-cp -r ${SCALEDIR}/data/land ${TMPROOT}/dat/land
-cp -r ${SCALEDIR}/data/urban ${TMPROOT}/dat/urban
-cp -r ${SCALEDIR}/data/lightning ${TMPROOT}/dat/lightning
+cp -r ${SCALEDIR}/scale-rm/test/data/rad ${TMPROOT}/dat/rad
+cp -r ${SCALEDIR}/scale-rm/test/data/land ${TMPROOT}/dat/land
+cp -r ${SCALEDIR}/scale-rm/test/data/urban ${TMPROOT}/dat/urban
+cp -r ${SCALEDIR}/scale-rm/test/data/lightning ${TMPROOT}/dat/lightning
 
 if [ "${SOUNDING}" != "" ] ; then
   cp ${SOUNDING} ${TMPROOT}/dat/
@@ -641,7 +641,7 @@ while ((time_s <= ETIME)); do
           LANDUSE_PATH="${DATA_LANDUSE}/const"
           RESTART_IN_PATH[$d]=${INDIR[$d]}/$time/anal
           BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time/bdy
-          CONSTDB_PATH=$SCALEDIR/data
+          CONSTDB_PATH=$SCALEDIR/scale-rm/test/data
         fi
 
         if [ $PRESET = 'FUGAKU' ] && (( BDY_LLIO_TMP == 1 )) && (( BDY_ENS == 1 )); then
@@ -700,7 +700,7 @@ while ((time_s <= ETIME)); do
     RESTART_IN_PATH[$d]=${INDIR[$d]}/$time/anal
     RESTART_OUT_PATH[$d]=${OUTDIR[$d]}/$time/fcst
     BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time/bdy
-    CONSTDB_PATH=$SCALEDIR/data
+    CONSTDB_PATH=$SCALEDIR/scale-rm/test/data
   fi
 
   if [ $PRESET = 'FUGAKU' ] && (( BDY_LLIO_TMP == 1 )) && (( BDY_ENS == 1 )); then
@@ -948,8 +948,9 @@ m=$1
                   -e "/!--ATMOS_PHY_RD_PROFILE_MIPAS2001_IN_BASENAME--/a ATMOS_PHY_RD_PROFILE_MIPAS2001_IN_BASENAME = \"${CONSTDB_PATH}/rad/MIPAS\"," \
                   -e "/!--ATMOS_PHY_LT_LUT_FILENAME--/a ATMOS_PHY_LT_LUT_FILENAME = \"${CONSTDB_PATH}/lightning/LUT_TK1978_v.txt\",")"
           if ((d == 1)); then
-            conf="$(echo "$conf" | \
-                sed -e "/!--ATMOS_BOUNDARY_IN_BASENAME--/a ATMOS_BOUNDARY_IN_BASENAME = \"${BOUNDARY_PATH[$d]}/${mem_bdy}/bdy_$(datetime_scale $time)\",")"
+        conf="$(echo "$conf" | \
+            sed -e "/!--ATMOS_BOUNDARY_IN_BASENAME--/a ATMOS_BOUNDARY_IN_BASENAME = \"${BOUNDARY_PATH[$d]}/${mem_bdy}/boundary\"," \
+                -e "/!--ATMOS_BOUNDARY_UPDATE_DT--/a ATMOS_BOUNDARY_UPDATE_DT = ${BDYINT}.D0," )"
           fi
           mkdir -p $CONFIG_DIR/f$(printf $MEMBER_FMT $m)
           mkdir -p $TMP/f$(printf $MEMBER_FMT $m)
