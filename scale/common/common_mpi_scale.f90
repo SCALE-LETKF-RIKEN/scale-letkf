@@ -532,6 +532,8 @@ mem_loop: DO it = 1, nitmax
 #endif
   end if
 
+  ! settings related to mgue (EFSO) (only valid when mem >= MEMBER+2)
+  !----------------------------------------------------------------
   if ( mem >= MEMBER + 2 .and. EFSO_RUN ) then
     if ( DET_RUN ) then
       mmgue = MEMBER + 3
@@ -1211,35 +1213,42 @@ end subroutine read_ens_history_iter
 !-------------------------------------------------------------------------------
 ! Read ensemble first guess data and distribute to processes
 !-------------------------------------------------------------------------------
-subroutine read_ens_mpi(v3d, v2d)
+subroutine read_ens_mpi(v3d, v2d, EFSO )
   implicit none
+
   real(r_size), intent(out) :: v3d(nij1,nlev,nens,nv3d)
   real(r_size), intent(out) :: v2d(nij1,nens,nv2d)
+  logical, intent(in), optional :: EFSO
+ 
   real(RP) :: v3dg(nlev,nlon,nlat,nv3d)
   real(RP) :: v2dg(nlon,nlat,nv2d)
   character(len=filelenmax) :: filename
   integer :: it, im, mstart, mend
 
+  logical :: EFSO_ = .false.
+
   call mpi_timer('', 2)
+
+  if ( present( EFSO ) ) EFSO_ = EFSO
 
   do it = 1, nitmax
     im = myrank_to_mem(it)
 
     ! Note: read all members + mdetin
     ! 
-    if ( ( im >= 1 .and. im <= MEMBER ) .or. im == mmdetin .or. im == mmgue ) then
+    if ( ( im >= 1 .and. im <= MEMBER ) .or. im == mmdetin ) then
       if (im <= MEMBER) then
         filename = GUES_IN_BASENAME
+        if ( EFSO_ ) then
+          filename = EFSO_EFCST_FROM_ANAL_BASENAME
+        endif
         call filename_replace_mem(filename, im)
       else if (im == mmean) then
         filename = GUES_MEAN_INOUT_BASENAME
       else if (im == mmdet) then
         filename = GUES_MDET_IN_BASENAME
-      else if ( im == mmgue ) then
-        filename = GUES_MGUE_IN_BASENAME
       end if
 
-!      write (6,'(A,I6.6,3A,I6.6,A)') 'MYRANK ',myrank,' is reading a file ',filename,'.pe',myrank_d,'.nc'
 #ifdef PNETCDF
       if (FILE_AGGREGATE) then
         call read_restart_par(filename, v3dg, v2dg, MPI_COMM_d)
@@ -1323,6 +1332,7 @@ end subroutine read_ens_mpi_addiinfl
 !-------------------------------------------------------------------------------
 subroutine write_ens_mpi(v3d, v2d, monit_step)
   implicit none
+
   real(r_size), intent(in) :: v3d(nij1,nlev,nens,nv3d)
   real(r_size), intent(in) :: v2d(nij1,nens,nv2d)
   integer, intent(in), optional :: monit_step
@@ -1332,10 +1342,32 @@ subroutine write_ens_mpi(v3d, v2d, monit_step)
   integer :: it, im, mstart, mend
   integer :: monit_step_
 
+  integer :: nobs
+  ! analysis ensemble perturbation in the observation space
+  real(r_size), allocatable :: ya_local(:,:) 
+  ! analysis ensemble mean in the observation space
+  real(r_size), allocatable :: ya_mean(:)
+  integer :: ierr
+  integer :: n, m
+  character(6) :: MYRANK_D6
+
+  integer :: nobs_l(nid_obs)
+  real(r_size) :: bias_l(nid_obs)
+  real(r_size) :: rmse_l(nid_obs)
+  logical :: monit_type(nid_obs)
+
   monit_step_ = 0
   if (present(monit_step)) then
     monit_step_ = monit_step
   end if
+
+  if ( OBSANAL_OUT ) then
+    nobs = obsda_sort%nobs_in_key 
+    if ( nobs > 0 ) then
+      allocate( ya_local(nobs,MEMBER) )
+      ya_local(:,:) = 0.0_r_size
+    endif
+  endif
 
   do it = 1, nitmax
     call mpi_timer('', 2, barrier=MPI_COMM_e)
@@ -1355,6 +1387,20 @@ subroutine write_ens_mpi(v3d, v2d, monit_step)
 
       call mpi_timer('write_ens_mpi:monit_obs_mpi:', 2)
     end if
+
+    if ( OBSANAL_OUT ) then
+
+      if ( im >= 1 .and. im <= MEMBER ) then
+        call monit_obs( v3dg, v2dg, topo2d, nobs_l, bias_l, rmse_l, monit_type, .true., 1 )
+        !call monit_obs_mem_mpi( v3dg, v2dg, im )
+
+        if ( nobs > 0 ) then
+          ! obsdep_omb contains analysis in obs space 
+          ya_local(:,im) = obsdep_omb(:)
+        endif
+      endif
+
+    endif
 
     ! Note: write all members + mean + mdet
     ! 
@@ -1386,6 +1432,37 @@ subroutine write_ens_mpi(v3d, v2d, monit_step)
       call mpi_timer('write_ens_mpi:write_restart:', 2)
     end if
   end do ! [ it = 1, nitmax ]
+
+  if ( OBSANAL_OUT ) then
+    if ( nobs > 0 ) then
+
+      call MPI_ALLREDUCE( MPI_IN_PLACE, ya_local, nobs*MEMBER, MPI_r_size, MPI_SUM, MPI_COMM_e, ierr )
+
+      allocate( ya_mean(nobs) )
+      ya_mean(:) = ya_local(:,1)
+      do n = 1, nobs
+        do m = 2, MEMBER
+          ya_mean(n) = ya_mean(n) + ya_local(n,m)
+        enddo
+        ya_mean(n) = ya_mean(n) / real( MEMBER, r_size )
+
+        do m = 1, MEMBER
+          ya_local(n,m) = ya_local(n,m) - ya_mean(n)
+        enddo
+      enddo
+      deallocate( ya_mean )
+
+
+      if ( myrank_e == mmean_rank_e ) then
+        write ( MYRANK_D6,'(I6.6)') myrank_d
+        call write_obs_anal_rank_nc( trim( OBSANAL_OUT_BASENAME ) // '/obsanal_rank' // &
+                                     MYRANK_D6 // '.nc', ya_local )
+      endif
+
+      deallocate( ya_local )
+    endif
+  endif
+
 
   return
 end subroutine write_ens_mpi
@@ -1720,7 +1797,8 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
                                  obsdep_g_nobs, obsdep_g_set, &
                                  obsdep_g_idx, obsdep_g_qc,   &
                                  obsdep_g_omb, obsdep_g_oma,  &
-                                 obsdep_g_omb_emean, obsdep_g_sprd )
+                                 obsdep_g_omb_emean, obsdep_g_sprd, &
+                                 nprocs_d, cntr )
         else
           if ( LOG_OUT ) write (6,'(A,I6.6,2A)') 'MYRANK ', myrank,' is writing an obsda file ', trim(OBSDEP_OUT_BASENAME)//'.dat'
           call write_obs_dep( trim(OBSDEP_OUT_BASENAME)//'.dat', &
@@ -1740,15 +1818,15 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
       call mpi_timer('monit_obs_mpi:obsdep:mpi_allreduce(domain):', 2)
     end if ! [ OBSDEP_OUT .and. monit_step == 2 ]
 
-    if (monit_step == 2) then
-      deallocate (obsdep_set)
-      deallocate (obsdep_idx)
-      deallocate (obsdep_qc )
-      deallocate (obsdep_omb)
-      deallocate (obsdep_oma)
-      deallocate (obsdep_sprd)
-      deallocate (obsdep_omb_emean)
-    end if
+!    if (monit_step == 2) then
+!      deallocate (obsdep_set)
+!      deallocate (obsdep_idx)
+!      deallocate (obsdep_qc )
+!      deallocate (obsdep_omb)
+!      deallocate (obsdep_oma)
+!      deallocate (obsdep_sprd)
+!      deallocate (obsdep_omb_emean)
+!    end if
   end if ! [ myrank_e == mmean_rank_e ]
 
   if (DEPARTURE_STAT_ALL_PROCESSES) then
@@ -2405,10 +2483,83 @@ subroutine get_regression_slope_dbz_mpi( mv3dg, mv2dg, mdbz3dg, slope3dg )
 
   return
 end subroutine get_regression_slope_dbz_mpi
+!---------------------------------
+subroutine get_nobs_efso_mpi( nobs, nobs_local, nobs0 )
+  implicit none
 
-!SUBROUTINE get_nobs_mpi(obsfile,nrec,nn)
-!SUBROUTINE read_obs2_mpi(obsfile,nn,nbv,elem,rlon,rlat,rlev,odat,oerr,otyp,tdif,hdxf,iqc)
-!SUBROUTINE allreduce_obs_mpi(n,nbv,hdxf,iqc)
+  integer, intent(out) :: nobs
+  integer, intent(out) :: nobs_local
+  integer, intent(out) :: nobs0 ! number of obs until myrank_d-1
+  integer :: nobs_rank(nprocs_d)
+  integer :: n
+
+  integer :: ierr
+
+  if ( myrank_a == 0 ) then
+    call get_nobs_efso( trim(OBSDEP_IN_BASENAME)//'.nc', nprocs_d, nobs_rank )
+  endif
+  call MPI_BCAST( nobs_rank, nprocs_d, MPI_INTEGER, 0, MPI_COMM_a, ierr )
+
+  nobs = sum( nobs_rank )
+  nobs_local = nobs_rank(myrank_d+1)
+
+  if ( myrank_d > 0 ) then
+    nobs0 = sum( nobs_rank(1:myrank_d) )
+  else
+    nobs0 = 0
+  endif
+
+  return
+end subroutine get_nobs_efso_mpi
+!---------------------------------
+subroutine get_obsdep_efso_mpi( nobs_local, nobs0, obsset, obsidx, obselm, obstyp, &
+                                obslon, obslat, obslev, &
+                                obsdat, obserr, obsdif, obsdep, obsqc, obshdxf )
+  implicit none
+
+  integer, intent(in) :: nobs_local
+  integer, intent(in) :: nobs0
+  integer, intent(out) :: obsset(nobs_local)
+  integer, intent(out) :: obsidx(nobs_local)
+  integer, intent(out) :: obselm(nobs_local)
+  integer, intent(out) :: obstyp(nobs_local)
+  real(r_size), intent(out) :: obslon(nobs_local)
+  real(r_size), intent(out) :: obslat(nobs_local)
+  real(r_size), intent(out) :: obslev(nobs_local)
+  real(r_size), intent(out) :: obsdat(nobs_local)
+  real(r_size), intent(out) :: obserr(nobs_local)
+  real(r_size), intent(out) :: obsdif(nobs_local)
+  real(r_size), intent(out) :: obsdep(nobs_local)
+  integer, intent(out) :: obsqc(nobs_local)
+  real(r_size), intent(out) :: obshdxf(nobs_local,MEMBER)
+
+  character(6) :: MYRANK_D6
+
+  integer :: ierr
+
+  if ( myrank_e == 0 ) then
+    write ( MYRANK_D6,'(I6.6)') myrank_d
+    call get_obsdep_efso( trim( OBSANAL_IN_BASENAME ) // '/obsanal_rank' // &
+                          MYRANK_D6 // '.nc', nobs_local, nobs0, &
+                          obsset, obsidx, obselm, obstyp, obslon, obslat, obslev,  &
+                          obsdat, obserr, obsdif, obsdep, obsqc, obshdxf )
+  endif
+  call MPI_BCAST( obsset, nobs_local, MPI_INTEGER, 0, MPI_COMM_e, ierr )
+  call MPI_BCAST( obsidx, nobs_local, MPI_INTEGER, 0, MPI_COMM_e, ierr )
+  call MPI_BCAST( obselm, nobs_local, MPI_INTEGER, 0, MPI_COMM_e, ierr )
+  call MPI_BCAST( obstyp, nobs_local, MPI_INTEGER, 0, MPI_COMM_e, ierr )
+  call MPI_BCAST( obslon, nobs_local, MPI_r_size, 0, MPI_COMM_e, ierr )
+  call MPI_BCAST( obslat, nobs_local, MPI_r_size, 0, MPI_COMM_e, ierr )
+  call MPI_BCAST( obslev, nobs_local, MPI_r_size, 0, MPI_COMM_e, ierr )
+  call MPI_BCAST( obsdat, nobs_local, MPI_r_size, 0, MPI_COMM_e, ierr )
+  call MPI_BCAST( obserr, nobs_local, MPI_r_size, 0, MPI_COMM_e, ierr )
+  call MPI_BCAST( obsdif, nobs_local, MPI_r_size, 0, MPI_COMM_e, ierr )
+  call MPI_BCAST( obsdep, nobs_local, MPI_r_size, 0, MPI_COMM_e, ierr )
+  call MPI_BCAST( obsqc,  nobs_local, MPI_INTEGER, 0, MPI_COMM_e, ierr )
+  call MPI_BCAST( obshdxf, nobs_local*MEMBER, MPI_r_size, 0, MPI_COMM_e, ierr )
+
+  return
+end subroutine get_obsdep_efso_mpi
 
 !===============================================================================
 END MODULE common_mpi_scale

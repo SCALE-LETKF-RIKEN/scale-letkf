@@ -1363,11 +1363,11 @@ end subroutine read_restart_trans_history
 !-------------------------------------------------------------------------------
 subroutine state_trans(v3dg)
   use scale_tracer, only: TRACER_CV
-    use scale_const, only: &
-       Rdry   => CONST_Rdry, &
-       Rvap   => CONST_Rvap, &
-       CVdry  => CONST_CVdry, &
-       PRE00 => CONST_PRE00
+  use scale_const, only: &
+     Rdry   => CONST_Rdry, &
+     Rvap   => CONST_Rvap, &
+     CVdry  => CONST_CVdry, &
+     PRE00 => CONST_PRE00
   implicit none
 
   real(RP), intent(inout) :: v3dg(nlev,nlon,nlat,nv3d)

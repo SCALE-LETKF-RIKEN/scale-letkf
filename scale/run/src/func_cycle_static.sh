@@ -665,6 +665,7 @@ time_bdy_start_prev=0
 loop=0
 while ((time <= ETIME)); do
   loop=$((loop+1))
+  time_efso=$(datetime $atime -${EFSO_FCST_LENGTH} s)
 
 #  for s in $(seq $nsteps); do
 #    if (((s_flag == 0 || s >= ISTEP) && (e_flag == 0 || s <= FSTEP))); then
@@ -778,7 +779,7 @@ while ((time <= ETIME)); do
     else
       TOPO_PATH="${DATA_TOPO}/const"
       LANDUSE_PATH="${DATA_LANDUSE}/const"
-      HISTORY_PATH[$d]=${OUTDIR[$d]}/$time/hist/
+      HISTORY_PATH[$d]=${OUTDIR[$d]}/$time/hist
 
       if [ $PRESET = 'FUGAKU' ] && (( HIST_TMP == 1)) ; then
         HISTORY_PATH[$d]=/local/$time/hist
@@ -827,13 +828,16 @@ while ((time <= ETIME)); do
   #-----------------------------------------------------------------------------
 
   OBS_IN_NAME_LIST=
+  OBS_IN_NAME_LIST_EFSO=
   for iobs in $(seq $OBSNUM); do
     if [ "${OBSNAME[$iobs]}" != '' ]; then
       OBSFOOT[$iobs]=${OBSFOOT[$iobs]:-dat}
       if ((DISK_MODE_OBS >= 1)); then
         OBS_IN_NAME_LIST="${OBS_IN_NAME_LIST}'${TMPROOT_OBS}/obs/${OBSNAME[$iobs]}_${atime}.${OBSFOOT[$iobs]}', "
+        OBS_IN_NAME_LIST_EFSO="${OBS_IN_NAME_LIST_EFSO}'${TMPROOT_OBS}/obs/${OBSNAME[$iobs]}_${time_efso}.${OBSFOOT[$iobs]}', "
       else
         OBS_IN_NAME_LIST="${OBS_IN_NAME_LIST}'${OBS}/${OBSNAME[$iobs]}_${atime}.${OBSFOOT[$iobs]}', "
+        OBS_IN_NAME_LIST_EFSO="${OBS_IN_NAME_LIST_EFSO}'${OBS}/${OBSNAME[$iobs]}_${time_efso}.${OBSFOOT[$iobs]}', "
       fi
     fi
   done
@@ -879,6 +883,9 @@ while ((time <= ETIME)); do
 
     if ((ISTEP > 3)) ;then 
       for m in $mtot ; do
+        if [ "${name_m[$m]}" == 'mgue' ] ; then
+          continue
+        fi
         cp ${OUTDIR[$d]}/$atime/gues/${name_m[$m]}/* ${OUTDIR[$d]}/$atime/anal/${name_m[$m]}
       done
       cp ${OUTDIR[$d]}/$atime/gues/mean/* ${OUTDIR[$d]}/$atime/gues/sprd
@@ -911,8 +918,11 @@ while ((time <= ETIME)); do
       OBSDEP_OUT_TF=".true."
       OBSDEP_OUT_BASENAME="${OUTDIR[$d]}/$atime/obs/obsdep"
     fi
+    OBSDEP_IN_BASENAME="${OUTDIR[$d]}/$time/obs/obsdep" # EFSO
     DEPARTURE_STAT_OUT_BASENAME="${OUTDIR[$d]}/score/score_${atime}"
     OBSNUM_OUT_NC_BASENAME="${OUTDIR[$d]}/score/obsnum_${atime}"
+    OBSANAL_IN_BASENAME="${OUTDIR[$d]}/${time}/obs"
+    OBSANAL_OUT_BASENAME="${OUTDIR[$d]}/${atime}/obs"
 
     if ((DISK_MODE >= 1)) ;then
 #      GUES_IN_BASENAME="${RESTART_OUT_PATH[$d]}/<member>/gues_$(datetime_scale $atime)"
@@ -920,13 +930,20 @@ while ((time <= ETIME)); do
       GUES_MEAN_INOUT_BASENAME="${RESTART_OUT_PATH[$d]}/mean/gues_$(datetime_scale $atime)"
       GUES_SPRD_OUT_BASENAME="${RESTART_OUT_PATH[$d]}/sprd/gues_$(datetime_scale $atime)"
       ANAL_OUT_BASENAME="${RESTART_OUT_PATH[$d]}/<member>/anal_$(datetime_scale $atime)"
+      EFSO_ANAL_IN_BASENAME="${RESTART_OUT_PATH[$d]}/mean/anal_$(datetime_scale $atime)"
       RESTART_IN_BASENAME_SCALE="${RESTART_OUT_PATH[$d]}/<member>/gues"
+#      EFSO_FCST_FROM_GUES_BASENAME="${OUTDIR[$d]}/${time_efso}/hist/mgue/init_$(datetime_scale $atime)"
+#      EFSO_FCST_FROM_ANAL_BASENAME="${OUTDIR[$d]}/${time_efso}/hist/mean/init_$(datetime_scale $atime)"
     else
 #      GUES_IN_BASENAME="${RESTART_OUT_PATH[$d]}/../gues/<member>/init_$(datetime_scale $atime)"
       GUES_IN_BASENAME="${RESTART_OUT_PATH[$d]}/../anal/<member>/init_$(datetime_scale $atime)"
       GUES_MEAN_INOUT_BASENAME="${RESTART_OUT_PATH[$d]}/../gues/mean/init_$(datetime_scale $atime)"
       GUES_SPRD_OUT_BASENAME="${RESTART_OUT_PATH[$d]}/../gues/sprd/init_$(datetime_scale $atime)"
       ANAL_OUT_BASENAME="${RESTART_OUT_PATH[$d]}/<member>/init_$(datetime_scale $atime)"
+      EFSO_ANAL_IN_BASENAME="${RESTART_OUT_PATH[$d]}/mean/init_$(datetime_scale $atime)"
+      EFSO_FCST_FROM_GUES_BASENAME="${OUTDIR[$d]}/${time_efso}/hist/mgue/init_$(datetime_scale $atime)"
+      EFSO_FCST_FROM_ANAL_BASENAME="${OUTDIR[$d]}/${time_efso}/hist/mean/init_$(datetime_scale $atime)"
+      EFSO_EFCST_FROM_ANAL_BASENAME="${OUTDIR[$d]}/${time_efso}/hist/<member>/init_$(datetime_scale $atime)"
       RESTART_IN_BASENAME_SCALE="${RESTART_OUT_PATH[$d]}/../gues/<member>/init"
     fi
 
@@ -960,6 +977,10 @@ while ((time <= ETIME)); do
             -e "/!--ANAL_OUT_BASENAME--/a ANAL_OUT_BASENAME = \"${ANAL_OUT_BASENAME}\"," \
             -e "/!--ANAL_SPRD_OUT--/a ANAL_SPRD_OUT = ${SPRD_OUT_TF}," \
             -e "/!--LETKF_TOPOGRAPHY_IN_BASENAME--/a LETKF_TOPOGRAPHY_IN_BASENAME = \"${TOPO_PATH}/topo/topo\"," \
+            -e "/!--EFSO_ANAL_IN_BASENAME--/a EFSO_ANAL_IN_BASENAME = \"${EFSO_ANAL_IN_BASENAME}\"," \
+            -e "/!--EFSO_FCST_FROM_GUES_BASENAME--/a EFSO_FCST_FROM_GUES_BASENAME = \"${EFSO_FCST_FROM_GUES_BASENAME}\"," \
+            -e "/!--EFSO_FCST_FROM_ANAL_BASENAME--/a EFSO_FCST_FROM_ANAL_BASENAME = \"${EFSO_FCST_FROM_ANAL_BASENAME}\"," \
+            -e "/!--EFSO_EFCST_FROM_ANAL_BASENAME--/a EFSO_EFCST_FROM_ANAL_BASENAME = \"${EFSO_EFCST_FROM_ANAL_BASENAME}\"," \
             -e "/!--INFL_ADD_IN_BASENAME--/a INFL_ADD_IN_BASENAME = \"<member>/addi.d${dfmt}\"," \
             -e "/!--RELAX_SPREAD_OUT--/a RELAX_SPREAD_OUT = ${RTPS_INFL_OUT_TF}," \
             -e "/!--RELAX_SPREAD_OUT_BASENAME--/a RELAX_SPREAD_OUT_BASENAME = \"rtpsinfl.d${dfmt}_$(datetime_scale $atime).nc\"," \
@@ -968,6 +989,9 @@ while ((time <= ETIME)); do
             -e "/!--IO_LOG_BASENAME--/a IO_LOG_BASENAME =  \"${OUTDIR[$d]}/$atime/log/letkf/${name_m[$m]}_LOG\"," \
             -e "/!--DEPARTURE_STAT_OUT_BASENAME--/a DEPARTURE_STAT_OUT_BASENAME = \"${DEPARTURE_STAT_OUT_BASENAME}\"," \
             -e "/!--OBSDEP_OUT--/a OBSDEP_OUT = ${OBSDEP_OUT_TF}," \
+            -e "/!--OBSANAL_IN_BASENAME--/a OBSANAL_IN_BASENAME = \"${OBSANAL_IN_BASENAME}\"," \
+            -e "/!--OBSANAL_OUT_BASENAME--/a OBSANAL_OUT_BASENAME = \"${OBSANAL_OUT_BASENAME}\"," \
+            -e "/!--OBSDEP_IN_BASENAME--/a OBSDEP_IN_BASENAME = \"${OBSDEP_IN_BASENAME}\"," \
             -e "/!--OBSDEP_OUT_BASENAME--/a OBSDEP_OUT_BASENAME = \"${OBSDEP_OUT_BASENAME}\"," \
             -e "/!--OBSNUM_OUT_NC_BASENAME--/a OBSNUM_OUT_NC_BASENAME = \"${OBSNUM_OUT_NC_BASENAME}\"," \
         >> ${conf_file}
@@ -977,7 +1001,12 @@ while ((time <= ETIME)); do
         sed -e "s#^RESTART_IN_BASENAME.*#RESTART_IN_BASENAME = \"${RESTART_IN_BASENAME_SCALE}\", #g " \
             -e "s#^TIME_STARTDATE\ =.*#TIME_STARTDATE\ =\ ${atime:0:4},\ ${atime:4:2},\ ${atime:6:2},\ ${atime:8:2},\ ${atime:10:2},\ ${atime:12:2}, #g" \
         >> ${conf_file}
-    cp ${conf_file} ${conf_file_efso}
+
+
+    cat ${conf_file} | \
+        sed -e '/^OBS_IN_NAME/d' \
+            -e "/!--OBS_IN_NAME--/a OBS_IN_NAME = $OBS_IN_NAME_LIST_EFSO" \
+    >> ${conf_file_efso}
 
 #    if ((stage_config == 1)); then
 #      echo "$CONFIG_DIR/${conf_file}|${conf_file}" >> ${STAGING_DIR}/${STGINLIST}
@@ -1176,6 +1205,10 @@ config_file_scale_core (){
 #      fi
 
       RESTART_OUTPUT_TF=".true."
+      TIME_END_RESTART_OUT_TF=".false."
+      if (( EFSO_RUN > 0 && WINDOW_E < EFSO_FCST_LENGTH )) ; then
+        TIME_END_RESTART_OUT_TF=".true."
+      fi
 
       mkdir -p ${OUTDIR[$d]}/$atime/anal/${name_m[$mlocal]}
       mkdir -p ${OUTDIR[$d]}/$atime/gues/${name_m[$mlocal]}
@@ -1214,6 +1247,17 @@ config_file_scale_core (){
           RESTART_OUT_ADDITIONAL_BASENAME="$RESTART_OUT_ADDITIONAL_BASENAME\"${RESTART_OUT_PATH[$d]}/../gues/sprd/init\", "
         fi
         fi
+
+        if (( EFSO_RUN > 0 )) ; then
+          RESTART_OUT_ADDITIONAL_COPIES=$((RESTART_OUT_ADDITIONAL_COPIES+1))
+          # forecast from the analysis ensemble mean
+          if ((DISK_MODE >= 1)); then
+            RESTART_OUT_ADDITIONAL_BASENAME="$RESTART_OUT_ADDITIONAL_BASENAME\"${HISTORY_PATH[$d]}/${name_m[$mlocal]}/anal\", "
+          else
+            RESTART_OUT_ADDITIONAL_BASENAME="$RESTART_OUT_ADDITIONAL_BASENAME\"${HISTORY_PATH[$d]}/${name_m[$mlocal]}/init\", "
+          fi
+        fi
+
 #        if ((RTPS_INFL_OUT == 1)); then
 #          RESTART_OUT_ADDITIONAL_COPIES=$((RESTART_OUT_ADDITIONAL_COPIES+1))
 #          RESTART_OUT_ADDITIONAL_BASENAME="$RESTART_OUT_ADDITIONAL_BASENAME\"rtpsinfl.d$dfmt\", "
@@ -1230,8 +1274,35 @@ config_file_scale_core (){
         else
           RESTART_OUT_ADDITIONAL_BASENAME="\"${RESTART_OUT_PATH[$d]}/../gues/mdet/init\", "
         fi
+
       elif [ "${name_m[$mlocal]}" == 'mgue' ]; then
-        RESTART_OUTPUT_TF=".false."
+        RESTART_OUT_ADDITIONAL_COPIES=0
+
+        if ((DISK_MODE >= 1)) ;then
+          RESTART_IN_BASENAME[$d]="${RESTART_IN_PATH[$d]}/../gues/mean/gues"
+        else
+          RESTART_IN_BASENAME[$d]="${RESTART_IN_PATH[$d]}/../gues/mean/init"
+        fi
+
+        if (( EFSO_RUN > 0 )) ; then
+          # forecast from the first guess ensemble mean
+          if ((DISK_MODE >= 1)); then
+            RESTART_OUT_BASENAME[$d]=${HISTORY_PATH[$d]}/${name_m[$mlocal]}/anal
+          else
+            RESTART_OUT_BASENAME[$d]=${HISTORY_PATH[$d]}/${name_m[$mlocal]}/init
+          fi
+        fi
+
+      elif (( EFSO_RUN > 0 )) ; then
+        # Ensemble forecast perturbation for EFSO
+        RESTART_OUT_ADDITIONAL_COPIES=1
+
+        if ((DISK_MODE >= 1)); then
+          RESTART_OUT_ADDITIONAL_BASENAME="$RESTART_OUT_ADDITIONAL_BASENAME\"${HISTORY_PATH[$d]}/${name_m[$mlocal]}/anal\", "
+        else
+          RESTART_OUT_ADDITIONAL_BASENAME="$RESTART_OUT_ADDITIONAL_BASENAME\"${HISTORY_PATH[$d]}/${name_m[$mlocal]}/init\", "
+        fi
+
       elif ((OUT_OPT <= 3)); then
         RESTART_OUT_ADDITIONAL_COPIES=1
         if ((DISK_MODE >= 1)); then
@@ -1294,7 +1365,7 @@ config_file_scale_core (){
               -e "/!--ATMOS_PHY_RD_PROFILE_CIRA86_IN_FILENAME--/a ATMOS_PHY_RD_PROFILE_CIRA86_IN_FILENAME = \"${CONSTDB_PATH}/rad/cira.nc\"," \
               -e "/!--ATMOS_PHY_RD_PROFILE_MIPAS2001_IN_BASENAME--/a ATMOS_PHY_RD_PROFILE_MIPAS2001_IN_BASENAME = \"${CONSTDB_PATH}/rad/MIPAS\"," \
               -e "/!--ATMOS_PHY_LT_LUT_FILENAME--/a ATMOS_PHY_LT_LUT_FILENAME = \"${CONSTDB_PATH}/lightning/LUT_TK1978_v.txt\"," \
-              -e "/!--TIME_END_RESTART_OUT--/a TIME_END_RESTART_OUT = .false.," \
+              -e "/!--TIME_END_RESTART_OUT--/a TIME_END_RESTART_OUT = ${TIME_END_RESTART_OUT_TF}," \
               -e "/!--RESTART_OUT_ADDITIONAL_COPIES--/a RESTART_OUT_ADDITIONAL_COPIES = ${RESTART_OUT_ADDITIONAL_COPIES}," \
               -e "/!--RESTART_OUT_ADDITIONAL_BASENAME--/a RESTART_OUT_ADDITIONAL_BASENAME = ${RESTART_OUT_ADDITIONAL_BASENAME}")"
       if ((d == 1)); then
@@ -1483,6 +1554,13 @@ fi
 OUT_CYCLE_SKIP=${OUT_CYCLE_SKIP:-1}
 
 CYCLEFLEN=$WINDOW_E     # Model forecast length in a cycle (second)
+if (( EFSO_RUN > 0 )) ; then
+  EFSO_FCST_LENGTH=${EFSO_FCST_LENGTH:-$WINDOW_E}
+  if (( WINDOW_E < EFSO_FCST_LENGTH )) ; then
+    CYCLEFLEN=$EFSO_FCST_LENGTH
+  fi
+fi
+
 if [ -z "$FCSTOUT" ] || ((FCSTOUT >= LTIMESLOT)); then
   CYCLEFOUT=$LTIMESLOT  # Model forecast output interval (second)
 elif ((LTIMESLOT % FCSTOUT == 0)); then

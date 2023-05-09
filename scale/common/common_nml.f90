@@ -101,7 +101,6 @@ MODULE common_nml
   character(filelenmax) :: GUES_IN_BASENAME = 'gues.@@@@'
   character(filelenmax) :: GUES_MEAN_INOUT_BASENAME = ''
   character(filelenmax) :: GUES_MDET_IN_BASENAME = ''
-  character(filelenmax) :: GUES_MGUE_IN_BASENAME = ''
   logical               :: GUES_SPRD_OUT = .true.
   character(filelenmax) :: GUES_SPRD_OUT_BASENAME = ''
   character(filelenmax) :: ANAL_OUT_BASENAME = 'anal.@@@@'
@@ -110,6 +109,12 @@ MODULE common_nml
   logical               :: ANAL_SPRD_OUT = .true.
   character(filelenmax) :: ANAL_SPRD_OUT_BASENAME = ''
   character(filelenmax) :: LETKF_TOPOGRAPHY_IN_BASENAME = 'topo'  !!!!!! -- directly use the SCALE namelist --???? !!!!!!
+  character(filelenmax) :: EFSO_ANAL_IN_BASENAME = 'anal.@@@@'
+  character(filelenmax) :: EFSO_FCST_FROM_GUES_BASENAME = 'anal.@@@@'
+  character(filelenmax) :: EFSO_FCST_FROM_ANAL_BASENAME = 'anal.@@@@'
+  character(filelenmax) :: EFSO_EFCST_FROM_ANAL_BASENAME = 'anal.@@@@'
+
+  logical :: EFSO_USE_MOIST_ENERGY = .true.
 
   real(r_size) :: INFL_MUL = 1.0d0           ! >  0: globally constant covariance inflation
                                              ! <= 0: use 3D inflation field from 'INFL_MUL_IN_BASENAME' file
@@ -242,15 +247,18 @@ MODULE common_nml
   logical :: DEPARTURE_STAT_OUT_NC = .false.
   character(filelenmax) :: DEPARTURE_STAT_OUT_BASENAME = 'stat'
   LOGICAL               :: OBSDEP_OUT = .true.
+  character(filelenmax) :: OBSDEP_IN_BASENAME = 'obsdep'
   character(filelenmax) :: OBSDEP_OUT_BASENAME = 'obsdep'
   LOGICAL               :: OBSDEP_OUT_NC = .false.
   logical               :: OBSDEP_OUT_NOQC = .false.
+  character(filelenmax) :: OBSDEP_IN_BASENAME = 'obsdep'
   logical               :: OBSNUM_OUT_NC = .false.
   character(filelenmax) :: OBSNUM_OUT_NC_BASENAME = 'obsnum'
   LOGICAL               :: OBSGUES_OUT = .false.                  !XXX not implemented yet...
   character(filelenmax) :: OBSGUES_OUT_BASENAME = 'obsgues.@@@@'  !XXX not implemented yet...
-  LOGICAL               :: OBSANAL_OUT = .false.                  !XXX not implemented yet...
-  character(filelenmax) :: OBSANAL_OUT_BASENAME = 'obsanal.@@@@'  !XXX not implemented yet...
+  LOGICAL               :: OBSANAL_OUT = .false.
+  character(filelenmax) :: OBSANAL_IN_BASENAME = 'obsanal.@@@@'
+  character(filelenmax) :: OBSANAL_OUT_BASENAME = 'obsanal.@@@@'
 
   !--- PARAM_LETKF_RADAR
   logical :: USE_RADAR_REF       = .true.
@@ -575,7 +583,6 @@ subroutine read_nml_letkf
     GUES_IN_BASENAME, &
     GUES_MEAN_INOUT_BASENAME, &
     GUES_MDET_IN_BASENAME, &
-    GUES_MGUE_IN_BASENAME, &
     GUES_SPRD_OUT, &
     GUES_SPRD_OUT_BASENAME, &
     ANAL_OUT_BASENAME, &
@@ -584,6 +591,11 @@ subroutine read_nml_letkf
     ANAL_SPRD_OUT, &
     ANAL_SPRD_OUT_BASENAME, &
     LETKF_TOPOGRAPHY_IN_BASENAME, &
+    EFSO_ANAL_IN_BASENAME, &
+    EFSO_FCST_FROM_GUES_BASENAME, &
+    EFSO_FCST_FROM_ANAL_BASENAME, &
+    EFSO_EFCST_FROM_ANAL_BASENAME, &
+    EFSO_USE_MOIST_ENERGY, &
     INFL_MUL, &
     INFL_MUL_MIN, &
     INFL_MUL_ADAPTIVE, &
@@ -672,10 +684,6 @@ subroutine read_nml_letkf
     call filename_replace_mem(GUES_MDET_IN_BASENAME, memf_mdet)
   end if
 
-  if (trim(GUES_MGUE_IN_BASENAME) == '') then
-    GUES_MGUE_IN_BASENAME = GUES_IN_BASENAME
-    call filename_replace_mem( GUES_MGUE_IN_BASENAME, memf_mgue )
-  end if
 
   if (trim(GUES_SPRD_OUT_BASENAME) == '') then
     GUES_SPRD_OUT_BASENAME = GUES_IN_BASENAME
@@ -854,6 +862,7 @@ subroutine read_nml_letkf_monitor
     DEPARTURE_STAT_OUT_NC,        &
     DEPARTURE_STAT_OUT_BASENAME,  &
     OBSDEP_OUT, &
+    OBSDEP_IN_BASENAME, &
     OBSDEP_OUT_BASENAME, &
     OBSDEP_OUT_NC, &
     OBSDEP_OUT_NOQC, &
@@ -862,6 +871,7 @@ subroutine read_nml_letkf_monitor
     OBSGUES_OUT, &
     OBSGUES_OUT_BASENAME, &
     OBSANAL_OUT, &
+    OBSANAL_IN_BASENAME, &
     OBSANAL_OUT_BASENAME
 
   rewind(IO_FID_CONF)
