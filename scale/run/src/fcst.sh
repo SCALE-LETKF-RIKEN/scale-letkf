@@ -235,13 +235,13 @@ while ((time <= ETIME)); do
       fi
       if ((s == 2)); then
 
-        if [ "$PRESET" = 'FUGAKU' ] && (( BDY_TMP == 1 )) && (( BDY_ENS == 1 )); then
-           BDY_TMPDIR_TOP=/local/$time/bdy
-           BDY_TMPDIRS=
+        if [ "$PRESET" = 'FUGAKU' ] && (( BDY_LLIO_TMP == 1 )) && (( BDY_ENS == 1 )); then
+           BDY_LLIO_TMPDIR_TOP=/local/$time/bdy
+           BDY_LLIO_TMPDIRS=
            for mmmm in 'mean' 'mdet' `seq -f %04g 1 ${MEMBER}` ; do 
-             BDY_TMPDIRS=${BDY_TMPDIRS}" "$BDY_TMPDIR_TOP/${mmmm}
+             BDY_LLIO_TMPDIRS=${BDY_LLIO_TMPDIRS}" "$BDY_LLIO_TMPDIR_TOP/${mmmm}
            done
-           mpiexec mkdir -p ${BDY_TMPDIRS}
+           mpiexec mkdir -p ${BDY_LLIO_TMPDIRS}
         fi
 
         logd=$OUTDIR/$time/log/fcst_scale_init
@@ -278,8 +278,8 @@ while ((time <= ETIME)); do
       done
 
       if [ "$PRESET" = 'FUGAKU' ] ; then
-        if (( s == 3 && BDY_TMP == 1 && BDY_ENS == 1 )) ; then
-          mpiexec rm -rf ${BDY_TMPDIR_TOP}
+        if (( s == 3 && BDY_LLIO_TMP == 1 && BDY_ENS == 1 )) ; then
+          mpiexec rm -rf ${BDY_LLIO_TMPDIR_TOP}
         fi
       fi
 

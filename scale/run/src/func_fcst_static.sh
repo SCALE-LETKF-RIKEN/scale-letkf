@@ -644,7 +644,7 @@ while ((time_s <= ETIME)); do
           CONSTDB_PATH=$SCALEDIR/data
         fi
 
-        if [ $PRESET = 'FUGAKU' ] && (( BDY_TMP == 1 )) && (( BDY_ENS == 1 )); then
+        if [ $PRESET = 'FUGAKU' ] && (( BDY_LLIO_TMP == 1 )) && (( BDY_ENS == 1 )); then
           BOUNDARY_PATH[$d]=/local/$time/bdy
         fi
 
@@ -703,7 +703,7 @@ while ((time_s <= ETIME)); do
     CONSTDB_PATH=$SCALEDIR/data
   fi
 
-  if [ $PRESET = 'FUGAKU' ] && (( BDY_TMP == 1 )) && (( BDY_ENS == 1 )); then
+  if [ $PRESET = 'FUGAKU' ] && (( BDY_LLIO_TMP == 1 )) && (( BDY_ENS == 1 )); then
     BOUNDARY_PATH[$d]=/local/$time/bdy
   fi
  

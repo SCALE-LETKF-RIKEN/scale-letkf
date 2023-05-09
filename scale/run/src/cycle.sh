@@ -232,13 +232,13 @@ while ((time <= ETIME)); do
           btime=$(datetime $btime $BDYINT s)
         fi
 
-        if [ "$PRESET" = 'FUGAKU' ] && (( BDY_TMP == 1 )) ; then
-           BDY_TMPDIR_TOP=/local/$time/bdy
-           BDY_TMPDIRS=
+        if [ "$PRESET" = 'FUGAKU' ] && (( BDY_LLIO_TMP == 1 )) ; then
+           BDY_LLIO_TMPDIR_TOP=/local/$time/bdy
+           BDY_LLIO_TMPDIRS=
            for mmmm in 'mean' 'mdet' 'mgue' `seq -f %04g 1 ${MEMBER}` ; do
-             BDY_TMPDIRS=${BDY_TMPDIRS}" "$BDY_TMPDIR_TOP/${mmmm}
+             BDY_LLIO_TMPDIRS=${BDY_LLIO_TMPDIRS}" "$BDY_LLIO_TMPDIR_TOP/${mmmm}
            done
-           mpiexec mkdir -p ${BDY_TMPDIRS}
+           mpiexec mkdir -p ${BDY_LLIO_TMPDIRS}
         fi
 
       fi
@@ -246,23 +246,23 @@ while ((time <= ETIME)); do
       if ((s == 3)); then
         logd=$OUTDIR/$time/log/scale
 
-        if [ "$PRESET" = 'FUGAKU' ] && (( HIST_TMP == 1 )) ; then
-           HIST_TMPDIR_TOP=/local/$time/hist
-           HIST_TMPDIRS=
+        if [ "$PRESET" = 'FUGAKU' ] && (( HIST_LLIO_TMP == 1 )) ; then
+           HIST_LLIO_TMPDIR_TOP=/local/$time/hist
+           HIST_LLIO_TMPDIRS=
            for mmmm in 'mean' 'mdet' 'mgue' `seq -f %04g 1 ${MEMBER}` ; do 
-             HIST_TMPDIRS=${HIST_TMPDIRS}" "$HIST_TMPDIR_TOP/${mmmm}
+             HIST_LLIO_TMPDIRS=${HIST_LLIO_TMPDIRS}" "$HIST_LLIO_TMPDIR_TOP/${mmmm}
            done
-           mpiexec mkdir -p ${HIST_TMPDIRS}
+           mpiexec mkdir -p ${HIST_LLIO_TMPDIRS}
         fi
 
-        if [ "$PRESET" = 'FUGAKU' ] && (( ANAL_TMP == 1 )) ; then
-           ANAL_TMPDIR_TOP_OLD=/local/$time/anal" "/local/$time/gues
-           ANAL_TMPDIR_TOP=/local/$atime/anal
-           ANAL_TMPDIRS=
+        if [ "$PRESET" = 'FUGAKU' ] && (( ANAL_LLIO_TMP == 1 )) ; then
+           ANAL_LLIO_TMPDIR_TOP_OLD=/local/$time/anal" "/local/$time/gues
+           ANAL_LLIO_TMPDIR_TOP=/local/$atime/anal
+           ANAL_LLIO_TMPDIRS=
            for mmmm in 'mean' 'mdet' 'sprd' '../gues/mean' '../gues/mdet' '../gues/sprd' `seq -f %04g 1 ${MEMBER}` ; do 
-             ANAL_TMPDIRS=${ANAL_TMPDIRS}" "$ANAL_TMPDIR_TOP/${mmmm}
+             ANAL_LLIO_TMPDIRS=${ANAL_LLIO_TMPDIRS}" "$ANAL_LLIO_TMPDIR_TOP/${mmmm}
            done
-           mpiexec mkdir -p ${ANAL_TMPDIRS}
+           mpiexec mkdir -p ${ANAL_LLIO_TMPDIRS}
         fi
 
 
@@ -314,12 +314,12 @@ while ((time <= ETIME)); do
       done
 
       if [ "$PRESET" = 'FUGAKU' ] ; then
-        if (( s == 5 && HIST_TMP == 1)) ; then
-          mpiexec rm -rf ${HIST_TMPDIR_TOP}
-        elif (( s == 5 && ANAL_TMP == 1)) ; then
-          mpiexec rm -rf ${ANAL_TMPDIR_TOP_OLD}
-        elif (( s == 4 && BDY_TMP == 1)) ; then
-          mpiexec rm -rf ${BDY_TMPDIR_TOP}
+        if (( s == 5 && HIST_LLIO_TMP == 1)) ; then
+          mpiexec rm -rf ${HIST_LLIO_TMPDIR_TOP}
+        elif (( s == 5 && ANAL_LLIO_TMP == 1)) ; then
+          mpiexec rm -rf ${ANAL_LLIO_TMPDIR_TOP_OLD}
+        elif (( s == 4 && BDY_LLIO_TMP == 1)) ; then
+          mpiexec rm -rf ${BDY_LLIO_TMPDIR_TOP}
         fi
       fi
 

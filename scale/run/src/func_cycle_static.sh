@@ -736,7 +736,7 @@ while ((time <= ETIME)); do
       BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time/bdy
       CONSTDB_PATH=$SCALEDIR/data
 
-      if [ $PRESET = 'FUGAKU' ] && (( BDY_TMP == 1 )) ; then
+      if [ $PRESET = 'FUGAKU' ] && (( BDY_LLIO_TMP == 1 )) ; then
         BOUNDARY_PATH[$d]=/local/$time/bdy
       fi
 
@@ -781,7 +781,7 @@ while ((time <= ETIME)); do
       LANDUSE_PATH="${DATA_LANDUSE}/const"
       HISTORY_PATH[$d]=${OUTDIR[$d]}/$time/hist
 
-      if [ $PRESET = 'FUGAKU' ] && (( HIST_TMP == 1)) ; then
+      if [ $PRESET = 'FUGAKU' ] && (( HIST_LLIO_TMP == 1)) ; then
         HISTORY_PATH[$d]=/local/$time/hist
       fi
 
@@ -794,11 +794,11 @@ while ((time <= ETIME)); do
       fi 
       RESTART_OUT_PATH[$d]=${OUTDIR[$d]}/${atime}/anal
 
-      if [ $PRESET = 'FUGAKU' ] && (( ANAL_TMP == 1 )) ; then
-         if (( loop_prev % ANAL_TMP_SKIP != 0 )); then
+      if [ $PRESET = 'FUGAKU' ] && (( ANAL_LLIO_TMP == 1 )) ; then
+         if (( loop_prev % ANAL_LLIO_TMP_SKIP != 0 )); then
            RESTART_IN_PATH[$d]=/local/$time/anal
          fi
-         if (( loop % ANAL_TMP_SKIP != 0 && atime <= ETIME )); then
+         if (( loop % ANAL_LLIO_TMP_SKIP != 0 && atime <= ETIME )); then
            RESTART_OUT_PATH[$d]=/local/$atime/anal
          fi
       fi
@@ -806,7 +806,7 @@ while ((time <= ETIME)); do
       BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time/bdy
       CONSTDB_PATH=$SCALEDIR/data
 
-      if [ $PRESET = 'FUGAKU' ] && (( BDY_TMP == 1 )) ; then
+      if [ $PRESET = 'FUGAKU' ] && (( BDY_LLIO_TMP == 1 )) ; then
         BOUNDARY_PATH[$d]=/local/$time/bdy
       fi
 
