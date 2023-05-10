@@ -142,6 +142,8 @@ USE_SPACK=0 # 1: Use spack in job scripts
             # 0: Not use spack in job scripts
             #    SCALE environment paramters (e.g., SCALE_NETCDF_C) should be exported
 
+LLIO_TMP_SIZE=10 # Gi # size of LLIO temporary directory
+
 #===============================================================================
 # Environmental settings
 

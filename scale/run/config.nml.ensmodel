@@ -6,6 +6,7 @@
 !--CONF_FILES_SEQNUM--
 !--DET_RUN--
  DET_RUN_CYCLED = .true.,
+!--EFSO_RUN--
 /
 
 &PARAM_PROCESS

@@ -114,9 +114,12 @@ cd $TMPROOT
 
 #-------------------------------------------------------------------------------
 
-mtot=$((MEMBER+1))
+mtot=$(( MEMBER + 1 ))
 if (( DET_RUN == 1 )); then
-  mtot=$((MEMBER+2))
+  mtot=$(( mtot + 1 ))
+fi
+if (( EFSO_RUN == 1 )); then
+  mtot=$(( mtot + 1 ))
 fi
 
 totalnp=$((PPN*NNODES))
@@ -229,9 +232,40 @@ while ((time <= ETIME)); do
           btime=$(datetime $btime $BDYINT s)
         fi
 
+        if [ "$PRESET" = 'FUGAKU' ] && (( BDY_LLIO_TMP == 1 )) ; then
+           BDY_LLIO_TMPDIR_TOP=/local/$time/bdy
+           BDY_LLIO_TMPDIRS=
+           for mmmm in 'mean' 'mdet' 'mgue' `seq -f %04g 1 ${MEMBER}` ; do
+             BDY_LLIO_TMPDIRS=${BDY_LLIO_TMPDIRS}" "$BDY_LLIO_TMPDIR_TOP/${mmmm}
+           done
+           mpiexec mkdir -p ${BDY_LLIO_TMPDIRS}
+        fi
+
       fi
+
       if ((s == 3)); then
         logd=$OUTDIR/$time/log/scale
+
+        if [ "$PRESET" = 'FUGAKU' ] && (( HIST_LLIO_TMP == 1 )) ; then
+           HIST_LLIO_TMPDIR_TOP=/local/$time/hist
+           HIST_LLIO_TMPDIRS=
+           for mmmm in 'mean' 'mdet' 'mgue' `seq -f %04g 1 ${MEMBER}` ; do 
+             HIST_LLIO_TMPDIRS=${HIST_LLIO_TMPDIRS}" "$HIST_LLIO_TMPDIR_TOP/${mmmm}
+           done
+           mpiexec mkdir -p ${HIST_LLIO_TMPDIRS}
+        fi
+
+        if [ "$PRESET" = 'FUGAKU' ] && (( ANAL_LLIO_TMP == 1 )) ; then
+           ANAL_LLIO_TMPDIR_TOP_OLD=/local/$time/anal" "/local/$time/gues
+           ANAL_LLIO_TMPDIR_TOP=/local/$atime/anal
+           ANAL_LLIO_TMPDIRS=
+           for mmmm in 'mean' 'mdet' 'sprd' '../gues/mean' '../gues/mdet' '../gues/sprd' `seq -f %04g 1 ${MEMBER}` ; do 
+             ANAL_LLIO_TMPDIRS=${ANAL_LLIO_TMPDIRS}" "$ANAL_LLIO_TMPDIR_TOP/${mmmm}
+           done
+           mpiexec mkdir -p ${ANAL_LLIO_TMPDIRS}
+        fi
+
+
       fi
       if ((s == 4)); then
         logd=$OUTDIR/$atime/log/letkf
@@ -244,6 +278,9 @@ while ((time <= ETIME)); do
       fi
       if ((s == 5)); then
         logd=$OUTDIR/$atime/log/letkf
+      fi
+      if (( s == 6 )); then
+        logd=$OUTDIR/$atime/log/efso
       fi
       ######
 
@@ -275,6 +312,16 @@ while ((time <= ETIME)); do
 
         echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: end" >&2
       done
+
+      if [ "$PRESET" = 'FUGAKU' ] ; then
+        if (( s == 5 && HIST_LLIO_TMP == 1)) ; then
+          mpiexec rm -rf ${HIST_LLIO_TMPDIR_TOP}
+        elif (( s == 5 && ANAL_LLIO_TMP == 1)) ; then
+          mpiexec rm -rf ${ANAL_LLIO_TMPDIR_TOP_OLD}
+        elif (( s == 4 && BDY_LLIO_TMP == 1)) ; then
+          mpiexec rm -rf ${BDY_LLIO_TMPDIR_TOP}
+        fi
+      fi
 
     fi
   done

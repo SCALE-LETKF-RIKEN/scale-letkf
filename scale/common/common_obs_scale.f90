@@ -122,6 +122,8 @@ MODULE common_obs_scale
     ! For Himawari-8 assimilation, LETKF uses obsda%lev instead of obs%lev.
     ! 
     REAL(r_size),ALLOCATABLE :: ensval(:,:)
+    real(r_size), allocatable :: epert(:,:) ! ensemble perturbation (Y18)
+    real(r_size), allocatable :: pert(:)    ! ensemble perturbation from each member (Y18)
     REAL(r_size),ALLOCATABLE :: eqv(:,:) ! qv (ensemble)
     REAL(r_size),ALLOCATABLE :: qv(:)    ! qv (mean)
     REAL(r_size),ALLOCATABLE :: tm(:)    ! temp (mean)
@@ -132,6 +134,7 @@ MODULE common_obs_scale
   character(obsformatlenmax), parameter :: obsfmt_prepbufr = 'PREPBUFR'
   character(obsformatlenmax), parameter :: obsfmt_radar    = 'RADAR'
   character(obsformatlenmax), parameter :: obsfmt_h08      = 'HIMAWARI8'
+  character(obsformatlenmax), parameter :: obsfmt_radar_nc = 'RADAR-NC'
 !  integer, parameter :: nobsformats = 3
 !  character(obsformatlenmax), parameter :: obsformat(nobsformats) = &
 !    (/obsfmt_prepbufr, obsfmt_radar, obsfmt_h08/)
@@ -332,7 +335,9 @@ SUBROUTINE Trans_XtoY(elm,ri,rj,rk,lon,lat,v3d,v2d,yobs,qc,stggrd,typ)
 !  CASE(id_rain_obs) ! RAIN                        ############# (not finished)
 !    CALL itpl_2d(v2d(:,:,iv2dd_rain),ri,rj,yobs) !#############
   CASE(id_rh_obs) ! RH
-    CALL itpl_3d(v3d(:,:,:,iv3dd_rh),rk,ri,rj,yobs)
+    write(6,'(a)') 'Relative humidity obs is not supoorted'
+    stop
+!    CALL itpl_3d(v3d(:,:,:,iv3dd_rh),rk,ri,rj,yobs)
 !  CASE(id_tclon_obs)
 !    CALL tctrk(v2d(:,:,iv2d_ps),v2d(:,:,iv2d_t2),ri,rj,dummy)
 !    yobs = dummy(1)
@@ -351,7 +356,10 @@ END SUBROUTINE Trans_XtoY
 !-----------------------------------------------------------------------
 ! 
 !-----------------------------------------------------------------------
-SUBROUTINE Trans_XtoY_radar(elm,radar_lon,radar_lat,radar_z,ri,rj,rk,lon,lat,lev,v3d,v2d,yobs,qc,stggrd)
+SUBROUTINE Trans_XtoY_radar(elm,radar_lon,radar_lat,radar_z,ri,rj,rk,lon,lat,lev,v3d,v2d,yobs,qc,stggrd,&
+                            mv3d,slope3d,ref_add,use_shift)
+  use scale_atmos_grid_cartesC_index, only: &
+      KHALO
   IMPLICIT NONE
   INTEGER,INTENT(IN) :: elm
   REAL(r_size),INTENT(IN) :: ri,rj,rk,radar_lon,radar_lat,radar_z !!!!! Use only, ri, rj, rk eventually... (radar_lon,lat,z in ri,rj,rk)
@@ -361,6 +369,10 @@ SUBROUTINE Trans_XtoY_radar(elm,radar_lon,radar_lat,radar_z,ri,rj,rk,lon,lat,lev
   REAL(r_size),INTENT(OUT) :: yobs
   INTEGER,INTENT(OUT) :: qc
   INTEGER,INTENT(IN),OPTIONAL :: stggrd
+  real(r_size), intent(in), optional :: mv3d(nlevh,nlonh,nlath,nv3dd)
+  real(r_size), intent(in), optional :: slope3d(nlevh,nv3dd)
+  real(r_size), intent(out), optional :: ref_add
+  logical, intent(in), optional :: use_shift
   INTEGER :: stggrd_ = 0
 
   REAL(r_size) :: qvr,qcr,qrr,qir,qsr,qgr,ur,vr,wr,tr,pr !,rhr
@@ -371,13 +383,18 @@ SUBROUTINE Trans_XtoY_radar(elm,radar_lon,radar_lat,radar_z,ri,rj,rk,lon,lat,lev
   real(RP) :: lon_RP(1,1), lat_RP(1,1)
   real(RP) :: rotc_RP(2)
 
+  real(r_size) :: pert, mean, slope
+  integer :: iv3d, k
+
+  logical :: use_shift_ = .true.
+
 !  integer :: ierr
 !  REAL(r_dble) :: rrtimer00,rrtimer
 !  rrtimer00 = MPI_WTIME()
 
 
   if (present(stggrd)) stggrd_ = stggrd
-
+  if ( present( use_shift ) ) use_shift_ = use_shift
 
   yobs = undef
   qc = iqc_good
@@ -474,7 +491,15 @@ SUBROUTINE Trans_XtoY_radar(elm,radar_lon,radar_lat,radar_z,ri,rj,rk,lon,lat,lev
 !!!!    else                      !!!!!! --------- Pesudo RH: TO BE DONE...
     if (radar_ref < MIN_RADAR_REF) then
       qc = iqc_ref_low
-      yobs = MIN_RADAR_REF_DBZ + LOW_REF_SHIFT  !!! even if the above qc is bad, still return the value
+      if ( use_shift_ ) then
+        yobs = MIN_RADAR_REF_DBZ + LOW_REF_SHIFT  !!! even if the above qc is bad, still return the value
+      else
+        if ( radar_ref > 0.0_r_size ) then
+          yobs = 10.0d0 * log10(radar_ref)
+        else
+          yobs = -10.0_r_size
+        endif
+      endif
     else
       yobs = 10.0d0 * log10(radar_ref)
     end if
@@ -488,7 +513,19 @@ SUBROUTINE Trans_XtoY_radar(elm,radar_lon,radar_lat,radar_z,ri,rj,rk,lon,lat,lev
     qc = iqc_otype
   END SELECT
 
-
+  if ( RADAR_ADDITIVE_Y18 ) then
+    if ( present( mv3d ) .and. present( slope3d ) .and. present( ref_add ) ) then
+      ref_add = 0.0_r_size
+      do iv3d = 1, nv3dd
+        call itpl_3d( mv3d(:,:,:,iv3d), rk, ri, rj, mean )
+        call itpl_3d(  v3d(:,:,:,iv3d), rk, ri, rj, pert )
+        pert = pert - mean
+        call itpl_1d( slope3d(:,iv3d), rk, slope )
+        ref_add = ref_add + pert * slope
+      enddo
+    endif
+  endif
+  
 !  rrtimer = MPI_WTIME()
 !  WRITE(6,'(A,F18.10)') '###### Trans_XtoY_radar:conversion:',rrtimer-rrtimer00
 !  rrtimer00=rrtimer
@@ -1388,6 +1425,21 @@ END SUBROUTINE ij2phys
 !-----------------------------------------------------------------------
 ! Interpolation
 !-----------------------------------------------------------------------
+subroutine itpl_1d(var,rk,var5)
+  implicit none
+  real(r_size), intent(in) :: var(nlevh)
+  real(r_size), intent(in) :: rk
+  real(r_size), intent(out) :: var5
+  real(r_size) :: ak
+  integer :: k
+
+  k = ceiling( rk )
+  ak = rk - real(k-1,r_size)
+
+  var5 = var(k-1) * (1 - ak) + var(k) * ak
+
+  return
+end subroutine itpl_1d
 SUBROUTINE itpl_2d(var,ri,rj,var5)
   IMPLICIT NONE
   REAL(r_size),INTENT(IN) :: var(nlonh,nlath)
@@ -1490,6 +1542,8 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step)
   real(r_size),allocatable :: ohx(:)
   integer,allocatable :: oqc(:)
 
+  integer :: m
+  real(r_size) :: obsdep_mean
 
   call state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
 
@@ -1511,13 +1565,13 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step)
 #endif
   if (step == 1) then
     obsdep_nobs = nnobs
-    allocate (obsdep_set(obsdep_nobs))
-    allocate (obsdep_idx(obsdep_nobs))
-    allocate (obsdep_qc (obsdep_nobs))
-    allocate (obsdep_omb(obsdep_nobs))
-    allocate (obsdep_oma(obsdep_nobs))
-    allocate (obsdep_sprd(obsdep_nobs))
-    allocate (obsdep_omb_emean(obsdep_nobs))
+    if ( .not. allocated( obsdep_set  ) ) allocate( obsdep_set(obsdep_nobs) )
+    if ( .not. allocated( obsdep_idx  ) ) allocate( obsdep_idx(obsdep_nobs) )
+    if ( .not. allocated( obsdep_qc   ) ) allocate( obsdep_qc (obsdep_nobs) )
+    if ( .not. allocated( obsdep_omb  ) ) allocate( obsdep_omb(obsdep_nobs) )
+    if ( .not. allocated( obsdep_oma  ) ) allocate( obsdep_oma(obsdep_nobs) )
+    if ( .not. allocated( obsdep_sprd ) ) allocate( obsdep_sprd(obsdep_nobs ))
+    if ( .not. allocated( obsdep_omb_emean) ) allocate( obsdep_omb_emean(obsdep_nobs) )
   end if
 
   oqc = -1
@@ -1526,7 +1580,7 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step)
 !  obs_idx_TCY = -1
 !  obs_idx_TCP = -1
 
-!$omp parallel do private(n,nn,iset,iidx,ril,rjl,rk,rkz)
+!$omp parallel do private(n,nn,iset,iidx,ril,rjl,rk,rkz,m,obsdep_mean)
   do n = 1, nnobs
 
     if (use_key) then
@@ -1591,7 +1645,7 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step)
                           v3dgh,v2dgh,ohx(n),oqc(n),stggrd=1,typ=obs(iset)%typ(iidx))
         end if
       !=========================================================================
-      case (obsfmt_radar)
+      case (obsfmt_radar, obsfmt_radar_nc )
       !-------------------------------------------------------------------------
         if (DEPARTURE_STAT_RADAR) then
           call phys2ijkz(v3dgh(:,:,:,iv3dd_hgt),ril,rjl,obs(iset)%lev(iidx),rkz,oqc(n))
@@ -1623,8 +1677,22 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step)
         obsdep_omb_emean(n) = obsda_sort%val(nn)
       end if
 
+      if ( OBSDEP_OUT_NOQC ) then
+        obsdep_qc(n) = iqc_good
+      endif
+
 !!! ensemble perturbation output
-      obsdep_sprd(n) = sqrt( sum( ( obsda_sort%ensval(:,nn) - sum(obsda_sort%ensval(:,nn))/MEMBER ) **2 ) / ( MEMBER - 1 ) )
+      obsdep_mean = obsda_sort%ensval(1,nn)
+      do m = 2, MEMBER
+        obsdep_mean = obsdep_mean + obsda_sort%ensval(m,nn)
+      enddo
+      obsdep_mean = obsdep_mean / real( MEMBER, kind=r_size )
+
+      obsdep_sprd(n) = ( obsda_sort%ensval(1,nn) - obsdep_mean )**2
+      do m = 2, MEMBER
+        obsdep_sprd(n) = obsdep_sprd(n) + ( obsda_sort%ensval(m,nn) - obsdep_mean )**2
+      enddo
+      obsdep_sprd(n) = sqrt( obsdep_sprd(n) / ( MEMBER - 1 ) )
 
       if (LOG_LEVEL >= 3) then
         write (6, '(2I6,2F8.2,4F12.4,I3)') &
@@ -1875,7 +1943,17 @@ SUBROUTINE obs_da_value_allocate(obsda,member)
 
     allocate( obsda%eqv (member,obsda%nobs) )
     obsda%eqv = 0.0d0
+
   end if
+
+  if ( RADAR_ADDITIVE_Y18 ) then
+    allocate( obsda%pert (obsda%nobs) )
+    obsda%pert = 0.0_r_size
+    if (member > 0) then
+      allocate( obsda%epert (member,obsda%nobs) )
+      obsda%epert = 0.0_r_size
+    endif
+  endif
 
   RETURN
 END SUBROUTINE obs_da_value_allocate
@@ -1894,6 +1972,10 @@ SUBROUTINE obs_da_value_deallocate(obsda)
   IF(ALLOCATED(obsda%val   )) DEALLOCATE(obsda%val   )
   IF(ALLOCATED(obsda%ensval)) DEALLOCATE(obsda%ensval)
   IF(ALLOCATED(obsda%qc    )) DEALLOCATE(obsda%qc    )
+
+  if ( allocated(obsda%eqv ) ) deallocate( obsda%eqv )
+  if ( allocated(obsda%pert ) ) deallocate( obsda%pert )
+  if ( allocated(obsda%epert ) ) deallocate( obsda%epert )
 
   RETURN
 END SUBROUTINE obs_da_value_deallocate
@@ -2440,6 +2522,8 @@ subroutine read_obs_all(obs)
       call get_nobs(trim(OBS_IN_NAME(iof)),8,obs(iof)%nobs)
     case (obsfmt_radar)
       call get_nobs_radar(trim(OBS_IN_NAME(iof)), obs(iof)%nobs, obs(iof)%meta(1), obs(iof)%meta(2), obs(iof)%meta(3))
+    case (obsfmt_radar_nc)
+      call get_nobs_radar_nc(trim(OBS_IN_NAME(iof)), obs(iof)%nobs, obs(iof)%meta(1), obs(iof)%meta(2), obs(iof)%meta(3))
     case default
       write(6,*) '[Error] Unsupported observation file format!'
       stop
@@ -2456,6 +2540,8 @@ subroutine read_obs_all(obs)
       call read_obs(trim(OBS_IN_NAME(iof)),obs(iof))
     case (obsfmt_radar)
       call read_obs_radar(trim(OBS_IN_NAME(iof)),obs(iof))
+    case (obsfmt_radar_nc)
+      call read_obs_radar_nc( trim( OBS_IN_NAME(iof) ), obs(iof) )
     end select
   end do ! [ iof = 1, OBS_IN_NUM ]
 
@@ -2495,7 +2581,7 @@ subroutine write_obs_all(obs, missing, file_suffix)
   return
 end subroutine write_obs_all
 
-subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, sprd )
+subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, sprd, nrank, cnt_rank )
   use netcdf
   use common_ncio
   implicit none
@@ -2508,16 +2594,19 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
   real(r_size), intent(in) :: omb(nobs)
   real(r_size), intent(in) :: oma(nobs)
   real(r_size), intent(in) :: omb_em(nobs)
-  real(r_size), intent(in), optional :: sprd(nobs)
+  real(r_size), intent(in) :: sprd(nobs)
+  integer, intent(in) :: nrank
+  integer, intent(in) :: cnt_rank(nrank)
 
   integer :: ncid
-  integer :: dimid
+  integer :: dimid, dimid_rank
   integer :: dim_varid, elm_varid
   integer :: lon_varid, lat_varid
   integer :: lev_varid, dat_varid, qc_varid
   integer :: dif_varid, err_varid
   integer :: omb_varid, oma_varid, omb_em_varid, sprd_varid
   integer :: typ_varid
+  integer :: dim_rank_varid, nobs_varid
 
   character(len=*), parameter :: DIM_NAME = "number"
   character(len=*), parameter :: ELM_NAME = "elm"
@@ -2533,6 +2622,8 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
   character(len=*), parameter :: OMB_EM_NAME = "omb_emean"
   character(len=*), parameter :: SPRD_NAME = "sprd"
   character(len=*), parameter :: TYP_NAME = "typ"
+  character(len=*), parameter :: DIM_MEM_NAME = "member"
+  character(len=*), parameter :: NOBS_NAME = "nobs_rank"
 
   character(len=*), parameter :: ELM_LONGNAME = "observation id"
   character(len=*), parameter :: LON_LONGNAME = "longitude"
@@ -2547,8 +2638,9 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
   character(len=*), parameter :: OMB_EM_LONGNAME = "observation-minus-background-ensemble-mean"
   character(len=*), parameter :: SPRD_LONGNAME = "ensemble spread in observation space"
   character(len=*), parameter :: TYP_LONGNAME = "observation platform type"
+  character(len=*), parameter :: NOBS_LONGNAME = "number of assimilated observations in each rank"
 
-  integer :: nobs_l(nobs)
+  integer :: nobs_l(nobs), rank_l(nrank)
   integer :: n
 
   real(r_sngl) :: elm_l(nobs)
@@ -2571,14 +2663,20 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
     typ_l(n) = int( obs(set(n))%typ(idx(n)) )
   enddo
 
+  do n = 1, nrank
+    rank_l(n) = n - 1
+  enddo
+
   ! Create the file. 
   call ncio_check( nf90_create(trim(filename), nf90_clobber, ncid) )
 
   ! Define the dimensions. 
   call ncio_check( nf90_def_dim(ncid, DIM_NAME, nobs, dimid) ) 
+  call ncio_check( nf90_def_dim(ncid, DIM_MEM_NAME, nrank, dimid_rank) ) 
 
   ! Define the coordinate variables. 
   call ncio_check( nf90_def_var(ncid, DIM_NAME, NF90_INT, dimid, dim_varid) )
+  call ncio_check( nf90_def_var(ncid, DIM_MEM_NAME, NF90_INT, dimid_rank, dim_rank_varid) )
 
   ! Define the netCDF variables
   call ncio_check( nf90_def_var(ncid, ELM_NAME, NF90_REAL, dimid, elm_varid) )
@@ -2594,7 +2692,8 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
   call ncio_check( nf90_def_var(ncid, OMB_NAME, NF90_REAL, dimid, omb_varid) )
   call ncio_check( nf90_def_var(ncid, OMA_NAME, NF90_REAL, dimid, oma_varid) )
   call ncio_check( nf90_def_var(ncid, OMB_EM_NAME, NF90_REAL, dimid, omb_em_varid) )
-  if (present(sprd)) call ncio_check( nf90_def_var(ncid, SPRD_NAME, NF90_REAL, dimid, sprd_varid) )
+  call ncio_check( nf90_def_var(ncid, SPRD_NAME, NF90_REAL, dimid, sprd_varid) )
+  call ncio_check( nf90_def_var(ncid, NOBS_NAME, NF90_INT,  dimid_rank, nobs_varid ) )
 
   ! Add long names for the netCDF variables
   call ncio_check( nf90_put_att(ncid, elm_varid, "long_name", ELM_LONGNAME ) )
@@ -2610,13 +2709,18 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
   call ncio_check( nf90_put_att(ncid, omb_varid, "long_name", OMB_LONGNAME ) )
   call ncio_check( nf90_put_att(ncid, oma_varid, "long_name", OMA_LONGNAME ) )
   call ncio_check( nf90_put_att(ncid, omb_em_varid, "long_name", OMB_EM_LONGNAME ) )
-  if (present(sprd)) call ncio_check( nf90_put_att(ncid, sprd_varid, "long_name", SPRD_LONGNAME ) )
+  call ncio_check( nf90_put_att(ncid, sprd_varid, "long_name", SPRD_LONGNAME ) )
+  call ncio_check( nf90_put_att(ncid, nobs_varid, "long_name", NOBS_LONGNAME ) )
+
+  ! Add global attribute
+  call ncio_check( nf90_put_att(ncid, NF90_GLOBAL, "total rank for SCALE (nprocs_d)", nrank ) )
 
   ! End define mode.
   call ncio_check( nf90_enddef(ncid) )
 
   ! Write the coordinate variable data. 
   call ncio_check( nf90_put_var(ncid, dim_varid, nobs_l ) )
+  call ncio_check( nf90_put_var(ncid, dim_rank_varid, rank_l ) )
 
   ! Write the data.
   call ncio_check( nf90_put_var(ncid, elm_varid, elm_l, start=(/1/), &
@@ -2644,8 +2748,11 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
                    count=(/nobs/) ) )
   call ncio_check( nf90_put_var(ncid, omb_em_varid, omb_em, start=(/1/), &
                    count=(/nobs/) ) )
-  if (present(sprd)) call ncio_check( nf90_put_var(ncid, sprd_varid, sprd, start=(/1/), &
+  call ncio_check( nf90_put_var(ncid, sprd_varid, sprd, start=(/1/), &
                    count=(/nobs/) ) )
+
+  call ncio_check( nf90_put_var(ncid, nobs_varid, cnt_rank, start=(/1/), &
+                   count=(/nrank/) ) )
 
   ! Close the file. 
   call ncio_check( nf90_close(ncid) )
@@ -2848,5 +2955,491 @@ subroutine write_obsnum_nc( filename, nctype, typ_ctype, elm_u_ctype, num_bqc, n
 
   return
 end subroutine write_obsnum_nc
+
+subroutine get_nobs_radar_nc( cfile, nn, radarlon, radarlat, radarz )
+  use netcdf
+  use common_ncio
+  implicit none
+
+  character(*), intent(in) :: cfile
+  integer, intent(out) :: nn
+  real(r_size), intent(out) :: radarlon, radarlat, radarz
+
+  integer :: ncid
+
+  ! Open the file. 
+  call ncio_check( nf90_open( trim( cfile ), nf90_nowrite, ncid ) ) 
+
+  ! Get obs num
+  call ncio_check( nf90_get_att(ncid, nf90_global, "num_valid_obs", nn ))
+
+  ! Get radar location
+  call ncio_check( nf90_get_att(ncid, nf90_global, "radar_lon", radarlon ) )
+  call ncio_check( nf90_get_att(ncid, nf90_global, "radar_lat", radarlat ) )
+  call ncio_check( nf90_get_att(ncid, nf90_global, "radar_hgt", radarz   ) )
+
+  ! Close the file. 
+  call ncio_check( nf90_close(ncid) )
+  return
+end subroutine get_nobs_radar_nc
+
+subroutine read_obs_radar_nc( cfile, obs )
+  use common_nml
+  use netcdf
+  use common_ncio
+  use scale_atmos_grid_cartesC, only: &
+      DX, &
+      DY
+  implicit none
+
+  character(*), intent(in) :: cfile
+  type(obs_info), intent(inout) :: obs
+
+  real, allocatable :: obs1d(:)
+  real, allocatable :: x1d(:)
+  real, allocatable :: y1d(:)
+  real, allocatable :: z1d(:)
+  real, allocatable :: tdiff1d(:) ! time difference for 4D LETKF
+  integer :: nobs ! size 
+
+  integer :: ncid
+  integer :: dimid
+  integer :: varid
+  integer :: varid_x, varid_y, varid_z
+  integer :: varid_tdiff
+
+  integer :: start_nc(1)
+  integer :: count_nc(1)
+
+  character(len=15), parameter :: VHVAR_NAME = 'RadialVelocity'
+  character(len=15), parameter :: ZHVAR_NAME = 'Reflectivity'
+  character(len=15) :: VARNAME_SELECT
+
+  integer :: obsid
+
+  integer :: n
+
+  real(r_size) :: radarlon, radarlat, radarz
+  real(r_size) :: radar_rig, radar_rjg
+
+  real(r_size) :: rig, rjg
+  real(r_size) :: lon, lat
+  real(r_size) :: oerr
+
+  ! Open the file. 
+  call ncio_check( nf90_open( trim( cfile ), nf90_nowrite, ncid ) ) 
+
+  ! Get dimension size
+  call ncio_check( nf90_inq_dimid( ncid, "nobs", dimid ) )
+  call ncio_check( nf90_inquire_dimension( ncid, dimid, len=nobs ) )
+
+  ! Get radar location
+  call ncio_check( nf90_get_att(ncid, nf90_global, "radar_lon", radarlon ) )
+  call ncio_check( nf90_get_att(ncid, nf90_global, "radar_lat", radarlat ) )
+  call ncio_check( nf90_get_att(ncid, nf90_global, "radar_hgt", radarz   ) )
+
+  call phys2ij( radarlon, radarlat, radar_rig, radar_rjg )
+
+  ! Get obsid
+  call ncio_check( nf90_get_att(ncid, nf90_global, "obsid", obsid ) )
+
+  select case( obsid )
+    case ( id_radar_ref_obs )
+      VARNAME_SELECT = trim( ZHVAR_NAME )
+      oerr = OBSERR_RADAR_REF
+    case ( id_radar_vr_obs  )
+      VARNAME_SELECT = trim( VHVAR_NAME )
+      oerr = OBSERR_RADAR_VR
+    case default
+      write(6,*) 'Invalid obsid. Stop'
+      stop
+  end select
+
+  ! Get variable id
+  call ncio_check( nf90_inq_varid( ncid, trim( VARNAME_SELECT ), varid ) )
+  call ncio_check( nf90_inq_varid( ncid, "x", varid_x ) )
+  call ncio_check( nf90_inq_varid( ncid, "y", varid_y ) )
+  call ncio_check( nf90_inq_varid( ncid, "z", varid_z ) )
+  if ( RADAR_OBS_4D ) then
+    call ncio_check( nf90_inq_varid( ncid, "tdiff", varid_tdiff ) )
+  endif
+
+  ! Allocate variable
+  allocate( obs1d   (nobs) )  
+  allocate( x1d     (nobs) )  
+  allocate( y1d     (nobs) )  
+  allocate( z1d     (nobs) )  
+  allocate( tdiff1d (nobs) )  
+  
+  start_nc = [ 1 ]
+  count_nc = [ nobs ]
+
+  call ncio_check( nf90_get_var( ncid, varid, obs1d, &
+                      start=start_nc, count=count_nc ) )
+
+  call ncio_check( nf90_get_var( ncid, varid_x, x1d, &
+                      start=start_nc, count=count_nc ) )
+
+  call ncio_check( nf90_get_var( ncid, varid_y, y1d, &
+                      start=start_nc, count=count_nc ) )
+
+  call ncio_check( nf90_get_var( ncid, varid_z, z1d, &
+                      start=start_nc, count=count_nc ) )
+
+  if ( RADAR_OBS_4D ) then
+     call ncio_check( nf90_get_var( ncid, varid_tdiff, tdiff1d, &
+                         start=start_nc, count=count_nc ) )
+  endif
+
+  n = 0
+  do n = 1, nobs
+    rig = real( x1d(n) / DX, kind=r_size ) + radar_rig
+    rjg = real( y1d(n) / DY, kind=r_size ) + radar_rjg
+
+    call ij2phys( rig, rjg, lon, lat )
+    obs%elm(n) = obsid
+    obs%lon(n) = real( lon, kind=r_size )
+    obs%lat(n) = real( lat, kind=r_size )
+    obs%lev(n) = real( z1d(n), kind=r_size )
+    if ( obsid == id_radar_ref_obs ) then
+      if ( RADAR_OBS_IN_DBZ ) then
+        obs%dat(n) = real( 10**(obs1d(n)*0.1), kind=r_size ) ! dBZ to dB
+      else
+        obs%dat(n) = real( obs1d(n), kind=r_size )           ! dB
+      endif
+    else
+      obs%dat(n) = real( obs1d(n), kind=r_size )
+    endif
+    obs%err(n) = oerr
+    obs%typ(n) = 22
+    if ( RADAR_OBS_4D ) then
+      obs%dif(n) = real( tdiff1d(n), kind=r_size )
+    else
+      obs%dif(n) = real( 0.0, kind=r_size )
+    endif
+  enddo
+
+  deallocate( x1d, y1d, z1d )
+  deallocate( obs1d )
+
+  ! Close the file. 
+  call ncio_check( nf90_close(ncid) )
+
+  return
+end subroutine read_obs_radar_nc
+!---------------------------
+subroutine write_obs_anal_rank_nc( filename, ya )
+  use netcdf
+  use common_ncio
+ implicit none
+
+  character(len=*), intent(in) :: filename
+  real(r_size), intent(in) :: ya(obsdep_nobs,MEMBER)
+
+  integer :: ncid
+  integer :: dimid, dimid_mem
+  integer :: dim_varid, dim_varid_mem, elm_varid
+  integer :: set_varid, idx_varid
+  integer :: lon_varid, lat_varid
+  integer :: lev_varid, dat_varid, qc_varid
+  integer :: dif_varid, err_varid
+  integer :: omb_varid, ombem_varid
+  integer :: ya_varid
+  integer :: typ_varid
+
+  character(len=*), parameter :: DIM_NAME = "number"
+  character(len=*), parameter :: DIM_NAME_MEM = "member"
+  character(len=*), parameter :: SET_NAME = "set"
+  character(len=*), parameter :: IDX_NAME = "idx"
+  character(len=*), parameter :: ELM_NAME = "elm"
+  character(len=*), parameter :: LON_NAME = "lon"
+  character(len=*), parameter :: LAT_NAME = "lat"
+  character(len=*), parameter :: LEV_NAME = "lev"
+  character(len=*), parameter :: DAT_NAME = "dat"
+  character(len=*), parameter :: QC_NAME  = "qc"
+  character(len=*), parameter :: DIF_NAME = "dif"
+  character(len=*), parameter :: ERR_NAME = "err"
+  character(len=*), parameter :: YA_NAME = "ya"
+  character(len=*), parameter :: TYP_NAME = "typ"
+  character(len=*), parameter :: OMB_NAME = "omb"
+  character(len=*), parameter :: OMBEM_NAME = "omb_emean"
+
+  character(len=*), parameter :: ELM_LONGNAME = "observation id"
+  character(len=*), parameter :: SET_LONGNAME = "observation set"
+  character(len=*), parameter :: IDX_LONGNAME = "observation index"
+  character(len=*), parameter :: LON_LONGNAME = "longitude"
+  character(len=*), parameter :: LAT_LONGNAME = "latitude"
+  character(len=*), parameter :: LEV_LONGNAME = "level"
+  character(len=*), parameter :: DAT_LONGNAME = "observation data"
+  character(len=*), parameter :: QC_LONGNAME  = "observation QC flag"
+  character(len=*), parameter :: DIF_LONGNAME = "time difference"
+  character(len=*), parameter :: ERR_LONGNAME = "observation error"
+  character(len=*), parameter :: YA_LONGNAME = "analysis perturbation"
+  character(len=*), parameter :: TYP_LONGNAME = "observation platform type"
+  character(len=*), parameter :: OMB_LONGNAME = "observation-minus-background"
+  character(len=*), parameter :: OMBEM_LONGNAME = "observation-minus-background-ensemble-mean"
+
+  integer :: nobs_l(obsdep_nobs)
+  integer :: mem_l(MEMBER)
+  integer :: n
+
+  integer :: set_l(obsdep_nobs)
+  integer :: idx_l(obsdep_nobs)
+  real(r_sngl) :: elm_l(obsdep_nobs)
+  real(r_sngl) :: lon_l(obsdep_nobs), lat_l(obsdep_nobs)
+  real(r_sngl) :: lev_l(obsdep_nobs), dat_l(obsdep_nobs)
+  real(r_sngl) :: dif_l(obsdep_nobs), err_l(obsdep_nobs)
+  real(r_sngl) :: ya_l(obsdep_nobs,MEMBER)
+  real(r_sngl) :: omb_l(obsdep_nobs)
+  real(r_sngl) :: omb_emean_l(obsdep_nobs)
+  integer :: typ_l(obsdep_nobs)
+
+  do n = 1, obsdep_nobs
+    nobs_l(n) = n
+ 
+    set_l(n) = int( obsdep_set(n) )
+    idx_l(n) = int( obsdep_idx(n) )
+
+    elm_l(n) = real( obs(obsdep_set(n))%elm(obsdep_idx(n)), r_sngl )
+    lon_l(n) = real( obs(obsdep_set(n))%lon(obsdep_idx(n)), r_sngl )
+    lat_l(n) = real( obs(obsdep_set(n))%lat(obsdep_idx(n)), r_sngl )
+    lev_l(n) = real( obs(obsdep_set(n))%lev(obsdep_idx(n)), r_sngl )
+    dat_l(n) = real( obs(obsdep_set(n))%dat(obsdep_idx(n)), r_sngl )
+    dif_l(n) = real( obs(obsdep_set(n))%dif(obsdep_idx(n)), r_sngl )
+    err_l(n) = real( obs(obsdep_set(n))%err(obsdep_idx(n)), r_sngl )
+
+    omb_l(n) = real( obsdep_omb(n), r_sngl )
+    omb_emean_l(n) = real( obsdep_omb_emean(n), r_sngl )
+
+    ya_l(n,1:MEMBER) = real( ya(n,1:MEMBER), r_sngl )
+
+    typ_l(n) = int( obs(obsdep_set(n))%typ(obsdep_idx(n)) )
+  enddo
+
+  do n = 1, MEMBER
+    mem_l(n) = n
+  enddo
+
+  ! Create the file. 
+  call ncio_check( nf90_create(trim(filename), nf90_clobber, ncid) )
+
+  ! Add global attribute
+  call ncio_check( nf90_put_att(ncid, NF90_GLOBAL, "title", "Analysis perturbation in the observation space" ) )
+
+  ! Define the dimensions. 
+  call ncio_check( nf90_def_dim(ncid, DIM_NAME, obsdep_nobs, dimid) ) 
+  call ncio_check( nf90_def_dim(ncid, DIM_NAME_MEM, MEMBER, dimid_mem) ) 
+
+  ! Define the coordinate variables. 
+  call ncio_check( nf90_def_var(ncid, DIM_NAME,     NF90_INT, dimid,     dim_varid     ) )
+  call ncio_check( nf90_def_var(ncid, DIM_NAME_MEM, NF90_INT, dimid_mem, dim_varid_mem ) )
+
+  ! Define the netCDF variables
+  call ncio_check( nf90_def_var(ncid, ELM_NAME, NF90_REAL, dimid, elm_varid) )
+  call ncio_check( nf90_def_var(ncid, SET_NAME, NF90_INT, dimid, set_varid) )
+  call ncio_check( nf90_def_var(ncid, IDX_NAME, NF90_INT, dimid, idx_varid) )
+  call ncio_check( nf90_def_var(ncid, LON_NAME, NF90_REAL, dimid, lon_varid) )
+  call ncio_check( nf90_def_var(ncid, LAT_NAME, NF90_REAL, dimid, lat_varid) )
+  call ncio_check( nf90_def_var(ncid, LEV_NAME, NF90_REAL, dimid, lev_varid) )
+  call ncio_check( nf90_def_var(ncid, DAT_NAME, NF90_REAL, dimid, dat_varid) )
+  call ncio_check( nf90_def_var(ncid, QC_NAME,  NF90_INT,  dimid,  qc_varid) )
+  call ncio_check( nf90_def_var(ncid, DIF_NAME, NF90_REAL, dimid, dif_varid) )
+  call ncio_check( nf90_def_var(ncid, ERR_NAME, NF90_REAL, dimid, err_varid) )
+  call ncio_check( nf90_def_var(ncid, TYP_NAME, NF90_INT,  dimid, typ_varid) )
+  call ncio_check( nf90_def_var(ncid, OMB_NAME, NF90_REAL, dimid, omb_varid) )
+  call ncio_check( nf90_def_var(ncid, OMBEM_NAME, NF90_REAL, dimid, ombem_varid) )
+
+  call ncio_check( nf90_def_var(ncid, YA_NAME, NF90_REAL, (/dimid,dimid_mem/), ya_varid) )
+
+  ! Add long names for the netCDF variables
+  call ncio_check( nf90_put_att(ncid, elm_varid, "long_name", ELM_LONGNAME ) )
+  call ncio_check( nf90_put_att(ncid, set_varid, "long_name", set_LONGNAME ) )
+  call ncio_check( nf90_put_att(ncid, idx_varid, "long_name", idx_LONGNAME ) )
+  call ncio_check( nf90_put_att(ncid, lon_varid, "long_name", LON_LONGNAME ) )
+  call ncio_check( nf90_put_att(ncid, lat_varid, "long_name", LAT_LONGNAME ) )
+  call ncio_check( nf90_put_att(ncid, lev_varid, "long_name", LEV_LONGNAME ) )
+  call ncio_check( nf90_put_att(ncid, dat_varid, "long_name", DAT_LONGNAME ) )
+  call ncio_check( nf90_put_att(ncid, qc_varid,  "long_name", QC_LONGNAME  ) )
+  call ncio_check( nf90_put_att(ncid, dif_varid, "long_name", DIF_LONGNAME ) )
+  call ncio_check( nf90_put_att(ncid, err_varid, "long_name", ERR_LONGNAME ) )
+  call ncio_check( nf90_put_att(ncid, typ_varid, "long_name", TYP_LONGNAME ) )
+  call ncio_check( nf90_put_att(ncid, omb_varid, "long_name", OMB_LONGNAME ) )
+  call ncio_check( nf90_put_att(ncid, ombem_varid, "long_name", OMBEM_LONGNAME ) )
+
+  call ncio_check( nf90_put_att(ncid, ya_varid, "long_name", YA_LONGNAME ) )
+
+  ! End define mode.
+  call ncio_check( nf90_enddef(ncid) )
+
+  ! Write the coordinate variable data. 
+  call ncio_check( nf90_put_var(ncid, dim_varid, nobs_l ) )
+  call ncio_check( nf90_put_var(ncid, dim_varid_mem, mem_l ) )
+
+  ! Write the data.
+  call ncio_check( nf90_put_var(ncid, elm_varid, elm_l, start=(/1/), &
+                   count=(/obsdep_nobs/) ) )
+  call ncio_check( nf90_put_var(ncid, set_varid, set_l, start=(/1/), &
+                   count=(/obsdep_nobs/) ) )
+  call ncio_check( nf90_put_var(ncid, idx_varid, idx_l, start=(/1/), &
+                   count=(/obsdep_nobs/) ) )
+  call ncio_check( nf90_put_var(ncid, lon_varid, lon_l, start=(/1/), &
+                   count=(/obsdep_nobs/) ) )
+  call ncio_check( nf90_put_var(ncid, lat_varid, lat_l, start=(/1/), &
+                   count=(/obsdep_nobs/) ) )
+  call ncio_check( nf90_put_var(ncid, lev_varid, lev_l, start=(/1/), &
+                   count=(/obsdep_nobs/) ) )
+  call ncio_check( nf90_put_var(ncid, dat_varid, dat_l, start=(/1/), &
+                   count=(/obsdep_nobs/) ) )
+  call ncio_check( nf90_put_var(ncid, qc_varid,  obsdep_qc, start=(/1/), &
+                   count=(/obsdep_nobs/) ) )
+  call ncio_check( nf90_put_var(ncid, dif_varid, dif_l, start=(/1/), &
+                   count=(/obsdep_nobs/) ) )
+  call ncio_check( nf90_put_var(ncid, err_varid, err_l, start=(/1/), &
+                   count=(/obsdep_nobs/) ) )
+  call ncio_check( nf90_put_var(ncid, omb_varid, omb_l, start=(/1/), &
+                   count=(/obsdep_nobs/) ) )
+  call ncio_check( nf90_put_var(ncid, ombem_varid, omb_emean_l, start=(/1/), &
+                   count=(/obsdep_nobs/) ) )
+
+  call ncio_check( nf90_put_var(ncid, ya_varid, ya_l, start=(/1,1/), &
+                   count=(/obsdep_nobs,MEMBER/) ) )
+
+  ! Close the file. 
+  call ncio_check( nf90_close(ncid) )
+
+  return
+end subroutine write_obs_anal_rank_nc
+!---------------------------
+subroutine get_nobs_efso( cfile, nrank, cnt_rank )
+  use netcdf
+  use common_ncio
+  implicit none
+
+  character(*), intent(in) :: cfile
+  integer, intent(in) :: nrank
+  integer, intent(out) :: cnt_rank(nrank)
+
+  integer :: varid_rank
+  integer :: ncid
+
+  ! Open the file. 
+  call ncio_check( nf90_open( trim( cfile ), nf90_nowrite, ncid ) )
+
+  ! Get obs num
+  call ncio_check( nf90_inq_varid( ncid, "nobs_rank", varid_rank ) )
+
+  call ncio_check( nf90_get_var( ncid, varid_rank, cnt_rank, &
+                   start=(/1/), count=(/nrank/) ) )
+
+  ! Close the file. 
+  call ncio_check( nf90_close(ncid) )
+
+  return
+end subroutine get_nobs_efso
+!---------------------------
+subroutine get_obsdep_efso( cfile, nobs_local, nobs0, set, idx, elm, typ, lon, lat, lev, &
+                            dat, err, dif, dep, qc, ya )
+  use netcdf
+  use common_ncio
+  implicit none
+
+  character(*), intent(in) :: cfile
+  integer, intent(in) :: nobs_local
+  integer, intent(in) :: nobs0
+
+  integer, intent(out) :: set(nobs_local)
+  integer, intent(out) :: idx(nobs_local)
+  integer, intent(out) :: elm(nobs_local)
+  integer, intent(out) :: typ(nobs_local)
+  real(r_size), intent(out) :: lon(nobs_local)
+  real(r_size), intent(out) :: lat(nobs_local)
+  real(r_size), intent(out) :: lev(nobs_local)
+  real(r_size), intent(out) :: dat(nobs_local)
+  real(r_size), intent(out) :: err(nobs_local)
+  real(r_size), intent(out) :: dif(nobs_local)
+  real(r_size), intent(out) :: dep(nobs_local)
+  integer, intent(out) :: qc(nobs_local)
+  real(r_size), intent(out) :: ya(nobs_local,MEMBER)
+  integer :: ncid
+
+  integer :: varid_elm, varid_typ
+  integer :: varid_set, varid_idx
+  integer :: varid_lon, varid_lat, varid_lev
+  integer :: varid_dat, varid_err, varid_dif
+  integer :: varid_dep, varid_qc
+  integer :: varid_ya
+
+  integer :: n
+
+  ! Open the file. 
+  call ncio_check( nf90_open( trim( cfile ), nf90_nowrite, ncid ) )
+
+  ! Get variable id
+  call ncio_check( nf90_inq_varid( ncid, "elm", varid_elm ) )
+  call ncio_check( nf90_inq_varid( ncid, "set", varid_set ) )
+  call ncio_check( nf90_inq_varid( ncid, "idx", varid_idx ) )
+  call ncio_check( nf90_inq_varid( ncid, "typ", varid_typ ) )
+  call ncio_check( nf90_inq_varid( ncid, "lon", varid_lon ) )
+  call ncio_check( nf90_inq_varid( ncid, "lat", varid_lat ) )
+  call ncio_check( nf90_inq_varid( ncid, "lev", varid_lev ) )
+  call ncio_check( nf90_inq_varid( ncid, "dat", varid_dat ) )
+  call ncio_check( nf90_inq_varid( ncid, "err", varid_err ) )
+  call ncio_check( nf90_inq_varid( ncid, "dif", varid_dif ) )
+  call ncio_check( nf90_inq_varid( ncid, "omb", varid_dep ) )
+  call ncio_check( nf90_inq_varid( ncid, "qc",  varid_qc  ) )
+  call ncio_check( nf90_inq_varid( ncid, "ya", varid_ya ) )
+
+  ! Read variables
+  call ncio_check( nf90_get_var( ncid, varid_elm, elm, &
+                   start=(/1/), count=(/nobs_local/) ) )
+
+  call ncio_check( nf90_get_var( ncid, varid_set, set, &
+                   start=(/1/), count=(/nobs_local/) ) )
+
+  call ncio_check( nf90_get_var( ncid, varid_idx, idx, &
+                   start=(/1/), count=(/nobs_local/) ) )
+
+  call ncio_check( nf90_get_var( ncid, varid_typ, typ, &
+                   start=(/1/), count=(/nobs_local/) ) )
+
+  call ncio_check( nf90_get_var( ncid, varid_lon, lon, &
+                   start=(/1/), count=(/nobs_local/) ) )
+
+  call ncio_check( nf90_get_var( ncid, varid_lat, lat, &
+                   start=(/1/), count=(/nobs_local/) ) )
+
+  call ncio_check( nf90_get_var( ncid, varid_lev, lev, &
+                   start=(/1/), count=(/nobs_local/) ) )
+
+  call ncio_check( nf90_get_var( ncid, varid_dat, dat, &
+                   start=(/1/), count=(/nobs_local/) ) )
+
+  call ncio_check( nf90_get_var( ncid, varid_err, err, &
+                   start=(/1/), count=(/nobs_local/) ) )
+
+  call ncio_check( nf90_get_var( ncid, varid_dif, dif, &
+                   start=(/1/), count=(/nobs_local/) ) )
+
+  call ncio_check( nf90_get_var( ncid, varid_dep, dep, &
+                   start=(/1/), count=(/nobs_local/) ) )
+
+  call ncio_check( nf90_get_var( ncid, varid_qc, qc, &
+                   start=(/1/), count=(/nobs_local/) ) )
+
+  call ncio_check( nf90_get_var( ncid, varid_ya, ya, &
+                   start=(/1,1/), count=(/nobs_local,MEMBER/) ) )
+
+  ! Close the file. 
+  call ncio_check( nf90_close(ncid) )
+
+  ! QC should always be good.
+  ! qc array stores indices of obs
+  do n = 1, nobs_local
+    qc(n) = n + nobs0
+  enddo
+
+  return
+end subroutine get_obsdep_efso
+!---------------------------
 
 END MODULE common_obs_scale

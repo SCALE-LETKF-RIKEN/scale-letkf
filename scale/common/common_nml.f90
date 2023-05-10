@@ -31,6 +31,7 @@ MODULE common_nml
   character(len=memflen), parameter :: memf_mean = 'mean'
   character(len=memflen), parameter :: memf_mdet = 'mdet'
   character(len=memflen), parameter :: memf_sprd = 'sprd'
+  character(len=memflen), parameter :: memf_mgue = 'mgue' ! deterministic forecast from the mean of the first guess (for EFSO)
 
   integer, parameter :: domflen = 2                           ! Length of formatted domain strings
   character(len=8), parameter :: domf_notation = '<domain>'   ! Notation of the domain string
@@ -43,6 +44,8 @@ MODULE common_nml
 
   logical :: DET_RUN = .false.
   logical :: DET_RUN_CYCLED = .true.
+
+  logical :: EFSO_RUN = .false.
 
   !--- PARAM_MODEL
   character(len=10) :: MODEL = 'scale-rm'
@@ -106,6 +109,12 @@ MODULE common_nml
   logical               :: ANAL_SPRD_OUT = .true.
   character(filelenmax) :: ANAL_SPRD_OUT_BASENAME = ''
   character(filelenmax) :: LETKF_TOPOGRAPHY_IN_BASENAME = 'topo'  !!!!!! -- directly use the SCALE namelist --???? !!!!!!
+  character(filelenmax) :: EFSO_ANAL_IN_BASENAME = 'anal.@@@@'
+  character(filelenmax) :: EFSO_FCST_FROM_GUES_BASENAME = 'anal.@@@@'
+  character(filelenmax) :: EFSO_FCST_FROM_ANAL_BASENAME = 'anal.@@@@'
+  character(filelenmax) :: EFSO_EFCST_FROM_ANAL_BASENAME = 'anal.@@@@'
+
+  logical :: EFSO_USE_MOIST_ENERGY = .true.
 
   real(r_size) :: INFL_MUL = 1.0d0           ! >  0: globally constant covariance inflation
                                              ! <= 0: use 3D inflation field from 'INFL_MUL_IN_BASENAME' file
@@ -238,14 +247,18 @@ MODULE common_nml
   logical :: DEPARTURE_STAT_OUT_NC = .false.
   character(filelenmax) :: DEPARTURE_STAT_OUT_BASENAME = 'stat'
   LOGICAL               :: OBSDEP_OUT = .true.
+  character(filelenmax) :: OBSDEP_IN_BASENAME = 'obsdep'
   character(filelenmax) :: OBSDEP_OUT_BASENAME = 'obsdep'
   LOGICAL               :: OBSDEP_OUT_NC = .false.
+  logical               :: OBSDEP_OUT_NOQC = .false.
+  character(filelenmax) :: OBSDEP_IN_BASENAME = 'obsdep'
   logical               :: OBSNUM_OUT_NC = .false.
   character(filelenmax) :: OBSNUM_OUT_NC_BASENAME = 'obsnum'
   LOGICAL               :: OBSGUES_OUT = .false.                  !XXX not implemented yet...
   character(filelenmax) :: OBSGUES_OUT_BASENAME = 'obsgues.@@@@'  !XXX not implemented yet...
-  LOGICAL               :: OBSANAL_OUT = .false.                  !XXX not implemented yet...
-  character(filelenmax) :: OBSANAL_OUT_BASENAME = 'obsanal.@@@@'  !XXX not implemented yet...
+  LOGICAL               :: OBSANAL_OUT = .false.
+  character(filelenmax) :: OBSANAL_IN_BASENAME = 'obsanal.@@@@'
+  character(filelenmax) :: OBSANAL_OUT_BASENAME = 'obsanal.@@@@'
 
   !--- PARAM_LETKF_RADAR
   logical :: USE_RADAR_REF       = .true.
@@ -256,6 +269,7 @@ MODULE common_nml
   logical :: USE_OBSERR_RADAR_VR = .false.
 
   logical :: RADAR_OBS_4D = .false.
+  logical :: RADAR_OBS_IN_DBZ = .false.
 
   REAL(r_size) :: RADAR_REF_THRES_DBZ = 15.0d0 !Threshold of rain/no rain
   INTEGER :: MIN_RADAR_REF_MEMBER_OBSRAIN = 1          !Ensemble members with reflectivity greather than RADAR_REF_THRES_DBZ
@@ -300,6 +314,10 @@ MODULE common_nml
 
   logical :: RADAR_PQV = .false. ! Pseudo qv DA for radar
   real(r_size) :: RADAR_PQV_OMB = 25.0d0 ! Threshold Obs-B for pseudo qv DA for radar
+
+  !Yokota et al.(2018JGRA, Y18) additive inflation method
+  logical :: RADAR_ADDITIVE_Y18 = .false.        ! switch of additive inflation for radar reflectivity obs 
+  integer :: RADAR_ADDITIVE_Y18_MINMEM = 0 ! If the number of precipitating members is smaller than this threshold, use Y18 method
 
   !--- PARAM_OBS_ERROR
   real(r_size) :: OBSERR_U = 1.0d0
@@ -354,7 +372,8 @@ subroutine read_nml_ensemble
     CONF_FILES, &
     CONF_FILES_SEQNUM, &
     DET_RUN, &
-    DET_RUN_CYCLED
+    DET_RUN_CYCLED, &
+    EFSO_RUN
 
   rewind(IO_FID_CONF)
   read(IO_FID_CONF,nml=PARAM_ENSEMBLE,iostat=ierr)
@@ -572,6 +591,11 @@ subroutine read_nml_letkf
     ANAL_SPRD_OUT, &
     ANAL_SPRD_OUT_BASENAME, &
     LETKF_TOPOGRAPHY_IN_BASENAME, &
+    EFSO_ANAL_IN_BASENAME, &
+    EFSO_FCST_FROM_GUES_BASENAME, &
+    EFSO_FCST_FROM_ANAL_BASENAME, &
+    EFSO_EFCST_FROM_ANAL_BASENAME, &
+    EFSO_USE_MOIST_ENERGY, &
     INFL_MUL, &
     INFL_MUL_MIN, &
     INFL_MUL_ADAPTIVE, &
@@ -659,6 +683,8 @@ subroutine read_nml_letkf
     GUES_MDET_IN_BASENAME = GUES_IN_BASENAME
     call filename_replace_mem(GUES_MDET_IN_BASENAME, memf_mdet)
   end if
+
+
   if (trim(GUES_SPRD_OUT_BASENAME) == '') then
     GUES_SPRD_OUT_BASENAME = GUES_IN_BASENAME
     call filename_replace_mem(GUES_SPRD_OUT_BASENAME, memf_sprd)
@@ -836,13 +862,16 @@ subroutine read_nml_letkf_monitor
     DEPARTURE_STAT_OUT_NC,        &
     DEPARTURE_STAT_OUT_BASENAME,  &
     OBSDEP_OUT, &
+    OBSDEP_IN_BASENAME, &
     OBSDEP_OUT_BASENAME, &
     OBSDEP_OUT_NC, &
+    OBSDEP_OUT_NOQC, &
     OBSNUM_OUT_NC, &
     OBSNUM_OUT_NC_BASENAME, &
     OBSGUES_OUT, &
     OBSGUES_OUT_BASENAME, &
     OBSANAL_OUT, &
+    OBSANAL_IN_BASENAME, &
     OBSANAL_OUT_BASENAME
 
   rewind(IO_FID_CONF)
@@ -876,6 +905,7 @@ subroutine read_nml_letkf_radar
     USE_OBSERR_RADAR_REF, &
     USE_OBSERR_RADAR_VR, &
     RADAR_OBS_4D, &
+    RADAR_OBS_IN_DBZ, &
     RADAR_REF_THRES_DBZ, &
     MIN_RADAR_REF_MEMBER_OBSRAIN, &
     MIN_RADAR_REF_MEMBER_OBSNORAIN, &
@@ -898,7 +928,9 @@ subroutine read_nml_letkf_radar
     RADAR_THIN_LETKF_HGRID_SIZE, &
     RADAR_THIN_LETKF_VGRID_SIZE, &
     RADAR_PQV, &
-    RADAR_PQV_OMB
+    RADAR_PQV_OMB, &
+    RADAR_ADDITIVE_Y18, &
+    RADAR_ADDITIVE_Y18_MINMEM
 
   rewind(IO_FID_CONF)
   read(IO_FID_CONF,nml=PARAM_LETKF_RADAR,iostat=ierr)
@@ -913,6 +945,10 @@ subroutine read_nml_letkf_radar
   if (RADAR_REF_THRES_DBZ < MIN_RADAR_REF_DBZ) then
     RADAR_REF_THRES_DBZ = MIN_RADAR_REF_DBZ
   end if
+
+  if ( RADAR_ADDITIVE_Y18 ) then
+    MIN_RADAR_REF_MEMBER_OBSRAIN = RADAR_ADDITIVE_Y18_MINMEM 
+  endif
 
   if (LOG_LEVEL >= 2) then
     write(6, nml=PARAM_LETKF_RADAR)

@@ -36,6 +36,11 @@ MAKEINIT=0       # 0: No
 OUT_OPT=1        # 1:   o       o
                  # 2:   o
 
+# Use LLIO temporary directories on Fugaku for boundary files
+# When BDY_TMP=1, no boundary files are stored after a job
+BDY_TMP=0  # 1: 
+           # 0: 
+
                  #      topo
 TOPOOUT_OPT=2    # 1:   o
                  # 2:   (none)

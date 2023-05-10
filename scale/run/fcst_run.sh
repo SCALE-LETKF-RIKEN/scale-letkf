@@ -85,7 +85,8 @@ safe_init_tmpdir $STAGING_DIR || exit $?
 staging_list_static || exit $?
 config_file_list $TMPS/config || exit $?
 
-NNODES_USE=$(( fmember * ( SCALE_NP / PPN ) ))
+#NNODES_USE=$(( fmember * ( SCALE_NP / PPN ) ))
+NNODES_USE=$NNODES
 echo "NNODES=$NNODES_USE" >> $TMP/config.main
 
 #-------------------------------------------------------------------------------
@@ -145,6 +146,13 @@ cat > $jobscrp << EOF
 #PJM --mpi "max-proc-per-node=${PPN}"
 #PJM -j
 #PJM -s
+EOF
+
+  if (( BDY_TMP == 1 )) && (( BDY_ENS == 1 )); then
+    echo "#PJM --llio localtmp-size=${LLIO_TMP_SIZE}Gi" >> $jobscrp
+  fi
+
+cat >> $jobscrp << EOF
 #
 #
 export PARALLEL=${THREADS}

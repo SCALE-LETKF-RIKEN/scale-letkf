@@ -510,13 +510,10 @@ if [ "$TOPO_FORMAT" = "GTOPO30" ] || [ "$TOPO_FORMAT" = "DEM50M" ] || [ "$LANDUS
       BDYTOPO=${TMP}/bdytopo/bdytopo
     else
       BDYCATALOGUE=${DATA_TOPO_BDY_SCALE}/const/log/latlon_domain_catalogue.txt
-      BDYTOPO=${DATA_TOPO_BDY_SCALE}/const/topo
+      BDYTOPO=${DATA_TOPO_BDY_SCALE}/const/topo/topo
+      OFFLINE_PARENT_BASENAME=${BDYTOPO}
     fi
   fi
-
-#  if ((BDY_FORMAT == 1)) && [ "$TOPO_FORMAT" != 'prep' ]; then
-#    OFFLINE_PARENT_BASENAME="$COPYTOPO"
-#  fi
 
   if [ "$TOPO_FORMAT" != 'prep' ] && [ "$TOPO_FORMAT" != 'none' ]; then
     CONVERT_TOPO='.true.'
@@ -647,6 +644,10 @@ while ((time_s <= ETIME)); do
           CONSTDB_PATH=$SCALEDIR/data
         fi
 
+        if [ $PRESET = 'FUGAKU' ] && (( BDY_LLIO_TMP == 1 )) && (( BDY_ENS == 1 )); then
+          BOUNDARY_PATH[$d]=/local/$time/bdy
+        fi
+
         if ((BDY_ROTATING == 1 || ${bdy_times[1]} != time_bdy_start_prev)); then
           time_bdy_start_prev=${bdy_times[1]}
         fi
@@ -684,22 +685,27 @@ while ((time_s <= ETIME)); do
   else
     RESTART_OUTPUT='.false.'
   fi
-    if ((DISK_MODE >= 1));then
-      TOPO_PATH=${TMP}
-      LANDUSE_PATH=${TMP}
-      HISTORY_PATH[$d]=${TMP}
-      RESTART_IN_PATH[$d]=${TMP}
-      BOUNDARY_PATH[$d]=${TMP}
-      CONSTDB_PATH=$TMPROOT_CONSTDB/dat
-    else
-      TOPO_PATH="${DATA_TOPO}/const"
-      LANDUSE_PATH="${DATA_LANDUSE}/const"
-      HISTORY_PATH[$d]=${OUTDIR[$d]}/$time/fcst
-      RESTART_IN_PATH[$d]=${INDIR[$d]}/$time/anal
-      RESTART_OUT_PATH[$d]=${OUTDIR[$d]}/$time/fcst
-      BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time/bdy
-      CONSTDB_PATH=$SCALEDIR/data
-    fi
+
+  if ((DISK_MODE >= 1));then
+    TOPO_PATH=${TMP}
+    LANDUSE_PATH=${TMP}
+    HISTORY_PATH[$d]=${TMP}
+    RESTART_IN_PATH[$d]=${TMP}
+    BOUNDARY_PATH[$d]=${TMP}
+    CONSTDB_PATH=$TMPROOT_CONSTDB/dat
+  else
+    TOPO_PATH="${DATA_TOPO}/const"
+    LANDUSE_PATH="${DATA_LANDUSE}/const"
+    HISTORY_PATH[$d]=${OUTDIR[$d]}/$time/fcst
+    RESTART_IN_PATH[$d]=${INDIR[$d]}/$time/anal
+    RESTART_OUT_PATH[$d]=${OUTDIR[$d]}/$time/fcst
+    BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time/bdy
+    CONSTDB_PATH=$SCALEDIR/data
+  fi
+
+  if [ $PRESET = 'FUGAKU' ] && (( BDY_LLIO_TMP == 1 )) && (( BDY_ENS == 1 )); then
+    BOUNDARY_PATH[$d]=/local/$time/bdy
+  fi
  
   for c in $(seq $CYCLE); do
     time=$(datetime $time_s $((lcycles * (c-1))) s)
@@ -805,7 +811,7 @@ m=$1
                     -e "/!--LAND_PROPERTY_IN_FILENAME--/a LAND_PROPERTY_IN_FILENAME = \"${CONSTDB_PATH}/land/param.bucket.conf\",")"
             if ((BDY_FORMAT == 1)); then
               conf="$(echo "$conf" | \
-                  sed -e "/!--OFFLINE_PARENT_BASENAME--/a OFFLINE_PARENT_BASENAME = \"${TMPROOT_BDYDATA}/bdy/${mem_bdy}/bdyorg_$(datetime_scale $time_bdy_start_prev)_$(printf %05d 0)\"," \
+                  sed -e "/!--OFFLINE_PARENT_BASENAME--/a OFFLINE_PARENT_BASENAME = \"${TMPROOT_BDYDATA}/${mem_bdy}/bdyorg_$(datetime_scale $time_bdy_start_prev)_$(printf %05d 0)\"," \
                       -e "/!--OFFLINE_PARENT_PRC_NUM_X--/a OFFLINE_PARENT_PRC_NUM_X = ${DATA_BDY_SCALE_PRC_NUM_X}," \
                       -e "/!--OFFLINE_PARENT_PRC_NUM_Y--/a OFFLINE_PARENT_PRC_NUM_Y = ${DATA_BDY_SCALE_PRC_NUM_Y}," \
                       -e "/!--LATLON_CATALOGUE_FNAME--/a LATLON_CATALOGUE_FNAME = \"${LATLON_CATALOGUE_FNAME}\",")"
@@ -1012,9 +1018,9 @@ stepexecname[3]="scale-rm_ens"
 #stepexecname[4]="verify"
 
 if (( USE_LLIO_BIN == 1 )); then
-  stepexecbin[1]="$DIR/ensmodel/scale-rm_pp_ens"
-  stepexecbin[2]="$DIR/ensmodel/scale-rm_init_ens"
-  stepexecbin[3]="$DIR/ensmodel/scale-rm_ens"
+  stepexecbin[1]="$TMP/scale-rm_pp_ens"
+  stepexecbin[2]="$TMP/scale-rm_init_ens"
+  stepexecbin[3]="$TMP/scale-rm_ens"
 else
   for i in `seq $nsteps`; do
     stepexecbin[$i]="./${stepexecname[$i]}"

@@ -43,7 +43,13 @@ else
   exit 1
 fi
 
-if [ "$PRESET" != 'FUGAKU' ]; then
+if [ "$PRESET" == 'FUGAKU' ]; then
+  LLIO_TMP_SIZE=${LLIO_TMP_SIZE:-10}
+  HIST_LLIO_TMP=${HIST_LLIO_TMP:-0}
+  BDY_LLIO_TMP=${BDY_LLIO_TMP:-0}
+  ANAL_LLIO_TMP=${ANAL_LLIO_TMP:-0}
+  ANAL_LLIO_TMP_SKIP=${ANAL_LLIO_TMP_SKIP:-1}
+else
   USE_LLIO_BIN=0
   USE_LLIO_DAT=0
   USE_LLIO_TMP=0
@@ -102,6 +108,9 @@ DATA_ADDINFL="${DATA_ADDINFL[1]}"               #
 OBS="${OBS[1]}"                                 #
 
 DET_RUN="${DET_RUN:-0}"
+
+EFSO_RUN="${EFSO_RUN:-0}"
+EFSO_FCST_LENGTH=${EFSO_FCST_LENGTH:-$LCYCLE}
 
 BDY_SINGLE_FILE="${BDY_SINGLE_FILE:-0}"
 if ((BDY_SINGLE_FILE == 1 && BDY_ROTATING != 1)); then

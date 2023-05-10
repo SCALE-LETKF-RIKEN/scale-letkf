@@ -66,10 +66,12 @@ program scaleles_init_ens
 
 !-----------------------------------------------------------------------
 
-  if (DET_RUN) then
-    call set_mem_node_proc(MEMBER+2)
+  if ( DET_RUN .and. EFSO_RUN ) then
+    call set_mem_node_proc( MEMBER + 3 )
+  elseif ( DET_RUN .or. EFSO_RUN ) then
+    call set_mem_node_proc( MEMBER + 2 )
   else
-    call set_mem_node_proc(MEMBER+1)
+    call set_mem_node_proc( MEMBER + 1 )
   end if
 
   call mpi_timer('INITIALIZE', 1, barrier=universal_comm)
@@ -111,17 +113,23 @@ program scaleles_init_ens
 
     do it = 1, nitmax
       im = myrank_to_mem(it)
-      if (im >= 1 .and. im <= MEMBER_RUN) then
-        confname = confname_domains(idom)
+      if ( im >= 1 .and. im <= MEMBER_RUN ) then
+        confname = confname_domains( idom )
         if (CONF_FILES_SEQNUM) then
-          call filename_replace_mem(confname, im)
+          call filename_replace_mem( confname, im )
         else
           if (im <= MEMBER) then
-            call filename_replace_mem(confname, im)
-          else if (im == MEMBER+1) then
-            call filename_replace_mem(confname, memf_mean)
-          else if (im == MEMBER+2) then
-            call filename_replace_mem(confname, memf_mdet)
+            call filename_replace_mem( confname, im )
+          else if ( im == MEMBER + 1 ) then
+            call filename_replace_mem( confname, memf_mean )
+          else if ( im == MEMBER + 2 ) then
+            if ( DET_RUN ) then
+              call filename_replace_mem( confname, memf_mdet )
+            elseif ( EFSO_RUN ) then
+              call filename_replace_mem( confname, memf_mgue )
+            endif
+          else if ( im == MEMBER + 3 ) then
+            call filename_replace_mem( confname, memf_mgue )
           end if
         end if
         if ( LOG_OUT ) WRITE(6,'(A,I6.6,2A)') 'MYRANK ',universal_myrank,' is running a model with configuration file: ', trim(confname)

@@ -57,7 +57,7 @@ MODULE common_scale
   ! 
   !--- 3D, 2D diagnostic variables (in SCALE history files)
   ! 
-  INTEGER,PARAMETER :: nv3dd=13
+  INTEGER,PARAMETER :: nv3dd=12
   INTEGER,PARAMETER :: nv2dd=7
   INTEGER,PARAMETER :: iv3dd_u=1
   INTEGER,PARAMETER :: iv3dd_v=2
@@ -70,8 +70,7 @@ MODULE common_scale
   INTEGER,PARAMETER :: iv3dd_qi=9
   INTEGER,PARAMETER :: iv3dd_qs=10
   INTEGER,PARAMETER :: iv3dd_qg=11
-  INTEGER,PARAMETER :: iv3dd_rh=12
-  INTEGER,PARAMETER :: iv3dd_hgt=13
+  INTEGER,PARAMETER :: iv3dd_hgt=12
   INTEGER,PARAMETER :: iv2dd_topo=1
   INTEGER,PARAMETER :: iv2dd_ps=2
   INTEGER,PARAMETER :: iv2dd_rain=3
@@ -80,11 +79,11 @@ MODULE common_scale
   INTEGER,PARAMETER :: iv2dd_t2m=6
   INTEGER,PARAMETER :: iv2dd_q2m=7
   CHARACTER(vname_max),PARAMETER :: v3dd_name(nv3dd) = &
-     (/'U         ', 'V         ', 'W         ', 'T         ', 'PRES      ', &
-       'QV        ', 'QC        ', 'QR        ', 'QI        ', 'QS        ', 'QG        ', 'RH        ', 'height    '/)
+     (/'Umet      ', 'Vmet      ', 'W         ', 'T         ', 'PRES      ', &
+       'QV        ', 'QC        ', 'QR        ', 'QI        ', 'QS        ', 'QG        ', 'height    '/)
   LOGICAL,PARAMETER :: v3dd_hastime(nv3dd) = &
      (/.true., .true., .true., .true., .true., &
-       .true., .true., .true., .true., .true., .true., .true., .false./)
+       .true., .true., .true., .true., .true., .true., .false./)
   CHARACTER(vname_max),PARAMETER :: v2dd_name(nv2dd) = &
      (/'topo      ', 'SFC_PRES  ', 'PREC      ', 'U10       ', 'V10       ', 'T2        ', 'Q2        '/)
   LOGICAL,PARAMETER :: v2dd_hastime(nv2dd) = &
@@ -1364,11 +1363,11 @@ end subroutine read_restart_trans_history
 !-------------------------------------------------------------------------------
 subroutine state_trans(v3dg)
   use scale_tracer, only: TRACER_CV
-    use scale_const, only: &
-       Rdry   => CONST_Rdry, &
-       Rvap   => CONST_Rvap, &
-       CVdry  => CONST_CVdry, &
-       PRE00 => CONST_PRE00
+  use scale_const, only: &
+     Rdry   => CONST_Rdry, &
+     Rvap   => CONST_Rvap, &
+     CVdry  => CONST_CVdry, &
+     PRE00 => CONST_PRE00
   implicit none
 
   real(RP), intent(inout) :: v3dg(nlev,nlon,nlat,nv3d)
@@ -1481,12 +1480,12 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
       COMM_wait
   use scale_atmos_grid_cartesC_metric, only: &
       ROTC => ATMOS_GRID_CARTESC_METRIC_ROTC
-  use scale_const, only: &
-      UNDEF => CONST_UNDEF,&
-      Rdry   => CONST_Rdry, &
-      Rvap   => CONST_Rvap
-  use scale_atmos_saturation, only: &
-      ATMOS_SATURATION_psat_all
+!  use scale_const, only: &
+!      UNDEF => CONST_UNDEF,&
+!      Rdry   => CONST_Rdry, &
+!      Rvap   => CONST_Rvap
+!  use scale_atmos_saturation, only: &
+!      ATMOS_SATURATION_psat_all
 
   implicit none
 
@@ -1502,8 +1501,8 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
   integer :: i, j, k, iv3d, iv2d
 
   real(RP) :: utmp, vtmp
-  real(RP) :: qdry, Rtot
-  real(RP) :: psat(nlevh,nlonh,nlath)
+!  real(RP) :: qdry, Rtot
+!  real(RP) :: psat(nlevh,nlonh,nlath)
 
   ! Variables that can be directly copied
   !---------------------------------------------------------
@@ -1543,25 +1542,25 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
 
   !v3dgh_RP(KS:KE,IS:IE,JS:JE,iv3dd_rh) = 0.0_RP ! tentative [[RH calculator]]
 
-  call ATMOS_SATURATION_psat_all( &
-               KA, KS, KE, IA, IS, IE, JA, JS, JE, &
-               v3dgh_RP(:,:,:,iv3dd_t), & ! (in)
-               psat(:,:,:)  ) ! (out)
-
-!$omp parallel do private(k,i,j,qdry,Rtot) schedule(static) collapse(2)
-  do j = JS, JE
-  do i = IS, IE
-    do k = KS, KE
-      qdry  = 1.0d0
-      do iv3d = iv3dd_q, iv3dd_qg ! loop over all moisture variables
-        qdry  = qdry - v3dgh_RP(k,i,j,iv3d)
-      enddo
-      Rtot  = Rdry  * qdry + Rvap * v3dgh_RP(k,i,j,iv3dd_q)
-    
-      v3dgh_RP(k,i,j,iv3dd_rh) =  v3dgh_RP(k,i,j,iv3dd_q) * v3dgh_RP(k,i,j,iv3dd_p) / psat(k,i,j) * Rvap / Rtot 
-    end do
-  end do
-  end do
+!  call ATMOS_SATURATION_psat_all( &
+!               KA, KS, KE, IA, IS, IE, JA, JS, JE, &
+!               v3dgh_RP(:,:,:,iv3dd_t), & ! (in)
+!               psat(:,:,:)  ) ! (out)
+!
+!!$omp parallel do private(k,i,j,qdry,Rtot) schedule(static) collapse(2)
+!  do j = JS, JE
+!  do i = IS, IE
+!    do k = KS, KE
+!      qdry  = 1.0d0
+!      do iv3d = iv3dd_q, iv3dd_qg ! loop over all moisture variables
+!        qdry  = qdry - v3dgh_RP(k,i,j,iv3d)
+!      enddo
+!      Rtot  = Rdry  * qdry + Rvap * v3dgh_RP(k,i,j,iv3dd_q)
+!    
+!      v3dgh_RP(k,i,j,iv3dd_rh) =  v3dgh_RP(k,i,j,iv3dd_q) * v3dgh_RP(k,i,j,iv3dd_p) / psat(k,i,j) * Rvap / Rtot 
+!    end do
+!  end do
+!  end do
 
   ! Calculate height based the the topography and vertical coordinate
   !---------------------------------------------------------

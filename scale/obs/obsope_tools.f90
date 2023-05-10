@@ -66,6 +66,12 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
   real(r_size), allocatable :: v3dg(:,:,:,:)
   real(r_size), allocatable :: v2dg(:,:,:)
 
+  real(r_size), allocatable :: mv3dg(:,:,:,:,:)
+  real(r_size), allocatable :: mv2dg(:,:,:,:)
+
+  real(r_size), allocatable :: mdbz3dg(:,:,:,:)
+  real(r_size), allocatable :: slope3dg(:,:,:)
+
   real(r_size) :: ril, rjl, rk, rkz
 
   character(filelenmax) :: obsdafile
@@ -336,6 +342,19 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
   allocate ( v3dg (nlevh,nlonh,nlath,nv3dd) )
   allocate ( v2dg (nlonh,nlath,nv2dd) )
 
+  if ( RADAR_ADDITIVE_Y18 ) then
+    allocate ( mv3dg (SLOT_END-SLOT_START+1,nlevh,nlonh,nlath,nv3dd) )
+    allocate ( mv2dg (SLOT_END-SLOT_START+1,nlonh,nlath,nv2dd) )
+    allocate ( mdbz3dg(SLOT_END-SLOT_START+1,nlev,nlon,nlat) )
+
+    allocate ( slope3dg (SLOT_END-SLOT_START+1,nlevh,nv3dd) )
+
+    call get_history_ensemble_mean_mpi( mv3dg, mv2dg, mdbz3dg )
+    call mpi_timer('obsope_cal:get_mean_Y18:', 2)
+    call get_regression_slope_dbz_mpi( mv3dg, mv2dg, mdbz3dg, slope3dg )
+    call mpi_timer('obsope_cal:get_slope_Y18:', 2)
+  endif
+
   do it = 1, nitmax
     im = myrank_to_mem(it)
     if ((im >= 1 .and. im <= MEMBER) .or. im == mmdetin) then
@@ -411,7 +430,7 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
                               obs(iof)%lon(n), obs(iof)%lat(n), v3dg, v2dg, obsda%val(nn), obsda%qc(nn), typ=obs(iof)%typ(n))
             end if
           !=====================================================================
-          case (obsfmt_radar)
+          case (obsfmt_radar, obsfmt_radar_nc)
           !---------------------------------------------------------------------
             if (obs(iof)%lev(n) > RADAR_ZMAX) then
               obsda%qc(nn) = iqc_radar_vhi
@@ -427,8 +446,15 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
               call phys2ijkz(v3dg(:,:,:,iv3dd_hgt), ril, rjl, obs(iof)%lev(n), rkz, obsda%qc(nn))
             end if
             if (obsda%qc(nn) == iqc_good) then
-              call Trans_XtoY_radar(obs(iof)%elm(n), obs(iof)%meta(1), obs(iof)%meta(2), obs(iof)%meta(3), ril, rjl, rkz, &
-                                    obs(iof)%lon(n), obs(iof)%lat(n), obs(iof)%lev(n), v3dg, v2dg, obsda%val(nn), obsda%qc(nn))
+              if ( RADAR_ADDITIVE_Y18 ) then
+                call Trans_XtoY_radar(obs(iof)%elm(n), obs(iof)%meta(1), obs(iof)%meta(2), obs(iof)%meta(3), ril, rjl, rkz,       &
+                                      obs(iof)%lon(n), obs(iof)%lat(n), obs(iof)%lev(n), v3dg, v2dg, obsda%val(nn), obsda%qc(nn), &
+                                      mv3d=mv3dg(islot-SLOT_START+1,:,:,:,:), slope3d=slope3dg(islot-SLOT_START+1,:,:), &
+                                      ref_add=obsda%pert(nn) )
+              else
+                call Trans_XtoY_radar(obs(iof)%elm(n), obs(iof)%meta(1), obs(iof)%meta(2), obs(iof)%meta(3), ril, rjl, rkz, &
+                                      obs(iof)%lon(n), obs(iof)%lat(n), obs(iof)%lev(n), v3dg, v2dg, obsda%val(nn), obsda%qc(nn))
+              endif
               if (obsda%qc(nn) == iqc_ref_low) obsda%qc(nn) = iqc_good ! when process the observation operator, we don't care if reflectivity is too small
 
               !!!!!! may not need to do this at this stage !!!!!!
@@ -473,7 +499,11 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
       ! Prepare variables that will need to be communicated if obsda_return is given
       ! 
       if (present(obsda_return)) then
-        call obs_da_value_partial_reduce_iter(obsda_return, it, 1, nobs, obsda%val, obsda%qc)
+        if ( RADAR_ADDITIVE_Y18 ) then
+          call obs_da_value_partial_reduce_iter(obsda_return, it, 1, nobs, obsda%val, obsda%qc, pert=obsda%pert)
+        else
+          call obs_da_value_partial_reduce_iter(obsda_return, it, 1, nobs, obsda%val, obsda%qc )
+        endif
 
         write (timer_str, '(A30,I4,A2)') 'obsope_cal:partial_reduce  (t=', it, '):'
         call mpi_timer(trim(timer_str), 2)
@@ -481,6 +511,11 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
 
     end if ! [ (im >= 1 .and. im <= MEMBER) .or. im == mmdetin ]
   end do ! [ it = 1, nitmax ]
+
+  if ( RADAR_ADDITIVE_Y18 ) then
+    deallocate ( mv3dg, mv2dg, mdbz3dg )
+    deallocate ( slope3dg )
+  endif
 
   deallocate ( v3dg, v2dg )
   deallocate ( bsn, bsna )
@@ -572,7 +607,7 @@ SUBROUTINE obsmake_cal(obs)
                                   obs(iof)%lon(n),obs(iof)%lat(n),v3dg,v2dg,obs(iof)%dat(n),iqc,typ=obs(iof)%typ(n))
                 end if
               !=================================================================
-              case (obsfmt_radar)
+              case (obsfmt_radar, obsfmt_radar_nc )
               !-----------------------------------------------------------------
                 call phys2ijkz(v3dg(:,:,:,iv3dd_hgt),ril,rjl,obs(iof)%lev(n),rkz,iqc)
                 if (iqc == iqc_good) then
