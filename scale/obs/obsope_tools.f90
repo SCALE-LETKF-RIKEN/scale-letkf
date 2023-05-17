@@ -618,7 +618,12 @@ SUBROUTINE obsmake_cal(obs)
                 end if
               end select
 
-              if (iqc /= iqc_good) then
+              if (iqc == iqc_ref_low .and. int(obs(iof)%elm(n)) == id_radar_ref_zero_obs ) then
+                obs(iof)%dat(n) = MIN_RADAR_REF_DBZ + LOW_REF_SHIFT  !!! not undef -> not rejected
+              elseif (iqc /= iqc_ref_low .and. int(obs(iof)%elm(n)) == id_radar_ref_zero_obs ) then
+                obs(iof)%dat(n) = undef
+                iqc = iqc_ref_mem
+              elseif (iqc /= iqc_good) then
                 obs(iof)%dat(n) = undef
               end if
 
@@ -688,6 +693,12 @@ SUBROUTINE obsmake_cal(obs)
           if (any(obs(iof)%elm(n) == (/id_t_obs,id_tv_obs,id_q_obs,id_rh_obs,id_ps_obs/))) then
             obs(iof)%dat(n) = max(obs(iof)%dat(n), 0.0_r_size)
           end if
+        end if
+
+        if (int(obs(iof)%elm(n)) == id_radar_ref_obs .and. obs(iof)%dat(n) /= undef ) then
+          obs(iof)%dat(n) = 10.0_r_size** (obs(iof)%dat(n) / 10.0_r_size ) !!! dBZ -> original unit
+        elseif (int(obs(iof)%elm(n)) == id_radar_ref_zero_obs .and. obs(iof)%dat(n) /= undef ) then
+          obs(iof)%dat(n) = 10.0_r_size** ((MIN_RADAR_REF_DBZ + LOW_REF_SHIFT ) / 10.0_r_size ) !!! dBZ -> original unit
         end if
 
 !print *, '######', obs%elm(n), obs%dat(n)

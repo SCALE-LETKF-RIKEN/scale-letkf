@@ -165,7 +165,7 @@ if [ "$SCALE_SYS" == 'Linux64-gnu-ompi' ] ; then
     exit $res
   fi
 
-elif [ "$MPI_TYPE" = 'sgimpt' ]; then
+elif [ "$MPI_TYPE" == 'sgimpt' ]; then
 
   local HOSTLIST=$(cat ${NODEFILE_DIR}/${NODEFILE})
   HOSTLIST=$(echo $HOSTLIST | sed 's/  */,/g')
@@ -179,7 +179,7 @@ elif [ "$MPI_TYPE" = 'sgimpt' ]; then
     exit $res
   fi
 
-elif [ "$MPI_TYPE" = 'openmpi' ]; then
+elif [ "$MPI_TYPE" == 'openmpi' ]; then
 
   NNP=$(cat ${NODEFILE_DIR}/${NODEFILE} | wc -l)
 
@@ -191,7 +191,7 @@ elif [ "$MPI_TYPE" = 'openmpi' ]; then
     exit $res
   fi
 
-elif [ "$MPI_TYPE" = 'impi' ] ; then
+elif [ "$MPI_TYPE" == 'impi' ] ; then
 
   $MPIRUN $PROG $CONF $STDOUT $ARGS
   res=$?
@@ -201,7 +201,7 @@ elif [ "$MPI_TYPE" = 'impi' ] ; then
     exit $res
   fi
 
-elif [ "$PRESET" = 'FUGAKU' ]; then
+elif [ "$PRESET" == 'FUGAKU' ]; then
 
   mpiexec -std-proc $STDOUT -n $((NNODES*PPN)) $PROG $CONF $ARGS
   res=$?

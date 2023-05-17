@@ -114,7 +114,6 @@ cat $SCRP_DIR/config.nml.obsmake | sed \
     -e "/!--PRC_DOMAINS--/a PRC_DOMAINS=$SCALE_NP,"  \
     -e "/!--OBS_IN_NAME--/a OBS_IN_NAME=\"$TMP/obsin/obsin.dat\","  \
     -e "/!--OBS_IN_FORMAT--/a OBS_IN_FORMAT=\"${OBS_IN_FORMAT}\","  \
-    -e "/!--PPN--/a PPN=$PPN,"  \
     -e "/!--LETKF_TOPOGRAPHY_IN_BASENAME--/a LETKF_TOPOGRAPHY_IN_BASENAME=\"$OUTDIR/const/topo/topo\"," \
     -e "/!--HISTORY_IN_BASENAME--/a HISTORY_IN_BASENAME=\"$OUTDIR/nature/hist/history\"," \
     -e "/!--GUES_IN_BASENAME--/a GUES_IN_BASENAME=\"$OUTDIR/nature/init/init_$(datetime_scale $time)\"," \

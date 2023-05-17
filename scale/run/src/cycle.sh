@@ -204,8 +204,7 @@ while ((time <= ETIME)); do
       ######
       if ((s == 1)); then
         logd=$OUTDIR/$time/log/scale_pp
-
-        if [ "$TOPO_FORMAT" == 'prep' ] && [ "$LANDUSE_FORMAT" == 'prep' ]; then
+        if [[ "$TOPO_FORMAT" == 'prep' || "$TOPO_FORMAT" == 'none' ]] &&  [[  "$LANDUSE_FORMAT" == 'prep' || "$LANDUSE_FORMAT" == 'none' ]]  ; then
           echo "[$(datetime_now)] ${time}: ${stepname[$s]} ...skipped (use prepared topo and landuse files)" >&2
           continue
         elif ((BDY_FORMAT == 0)); then

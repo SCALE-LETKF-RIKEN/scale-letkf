@@ -21,7 +21,7 @@ fi
 #===============================================================================
 # Configuration
 
-. ./config.main || exit $?
+. ./config.main.${PRESET} || exit $?
 . ./config.${job} || exit $?
 
 . src/func_datetime.sh || exit $?
@@ -54,6 +54,11 @@ echo "[$(datetime_now)] Create and clean the temporary directory"
 #fi
 safe_init_tmpdir $TMP || exit $?
 
+# copy config files
+cp $SCRP_DIR/config.nml.* ${TMP}/
+cp $SCRP_DIR/config.[c,f,r]* ${TMP}/
+cp $SCRP_DIR/config.main.${PRESET} ${TMP}/
+
 #===============================================================================
 # Determine the distibution schemes
 
@@ -71,7 +76,7 @@ fi
 
 echo "[$(datetime_now)] Determine the staging list"
 
-cat $SCRP_DIR/config.main | \
+cat $TMP/config.main.${PRESET} | \
     sed -e "/\(^DIR=\| DIR=\)/c DIR=\"$DIR\"" \
     > $TMP/config.main
 

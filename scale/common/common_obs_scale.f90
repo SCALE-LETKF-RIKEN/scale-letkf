@@ -277,7 +277,7 @@ SUBROUTINE Trans_XtoY(elm,ri,rj,rk,lon,lat,v3d,v2d,yobs,qc,stggrd,typ)
   REAL(r_size),INTENT(OUT) :: yobs
   INTEGER,INTENT(OUT) :: qc
   INTEGER,INTENT(IN),OPTIONAL :: stggrd
-  REAL(r_size) :: u,v,t,q,topo
+  REAL(r_size) :: u,v,t,q,p,topo
 
   INTEGER :: stggrd_ = 0
   if (present(stggrd)) stggrd_ = stggrd
@@ -335,9 +335,12 @@ SUBROUTINE Trans_XtoY(elm,ri,rj,rk,lon,lat,v3d,v2d,yobs,qc,stggrd,typ)
 !  CASE(id_rain_obs) ! RAIN                        ############# (not finished)
 !    CALL itpl_2d(v2d(:,:,iv2dd_rain),ri,rj,yobs) !#############
   CASE(id_rh_obs) ! RH
-    write(6,'(a)') 'Relative humidity obs is not supoorted'
-    stop
-!    CALL itpl_3d(v3d(:,:,:,iv3dd_rh),rk,ri,rj,yobs)
+!    write(6,'(a)') 'Relative humidity obs is not supoorted'
+!    stop
+    CALL itpl_3d(v3d(:,:,:,iv3dd_t),rk,ri,rj,t)
+    CALL itpl_3d(v3d(:,:,:,iv3dd_q),rk,ri,rj,q)
+    CALL itpl_3d(v3d(:,:,:,iv3dd_p),rk,ri,rj,p)
+    CALL calc_rh(t,q,p,yobs) !!! RH in q/qs, not %
 !  CASE(id_tclon_obs)
 !    CALL tctrk(v2d(:,:,iv2d_ps),v2d(:,:,iv2d_t2),ri,rj,dummy)
 !    yobs = dummy(1)
@@ -636,6 +639,7 @@ SUBROUTINE calc_rh(t,q,p,rh)
 
   RETURN
 END SUBROUTINE calc_rh
+
 !-----------------------------------------------------------------------
 ! Pressure adjustment for a different height level
 !-----------------------------------------------------------------------
@@ -1204,7 +1208,7 @@ SUBROUTINE phys2ijk(p_full,elem,ri,rj,rlev,rk,qc,typ)
     IF(rk < plev(nlev+KHALO)) THEN
       call itpl_2d(p_full(nlev+KHALO,:,:),ri,rj,ptmp)
       if (LOG_LEVEL >= 2) then
-        write(6,'(A,F8.1,A,F8.1,A,I5)') '[Warning] observation is too high: ptop=', ptmp, ', lev=', rlev, ', elem=', elem
+        write(6,'(A,F12.1,A,F12.1,A,I5)') '[Warning] observation is too high: ptop=', ptmp, ', lev=', rlev, ', elem=', elem
       end if
       rk = undef
       qc = iqc_out_vhi
@@ -1214,7 +1218,7 @@ SUBROUTINE phys2ijk(p_full,elem,ri,rj,rlev,rk,qc,typ)
       call itpl_2d(p_full(ks,:,:),ri,rj,ptmp)
 !print *, ks, rk, plev(ks)
       if (LOG_LEVEL >= 2) then
-        write(6,'(A,F8.1,A,F8.1,A,I5)') '[Warning] observation is too low: pbottom=', ptmp, ', lev=', rlev, ', elem=', elem
+        write(6,'(A,F12.1,A,F12.1,A,I5)') '[Warning] observation is too low: pbottom=', ptmp, ', lev=', rlev, ', elem=', elem
       end if
       rk = undef
       qc = iqc_out_vlo
@@ -2556,11 +2560,12 @@ subroutine write_obs_all(obs, missing, file_suffix)
   character(len=*), intent(in), optional :: file_suffix
   logical :: missing_
   integer :: iof, strlen1, strlen2
-  character(200) :: filestr=''
+  character(200) :: filestr
 
   missing_ = .true.
   IF(present(missing)) missing_ = missing
 
+  filestr=""
   do iof = 1, OBS_IN_NUM
     if (present(file_suffix)) then
       strlen1 = len(trim(OBS_IN_NAME(iof)))

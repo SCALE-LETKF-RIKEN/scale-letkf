@@ -868,6 +868,12 @@ SUBROUTINE read_topo(filename,topo)
     js = js + JHALO
   end if
 
+  if (trim(filename) == "") then
+    topo=0.0_r_size
+    if ( LOG_OUT ) write (6,'(A)') 'No topography input : set to zero'
+    return
+  end if
+
   write (filesuffix(4:9),'(I6.6)') PRC_myrank
   if ( LOG_OUT ) write (6,'(A,I6.6,2A)') 'MYRANK ',myrank,' is reading a file ',trim(filename) // filesuffix
   call ncio_open(trim(filename) // filesuffix, NF90_NOWRITE, ncid)
@@ -2070,6 +2076,5 @@ subroutine rij_rank_g2l(ig, jg, rank, il, jl)
 
   return
 end subroutine rij_rank_g2l
-
 !===============================================================================
 END MODULE common_scale
