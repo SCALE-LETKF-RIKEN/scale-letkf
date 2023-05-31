@@ -39,6 +39,12 @@ echo "scale-rm_init_ens"
  $mpicommand ./scale-rm_init_ens config/scale-rm_init_ens_20220101000000.conf 
 echo "scale-rm_ens"
  $mpicommand ./scale-rm_ens config/scale-rm_ens_20220101000000.conf 
+echo "copy restart files"
+for mem in $(seq -f %04g 1 5) mean;do
+  for pe in $(seq -f %06g 0 7);do
+    cp ${mem}/gues/init_20220101-060000.000.pe${pe}.nc ${mem}/anal/
+  done
+done
 echo "letkf"
  $mpicommand ./letkf config/letkf_20220101060000.conf 
 echo "done."
