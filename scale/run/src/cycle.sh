@@ -295,6 +295,11 @@ while ((time <= ETIME)); do
             cp -r $OUTDIR/$atime/anal/$mem/* $OUTDIR/$atime/gues/$mem/ 
           done       
         fi
+        if ((NOBS_OUT==1)); then
+          for pe in $(seq -f %06g 0 $((SCALE_NP-1)) ) ;do
+            cp -r $OUTDIR/$atime/anal/mean/*pe${pe}.nc $TMP/nobs.d01_$(datetime_scale $atime).pe${pe}.nc
+          done 
+        fi
       fi
       if (( s == 6 )); then
         logd=$OUTDIR/$atime/log/efso
