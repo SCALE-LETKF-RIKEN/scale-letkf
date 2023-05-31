@@ -117,14 +117,14 @@ program efso
       call read_restart( trim(EFSO_FCST_FROM_GUES_BASENAME), work3dg, work2dg)
       call state_trans(work3dg)
     endif
-    call scatter_grd_mpi(mmean_rank_e,real(work3dg,r_size),real(work2dg,r_size),fcer3d,fcer2d)
+    call scatter_grd_mpi(mmean_rank_e,real(work3dg,RP),real(work2dg,RP),fcer3d,fcer2d)
 
     ! forecast from the analysis ensemble mean
     if ( myrank_e == mmean_rank_e ) then  
       call read_restart( trim(EFSO_FCST_FROM_ANAL_BASENAME), work3dg, work2dg)
       call state_trans(work3dg)
     endif
-    call scatter_grd_mpi(mmean_rank_e,real(work3dg,r_size),real(work2dg,r_size),work3d,work2d)
+    call scatter_grd_mpi(mmean_rank_e,real(work3dg,RP),real(work2dg,RP),work3d,work2d)
     fcer3d(:,:,:) = 0.5_r_size * ( fcer3d(:,:,:) + work3d(:,:,:) )
     fcer2d(:,:) = 0.5_r_size * ( fcer2d(:,:) + work2d(:,:) )
 
@@ -140,7 +140,7 @@ enddo
       call read_restart( trim(EFSO_ANAL_IN_BASENAME), work3dg, work2dg)
       call state_trans(work3dg)
     endif
-    call scatter_grd_mpi(mmean_rank_e,real(work3dg,r_size),real(work2dg,r_size),work3d,work2d)
+    call scatter_grd_mpi(mmean_rank_e,real(work3dg,RP),real(work2dg,RP),work3d,work2d)
     deallocate( work3dg, work2dg )
 
     if ( myrank_a == 0 ) then
@@ -209,19 +209,19 @@ enddo
     WRITE(6,'(A,I3.3,2A)') 'MYRANK ',myrank,' is reading.. ',fmean0
     !CALL read_grd4(fmean0,work3dg,work2dg,1)
   END IF
-  CALL scatter_grd_mpi(0,real(work3dg,r_size),real(work2dg,r_size),fcer3d,fcer2d)
+  CALL scatter_grd_mpi(0,real(work3dg,RP),real(work2dg,RP),fcer3d,fcer2d)
   IF(myrank == 0) THEN
     WRITE(6,'(A,I3.3,2A)') 'MYRANK ',myrank,' is reading.. ',fmean6
     !CALL read_grd4(fmean6,work3dg,work2dg,1)
   END IF
-  CALL scatter_grd_mpi(0,real(work3dg,r_size),real(work2dg,r_size),work3d,work2d)
+  CALL scatter_grd_mpi(0,real(work3dg,RP),real(work2dg,RP),work3d,work2d)
   fcer3d(:,:,:) = 0.5_r_size * (fcer3d(:,:,:) + work3d(:,:,:))
   fcer2d(:,:) = 0.5_r_size * (fcer2d(:,:) + work2d(:,:))
   IF(myrank == 0) THEN
     WRITE(6,'(A,I3.3,2A)') 'MYRANK ',myrank,' is reading.. ',ameanf
     !CALL read_grd4(ameanf,work3dg,work2dg,1)
   END IF
-  CALL scatter_grd_mpi(0,real(work3dg,r_size),real(work2dg,r_size),work3d,work2d)
+  CALL scatter_grd_mpi(0,real(work3dg,RP),real(work2dg,RP),work3d,work2d)
   fcer3d(:,:,:) = (fcer3d(:,:,:) - work3d(:,:,:)) / real(MEMBER-1,r_size)
   fcer2d(:,:) = (fcer2d(:,:) - work2d(:,:)) / real(MEMBER-1,r_size)
   !!! fcer3d,fcer2d: [1/2(K-1)](e^f_t+e^g_t) [Eq.(6), Ota et al. 2013]
@@ -238,7 +238,7 @@ enddo
     WRITE(6,'(A,I3.3,2A)') 'MYRANK ',myrank,' is reading.. ',gmeanf
    ! CALL read_grd4(gmeanf,work3dg,work2dg,0)
   END IF
-  CALL scatter_grd_mpi(0,real(work3dg,r_size),real(work2dg,r_size),gues3d,gues2d)
+  CALL scatter_grd_mpi(0,real(work3dg,RP),real(work2dg,RP),gues3d,gues2d)
 !
   CALL CPU_TIME(rtimer)
   WRITE(6,'(A,2F10.2)') '### TIMER(READ_FORECAST):',rtimer,rtimer-rtimer00
