@@ -302,6 +302,9 @@ while ((time <= ETIME)); do
         fi
       fi
       if (( s == 6 )); then
+        if ((EFSO_RUN == 0));then
+          continue
+        fi
         logd=$OUTDIR/$atime/log/efso
       fi
       ######

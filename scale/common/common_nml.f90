@@ -251,7 +251,6 @@ MODULE common_nml
   character(filelenmax) :: OBSDEP_OUT_BASENAME = 'obsdep'
   LOGICAL               :: OBSDEP_OUT_NC = .false.
   logical               :: OBSDEP_OUT_NOQC = .false.
-  character(filelenmax) :: OBSDEP_IN_BASENAME = 'obsdep'
   logical               :: OBSNUM_OUT_NC = .false.
   character(filelenmax) :: OBSNUM_OUT_NC_BASENAME = 'obsnum'
   LOGICAL               :: OBSGUES_OUT = .false.                  !XXX not implemented yet...
