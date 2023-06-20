@@ -623,11 +623,11 @@ while ((time_s <= ETIME)); do
 
         bdy_setting $time $FCSTLEN $BDYCYCLE_INT "$BDYINT" "$PARENT_REF_TIME" "$BDY_SINGLE_FILE"
 
-        if ((MAKEINIT == 1 && ${bdy_times[1]} != time)); then
-          echo "[Error] $0: Unable to generate initial analyses (MAKEINIT) at this time" >&2
-          echo "        that does not fit to any boundary data." >&2
-          exit 1
-        fi
+#        if ((MAKEINIT == 1 && ${bdy_times[1]} != time)); then
+#          echo "[Error] $0: Unable to generate initial analyses (MAKEINIT) at this time" >&2
+#          echo "        that does not fit to any boundary data." >&2
+#          exit 1
+#        fi
 
         if ((DISK_MODE >= 1));then
           TOPO_PATH=${TMP}
@@ -822,7 +822,7 @@ m=$1
                   -e "/!--BOUNDARY_UPDATE_DT--/a BOUNDARY_UPDATE_DT = ${BDYINT}.D0,")"
             if ((d == 1)); then
               conf="$(echo "$conf" | \
-                sed -e "/!--BASENAME_BOUNDARY--/a BASENAME_BOUNDARY = \"${BOUNDARY_PATH[$d]}/${mem_bdy}/bdy_$(datetime_scale $time)\"," \
+                sed -e "/!--BASENAME_BOUNDARY--/a BASENAME_BOUNDARY = \"${BOUNDARY_PATH[$d]}/${mem_bdy}/boundary\"," \
                     -e "/!--NUMBER_OF_FILES--/a NUMBER_OF_FILES = ${nbdy}," \
                     -e "/!--NUMBER_OF_TSTEPS--/a NUMBER_OF_TSTEPS = ${ntsteps}," \
                     -e "/!--NUMBER_OF_SKIP_TSTEPS--/a NUMBER_OF_SKIP_TSTEPS = ${ntsteps_skip},")"
