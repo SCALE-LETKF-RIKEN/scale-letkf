@@ -178,7 +178,7 @@ subroutine set_common_mpi_scale
 
 #ifdef LETKF_DEBUG
   if (nprocs_e /= n_mem*n_mempn) then
-    write (6, '(A)'), '[Error] XXXXXX wrong!!'
+    write (6, '(A)') '[Error] XXXXXX wrong!!'
     stop
   end if
 #endif
@@ -498,7 +498,7 @@ mem_loop: DO it = 1, nitmax
     mmean_rank_e = mod(mmean-1, n_mem*n_mempn)
 #ifdef LETKF_DEBUG
     if (mmean_rank_e /= rank_to_mem(1,mempe_to_rank(1,mmean)+1)-1) then
-      write (6, '(A)'), '[Error] XXXXXX wrong!!'
+      write (6, '(A)') '[Error] XXXXXX wrong!!'
       stop
     end if
 #endif
@@ -526,7 +526,7 @@ mem_loop: DO it = 1, nitmax
     mmdet_rank_e = mod(mmdet-1, n_mem*n_mempn)
 #ifdef LETKF_DEBUG
     if (mmdet_rank_e /= rank_to_mem(1,mempe_to_rank(1,mmdet)+1)-1) then
-      write (6, '(A)'), '[Error] XXXXXX wrong!!'
+      write (6, '(A)') '[Error] XXXXXX wrong!!'
       stop
     end if
 #endif
@@ -798,7 +798,7 @@ subroutine set_scalelib(execname)
 
 #ifdef LETKF_DEBUG
   if (mydom <= 0) then
-    write(6, '(A)'), '[Error] Cannot determine my domain ID.'
+    write(6, '(A)') '[Error] Cannot determine my domain ID.'
     stop
   end if
 #endif
@@ -1650,8 +1650,8 @@ SUBROUTINE grd_to_buf(np,grd,buf)
       ilat = (j-ilon+1) / nlon + 1
 #ifdef LETKF_DEBUG
 if (i < 1 .or. i > nij1max .or. m < 1 .or. m > np .or. ilon < 1 .or. ilon > nlon .or. ilat < 1 .or. ilat > nlat) then
-  write(6, *), '[Error] ######', np, nij1max
-  write(6, *), '[Error] ######', i, m, ilon, ilat
+  write(6, *) '[Error] ######', np, nij1max
+  write(6, *) '[Error] ######', i, m, ilon, ilat
   stop
 end if
 #endif

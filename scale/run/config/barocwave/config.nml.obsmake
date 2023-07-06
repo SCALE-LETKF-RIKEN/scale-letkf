@@ -31,7 +31,7 @@ OBSDA_RUN = .true. ,
  OBSDA_IN=.false.,
 /
 
-&PARAM_OBSERR
+&PARAM_OBS_ERROR
  OBSERR_U = 1.0, 
  OBSERR_V = 1.0, 
  OBSERR_T = 1.0, 

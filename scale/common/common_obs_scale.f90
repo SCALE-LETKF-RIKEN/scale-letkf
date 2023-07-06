@@ -1488,12 +1488,12 @@ SUBROUTINE itpl_2d_column(var,ri,rj,var5)
   RETURN
 END SUBROUTINE itpl_2d_column
 
-SUBROUTINE itpl_3d(var,ri,rj,rk,var5)
+SUBROUTINE itpl_3d(var,rk,ri,rj,var5)
   IMPLICIT NONE
   REAL(r_size),INTENT(IN) :: var(nlevh,nlonh,nlath)
+  REAL(r_size),INTENT(IN) :: rk
   REAL(r_size),INTENT(IN) :: ri
   REAL(r_size),INTENT(IN) :: rj
-  REAL(r_size),INTENT(IN) :: rk
   REAL(r_size),INTENT(OUT) :: var5
   REAL(r_size) :: ai,aj,ak
   INTEGER :: i,j,k
@@ -1505,14 +1505,14 @@ SUBROUTINE itpl_3d(var,ri,rj,rk,var5)
   k = CEILING(rk)
   ak = rk - REAL(k-1,r_size)
 
-  var5 = var(i-1,j-1,k-1) * (1-ai) * (1-aj) * (1-ak) &
-     & + var(i  ,j-1,k-1) *    ai  * (1-aj) * (1-ak) &
-     & + var(i-1,j  ,k-1) * (1-ai) *    aj  * (1-ak) &
-     & + var(i  ,j  ,k-1) *    ai  *    aj  * (1-ak) &
-     & + var(i-1,j-1,k  ) * (1-ai) * (1-aj) *    ak  &
-     & + var(i  ,j-1,k  ) *    ai  * (1-aj) *    ak  &
-     & + var(i-1,j  ,k  ) * (1-ai) *    aj  *    ak  &
-     & + var(i  ,j  ,k  ) *    ai  *    aj  *    ak
+  var5 = var(k-1,i-1,j-1) * (1-ai) * (1-aj) * (1-ak) &
+     & + var(k-1,i  ,j-1) *    ai  * (1-aj) * (1-ak) &
+     & + var(k-1,i-1,j  ) * (1-ai) *    aj  * (1-ak) &
+     & + var(k-1,i  ,j  ) *    ai  *    aj  * (1-ak) &
+     & + var(k,  i-1,j-1) * (1-ai) * (1-aj) *    ak  &
+     & + var(k,  i  ,j-1) *    ai  * (1-aj) *    ak  &
+     & + var(k,  i-1,j  ) * (1-ai) *    aj  *    ak  &
+     & + var(k,  i  ,j  ) *    ai  *    aj  *    ak
 
   RETURN
 END SUBROUTINE itpl_3d
