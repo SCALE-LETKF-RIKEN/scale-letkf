@@ -299,6 +299,10 @@ while ((time <= ETIME)); do
           for pe in $(seq -f %06g 0 $((SCALE_NP-1)) ) ;do
             cp -r $OUTDIR/$atime/anal/mean/*pe${pe}.nc $TMP/nobs.d01_$(datetime_scale $atime).pe${pe}.nc
           done 
+        elif ((RTPS_INFL_OUT==1)); then
+          for pe in $(seq -f %06g 0 $((SCALE_NP-1)) ) ;do
+            cp -r $OUTDIR/$atime/anal/mean/*pe${pe}.nc $TMP/rtpsinfl.d01_$(datetime_scale $atime).pe${pe}.nc
+          done 
         fi
       fi
       if (( s == 6 )); then
