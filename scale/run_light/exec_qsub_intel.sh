@@ -36,5 +36,5 @@ for mem in $(seq -f %04g 1 5) mean;do
   done
 done
 echo "letkf"
-impijob ./letkf config/letkf_20220101060000.conf 
+impijob ./letkf config/letkf_20220101060000.conf >> run_progress
 echo "done."

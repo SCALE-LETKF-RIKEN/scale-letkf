@@ -35,7 +35,7 @@ umask 0007
 
 mpicommand="mpirun --mca btl openib,sm,self --bind-to core"
 
-echo "scale-rm_init_ens"
+echo "scale-rm_init_ens" 
  $mpicommand ./scale-rm_init_ens config/scale-rm_init_ens_20220101000000.conf 
 echo "scale-rm_ens"
  $mpicommand ./scale-rm_ens config/scale-rm_ens_20220101000000.conf 
@@ -46,5 +46,5 @@ for mem in $(seq -f %04g 1 5) mean;do
   done
 done
 echo "letkf"
- $mpicommand ./letkf config/letkf_20220101060000.conf 
+ $mpicommand ./letkf config/letkf_20220101060000.conf >> run_progress
 echo "done."
