@@ -1306,7 +1306,7 @@ subroutine read_ens_mpi_addiinfl(v3d, v2d)
       filename = INFL_ADD_IN_BASENAME
       call filename_replace_mem(filename, im)
 
-!      write (6,'(A,I6.6,3A,I6.6,A)') 'MYRANK ',myrank,' is reading a file ',filename,'.pe',myrank_d,'.nc'
+      write (6,'(A,I6.6,3A,I6.6,A)') 'MYRANK ',myrank,' is reading a file ',filename,'.pe',myrank_d,'.nc'
 #ifdef PNETCDF
       if (FILE_AGGREGATE) then
         call read_restart_par(filename, v3dg, v2dg, MPI_COMM_d)
@@ -1316,7 +1316,7 @@ subroutine read_ens_mpi_addiinfl(v3d, v2d)
 #ifdef PNETCDF
       end if
 #endif
-!      call state_trans(v3dg)
+      call state_trans(v3dg)
     end if
 
     mstart = 1 + (it-1)*nprocs_e

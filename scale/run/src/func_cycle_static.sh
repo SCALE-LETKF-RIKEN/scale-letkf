@@ -876,7 +876,15 @@ while ((time <= ETIME)); do
   if ((NOBS_OUT == 1)); then
     NOBS_OUT_TF='.true.'
   fi
-
+  INFL_MUL_ADAPTIVE='.false.'
+  if ((ADAPTINFL == 1)); then
+    INFL_MUL_ADAPTIVE='.true.'
+  fi
+  INFL_ADD=0.0
+  if ((ADDINFL == 1)); then
+    INFL_ADD=$INFL_ADD_FACT
+  fi
+ 
   for d in $(seq $DOMNUM); do
     dfmt=$(printf $DOMAIN_FMT $d)
 
@@ -980,7 +988,10 @@ while ((time <= ETIME)); do
             -e "/!--EFSO_FCST_FROM_GUES_BASENAME--/a EFSO_FCST_FROM_GUES_BASENAME = \"${EFSO_FCST_FROM_GUES_BASENAME}\"," \
             -e "/!--EFSO_FCST_FROM_ANAL_BASENAME--/a EFSO_FCST_FROM_ANAL_BASENAME = \"${EFSO_FCST_FROM_ANAL_BASENAME}\"," \
             -e "/!--EFSO_EFCST_FROM_ANAL_BASENAME--/a EFSO_EFCST_FROM_ANAL_BASENAME = \"${EFSO_EFCST_FROM_ANAL_BASENAME}\"," \
-            -e "/!--INFL_ADD_IN_BASENAME--/a INFL_ADD_IN_BASENAME = \"<member>/addi.d${dfmt}\"," \
+            -e "/!--INFL_ADD--/a INFL_ADD = ${INFL_ADD}," \
+            -e "/!--INFL_ADD_IN_BASENAME--/a INFL_ADD_IN_BASENAME = \"${DATA_ADDINFL[$d]}/<member>${CONNECTOR}init${sfx}\"," \
+            -e "/!--INFL_MUL_ADAPTIVE--/a INFL_MUL_ADAPTIVE = ${INFL_MUL_ADAPTIVE}," \
+            -e "/!--INFL_MUL_OUT_BASENAME--/a INFL_MUL_OUT_BASENAME = \"infl.d${dfmt}_$(datetime_scale $atime)\"," \
             -e "/!--RELAX_SPREAD_OUT--/a RELAX_SPREAD_OUT = ${RTPS_INFL_OUT_TF}," \
             -e "/!--RELAX_SPREAD_OUT_BASENAME--/a RELAX_SPREAD_OUT_BASENAME = \"rtpsinfl.d${dfmt}_$(datetime_scale $atime)\"," \
             -e "/!--NOBS_OUT--/a NOBS_OUT = ${NOBS_OUT_TF}," \

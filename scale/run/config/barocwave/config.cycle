@@ -22,6 +22,11 @@ ADAPTINFL=0      # Adaptive inflation
                  #  0: OFF
                  #  1: ON
 
+ADDINFL=0        # Additive inflation
+                 #  0: OFF
+                 #  1: ON
+INFL_ADD_FACT=0.1
+
 #===============================================================================
 
 MAKEINIT=0       # 0: No
