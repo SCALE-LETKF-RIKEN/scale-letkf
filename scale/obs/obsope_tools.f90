@@ -457,6 +457,12 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
               endif
               if (obsda%qc(nn) == iqc_ref_low) obsda%qc(nn) = iqc_good ! when process the observation operator, we don't care if reflectivity is too small
 
+              if (RADAR_PQV) then
+                call itpl_3d( v3dg(:,:,:,iv3dd_p), rkz, ril, rjl, obsda%pm(nn) )
+                call itpl_3d( v3dg(:,:,:,iv3dd_t), rkz, ril, rjl, obsda%tm(nn) )
+                call itpl_3d( v3dg(:,:,:,iv3dd_q), rkz, ril, rjl, obsda%qv(nn) )
+              end if
+
               !!!!!! may not need to do this at this stage !!!!!!
               !if (obs(iof)%elm(n) == id_radar_ref_obs) then
               !  obsda%val(nn) = 10.0d0 * log10(obsda%val(nn))
@@ -499,7 +505,9 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
       ! Prepare variables that will need to be communicated if obsda_return is given
       ! 
       if (present(obsda_return)) then
-        if ( RADAR_ADDITIVE_Y18 ) then
+        if ( RADAR_PQV ) then
+          call obs_da_value_partial_reduce_iter(obsda_return, it, 1, nobs, obsda%val, obsda%qc, qv=obsda%qv, tm=obsda%tm, pm=obsda%pm )
+        elseif ( RADAR_ADDITIVE_Y18 ) then
           call obs_da_value_partial_reduce_iter(obsda_return, it, 1, nobs, obsda%val, obsda%qc, pert=obsda%pert)
         else
           call obs_da_value_partial_reduce_iter(obsda_return, it, 1, nobs, obsda%val, obsda%qc )

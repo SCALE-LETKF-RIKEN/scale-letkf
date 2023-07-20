@@ -230,7 +230,13 @@ SUBROUTINE set_letkf_obs
 #endif
         end if
 
-        call obs_da_value_partial_reduce_iter(obsda, it, n1, n2, obsda_ext%val, obsda_ext%qc)
+        if ( RADAR_PQV ) then
+          call obs_da_value_partial_reduce_iter(obsda, it, n1, n2, obsda_ext%val, obsda_ext%qc, qv=obsda_ext%qv, tm=obsda_ext%tm, pm=obsda_ext%pm )
+        elseif ( RADAR_ADDITIVE_Y18 ) then
+          call obs_da_value_partial_reduce_iter(obsda, it, n1, n2, obsda_ext%val, obsda_ext%qc, pert=obsda_ext%pert)
+        else
+          call obs_da_value_partial_reduce_iter(obsda, it, n1, n2, obsda_ext%val, obsda_ext%qc )
+        endif
 
       end if ! [ (im >= 1 .and. im <= MEMBER) .or. im == mmdetin ]
     end do ! [ it = 1, nitmax ]

@@ -512,6 +512,9 @@ SUBROUTINE Trans_XtoY_radar(elm,radar_lon,radar_lat,radar_z,ri,rj,rk,lon,lat,lev
       qc = iqc_ref_low
     end if
     yobs = radar_rv  !!! even if the above qc is bad, still return the value
+  CASE(id_radar_prh_obs)
+    CALL calc_rh(tr,qvr,pr,yobs) !!! RH in q/qs, not %
+
   CASE DEFAULT
     qc = iqc_otype
   END SELECT
@@ -528,7 +531,7 @@ SUBROUTINE Trans_XtoY_radar(elm,radar_lon,radar_lat,radar_z,ri,rj,rk,lon,lat,lev
       enddo
     endif
   endif
-  
+
 !  rrtimer = MPI_WTIME()
 !  WRITE(6,'(A,F18.10)') '###### Trans_XtoY_radar:conversion:',rrtimer-rrtimer00
 !  rrtimer00=rrtimer
@@ -1927,15 +1930,17 @@ SUBROUTINE obs_da_value_allocate(obsda,member)
   ALLOCATE( obsda%val (obsda%nobs) )
   ALLOCATE( obsda%qc  (obsda%nobs) )
 
-  allocate( obsda%tm (obsda%nobs) )
-  allocate( obsda%pm (obsda%nobs) )
-  allocate( obsda%qv (obsda%nobs) )
-
   obsda%nobs_in_key = 0
   obsda%idx = 0
   obsda%key = 0
   obsda%val = 0.0d0
   obsda%qc = 0
+
+  if (RADAR_PQV) then
+    allocate( obsda%tm (obsda%nobs) )
+    allocate( obsda%pm (obsda%nobs) )
+    allocate( obsda%qv (obsda%nobs) )
+  end if
 
   obsda%tm = 0.0d0
   obsda%pm = 0.0d0
@@ -1945,9 +1950,10 @@ SUBROUTINE obs_da_value_allocate(obsda,member)
     ALLOCATE( obsda%ensval (member,obsda%nobs) )
     obsda%ensval = 0.0d0
 
-    allocate( obsda%eqv (member,obsda%nobs) )
-    obsda%eqv = 0.0d0
-
+    if (RADAR_PQV) then
+      allocate( obsda%eqv (member,obsda%nobs) )
+      obsda%eqv = 0.0d0
+    end if
   end if
 
   if ( RADAR_ADDITIVE_Y18 ) then

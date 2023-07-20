@@ -2061,7 +2061,7 @@ end subroutine get_nobs_da_mpi
 !-------------------------------------------------------------------------------
 ! Partially reduce observations processed in the same processes in the iteration
 !-------------------------------------------------------------------------------
-subroutine obs_da_value_partial_reduce_iter(obsda, iter, nstart, nobs, ensval, qc, pert)
+subroutine obs_da_value_partial_reduce_iter(obsda, iter, nstart, nobs, ensval, qc, qv, tm, pm, pert)
   implicit none
   type(obs_da_value), intent(inout) :: obsda
   integer, intent(in)      :: iter
@@ -2069,6 +2069,9 @@ subroutine obs_da_value_partial_reduce_iter(obsda, iter, nstart, nobs, ensval, q
   integer, intent(in)      :: nobs
   real(r_size), intent(in) :: ensval(nobs)
   integer, intent(in)      :: qc(nobs)
+  real(r_size), intent(in), optional :: qv(nobs)  ! additional ensemble perturbation ! PQV
+  real(r_size), intent(in), optional :: tm(nobs)   ! additional ensemble perturbation ! PQV
+  real(r_size), intent(in), optional :: pm(nobs)   ! additional ensemble perturbation ! PQV
   real(r_size), intent(in), optional :: pert(nobs) ! additional ensemble perturbation ! Y18
   integer :: nend
   integer :: im
@@ -2084,9 +2087,14 @@ subroutine obs_da_value_partial_reduce_iter(obsda, iter, nstart, nobs, ensval, q
 
   ! variables with an ensemble dimension
   obsda%ensval(iter,nstart:nend) = ensval
-  if ( present( pert ) ) then
-    obsda%epert(iter,nstart:nend) = pert
-  endif
+  if ( present( pert ) ) obsda%epert(iter,nstart:nend) = pert
+
+  if ( present( qv ) ) obsda%eqv(iter,nstart:nend) = qv
+  if (im <= MEMBER) then
+    if ( present( tm ) ) obsda%tm(nstart:nend) = obsda%tm(nstart:nend) + tm
+    if ( present( pm ) ) obsda%pm(nstart:nend) = obsda%pm(nstart:nend) + pm
+  end if
+
 
   ! variables without an ensemble dimension
   obsda%qc(nstart:nend) = max(obsda%qc(nstart:nend), qc)

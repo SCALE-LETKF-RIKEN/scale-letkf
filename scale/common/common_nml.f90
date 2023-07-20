@@ -330,6 +330,7 @@ MODULE common_nml
   real(r_size) :: OBSERR_TCX = 50.0d3 ! (m)
   real(r_size) :: OBSERR_TCY = 50.0d3 ! (m)
   real(r_size) :: OBSERR_TCP = 5.0d2 ! (Pa)
+  real(r_size) :: OBSERR_PQ = 0.001d0
 
   !--- PARAM_OBSSIM
   character(filelenmax) :: OBSSIM_IN_TYPE = 'history'
@@ -971,7 +972,8 @@ subroutine read_nml_obs_error
     OBSERR_RH, &
     OBSERR_PS, &
     OBSERR_RADAR_REF, &
-    OBSERR_RADAR_VR
+    OBSERR_RADAR_VR, &
+    OBSERR_Q
 
   rewind(IO_FID_CONF)
   read(IO_FID_CONF,nml=PARAM_OBS_ERROR,iostat=ierr)
