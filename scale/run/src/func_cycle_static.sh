@@ -736,8 +736,12 @@ while ((time <= ETIME)); do
       BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time/bdy
 
       CONSTDB_PATH=$SCALEDIR/scale-rm/test/data
-      if [ $PRESET = 'FUGAKU' ] && (( BDY_LLIO_TMP == 1 )) ; then
-        BOUNDARY_PATH[$d]=/local/$time/bdy
+      if [ $PRESET == 'FUGAKU' ] && (( BDY_LLIO_TMP == 1 )) ; then
+        if ((BDY_ENS ==1));then
+          BOUNDARY_PATH[$d]=/local/$time/bdy
+        else
+          BOUNDARY_PATH[$d]=/share/$time/bdy
+        fi
       fi
     fi
 
@@ -775,13 +779,17 @@ while ((time <= ETIME)); do
       RESTART_OUT_PATH[$d]=${TMP}
       BOUNDARY_PATH[$d]=${TMP}
       CONSTDB_PATH=$TMPROOT_CONSTDB/dat
+      HISTORY_ESFO_PATH=$TMP
     else
       TOPO_PATH="${DATA_TOPO}/const"
       LANDUSE_PATH="${DATA_LANDUSE}/const"
       HISTORY_PATH[$d]=${OUTDIR[$d]}/$time/hist
-
-      if [ $PRESET = 'FUGAKU' ] && (( HIST_LLIO_TMP == 1)) ; then
+      HISTORY_ESFO_PATH=${OUTDIR[$d]}/$atime/anal
+      if [ $PRESET == 'FUGAKU' ] && (( HIST_LLIO_TMP == 1)) ; then
         HISTORY_PATH[$d]=/local/$time/hist
+        if (( atime <= ETIME ));then
+          HISTORY_EFSO_PATH=/local/${atime}/gues
+        fi
       fi
 
       loop_prev=$((loop-1))
@@ -793,7 +801,7 @@ while ((time <= ETIME)); do
       fi 
       RESTART_OUT_PATH[$d]=${OUTDIR[$d]}/${atime}/anal
 
-      if [ $PRESET = 'FUGAKU' ] && (( ANAL_LLIO_TMP == 1 )) ; then
+      if [ $PRESET == 'FUGAKU' ] && (( ANAL_LLIO_TMP == 1 )) ; then
          if (( loop_prev % ANAL_LLIO_TMP_SKIP != 0 )); then
            RESTART_IN_PATH[$d]=/local/$time/anal
          fi
@@ -805,8 +813,12 @@ while ((time <= ETIME)); do
       BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time/bdy
 
       CONSTDB_PATH=$SCALEDIR/scale-rm/test/data
-      if [ $PRESET = 'FUGAKU' ] && (( BDY_LLIO_TMP == 1 )) ; then
-        BOUNDARY_PATH[$d]=/local/$time/bdy
+      if [ $PRESET == 'FUGAKU' ] && (( BDY_LLIO_TMP == 1 )) ; then
+        if ((BDY_ENS ==1));then
+          BOUNDARY_PATH[$d]=/local/$time/bdy
+        else
+          BOUNDARY_PATH[$d]=/share/$time/bdy
+        fi
       fi
 
     fi
@@ -921,6 +933,8 @@ while ((time <= ETIME)); do
     mkdir -p ${OUTDIR[$d]}/$atime/obs
 
     OBSDEP_OUT_TF=".false."
+    OBSDEP_OUT_NC_TF=".false."
+    OBSANAL_OUT_TF=".false."
     if (( OBSOUT_OPT < 4 )) ; then
       OBSDEP_OUT_TF=".true."
       OBSDEP_OUT_BASENAME="${OUTDIR[$d]}/$atime/obs/obsdep"
@@ -930,7 +944,10 @@ while ((time <= ETIME)); do
     OBSNUM_OUT_NC_BASENAME="${OUTDIR[$d]}/score/obsnum_${atime}"
     OBSANAL_IN_BASENAME="${OUTDIR[$d]}/${time}/obs"
     OBSANAL_OUT_BASENAME="${OUTDIR[$d]}/${atime}/obs"
-
+    if ((EFSO_RUN==1));then
+      OBSDEP_OUT_NC_TF=".true."
+      OBSANAL_OUT_TF=".true."
+    fi
     if ((DISK_MODE >= 1)) ;then
 #      GUES_IN_BASENAME="${RESTART_OUT_PATH[$d]}/<member>/gues_$(datetime_scale $atime)"
       GUES_IN_BASENAME="${RESTART_OUT_PATH[$d]}/<member>/anal_$(datetime_scale $atime)"
@@ -939,8 +956,8 @@ while ((time <= ETIME)); do
       ANAL_OUT_BASENAME="${RESTART_OUT_PATH[$d]}/<member>/anal_$(datetime_scale $atime)"
       EFSO_ANAL_IN_BASENAME="${RESTART_OUT_PATH[$d]}/mean/anal_$(datetime_scale $atime)"
       RESTART_IN_BASENAME_SCALE="${RESTART_OUT_PATH[$d]}/<member>/gues"
-#      EFSO_FCST_FROM_GUES_BASENAME="${OUTDIR[$d]}/${time_efso}/hist/mgue/init_$(datetime_scale $atime)"
-#      EFSO_FCST_FROM_ANAL_BASENAME="${OUTDIR[$d]}/${time_efso}/hist/mean/init_$(datetime_scale $atime)"
+#      EFSO_FCST_FROM_GUES_BASENAME="${HISTORY_EFSO_PATH}/mgue/init_$(datetime_scale $atime)"
+#      EFSO_FCST_FROM_ANAL_BASENAME="${HISTORY_EFSO_PATH}/mean/init_$(datetime_scale $atime)"
     else
 #      GUES_IN_BASENAME="${RESTART_OUT_PATH[$d]}/../gues/<member>/init_$(datetime_scale $atime)"
       GUES_IN_BASENAME="${RESTART_OUT_PATH[$d]}/../anal/<member>/init_$(datetime_scale $atime)"
@@ -948,9 +965,9 @@ while ((time <= ETIME)); do
       GUES_SPRD_OUT_BASENAME="${RESTART_OUT_PATH[$d]}/../gues/sprd/init_$(datetime_scale $atime)"
       ANAL_OUT_BASENAME="${RESTART_OUT_PATH[$d]}/<member>/init_$(datetime_scale $atime)"
       EFSO_ANAL_IN_BASENAME="${RESTART_OUT_PATH[$d]}/mean/init_$(datetime_scale $atime)"
-      EFSO_FCST_FROM_GUES_BASENAME="${OUTDIR[$d]}/${time_efso}/hist/mgue/init_$(datetime_scale $atime)"
-      EFSO_FCST_FROM_ANAL_BASENAME="${OUTDIR[$d]}/${time_efso}/hist/mean/init_$(datetime_scale $atime)"
-      EFSO_EFCST_FROM_ANAL_BASENAME="${OUTDIR[$d]}/${time_efso}/hist/<member>/init_$(datetime_scale $atime)"
+      EFSO_FCST_FROM_GUES_BASENAME="${HISTORY_EFSO_PATH}/mgue/init_$(datetime_scale $atime)"
+      EFSO_FCST_FROM_ANAL_BASENAME="${HISTORY_EFSO_PATH}/mean/init_$(datetime_scale $atime)"
+      EFSO_EFCST_FROM_ANAL_BASENAME="${HISTORY_EFSO_PATH}/<member>/init_$(datetime_scale $atime)"
       RESTART_IN_BASENAME_SCALE="${RESTART_OUT_PATH[$d]}/../gues/<member>/init"
     fi
 
@@ -999,6 +1016,8 @@ while ((time <= ETIME)); do
             -e "/!--IO_LOG_BASENAME--/a IO_LOG_BASENAME =  \"${OUTDIR[$d]}/$atime/log/letkf/${name_m[$m]}_LOG\"," \
             -e "/!--DEPARTURE_STAT_OUT_BASENAME--/a DEPARTURE_STAT_OUT_BASENAME = \"${DEPARTURE_STAT_OUT_BASENAME}\"," \
             -e "/!--OBSDEP_OUT--/a OBSDEP_OUT = ${OBSDEP_OUT_TF}," \
+            -e "/!--OBSDEP_OUT_NC--/a OBSDEP_OUT_NC = ${OBSDEP_OUT_NC_TF}," \
+            -e "/!--OBSANAL_OUT--/a OBSANAL_OUT = ${OBSANAL_OUT_TF}," \
             -e "/!--OBSANAL_IN_BASENAME--/a OBSANAL_IN_BASENAME = \"${OBSANAL_IN_BASENAME}\"," \
             -e "/!--OBSANAL_OUT_BASENAME--/a OBSANAL_OUT_BASENAME = \"${OBSANAL_OUT_BASENAME}\"," \
             -e "/!--OBSDEP_IN_BASENAME--/a OBSDEP_IN_BASENAME = \"${OBSDEP_IN_BASENAME}\"," \
@@ -1362,7 +1381,7 @@ stepname[6]='Run EFSO'
 stepexecdir[6]="$TMPRUN/efso"
 stepexecname[6]="efso"
 
-if (( PRESET == "FUGAKU" )) && (( USE_LLIO_BIN == 1 )); then
+if [ PRESET == "FUGAKU" ] && (( USE_LLIO_BIN == 1 )); then
   stepexecbin[1]="$TMP/scale-rm_pp_ens"
   stepexecbin[2]="$TMP/scale-rm_init_ens"
   stepexecbin[3]="$TMP/scale-rm_ens"
@@ -1426,6 +1445,10 @@ TIME_LIMIT="${1:-$TIME_LIMIT}"
 #  echo "$USAGE" >&2
 #  exit 1
 #fi
+
+if ((EFSO_RUN==1)) ;then
+  FSTEP=6
+fi
 
 #-------------------------------------------------------------------------------
 # assign default values to and standardize the parameters
