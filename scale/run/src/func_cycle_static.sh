@@ -695,9 +695,9 @@ while ((time <= ETIME)); do
 
   obstime $time
 
-  bdy_setting $time $CYCLEFLEN $BDYCYCLE_INT "$BDYINT" "$PARENT_REF_TIME" "$BDY_SINGLE_FILE"
-
   if ((BDY_FORMAT != 0)); then
+
+  bdy_setting $time $CYCLEFLEN $BDYCYCLE_INT "$BDYINT" "$PARENT_REF_TIME" "$BDY_SINGLE_FILE"
 
     #---------------------------------------------------------------------------
     # scale_init (launcher)
