@@ -33,24 +33,10 @@ Input data for testcase is located at the following places.
 
 * [Baroclinic waves](Baroclinic-waves.md)
 
-* [Supercell](Supercell.md)
-
 ### Real experiments
 
 * [PREPBUFR DA for Japan area](18km_Japan)
 
 * [PAWR DA](PAWR-DA.md)
 
-* [Himawari 8 radiances DA](Himawari-8-radiances-DA.md)
-
-* [PAWR DA with the merged version](PAWR-DA-with-the-merged-version.md)
-
-## Run your experiments
-
 ## [Configuable settings](Configuable-settings.md)
-
-## Others
-
-### [Realtime system](Realtime-system.md)
-
-### [Old documents](Old-documents.md)
