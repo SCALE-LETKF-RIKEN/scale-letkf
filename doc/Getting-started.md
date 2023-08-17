@@ -30,7 +30,7 @@ source <your $SCALE_DB>/setup-scale-compile.sh
 ```
 
 **For fugaku users:**
-Be sure to copy the database `/share/hp150019/u10335/scale_database` to your directory under /vol0003 or /vol0004, as /share is not accesible directly from the compute node.   
+Be sure to copy the database `/share/hp150019/scale_database` to your directory under /vol0003 or /vol0004, as /share is not accesible directly from the compute node.   
 Set the environmental variable `$SCALE_DB` to your path to scale_database.  
 
 ## Compile SCALE-RM
