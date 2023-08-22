@@ -1,4 +1,4 @@
-Observation data is processed in the format specific to SCALE-LETKF. Currently, different formats are used between radar and other observation types. The parameter `OBS_IN_FORMAT` needs to be properly set in order to read the data.  
+Observation data is processed in the format specific to the SCALE-LETKF. Currently, different formats are used for radar and other observation types. The parameter `OBS_IN_FORMAT` needs to be properly set in order to read the data.  
 
 ### Common format 
 

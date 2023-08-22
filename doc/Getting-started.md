@@ -1,7 +1,7 @@
 
 ## Environmental variables 
 
-Before the compilation of SCALE-LETKF, the environmental variables need to be set as follows. 
+Before compiling the SCALE-LETKF, set the following environmental variables as below. 
 
 ```bash
 ### hibuna
@@ -31,7 +31,7 @@ source <your $SCALE_DB>/setup-scale-compile.sh
 
 **For fugaku users:**
 Be sure to copy the database `/share/hp150019/scale_database` to your directory under /vol0003 or /vol0004, as /share is not accesible directly from the compute node.   
-Set the environmental variable `$SCALE_DB` to your path to scale_database.  
+Set the environmental variable `$SCALE_DB` to the path of the scale_database copied to your directory.
 
 ## Compile SCALE-RM
 
@@ -83,7 +83,7 @@ letkf/efso
 
 ## Run a test script
 
-The directory `scale-letkf/scale/run_light` provides a set of simple script to test the SCALE-LETKF code on Fugaku.
+The directory `scale-letkf/scale/run_light` provides a set of simple scripts to test the SCALE-LETKF code on Fugaku.
 
 First, enter the directory and specify the database path in `prep.sh`. 
 
@@ -138,8 +138,8 @@ mpiexec -std-proc log/letkf/NOUT -n 48 ./letkf config/letkf_20220101060000.conf
 echo "done."
 ```
 
-When you confirm that the script works, let's do it again stepwise and see the nesessary settings and input data at each step. 
-To remove the resultant files and temporary log files in the directory `run_light`, use `clean.sh` and execute `prep.sh` again.
+After confirming that the script works, let's do it again step by step and see the necessary settings and input data at each step. 
+First, remove the output files and temporary log files in the directory `run_light`, by running the script `clean.sh` and then executing `prep.sh` again.
 
 
 ## Run a test script (step by step)
@@ -165,7 +165,7 @@ The output data includes
 - boundary data (`mean/boundary*.nc`)
 - log files
 
-In this testcase, initial condition is already prepared and copied from `$DATADIR` for each member. The boundary condition is to created by `scale-rm_init_ens`. All the member share the same boundary condition generated from the parent model forecast. Then `scale-rm_init_ens` works only for the first member `0001`. This is set by the parameter `MEMBER_RUN` in the namelist `config/scale-rm_init_ens_20220101000000.conf`. 
+In this testcase, the initial conditions are already prepared and copied from `$DATADIR` for each member. The boundary conditions are created by `scale-rm_init_ens`. All the member share the same boundary condition generated from the parent model forecast. Thus `scale-rm_init_ens` only creates boundary conditions for the first member `0001`. This is set by the parameter `MEMBER_RUN` in the namelist `config/scale-rm_init_ens_20220101000000.conf`. 
 
 ``` 
 &PARAM_ENSEMBLE
@@ -183,7 +183,7 @@ Actually, you can do exactly the same thing by doing this in the batch job scrip
 mpiexec -std-proc log/scale_init/NOUT -n 8 ./scale-rm_init 0001/init.d01_20220101000000.conf
 ```
 
-The initial condition for each member is pre-made by a separate script. They are made by adding random perturbation in `RHOT` and `DENS` with a selected wavelength range to the background NCEP GDAS analysis . The `RHOT` fields of the first two members are shown below. 
+The initial condition for each member is pre-made by a separate script. They are made by adding random perturbations to `RHOT` and `DENS` with a selected wavelength range to the background NCEP GDAS analysis. The `RHOT` fields of the first two members are shown below. 
   
 <img src="img/18km_Japan/18km_Japan_rhot_0001.jpg" alt="18km_Japan_rhot_0001" width="450"/>
 <img src="img/18km_Japan/18km_Japan_rhot_0002.jpg" alt="18km_Japan_rhot_0002" width="450"/>
@@ -214,7 +214,7 @@ for mem in 0001 0002 0003 0004 0005 mean;
 done
 ```
 
-Both restart and history files are necessary in this testcase, as we will perfrom 4-D LETKF. 
+Both restart and history files are necessary in this testcase, as we will perform 4-D LETKF. 
 Note that the ensemble forecast is performed from `2022-01-01 00:00:00` to `2022-01-01 09:00:00`, whereas the restart files are created at `2022-01-01 06:00:00`. 
 
 Also note that the original restart files `<member>/gues/init_20220101-060000.000.*.nc` are copied to `<member>/anal/init_20220101-060000.000.*.nc`. This is preresquite for LETKF which does not create but overwrite NetCDF files. 

@@ -18,7 +18,7 @@
 
 ### Database
 
-Input data for testcase is located at the following places.
+Input data sets to run the testcases are loacated in the following directories.
 
 **Fugaku:** /share/hp150019/scale_database  
 **Hibuna:** /home/amemiya/scale_database  

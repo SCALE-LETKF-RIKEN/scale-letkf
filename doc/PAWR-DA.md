@@ -21,7 +21,7 @@ This is a real case experiment of a 30-second data assimilation of Phased Array 
 
 ## Target events
 
-The test experiment for Saitama MP-PAWR is on the heavy thunderstorm event occured in central Tokyo in July 30, 2021.  
+The test experiment for Saitama MP-PAWR is on the heavy thunderstorm event that occurred over central Tokyo on July 30, 2021.  
 
 <img src="img/PAWR/obs_dbz_20210730060000.png" width="400px">
 
@@ -32,7 +32,7 @@ The test experiment for Saitama MP-PAWR is on the heavy thunderstorm event occur
 PAWR observation data is obtained from NICT in a specific binary format, containing the header for the metadata and the observation data in a 3-D polar coordinate. The format is different between Kobe and Saitama PAWR, as Saitama PAWR is dual-polarization type (called Multi-Parameter\[MP\]-PAWR) whereas Kobe is not (as of 2022). In this testcase, radar reflectivity and Doppler velocity from both radars are used in data assimilation.  
 SCALE-LETKF reads PAWR observation data in its common [observation file format](Observation-file-format.md). To convert raw PAWR data to the common format, this SCALE-LETKF code includes the PAWR decorder.   
 
-This testcase uses PAWR sample observation data in the following, where `$SCALE_DB` is the path to the directory in your data space.  
+This testcase uses PAWR sample observation data in the following directory, where `$SCALE_DB` is the path to the directory in your data space.  
 `$SCALE_DB/scale-letkf-test-suite/obs/PAWR_Kobe`  
 `$SCALE_DB/scale-letkf-test-suite/obs/PAWR_Saitama`
 
@@ -40,7 +40,7 @@ This testcase uses PAWR sample observation data in the following, where `$SCALE_
 
 The model needs the data of 3-D atmospheric variables for lateral boundary conditions. In this experiment, SCALE-RM ensemble forecast data with 1.5 km horizontal resolution, which is driven by JMA MSM (5 km) analysis and forecast, is used as a source data. Unlike the [18km-Japan](18km_Japan.md) case, forecast data in the parent domain is also an ensemble, providing different boundary conditions for each ensemble member. 
 
-The same ensemble forecast data can be used to prepare an initial ensemble with which a data assimilation cycle starts. (*Note that this simple downscaling treatment is probably not the best way to initialte ensemble data assimilation, because the downscaled perturbation lacks fine-scale features which the parent model cannot capture with its limited resolution. This is known as a 'cold-start' problem and additive small-scale pertubation may improve the performance.*)
+The same ensemble forecast data can be used to prepare an initial ensemble with which a data assimilation cycle starts. (*Note that this simple downscaling treatment is probably not the best way to initiate ensemble data assimilation because the downscaled perturbation lacks fine-scale features which the parent model cannot capture with its limited resolution. This is known as a 'cold-start' problem and additive small-scale perturbation may improve the performance.*)
 
 The parent domain ensemble forecast data is contained in the following directories. 
 `$SCALE_DB/scale-letkf-test-suite/exp/PAWR_Kobe_bdy/20190610060000`
@@ -48,7 +48,7 @@ The parent domain ensemble forecast data is contained in the following directori
 
 ## Compilation 
 
-The PAWR decoder is included in the directory `scale/obs/pawr` and considered as an extention of SCALE-LETKF code, which is swithed off by default. To compile it, change the following variables in `scale/arch/configure.user.${SCALE_SYS}`.
+The PAWR decoder is included in the directory `scale/obs/pawr` and considered as an extention of SCALE-LETKF code, which is switched off by default. To compile it, change the following variables in `scale/arch/configure.user.${SCALE_SYS}`.
 ```
 # MP-PAWR decoder
 
@@ -64,7 +64,7 @@ Use GNU make with this setting and make a binary `scale/obs/dec_pawr`.
 
 ## Run a data assimilation cycle with formatted PAWR data 
 
-The common configurations shared between data assimilation and forecast experiments are set in `config.main`. The improtant settings in this testcase are shown below.   
+The common configurations shared between data assimilation and forecast experiments are set in `config.main`. The important settings in this testcase are shown below.   
 Input data directory `$INDIR` and topography, landuse data directories `$DATA_TOPO`, `$DATA_LANDUSE` are all set to `$OUTDIR`, even though `$OUTDIR` does not exist. This means the tasks to create those files are all included in the data assimilation cycle. To ensure this, `TOPO_FORMAT='DEM50M'` and `LANDUSE_FORMAT='LU100M'` are set, instead of 'prep'. The source data for initial and boundary files is in `DATA_BDY_SCALE`. `BDY_FORMAT=1` indicates that it is the output of another SCALE-RM forecast with a wider domain. `BDYINT=600` and `BDYCYCLE_INT=32400` indicates the time interval and total length of that data. Finally, `BDY_ENS=1` indicates that those boundary source data is an ensemble forecast data and each member uses the corresponding member of the source data.   
 
 ```

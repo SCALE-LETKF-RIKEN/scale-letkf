@@ -1,20 +1,20 @@
 ## Overview 
 
 This is an idealized dry baroclinic waves experiment in a beta-plane channel domain, using the extension of the SCALE-RM testcase `scale-rm/test/case/barocwave/Ullrich15` ([Ullich et al. (2015)](https://rmets.onlinelibrary.wiley.com/doi/full/10.1002/qj.2583)).  
-The state variables are nudged to a specific zonally-homogeneous reference state which is baroclinically unstable. The nudging time scales for temperature and horizontal winds are specified by the namelist parameters. Default setting is 10 days for temperature for the entire domain and horizontal winds for levels below 3 km. 
+The state variables are nudged to a specific zonally-homogeneous reference state which is baroclinically unstable. The nudging time scales for temperature and horizontal winds are specified by the namelist parameters. Default setting is 10 days for temperature for the entire domain and 10 days for horizontal winds for levels below 3 km. 
 
 The figure below shows the y-z cross section of the reference temperature field.   
 <img src="img/baroc/image_yz.png" width=300px><br>
 
-The default size of the domain is 40000km in X, 6000km in Y, and 30km in Z. Boundary conditions are cyclic in X and rigid in Y. The Corioli's parameter and the beta correspond to the values at 45 degrees north. 
-Baroclinic waves keep emerging and dissipating. After some spin-up period from an initial state with small perturbation, the state variables reach statistical equilibrium, while the time series is unsteady and non-periodic. 
+The default size of the domain is 40000km in X, 6000km in Y, and 30km in Z. Boundary conditions are cyclic in X and static in Y. The Coriolis parameter and the beta correspond to the values at 45 degrees north. 
+Integrating the model forward in time, baroclinic waves are repeatedly observed emerging and dissipating. After some spin-up period from an initial state with small perturbation, the state variables reach statistical equilibrium, while the time series is unsteady and non-periodic. 
 
 The figure below shows the snapshot of RHOT at 2500m height level after long integration.  
 <img src="img/baroc/image_xy.png" width=600px><br>  
 
-This possesses the characteristic of spacio-temporal chaos where initial perturbation grows with time, setting intrinsic limit of predictability. The average properties of the strange attractor such as Lyapunov exponents can be obtained by integrating the model for sufficiently long period. In this sense, this model is analogous to conceptual Lorenz(1996) and global Held-Suarez(1994) models.  
+The model replicates the concept of spatiotemporal chaos in which initial perturbation grows with time, until the limit of predictability is reached. The basic properties of the strange attractor such as Lyapunov exponents can be obtained by integrating the model for sufficiently long period. In this sense, this model is analogous to Lorenz(1996) conceptual model and Held-Suarez(1994) global model.  
 
-The prognostic state variables are only MOMX, MOMY, MOMZ, and RHOT. In most cases, horizontal winds and temperature (U, V, T) are the only variables to analyze.
+The prognostic state variables are MOMX, MOMY, MOMZ, and RHOT. In most cases, we sould analyse horizontal winds and temperature (U, V, T).
 
 ## Setup 
 
@@ -47,7 +47,7 @@ OUTDIR=/home/$(id -nu)/test_scale/result/barocwave ### EDIT HERE ###
 ## Prepare nature run and observation
 
 In this experiment, an idealized observation system simulation experiment (OSSE) is performed.
-In OSSE, "nature run" is performed first to create true time series. Then synthetic observation data is generated from the nature run with a specific observation operator and random noise.
+In OSSE, the "nature run" is performed first to create an high-resolution model simulation of the true nature of the atmosphere. Then synthetic observation data is generated from the nature run with a specific observation operator and random noise.
 
 ### Create reference state 
 
@@ -197,7 +197,7 @@ The combined history file will be used below in order to obtain grid configurati
 
 Prepare 'synthetic' observation based on the nature run history data using the program `scale/obs/obsmake`. 
 First, the location and error of observations need to be specified. There are sample fortran programs in `make_obsin` directory. Compile and run `sample_3dgrid_xyp.f90` to obtain `test_obs_3d_xyp.txt`. 
-By default, observation grid points are set assuming U, V, and T at every 4 grids in horizontal and every 2 grids in vertical are observed. 
+By default, observation grid points for U, V, and T are set at every 4 grids in horizontal and every 2 grids in vertical directions. 
 
 ```
 cd make_obsin
@@ -206,9 +206,9 @@ gfortran common_ncio.f90 sample_3dgrid_xyp.f90 -lnetcdf -lnetcdff -I (netcdf-for
 ./a.out
 ```
 
-The format of the output file 'test_obs_3d_xyp.dat' is same with LETKF observation files, including information such as location, type, error standard deviation of each observation. The data part is filled with dummy values. See also [Observation file format](Observation-file-format).  
+The format of the output file 'test_obs_3d_xyp.dat' is the same as the LETKF observation files, including information such as location, type, error standard deviation of each observation. The data part is filled with dummy values. See also [Observation file format](Observation-file-format).  
 
-Edit `config.obsmake`. The observation files will be created every `$FCSTOUT` seconds from `$STIME` to `$ETIME`. The observation of U, V, T is created from the data in `$OUTPUT/nature/hist/` with additive noise which has a standard deviation specified by namelist parmaeters such as `OBSERR_U` of PARAM_OBS_ERR. 
+Edit `config.obsmake`. The observation files will be created every `$FCSTOUT` seconds from `$STIME` to `$ETIME`. Observation of U, V, T are created from the data in `$OUTPUT/nature/hist/` with additive noise which have a standard deviation specified by namelist parameters such as `OBSERR_U` of PARAM_OBS_ERR. 
 ```
 #===============================================================================
 #
@@ -232,11 +232,10 @@ Execute `obsmake_run.sh` and obtain observation files in the path specified by `
 
 ## Prepare ensemble of initial states
 
-To initiate a data assimilation cycle, the ensemble of initial model states, in a form of restart files, is necessary. 
-Let us begin the data assimilation cycle from 20010101000000. The natural way to create initial conditions to start with is adding random perturbation to the true state. 
+To initiate a data assimilation cycle, it is necessary to create an ensemble of initial model states, in the form of restart files. Suppose that we start a data assimilation cycle from 20010101000000. The natural way to create initial conditions to start with is adding random perturbation to the true state. 
 
 A python script `init_perturb/init_perturb.py` is designed to do this task. 
-Modify the setting to fit them to this experiment. 
+Modify the setting in this script to the following values. 
 ```
 wavel1 =  500000.  ### short-wave cutoff wavelength
 wavel2 = 2000000.  ### long-wave  cutoff wavelength
@@ -249,7 +248,7 @@ pert_std = 1.0    ### STANDARD DEVIATION (in Kelvin) of temperature perturbation
 halo = 2          ### number of grid points for HALO
 ```
 
-Use the shell script wrapper `init_perturb/init_perturb.sh` to create restart files with random additional perturbations for each member. This script uses `$OUTDIR` and `$MEMBER` in `config.main` and . Only the target time and the path to the source file need to be specified.   
+Use the shell script wrapper `init_perturb/init_perturb.sh` to create restart files with random additional perturbations for each member. This script uses `$OUTDIR` and `$MEMBER` in `config.main`. Only the target time and the path to the source file need to be specified.   
 ```
 cd init_perturb
 ./init_perturb.sh 20010101000000 ../../../../../result/barocwave/nature/init/init_20010101-000000.000
@@ -283,7 +282,7 @@ MAKEINIT=0       # 0: No
                  # 1: Yes
 ```
 
-The periods of the cycle and observation window are set in this part of `config.main`. In this experiment, `LCYCLE` is same with the observation interval which is 1 day. And the rest three parameters are set to be same with `LCYCLE`, which means only the observations at the very time of the analysis will be used (3D-LETKF).
+The periods of the cycle and observation window are set in this part of `config.main`. In this experiment, `LCYCLE` is same as the observation interval which is 1 day. The rest three parameters shown below are set to be the same with `LCYCLE`,,i.e. 86400, which means only the observations at the very time of the analysis will be used (3D-LETKF).
 
 ```
 LCYCLE=86400       # Length of a DA cycle (second)
@@ -292,13 +291,13 @@ WINDOW_E=86400     # SCALE forecast time when the assimilation window ends (seco
 LTIMESLOT=86400     # Timeslot interval for 4D-LETKF (second)
 ```
 
-Let's run the experiment by executing `cycle_run.sh`. It is recommendable to do it background. 
+Let's run the experiment by executing `cycle_run.sh`. It is recommended to run the script in the background. 
 ```
 nohup ./cycle_run.sh &> log_cycle_run &
 ```
 
 While it is running, the progress status can be monitored with the log files of letkf in each cycle created in `$OUTDIR/<time>/log/letkf/`. 
-For quick check, find the observation departure statistics in the log file. 
+For a quick check, find the observation departure statistics in the log file. 
 
 ```
 OBSERVATIONAL DEPARTURE STATISTICS [GUESS] (IN THIS SUBDOMAIN):
