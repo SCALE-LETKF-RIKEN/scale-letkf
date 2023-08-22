@@ -20,6 +20,7 @@ CONF_MODE="static"
 
 FCSTLEN=$((365*86400))      # SCALE forecast length in the forecast mode (second)
 FCSTOUT=86400
+RESTARTOUT=$FCSTLEN
 
 #===============================================================================
 

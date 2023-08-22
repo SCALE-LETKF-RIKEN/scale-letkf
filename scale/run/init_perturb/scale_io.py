@@ -258,9 +258,9 @@ def scale_read(nproc, rootgrps, scale_dimdef, varname, t=None):
                     slice_obj[i] = slice(scale_dimdef['start'][idim][ip],
                                          scale_dimdef['start'][idim][ip] + scale_dimdef['len'][idim][ip])
             if ip == 0:
-                vardata[slice_obj] = vardata_0
+                vardata[tuple(slice_obj)] = vardata_0
             else:
-                vardim, vardata[slice_obj] = ncphysio.ncphys_read(rootgrps[ip], varname, dimlist=scale_dimlist, time=time, it=it)
+                vardim, vardata[tuple(slice_obj)] = ncphysio.ncphys_read(rootgrps[ip], varname, dimlist=scale_dimlist, time=time, it=it)
 
         return vardim, vardata
 
@@ -333,7 +333,7 @@ def scale_write(nproc, rootgrps, scale_dimdef, varname, vardata, t=None):
 #                                     scale_dimdef['start'][idim][ip] + scale_dimdef['len'][idim])
                 slice_obj[i] = slice(scale_dimdef['start'][idim][ip],
                                      scale_dimdef['start'][idim][ip] + scale_dimdef['len'][idim][ip])
-        ncphysio.ncphys_write(rootgrps[ip], varname, vardim, vardata[slice_obj], dimlist=scale_dimlist, time=time, it=it)
+        ncphysio.ncphys_write(rootgrps[ip], varname, vardim, vardata[tuple(slice_obj)], dimlist=scale_dimlist, time=time, it=it)
 
 
 class ScaleIO:

@@ -16,7 +16,7 @@ myname="$(basename "$0")"
 #===============================================================================
 # Configuration
 
-. ./config.main || exit $?
+. ./config.main.${PRESET} || exit $?
 . ./config.obsmake || exit $?
 
 . src/func_datetime.sh || exit $?
@@ -114,7 +114,6 @@ cat $SCRP_DIR/config.nml.obsmake | sed \
     -e "/!--PRC_DOMAINS--/a PRC_DOMAINS=$SCALE_NP,"  \
     -e "/!--OBS_IN_NAME--/a OBS_IN_NAME=\"$TMP/obsin/obsin.dat\","  \
     -e "/!--OBS_IN_FORMAT--/a OBS_IN_FORMAT=\"${OBS_IN_FORMAT}\","  \
-    -e "/!--PPN--/a PPN=$PPN,"  \
     -e "/!--LETKF_TOPOGRAPHY_IN_BASENAME--/a LETKF_TOPOGRAPHY_IN_BASENAME=\"$OUTDIR/const/topo/topo\"," \
     -e "/!--HISTORY_IN_BASENAME--/a HISTORY_IN_BASENAME=\"$OUTDIR/nature/hist/history\"," \
     -e "/!--GUES_IN_BASENAME--/a GUES_IN_BASENAME=\"$OUTDIR/nature/init/init_$(datetime_scale $time)\"," \
@@ -186,14 +185,7 @@ export FLIB_BARRIER=HARD
 EOF
 
   if (( USE_LLIO_BIN == 1 )); then
-    for i in $(seq $nsteps) ; do
-      echo "llio_transfer ${stepexecbin[$i]}" >> $jobscrp 
-    done
-    echo "" >> $jobscrp
-  fi
-
-  if (( USE_LLIO_DAT == 1 )); then
-    echo "/home/system/tool/dir_transfer -l ./ ${TMPROOT}/dat" >> $jobscrp
+      echo "llio_transfer obsmake" >> $jobscrp 
     echo "" >> $jobscrp
   fi
 
@@ -235,14 +227,7 @@ done
 EOF
 
   if (( USE_LLIO_BIN == 1 )); then
-    for i in $(seq $nsteps) ; do
-      echo "llio_transfer --purge ${stepexecbin[$i]}" >> $jobscrp 
-    done
-  fi
-
-  if (( USE_LLIO_DAT == 1 )); then
-    echo "/home/system/tool/dir_transfer -p -l ./ ${TMPROOT}/dat" >> $jobscrp
-    echo "" >> $jobscrp
+      echo "llio_transfer --purge obsmake" >> $jobscrp 
   fi
 
   echo "[$(datetime_now)] Run obsmake job on PJM"

@@ -23,7 +23,7 @@ fi
 #===============================================================================
 # Configuration
 
-. ./config.main || exit $?
+. ./config.main.${PRESET} || exit $?
 . ./config.${job} || exit $?
 
 . src/func_datetime.sh || exit $?
@@ -56,11 +56,15 @@ echo "[$(datetime_now)] Create and clean the temporary directory"
 #fi
 safe_init_tmpdir $TMP || exit $?
 
+# copy config files
+cp $SCRP_DIR/config.nml.* ${TMP}/
+cp $SCRP_DIR/config.[c,f,r]* ${TMP}/
+cp $SCRP_DIR/config.main.${PRESET} ${TMP}/
+
 #===============================================================================
 # Determine the distibution schemes
 
 echo "[$(datetime_now)] Determine the distibution schemes"
-
 safe_init_tmpdir $NODEFILE_DIR || exit $?
 distribute_da_cycle "(0)" $NODEFILE_DIR || exit $? # TEST
 
@@ -69,7 +73,7 @@ distribute_da_cycle "(0)" $NODEFILE_DIR || exit $? # TEST
 
 echo "[$(datetime_now)] Determine the staging list"
 
-cat $SCRP_DIR/config.main | \
+cat $TMP/config.main.${PRESET} | \
     sed -e "/\(^DIR=\| DIR=\)/c DIR=\"$DIR\"" \
     > $TMP/config.main
 
@@ -85,8 +89,6 @@ config_file_list $TMPS/config || exit $?
 #-------------------------------------------------------------------------------
 # Add shell scripts and node distribution files into the staging list
 
-cp ${SCRP_DIR}/config.rc ${TMP}/
-cp ${SCRP_DIR}/config.${job} ${TMP}/
 cp ${SCRP_DIR}/src/${job}.sh ${TMP}/
 cp -r ${SCRP_DIR}/src ${TMP}/
 
@@ -100,7 +102,6 @@ fi
 
 #===============================================================================
 # Creat a job script and submit a job
-
 jobscrp="$TMP/${job}_job.sh"
 
 echo "[$(datetime_now)] Create a job script '$jobscrp'"
@@ -119,7 +120,7 @@ if [ "$PRESET" = 'FUGAKU' ]; then
   NUM_VOLUME=${CVOLUME:4:1} # get number of current volume 
 
   if [ "$NUM_VOLUME" = "0" ] ; then
-    VOLUMES=${CVOLUME}
+    VOLUMES="/"${CVOLUME}
   else
     VOLUMES="/vol000${NUM_VOLUME}"
   fi
@@ -139,6 +140,13 @@ cat > $jobscrp << EOF
 #PJM --mpi "max-proc-per-node=${PPN}"
 #PJM -j
 #PJM -s
+EOF
+
+  if (( HIST_LLIO_TMP == 1 )) || (( BDY_TMP == 1 )) || (( ANAL_TMP == 1 )); then
+    echo "#PJM --llio localtmp-size=${LLIO_TMP_SIZE}Gi" >> $jobscrp
+  fi
+
+cat >> $jobscrp << EOF
 #
 #
 export PARALLEL=${THREADS}
@@ -332,7 +340,7 @@ echo
 
 backup_exp_setting $job $TMP $jobid ${job}_job.sh 'o e'
 
-config_file_save $TMPS || exit $?
+config_file_save $TMPS/config || exit $?
 
 archive_log
 

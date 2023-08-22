@@ -333,12 +333,22 @@ CONTAINS
 
     call mpi_timer('read_obs_radar_toshiba:read_toshiba:superob:qc_index_pack', 2)
     !MPI packed data
+
     if(mpiprocs > 1) then
        time1 = time2
-       sendcount = eidx(e1) - sidx(e0) + 1
+       if (e0 > ne) then 
+         sendcount = 0
+       else
+         sendcount = eidx(e1) - sidx(e0) + 1
+       end if
        do i = 0, mpiprocs - 1
-          recvoffset(i) = sidx(j_mpi(1, i)) - 1 !START FROM 0
-          recvcount(i) = eidx(j_mpi(2, i)) - sidx(j_mpi(1, i)) + 1
+         if (j_mpi(1, i) > ne) then 
+           recvoffset(i) = sidx(j_mpi(2, i)) 
+           recvcount(i) = 0
+         else
+           recvoffset(i) = sidx(j_mpi(1, i)) - 1 !START FROM 0
+           recvcount(i) = eidx(j_mpi(2, i)) - sidx(j_mpi(1, i)) + 1
+         end if
        end do
        allocate(packed_grid(nobs), packed_data(5, nobs), packed_attn(nobs))
        !NEEDED BY ALL

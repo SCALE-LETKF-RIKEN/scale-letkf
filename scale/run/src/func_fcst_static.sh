@@ -87,10 +87,10 @@ EOF
 # database
 
 cat >> ${STAGING_DIR}/${STGINLIST_CONSTDB} << EOF
-${SCALEDIR}/data/rad|dat/rad
-${SCALEDIR}/data/land|dat/land
-${SCALEDIR}/data/urban|dat/urban
-${SCALEDIR}/data/lightning|dat/lightning
+${SCALEDIR}/scale-rm/test/data/rad|dat/rad
+${SCALEDIR}/scale-rm/test/data/land|dat/land
+${SCALEDIR}/scale-rm/test/data/urban|dat/urban
+${SCALEDIR}/scale-rm/test/data/lightning|dat/lightning
 EOF
 
 if [ "${SOUNDING}" != "" ] ; then
@@ -112,10 +112,10 @@ cp ${ENSMODEL_DIR}/scale-rm_ens ${TMPROOT}/scale-rm_ens
 # database
 
 mkdir -p ${TMPROOT}/dat
-cp -r ${SCALEDIR}/data/rad ${TMPROOT}/dat/rad
-cp -r ${SCALEDIR}/data/land ${TMPROOT}/dat/land
-cp -r ${SCALEDIR}/data/urban ${TMPROOT}/dat/urban
-cp -r ${SCALEDIR}/data/lightning ${TMPROOT}/dat/lightning
+cp -r ${SCALEDIR}/scale-rm/test/data/rad ${TMPROOT}/dat/rad
+cp -r ${SCALEDIR}/scale-rm/test/data/land ${TMPROOT}/dat/land
+cp -r ${SCALEDIR}/scale-rm/test/data/urban ${TMPROOT}/dat/urban
+cp -r ${SCALEDIR}/scale-rm/test/data/lightning ${TMPROOT}/dat/lightning
 
 if [ "${SOUNDING}" != "" ] ; then
   cp ${SOUNDING} ${TMPROOT}/dat/
@@ -510,13 +510,10 @@ if [ "$TOPO_FORMAT" = "GTOPO30" ] || [ "$TOPO_FORMAT" = "DEM50M" ] || [ "$LANDUS
       BDYTOPO=${TMP}/bdytopo/bdytopo
     else
       BDYCATALOGUE=${DATA_TOPO_BDY_SCALE}/const/log/latlon_domain_catalogue.txt
-      BDYTOPO=${DATA_TOPO_BDY_SCALE}/const/topo
+      BDYTOPO=${DATA_TOPO_BDY_SCALE}/const/topo/topo
+      OFFLINE_PARENT_BASENAME=${BDYTOPO}
     fi
   fi
-
-#  if ((BDY_FORMAT == 1)) && [ "$TOPO_FORMAT" != 'prep' ]; then
-#    OFFLINE_PARENT_BASENAME="$COPYTOPO"
-#  fi
 
   if [ "$TOPO_FORMAT" != 'prep' ] && [ "$TOPO_FORMAT" != 'none' ]; then
     CONVERT_TOPO='.true.'
@@ -626,11 +623,11 @@ while ((time_s <= ETIME)); do
 
         bdy_setting $time $FCSTLEN $BDYCYCLE_INT "$BDYINT" "$PARENT_REF_TIME" "$BDY_SINGLE_FILE"
 
-        if ((MAKEINIT == 1 && ${bdy_times[1]} != time)); then
-          echo "[Error] $0: Unable to generate initial analyses (MAKEINIT) at this time" >&2
-          echo "        that does not fit to any boundary data." >&2
-          exit 1
-        fi
+#        if ((MAKEINIT == 1 && ${bdy_times[1]} != time)); then
+#          echo "[Error] $0: Unable to generate initial analyses (MAKEINIT) at this time" >&2
+#          echo "        that does not fit to any boundary data." >&2
+#          exit 1
+#        fi
 
         if ((DISK_MODE >= 1));then
           TOPO_PATH=${TMP}
@@ -644,7 +641,11 @@ while ((time_s <= ETIME)); do
           LANDUSE_PATH="${DATA_LANDUSE}/const"
           RESTART_IN_PATH[$d]=${INDIR[$d]}/$time/anal
           BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time/bdy
-          CONSTDB_PATH=$SCALEDIR/data
+          CONSTDB_PATH=$SCALEDIR/scale-rm/test/data
+        fi
+
+        if [ $PRESET = 'FUGAKU' ] && (( BDY_LLIO_TMP == 1 )) && (( BDY_ENS == 1 )); then
+          BOUNDARY_PATH[$d]=/local/$time/bdy
         fi
 
         if ((BDY_ROTATING == 1 || ${bdy_times[1]} != time_bdy_start_prev)); then
@@ -684,22 +685,27 @@ while ((time_s <= ETIME)); do
   else
     RESTART_OUTPUT='.false.'
   fi
-    if ((DISK_MODE >= 1));then
-      TOPO_PATH=${TMP}
-      LANDUSE_PATH=${TMP}
-      HISTORY_PATH[$d]=${TMP}
-      RESTART_IN_PATH[$d]=${TMP}
-      BOUNDARY_PATH[$d]=${TMP}
-      CONSTDB_PATH=$TMPROOT_CONSTDB/dat
-    else
-      TOPO_PATH="${DATA_TOPO}/const"
-      LANDUSE_PATH="${DATA_LANDUSE}/const"
-      HISTORY_PATH[$d]=${OUTDIR[$d]}/$time/fcst
-      RESTART_IN_PATH[$d]=${INDIR[$d]}/$time/anal
-      RESTART_OUT_PATH[$d]=${OUTDIR[$d]}/$time/fcst
-      BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time/bdy
-      CONSTDB_PATH=$SCALEDIR/data
-    fi
+
+  if ((DISK_MODE >= 1));then
+    TOPO_PATH=${TMP}
+    LANDUSE_PATH=${TMP}
+    HISTORY_PATH[$d]=${TMP}
+    RESTART_IN_PATH[$d]=${TMP}
+    BOUNDARY_PATH[$d]=${TMP}
+    CONSTDB_PATH=$TMPROOT_CONSTDB/dat
+  else
+    TOPO_PATH="${DATA_TOPO}/const"
+    LANDUSE_PATH="${DATA_LANDUSE}/const"
+    HISTORY_PATH[$d]=${OUTDIR[$d]}/$time/fcst
+    RESTART_IN_PATH[$d]=${INDIR[$d]}/$time/anal
+    RESTART_OUT_PATH[$d]=${OUTDIR[$d]}/$time/fcst
+    BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time/bdy
+    CONSTDB_PATH=$SCALEDIR/scale-rm/test/data
+  fi
+
+  if [ $PRESET = 'FUGAKU' ] && (( BDY_LLIO_TMP == 1 )) && (( BDY_ENS == 1 )); then
+    BOUNDARY_PATH[$d]=/local/$time/bdy
+  fi
  
   for c in $(seq $CYCLE); do
     time=$(datetime $time_s $((lcycles * (c-1))) s)
@@ -805,7 +811,7 @@ m=$1
                     -e "/!--LAND_PROPERTY_IN_FILENAME--/a LAND_PROPERTY_IN_FILENAME = \"${CONSTDB_PATH}/land/param.bucket.conf\",")"
             if ((BDY_FORMAT == 1)); then
               conf="$(echo "$conf" | \
-                  sed -e "/!--OFFLINE_PARENT_BASENAME--/a OFFLINE_PARENT_BASENAME = \"${TMPROOT_BDYDATA}/bdy/${mem_bdy}/bdyorg_$(datetime_scale $time_bdy_start_prev)_$(printf %05d 0)\"," \
+                  sed -e "/!--OFFLINE_PARENT_BASENAME--/a OFFLINE_PARENT_BASENAME = \"${TMPROOT_BDYDATA}/${mem_bdy}/bdyorg_$(datetime_scale $time_bdy_start_prev)_$(printf %05d 0)\"," \
                       -e "/!--OFFLINE_PARENT_PRC_NUM_X--/a OFFLINE_PARENT_PRC_NUM_X = ${DATA_BDY_SCALE_PRC_NUM_X}," \
                       -e "/!--OFFLINE_PARENT_PRC_NUM_Y--/a OFFLINE_PARENT_PRC_NUM_Y = ${DATA_BDY_SCALE_PRC_NUM_Y}," \
                       -e "/!--LATLON_CATALOGUE_FNAME--/a LATLON_CATALOGUE_FNAME = \"${LATLON_CATALOGUE_FNAME}\",")"
@@ -816,7 +822,7 @@ m=$1
                   -e "/!--BOUNDARY_UPDATE_DT--/a BOUNDARY_UPDATE_DT = ${BDYINT}.D0,")"
             if ((d == 1)); then
               conf="$(echo "$conf" | \
-                sed -e "/!--BASENAME_BOUNDARY--/a BASENAME_BOUNDARY = \"${BOUNDARY_PATH[$d]}/${mem_bdy}/bdy_$(datetime_scale $time)\"," \
+                sed -e "/!--BASENAME_BOUNDARY--/a BASENAME_BOUNDARY = \"${BOUNDARY_PATH[$d]}/${mem_bdy}/boundary\"," \
                     -e "/!--NUMBER_OF_FILES--/a NUMBER_OF_FILES = ${nbdy}," \
                     -e "/!--NUMBER_OF_TSTEPS--/a NUMBER_OF_TSTEPS = ${ntsteps}," \
                     -e "/!--NUMBER_OF_SKIP_TSTEPS--/a NUMBER_OF_SKIP_TSTEPS = ${ntsteps_skip},")"
@@ -914,10 +920,10 @@ m=$1
                   -e "/!--FILE_AGGREGATE--/a FILE_AGGREGATE = ${FILE_AGGREGATE}," \
                   -e "/!--TIME_STARTDATE--/a TIME_STARTDATE = ${time:0:4}, ${time:4:2}, ${time:6:2}, ${time:8:2}, ${time:10:2}, ${time:12:2}," \
                   -e "/!--TIME_DURATION--/a TIME_DURATION = ${FCSTLEN}.D0," \
-                  -e "/!--TIME_DT_ATMOS_RESTART--/a TIME_DT_ATMOS_RESTART = ${FCSTLEN}.D0," \
-                  -e "/!--TIME_DT_OCEAN_RESTART--/a TIME_DT_OCEAN_RESTART = ${FCSTLEN}.D0," \
-                  -e "/!--TIME_DT_LAND_RESTART--/a TIME_DT_LAND_RESTART = ${FCSTLEN}.D0," \
-                  -e "/!--TIME_DT_URBAN_RESTART--/a TIME_DT_URBAN_RESTART = ${FCSTLEN}.D0," \
+                  -e "/!--TIME_DT_ATMOS_RESTART--/a TIME_DT_ATMOS_RESTART = ${RESTARTOUT}.D0," \
+                  -e "/!--TIME_DT_OCEAN_RESTART--/a TIME_DT_OCEAN_RESTART = ${RESTARTOUT}.D0," \
+                  -e "/!--TIME_DT_LAND_RESTART--/a TIME_DT_LAND_RESTART = ${RESTARTOUT}.D0," \
+                  -e "/!--TIME_DT_URBAN_RESTART--/a TIME_DT_URBAN_RESTART = ${RESTARTOUT}.D0," \
                   -e "/!--ONLINE_DOMAIN_NUM--/a ONLINE_DOMAIN_NUM = ${d}," \
                   -e "/!--ONLINE_IAM_PARENT--/a ONLINE_IAM_PARENT = ${ONLINE_IAM_PARENT}," \
                   -e "/!--ONLINE_IAM_DAUGHTER--/a ONLINE_IAM_DAUGHTER = ${ONLINE_IAM_DAUGHTER}," \
@@ -942,8 +948,9 @@ m=$1
                   -e "/!--ATMOS_PHY_RD_PROFILE_MIPAS2001_IN_BASENAME--/a ATMOS_PHY_RD_PROFILE_MIPAS2001_IN_BASENAME = \"${CONSTDB_PATH}/rad/MIPAS\"," \
                   -e "/!--ATMOS_PHY_LT_LUT_FILENAME--/a ATMOS_PHY_LT_LUT_FILENAME = \"${CONSTDB_PATH}/lightning/LUT_TK1978_v.txt\",")"
           if ((d == 1)); then
-            conf="$(echo "$conf" | \
-                sed -e "/!--ATMOS_BOUNDARY_IN_BASENAME--/a ATMOS_BOUNDARY_IN_BASENAME = \"${BOUNDARY_PATH[$d]}/${mem_bdy}/bdy_$(datetime_scale $time)\",")"
+        conf="$(echo "$conf" | \
+            sed -e "/!--ATMOS_BOUNDARY_IN_BASENAME--/a ATMOS_BOUNDARY_IN_BASENAME = \"${BOUNDARY_PATH[$d]}/${mem_bdy}/boundary\"," \
+                -e "/!--ATMOS_BOUNDARY_UPDATE_DT--/a ATMOS_BOUNDARY_UPDATE_DT = ${BDYINT}.D0," )"
           fi
           mkdir -p $CONFIG_DIR/f$(printf $MEMBER_FMT $m)
           mkdir -p $TMP/f$(printf $MEMBER_FMT $m)
@@ -1012,9 +1019,9 @@ stepexecname[3]="scale-rm_ens"
 #stepexecname[4]="verify"
 
 if (( USE_LLIO_BIN == 1 )); then
-  stepexecbin[1]="$DIR/ensmodel/scale-rm_pp_ens"
-  stepexecbin[2]="$DIR/ensmodel/scale-rm_init_ens"
-  stepexecbin[3]="$DIR/ensmodel/scale-rm_ens"
+  stepexecbin[1]="$TMP/scale-rm_pp_ens"
+  stepexecbin[2]="$TMP/scale-rm_init_ens"
+  stepexecbin[3]="$TMP/scale-rm_ens"
 else
   for i in `seq $nsteps`; do
     stepexecbin[$i]="./${stepexecname[$i]}"

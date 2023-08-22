@@ -26,7 +26,7 @@ cd ..
 #===============================================================================
 # Configuration
 
-. config.main
+. config.main.${PRESET}
 res=$? && ((res != 0)) && exit $res
 
 . src/func_datetime.sh
@@ -81,7 +81,7 @@ fi
 
 #===============================================================================
 
-if (( PRESET == "FUGAKU" )) ; then
+if [ "$PRESET" == "FUGAKU" ] ; then
   if [ "$(which pip)" == "" ]; then
     echo "loading py-pip..."
     spack load --first py-pip%gcc

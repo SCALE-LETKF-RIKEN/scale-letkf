@@ -222,7 +222,7 @@ while ((time <= ETIME)); do
       ######
       if ((s == 1)); then
         logd=$OUTDIR/$time/log/fcst_scale_pp
-        if [ "$TOPO_FORMAT" == 'prep' ] && [ "$LANDUSE_FORMAT" == 'prep' ]; then
+        if [[ "$TOPO_FORMAT" == 'prep' || "$TOPO_FORMAT" == 'none' ]] &&  [[  "$LANDUSE_FORMAT" == 'prep' || "$LANDUSE_FORMAT" == 'none' ]]  ; then
           echo "[$(datetime_now)] ${time}: ${stepname[$s]} ...skipped (use prepared topo and landuse files)" >&2
           continue
         elif ((BDY_FORMAT == 0)); then
@@ -234,6 +234,16 @@ while ((time <= ETIME)); do
         fi
       fi
       if ((s == 2)); then
+
+        if [ "$PRESET" = 'FUGAKU' ] && (( BDY_LLIO_TMP == 1 )) && (( BDY_ENS == 1 )); then
+           BDY_LLIO_TMPDIR_TOP=/local/$time/bdy
+           BDY_LLIO_TMPDIRS=
+           for mmmm in 'mean' 'mdet' `seq -f %04g 1 ${MEMBER}` ; do 
+             BDY_LLIO_TMPDIRS=${BDY_LLIO_TMPDIRS}" "$BDY_LLIO_TMPDIR_TOP/${mmmm}
+           done
+           mpiexec mkdir -p ${BDY_LLIO_TMPDIRS}
+        fi
+
         logd=$OUTDIR/$time/log/fcst_scale_init
         if ((BDY_FORMAT == 0)); then
           echo "[$(datetime_now)] ${time}: ${stepname[$s]} ...skipped (use prepared boundary files)" >&2
@@ -266,6 +276,13 @@ while ((time <= ETIME)); do
 
         echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: end" >&2
       done
+
+      if [ "$PRESET" = 'FUGAKU' ] ; then
+        if (( s == 3 && BDY_LLIO_TMP == 1 && BDY_ENS == 1 )) ; then
+          mpiexec rm -rf ${BDY_LLIO_TMPDIR_TOP}
+        fi
+      fi
+
 
     fi
   done

@@ -33,6 +33,7 @@ log*
 /scale/run/obsmake_run.sh
 /scale/run/exp
 /scale/letkf/letkf
+/scale/letkf/efso
 /scale/obs/obsmake
 /scale/obs/obsope
 /scale/obs/obssim

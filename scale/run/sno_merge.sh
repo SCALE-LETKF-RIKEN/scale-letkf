@@ -230,7 +230,7 @@ if [ "$PRESET" = 'FUGAKU' ]; then
   NUM_VOLUME=${CVOLUME:4:1} # get number of current volume 
 
   if [ "$NUM_VOLUME" = "0" ] ; then
-    VOLUMES=${CVOLUME}
+    VOLUMES="/"${CVOLUME}
   else
     VOLUMES="/vol000${NUM_VOLUME}"
   fi

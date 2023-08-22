@@ -31,7 +31,7 @@ done
 
 ### SCALE data
 rm -rf ./dat
-ln -s $SCALEDIR/data ./dat
+ln -s $SCALEDIR/scale-rm/test/data ./dat
 
 ### boundary orig
 timef="2022-01-01 00:00:00"

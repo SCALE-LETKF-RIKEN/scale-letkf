@@ -23,30 +23,22 @@ real(4),parameter::radar_lat = 34.662
 real(4),parameter::radar_z   = 0.0  
 
   call ncio_open( trim(ncfile_in), nf90_nowrite, ncid )
-  call ncio_check( nf90_inq_dimid(ncid, "x", vidlon))
-  call ncio_check( nf90_inq_dimid(ncid, "y", vidlat))
-  call ncio_check( nf90_inq_dimid(ncid, "z", vidz))
-  call ncio_check( nf90_inquire_dimension(ncid, vidlon, len=nlon))
-  call ncio_check( nf90_inquire_dimension(ncid, vidlat, len=nlat))
-  call ncio_check( nf90_inquire_dimension(ncid, vidz, len=nlev))
+  call ncio_read_dim(ncid,"x",nlon)
+  call ncio_read_dim(ncid,"y",nlat)
+  call ncio_read_dim(ncid,"z",nlev)
 
   allocate(pres(nlon,nlat,nlev))
   allocate(axlon(nlon,nlat))
   allocate(axlat(nlon,nlat))
   allocate(axz(nlev))
 
-  call ncio_check( nf90_inq_varid(ncid, "lon", vidlon))
-  call ncio_check( nf90_inq_varid(ncid, "lat", vidlat))
-  call ncio_check( nf90_inq_varid(ncid, "z", vidz))
-  call ncio_check( nf90_get_var(ncid, vidlon, axlon))
-  call ncio_check( nf90_get_var(ncid, vidlat, axlat))
-  call ncio_check( nf90_get_var(ncid, vidz, axz))
-  call ncio_check( nf90_inq_varid(ncid, "PRES", vidz))
-  call ncio_check( nf90_get_var(ncid, vidz, pres))
+  call ncio_read_const(ncid, "lon", nlon, nlat, axlon)
+  call ncio_read_const(ncid, "lat", nlon, nlat, axlat)
+  call ncio_read_const(ncid, "z", nlev, axz)
+  call ncio_read(ncid,"PRES",nlon,nlat,nlev,1,pres)
   call ncio_close( ncid ) 
 
-!cfile="test_obs_3d_xyp.dat"
-cfile="test.dat"
+cfile="test_obs_3d_radar.dat"
 
 open (21, file=trim(cfile), form='unformatted', access='sequential', convert='big_endian')
 

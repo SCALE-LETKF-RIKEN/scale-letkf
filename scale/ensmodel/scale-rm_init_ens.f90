@@ -40,6 +40,8 @@ program scaleles_init_ens
   integer :: universal_myrank
   integer :: global_comm
   integer :: local_comm
+  integer :: intercomm_parent ! not used
+  integer :: intercomm_child
 
   character(len=H_LONG) :: confname_domains(PRC_DOMAIN_nlim)
   character(len=H_LONG) :: confname_mydom
@@ -66,10 +68,12 @@ program scaleles_init_ens
 
 !-----------------------------------------------------------------------
 
-  if (DET_RUN) then
-    call set_mem_node_proc(MEMBER+2)
+  if ( DET_RUN .and. EFSO_RUN ) then
+    call set_mem_node_proc( MEMBER + 3 )
+  elseif ( DET_RUN .or. EFSO_RUN ) then
+    call set_mem_node_proc( MEMBER + 2 )
   else
-    call set_mem_node_proc(MEMBER+1)
+    call set_mem_node_proc( MEMBER + 1 )
   end if
 
   call mpi_timer('INITIALIZE', 1, barrier=universal_comm)
@@ -107,29 +111,37 @@ program scaleles_init_ens
                             .false.,          & ! [IN]
                             COLOR_REORDER,    & ! [IN]
                             local_comm,       & ! [OUT]
-                            idom              ) ! [OUT]
+                            idom,             & ! [OUT]
+                            intercomm_parent, & ! [OUT]           
+                            intercomm_child )   ! [OUT]
 
     do it = 1, nitmax
       im = myrank_to_mem(it)
-      if (im >= 1 .and. im <= MEMBER_RUN) then
-        confname = confname_domains(idom)
+      if ( im >= 1 .and. im <= MEMBER_RUN ) then
+        confname = confname_domains( idom )
         if (CONF_FILES_SEQNUM) then
-          call filename_replace_mem(confname, im)
+          call filename_replace_mem( confname, im )
         else
           if (im <= MEMBER) then
-            call filename_replace_mem(confname, im)
-          else if (im == MEMBER+1) then
-            call filename_replace_mem(confname, memf_mean)
-          else if (im == MEMBER+2) then
-            call filename_replace_mem(confname, memf_mdet)
+            call filename_replace_mem( confname, im )
+          else if ( im == MEMBER + 1 ) then
+            call filename_replace_mem( confname, memf_mean )
+          else if ( im == MEMBER + 2 ) then
+            if ( DET_RUN ) then
+              call filename_replace_mem( confname, memf_mdet )
+            elseif ( EFSO_RUN ) then
+              call filename_replace_mem( confname, memf_mgue )
+            endif
+          else if ( im == MEMBER + 3 ) then
+            call filename_replace_mem( confname, memf_mgue )
           end if
         end if
         if ( LOG_OUT ) WRITE(6,'(A,I6.6,2A)') 'MYRANK ',universal_myrank,' is running a model with configuration file: ', trim(confname)
 
-        call rm_prep ( local_comm,     &
-                       trim(confname), &
-                       "",             &
-                       .false.         )
+        call rm_prep ( local_comm,       &
+                       intercomm_parent, &
+                       intercomm_child,  &
+                       trim(confname)  )
       end if
     end do ! [ it = 1, nitmax ]
 

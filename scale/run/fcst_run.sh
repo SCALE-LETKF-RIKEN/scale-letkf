@@ -21,7 +21,7 @@ fi
 #===============================================================================
 # Configuration
 
-. ./config.main || exit $?
+. ./config.main.${PRESET} || exit $?
 . ./config.${job} || exit $?
 
 . src/func_datetime.sh || exit $?
@@ -54,6 +54,11 @@ echo "[$(datetime_now)] Create and clean the temporary directory"
 #fi
 safe_init_tmpdir $TMP || exit $?
 
+# copy config files
+cp $SCRP_DIR/config.nml.* ${TMP}/
+cp $SCRP_DIR/config.[c,f,r]* ${TMP}/
+cp $SCRP_DIR/config.main.${PRESET} ${TMP}/
+
 #===============================================================================
 # Determine the distibution schemes
 
@@ -71,7 +76,7 @@ fi
 
 echo "[$(datetime_now)] Determine the staging list"
 
-cat $SCRP_DIR/config.main | \
+cat $TMP/config.main.${PRESET} | \
     sed -e "/\(^DIR=\| DIR=\)/c DIR=\"$DIR\"" \
     > $TMP/config.main
 
@@ -85,7 +90,8 @@ safe_init_tmpdir $STAGING_DIR || exit $?
 staging_list_static || exit $?
 config_file_list $TMPS/config || exit $?
 
-NNODES_USE=$(( fmember * ( SCALE_NP / PPN ) ))
+#NNODES_USE=$(( fmember * ( SCALE_NP / PPN ) ))
+NNODES_USE=$NNODES
 echo "NNODES=$NNODES_USE" >> $TMP/config.main
 
 #-------------------------------------------------------------------------------
@@ -125,7 +131,7 @@ if [ "$PRESET" = 'FUGAKU' ]; then
   NUM_VOLUME=${CVOLUME:4:1} # get number of current volume 
 
   if [ "$NUM_VOLUME" = "0" ] ; then
-    VOLUMES=${CVOLUME}
+    VOLUMES="/"${CVOLUME}
   else
     VOLUMES="/vol000${NUM_VOLUME}"
   fi
@@ -145,6 +151,13 @@ cat > $jobscrp << EOF
 #PJM --mpi "max-proc-per-node=${PPN}"
 #PJM -j
 #PJM -s
+EOF
+
+  if (( BDY_TMP == 1 )) && (( BDY_ENS == 1 )); then
+    echo "#PJM --llio localtmp-size=${LLIO_TMP_SIZE}Gi" >> $jobscrp
+  fi
+
+cat >> $jobscrp << EOF
 #
 #
 export PARALLEL=${THREADS}

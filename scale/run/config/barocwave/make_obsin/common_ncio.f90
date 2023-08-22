@@ -17,6 +17,13 @@ module common_ncio
   INTEGER,PARAMETER :: r_sngl=kind(0.0e0)
   INTEGER,PARAMETER :: r_size=r_sngl
 
+  interface ncio_read_const
+    module procedure ncio_read_const_1d_r4
+    module procedure ncio_read_const_2d_r4
+    module procedure ncio_read_const_1d_r8
+    module procedure ncio_read_const_2d_r8
+  end interface ncio_read_const
+
   interface ncio_read
     module procedure ncio_read_1d_r4
     module procedure ncio_read_2d_r4
@@ -127,6 +134,38 @@ subroutine ncio_read_gattr_r8(ncid, attrname, attr)
   call ncio_check(nf90_get_att(ncid, nf90_global, attrname, attr))
 end subroutine ncio_read_gattr_r8
 !-----------------------------------------------------------------------
+! Read netcdf single-precision 1-D constant variable
+!-----------------------------------------------------------------------
+subroutine ncio_read_const_1d_r4(ncid, varname, dim1, var)
+  implicit none
+  integer, intent(in) :: ncid
+  character(len=*), intent(in) :: varname
+  integer, intent(in) :: dim1
+  real(r_sngl), intent(out) :: var(dim1)
+  integer :: varid
+
+  call ncio_check(nf90_inq_varid(ncid, varname, varid))
+  call ncio_check(nf90_get_var(ncid, varid, var,   &
+                               start = (/ 1 /), &
+                               count = (/ dim1 /)))
+end subroutine ncio_read_const_1d_r4
+!-----------------------------------------------------------------------
+! Read netcdf single-precision 2-D variable
+!-----------------------------------------------------------------------
+subroutine ncio_read_const_2d_r4(ncid, varname, dim1, dim2, var)
+  implicit none
+  integer, intent(in) :: ncid
+  character(len=*), intent(in) :: varname
+  integer, intent(in) :: dim1, dim2
+  real(r_sngl), intent(out) :: var(dim1,dim2)
+  integer :: varid
+
+  call ncio_check(nf90_inq_varid(ncid, varname, varid))
+  call ncio_check(nf90_get_var(ncid, varid, var,      &
+                               start = (/ 1, 1 /), &
+                               count = (/ dim1, dim2 /)))
+end subroutine ncio_read_const_2d_r4
+!-----------------------------------------------------------------------
 ! Read netcdf single-precision 1-D variable
 !-----------------------------------------------------------------------
 subroutine ncio_read_1d_r4(ncid, varname, dim1, t, var)
@@ -174,6 +213,38 @@ subroutine ncio_read_3d_r4(ncid, varname, dim1, dim2, dim3, t, var)
                                start = (/ 1, 1, 1, t /), &
                                count = (/ dim1, dim2, dim3, 1 /)))
 end subroutine ncio_read_3d_r4
+!-----------------------------------------------------------------------
+! Read netcdf double-precision 1-D variable
+!-----------------------------------------------------------------------
+subroutine ncio_read_const_1d_r8(ncid, varname, dim1, var)
+  implicit none
+  integer, intent(in) :: ncid
+  character(len=*), intent(in) :: varname
+  integer, intent(in) :: dim1
+  real(r_dble), intent(out) :: var(dim1)
+  integer :: varid
+
+  call ncio_check(nf90_inq_varid(ncid, varname, varid))
+  call ncio_check(nf90_get_var(ncid, varid, var,   &
+                               start = (/ 1 /), &
+                               count = (/ dim1 /)))
+end subroutine ncio_read_const_1d_r8
+!-----------------------------------------------------------------------
+! Read netcdf double-precision 2-D variable
+!-----------------------------------------------------------------------
+subroutine ncio_read_const_2d_r8(ncid, varname, dim1, dim2, var)
+  implicit none
+  integer, intent(in) :: ncid
+  character(len=*), intent(in) :: varname
+  integer, intent(in) :: dim1, dim2
+  real(r_dble), intent(out) :: var(dim1,dim2)
+  integer :: varid
+
+  call ncio_check(nf90_inq_varid(ncid, varname, varid))
+  call ncio_check(nf90_get_var(ncid, varid, var,      &
+                               start = (/ 1, 1 /), &
+                               count = (/ dim1, dim2 /)))
+end subroutine ncio_read_const_2d_r8
 !-----------------------------------------------------------------------
 ! Read netcdf double-precision 1-D variable
 !-----------------------------------------------------------------------

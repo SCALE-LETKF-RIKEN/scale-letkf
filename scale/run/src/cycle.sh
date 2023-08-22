@@ -114,9 +114,12 @@ cd $TMPROOT
 
 #-------------------------------------------------------------------------------
 
-mtot=$((MEMBER+1))
+mtot=$(( MEMBER + 1 ))
 if (( DET_RUN == 1 )); then
-  mtot=$((MEMBER+2))
+  mtot=$(( mtot + 1 ))
+fi
+if (( EFSO_RUN == 1 )); then
+  mtot=$(( mtot + 1 ))
 fi
 
 totalnp=$((PPN*NNODES))
@@ -201,8 +204,7 @@ while ((time <= ETIME)); do
       ######
       if ((s == 1)); then
         logd=$OUTDIR/$time/log/scale_pp
-
-        if [ "$TOPO_FORMAT" == 'prep' ] && [ "$LANDUSE_FORMAT" == 'prep' ]; then
+        if [[ "$TOPO_FORMAT" == 'prep' || "$TOPO_FORMAT" == 'none' ]] &&  [[  "$LANDUSE_FORMAT" == 'prep' || "$LANDUSE_FORMAT" == 'none' ]]  ; then
           echo "[$(datetime_now)] ${time}: ${stepname[$s]} ...skipped (use prepared topo and landuse files)" >&2
           continue
         elif ((BDY_FORMAT == 0)); then
@@ -229,9 +231,44 @@ while ((time <= ETIME)); do
           btime=$(datetime $btime $BDYINT s)
         fi
 
+        if [ "$PRESET" == 'FUGAKU' ] && (( BDY_LLIO_TMP == 1 )) ; then
+           if ((BDY_ENS ==1));then
+             BDY_LLIO_TMPDIR_TOP=/local/$time/bdy
+           else
+             BDY_LLIO_TMPDIR_TOP=/share/$time/bdy
+           fi
+           BDY_LLIO_TMPDIRS=
+           for mmmm in 'mean' 'mdet' 'mgue' `seq -f %04g 1 ${MEMBER}` ; do
+             BDY_LLIO_TMPDIRS=${BDY_LLIO_TMPDIRS}" "$BDY_LLIO_TMPDIR_TOP/${mmmm}
+           done
+           mpiexec mkdir -p ${BDY_LLIO_TMPDIRS}
+        fi
+
       fi
+
       if ((s == 3)); then
         logd=$OUTDIR/$time/log/scale
+
+        if [ "$PRESET" = 'FUGAKU' ] && (( HIST_LLIO_TMP == 1 )) ; then
+           HIST_LLIO_TMPDIR_TOP=/local/$time/hist
+           HIST_LLIO_TMPDIRS=
+           for mmmm in 'mean' 'mdet' 'mgue' `seq -f %04g 1 ${MEMBER}` ; do 
+             HIST_LLIO_TMPDIRS=${HIST_LLIO_TMPDIRS}" "$HIST_LLIO_TMPDIR_TOP/${mmmm}
+           done
+           mpiexec mkdir -p ${HIST_LLIO_TMPDIRS}
+        fi
+
+        if [ "$PRESET" = 'FUGAKU' ] && (( ANAL_LLIO_TMP == 1 )) ; then
+           ANAL_LLIO_TMPDIR_TOP_OLD=/local/$time/anal" "/local/$time/gues
+           ANAL_LLIO_TMPDIR_TOP=/local/$atime/anal
+           ANAL_LLIO_TMPDIRS=
+           for mmmm in 'mean' 'mdet' 'sprd' '../gues/mean' '../gues/mdet' '../gues/sprd' `seq -f %04g 1 ${MEMBER}` ; do 
+             ANAL_LLIO_TMPDIRS=${ANAL_LLIO_TMPDIRS}" "$ANAL_LLIO_TMPDIR_TOP/${mmmm}
+           done
+           mpiexec mkdir -p ${ANAL_LLIO_TMPDIRS}
+        fi
+
+
       fi
       if ((s == 4)); then
         logd=$OUTDIR/$atime/log/letkf
@@ -244,6 +281,61 @@ while ((time <= ETIME)); do
       fi
       if ((s == 5)); then
         logd=$OUTDIR/$atime/log/letkf
+        BGDIR=$OUTDIR/$atime
+        if ((ANAL_LLIO_TMP==1)) && ((atime <= ETIME)) ;then
+          BGDIR=/local/$atime
+          mkdir -p $OUTDIR/$atime/anal/mean
+          cp -r $BGDIR/anal/mean/* $OUTDIR/$atime/anal/mean/
+          if ((OUT_OPT <= 4)) ;then
+            for mem in $(seq -f %04g $MEMBER) ; do
+              mkdir -p $OUTDIR/$atime/anal/$mem
+              cp -r $BGDIR/anal/$mem/* $OUTDIR/$atime/anal/$mem/
+            done
+          fi
+        fi
+        if ((SPRD_OUT==1)); then
+            mkdir -p $OUTDIR/$atime/anal/sprd
+            cp -r $BGDIR/anal/mean/* $OUTDIR/$atime/anal/sprd/ 
+            mnsp="mean sprd"
+        else
+            mnsp="mean"
+        fi
+        if ((EFSO_RUN == 1)) ;then
+          for mem in $(seq -f %04g $MEMBER) $mnsp ; do
+            mkdir -p $BGDIR/gues/$mem
+            cp -r $BGDIR/anal/$mem/* $BGDIR/gues/$mem/
+          done
+        fi
+        if ((OUT_OPT <= 3)) ;then
+          for mem in $(seq -f %04g $MEMBER) $mnsp ; do
+            mkdir -p $OUTDIR/$atime/gues/$mem
+            cp -r $BGDIR/anal/$mem/* $OUTDIR/$atime/gues/$mem/
+          done
+        elif ((OUT_OPT <= 6)) ;then
+          for mem in $mnsp ;do
+            mkdir -p $OUTDIR/$atime/gues/$mem
+            cp -r $BGDIR/anal/$mem/* $OUTDIR/$atime/gues/$mem/ 
+          done       
+        fi
+        if ((NOBS_OUT==1)); then
+          for pe in $(seq -f %06g 0 $((SCALE_NP-1)) ) ;do
+            cp -r $BGDIR/anal/mean/init_$(datetime_scale $atime).pe${pe}.nc $TMP/nobs.d01_$(datetime_scale $atime).pe${pe}.nc
+          done 
+        elif ((RTPS_INFL_OUT==1)); then
+          for pe in $(seq -f %06g 0 $((SCALE_NP-1)) ) ;do
+            cp -r $BGDIR/anal/mean/init_$(datetime_scale $atime).pe${pe}.nc $TMP/rtpsinfl.d01_$(datetime_scale $atime).pe${pe}.nc
+          done 
+        elif ((ADAPTINFL==1)); then
+          for pe in $(seq -f %06g 0 $((SCALE_NP-1)) ) ;do
+            cp -r $BGDIR/anal/mean/init_$(datetime_scale $atime).pe${pe}.nc $TMP/infl.d01_$(datetime_scale $atime).pe${pe}.nc
+          done 
+        fi
+      fi
+      if (( s == 6 )); then
+        if ((EFSO_RUN == 0));then
+          continue
+        fi
+        logd=$OUTDIR/$atime/log/efso
       fi
       ######
 
@@ -275,6 +367,16 @@ while ((time <= ETIME)); do
 
         echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: end" >&2
       done
+
+      if [ "$PRESET" = 'FUGAKU' ] ; then
+        if (( s == 5 && HIST_LLIO_TMP == 1)) ; then
+          mpiexec rm -rf ${HIST_LLIO_TMPDIR_TOP}
+        elif (( s == 5 && ANAL_LLIO_TMP == 1)) ; then
+          mpiexec rm -rf ${ANAL_LLIO_TMPDIR_TOP_OLD}
+        elif (( s == 4 && BDY_LLIO_TMP == 1)) ; then
+          mpiexec rm -rf ${BDY_LLIO_TMPDIR_TOP}
+        fi
+      fi
 
     fi
   done
