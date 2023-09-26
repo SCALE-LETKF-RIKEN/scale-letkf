@@ -342,6 +342,98 @@ MODULE common_nml
   logical :: RADAR_ADDITIVE_Y18 = .false.        ! switch of additive inflation for radar reflectivity obs 
   integer :: RADAR_ADDITIVE_Y18_MINMEM = 0 ! If the number of precipitating members is smaller than this threshold, use Y18 method
 
+  !---PARAM_LETKF_H08
+  integer, parameter :: NIRB_HIM8 = 10     ! H08 Num of Himawari-8 (IR) bands
+  integer :: H08_RTTOV_THREADS = 1
+  logical :: H08_MEAN_WRITE = .true.
+  integer :: H08_RTTOV_ITMAX = 1
+  logical :: H08_OUT_TBB_NC = .true.
+  logical :: H08_OUT_ETBB_NC = .false.
+  character(filelenmax) :: H08_RTTOV_COEF_PATH = '.'
+  character(filelenmax) :: H08_VBC_PATH = '.'
+  character(filelenmax) :: H08_OUTFILE_BASENAME = 'him8'
+  logical :: H08_FORMAT_NC = .false.
+  logical :: H08_SIM_ALLG = .true. ! Him8 sim by using ensemble mean
+  logical :: H08_OBS_STD = .true.
+  logical :: H08_OBS_4D = .false.
+  integer :: H08_OBS_RECL = 4 + NIRB_HIM8 ! obstype, obsid, lon, lat, + dat(NIRB_HIM8)
+  real(r_size) :: H08_HOMO_QC = 2.0d0 ! (K) threshold of the standard deviation (band 13) for the homogeneity QC
+  integer :: H08_NOWDATE(6) = (/0,1,1,0,0,0/)
+  logical :: H08_REJECT_LAND = .false. ! true: reject Himawari-8 radiance over the land
+  logical :: H08_RTTOV_CLD = .true. ! true: all-sky, false: CSR in RTTOV fwd model
+  real(r_size) :: H08_LIMIT_LEV = 20000.0d0 ! (Pa) Upper limit level of the sensitive height for Himawari-8 IR
+  real(r_size) :: H08_RTTOV_CFRAC_CNST = 0.10d0 ! Denominator constant for diagnosing SEQUENTIAL(0-1) cloud fraction (g m-3)
+  real(r_size) :: H08_RTTOV_MINQ_CTOP = 0.10d0 ! Threshold of water/ice contents for diagnosing the cloud top (g m-3)
+  real(r_size) :: H08_BT_MIN = 0.0d0 ! Lower limit of the BT for Himawari-8 IR
+                                           ! Negative values: turn off
+  logical :: H08_RTTOV_PROF_SHIFT = .false. ! true: shift the climatological profile above the model top 
+                                            !       (equivalent to extrapolate by using the climatological
+                                            !       lapse rate)
+                                            ! false: relax the original (model)
+                                            ! profiles above [H08_RTTOV_RLX_HGT] m back to the climatological profile 
+  logical :: H08_VBC_USE = .false. ! Turn on adaptive bias correction for Him8?
+  integer :: H08_RTTOV_KADD = 5
+  real(r_size) :: H08_RTTOV_RLX_HGT = 20.0d3 ! (m) Lowest hight for relaxing profiles to climatology
+  integer :: H08_RTTOV_CFRAC =  1 ! cloud fraction diagnosis 
+                                  ! 0: using H08_RTTOV_CFRAC_CNST following Honda et al. (2017a,b)
+                                  ! 1: SCALE method as of 11/15/2017 with a minor modification (excluding qr)
+                                  ! 2: Tompkins and Janiskova (2004QJRMS) method (as in Okamoto 2017QJRMS)
+
+  logical :: H08_VLOCAL_CTOP = .true.
+  logical :: H08_AOEI = .false. ! Use AOEI (Zhang et al. 2016; Minamide and Zhang 2017)?
+  integer :: H08_AOEI_QC = 0 !  0: AOEI w/o any QC
+                             !  1: AOEI w/ a standard QC based on the ratio btw O-B and obs err
+                             !  Not yet 2: AOEI w/ a QC method based on the ratio defind by O-B, obs err, and variances (Aksoy et al. 2017AMS annual meeting)
+
+  integer :: H08_NPRED = 1 ! number of predirctors for Him8
+
+
+  logical :: H08_BIAS_SIMPLE = .false. ! Simple bias correction (just subtract prescribed constant (clear/cloudy))
+  logical :: H08_BIAS_SIMPLE_CLR = .false. ! Simple bias correction (just subtract prescribed constant (only clear sky value))
+  logical :: H08_CLDERR_SIMPLE = .false. ! Simple cloud dependent obs 
+  !! Sky condition is diagnosed by CA (Okamoto et al. 2014 for each band)
+  !! CA > H08_CA_THRES: Cloudy
+  !! CA <= H08_CA_THRES: Clear
+  !!
+  ! Constant values for band 9 are based on Honda et al. (2017 submitted to MWR)
+  real(r_size) :: H08_CA_THRES = 1.0d0 ! Threshhold of CA
+  real(r_size) :: H08_BIAS_CLEAR(NIRB_HIM8) =  (/0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0, &
+                                           0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0/) ! Constant bias for clear sky conditions
+  real(r_size) :: H08_BIAS_CLOUD(NIRB_HIM8) = (/0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0, &
+                                          0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0/) ! Constant bias for cloudy sky conditions
+  
+  real(r_size) :: H08_CLDERR_CLEAR(NIRB_HIM8) =  (/3.0d0, 3.0d0, 3.0d0, 3.0d0, 3.0d0, &
+                                           3.0d0, 3.0d0, 3.0d0, 3.0d0, 3.0d0/) ! Constant obs err for clear sky conditions
+  real(r_size) :: H08_CLDERR_CLOUD(NIRB_HIM8) = (/3.0d0, 3.0d0, 3.0d0, 3.0d0, 3.0d0, &
+                                          3.0d0, 3.0d0, 3.0d0, 3.0d0, 3.0d0/) ! Constant obs err for cloudy sky conditions
+
+  integer :: H08_BAND_USE(NIRB_HIM8) = (/0,0,1,0,0,0,0,0,0,0/)
+                        !! ch = (1,2,3,4,5,6,7,8,9,10)
+                        !! (B07,B08,B09,B10,B11,B12,B13,B14,B15,B16)
+                        !! ==1: Assimilate
+                        !! ==0: NOT assimilate (rejected by QC in trans_XtoY_H08)
+                        !! It is better to reject B11(ch=5) & B12(ch=6) obs because these bands are 
+                        !! sensitive to chemicals.
+ 
+  ! How to prepare Himawari-8 obs using that "superobs"ed into the model grid
+  integer :: H08_OBS_METHOD = 1 ! 1: simple thinning, 2: averaging adjacent grids
+                                ! 3: take a difference btw two bands (B1 - B2)
+  integer :: H08_OBS_SWD_B= 8
+  integer :: H08_OBS_AVE_NG = 0 ! # of grids for averaging adjacent grids (H08_OBS_METHOD=2)
+  logical :: H08_OBS_AVE_OVERLAP = .false.
+  integer :: H08_OBS_THIN_LEV = 1 ! thinning level (1: no thinning)
+  logical :: USE_HIM8 = .true. ! ! will be overwritten from obsope_tools.f90
+  integer :: H08_OBS_BUF_GRID = 20 ! Lateral # of grids where Him8 obs are not used
+
+  real(r_size) :: H08_CLD_THRS(NIRB_HIM8) = (/300.0d0, 232.5d0, 243.5d0, 256.5d0, 300.0d0, &
+                                              300.0d0, 295.5d0, 300.0d0, 300.0d0, 300.0d0/) ! Threshold tbb btw clear & cloudy skies
+  integer :: H08_PQV_MIN_CMEM = 0 ! Minumim # of cloudy members
+  logical :: H08_PQV = .false. ! Assimilate as pseudo qv if # of cloudy members < H08_PQV_MIN_CMEM and O-B < H08_PQV_OB_MAX
+  real(r_size) :: H08_PQV_OB_MAX = -5.0d0 ! O-B threshold for H08_PQV (K)
+  real(r_size) :: H08_PQV_PLEV = 850.0d2 ! Assumed pressure level (Pa) for pseudo qv obs 
+  real(r_size) :: H08_PQV_QVERR = 1.0d-3 ! obs error for pseudo qv (kg/kg)
+
+
   !--- PARAM_OBS_ERROR
   real(r_size) :: OBSERR_U = 1.0d0
   real(r_size) :: OBSERR_V = 1.0d0

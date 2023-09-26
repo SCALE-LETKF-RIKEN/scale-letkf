@@ -5,6 +5,10 @@ OBJS    = SFMT.o common.o common_mpi.o $(common_mtx).o common_sort.o common_rand
           common_nml.o
           #common_precip.o
 
+ifeq ($(RTTOV),T)
+OBJS    += scale_rttov_fwd.o 
+endif
+
 all:	$(OBJS) datetime pdbash 
 
 datetime:	datetime.o SFMT.o common.o
@@ -36,6 +40,8 @@ common_scale.o:	common_scale.f90 common.o common_nml.o common_mpi.o common_ncio.
 	$(FC) $(FOPTS) -c $< $(NETCDF_INC) $(SCALE_INC) -I$(SCALE_RM_OBJDIR)
 common_obs_scale.o:	common_obs_scale.f90 common.o common_nml.o common_scale.o
 	$(FC) $(FOPTS) -c $< $(NETCDF_INC) $(SCALE_INC)
+scale_rttov_fwd.o:	scale_rttov_fwd.f90 common.o common_nml.o
+	$(FC) $(FOPTS) -c $< $(RT_INCLUDE) $(RT_LDFLAGS) $(SCALE_INC)
 common_mpi_scale.o:	common_mpi_scale.f90 common.o common_nml.o common_mpi.o \
 	common_scale.o common_obs_scale.o 
 	$(FC) $(FOPTS) -c $< $(NETCDF_INC) $(SCALE_INC) -I$(SCALE_RM_OBJDIR)
