@@ -1178,6 +1178,103 @@ subroutine read_nml_obssim
 end subroutine read_nml_obssim
 
 !-------------------------------------------------------------------------------
+! PARAM_LETKF_H08
+!-------------------------------------------------------------------------------
+subroutine read_nml_letkf_h08
+  implicit none
+  integer :: ierr
+
+  namelist /PARAM_LETKF_H08/ &
+    H08_RTTOV_THREADS, &
+    H08_MEAN_WRITE, &
+    H08_RTTOV_ITMAX, &
+    H08_OUT_TBB_NC, &
+    H08_OUT_ETBB_NC, &
+    H08_FORMAT_NC, &
+    H08_SIM_ALLG, &
+    H08_NOWDATE, &
+    H08_REJECT_LAND, &
+    H08_OUTFILE_BASENAME,&
+    H08_OBS_STD, &
+    H08_OBS_4D, &
+    H08_OBS_RECL, &
+    H08_HOMO_QC, &
+    H08_RTTOV_CLD, &
+    H08_RTTOV_MINQ_CTOP, &
+    H08_LIMIT_LEV, &
+    H08_RTTOV_CFRAC_CNST, &
+    H08_RTTOV_PROF_SHIFT, &
+    H08_RTTOV_KADD,       &
+    H08_RTTOV_RLX_HGT,    &
+    H08_RTTOV_CFRAC, &
+    H08_VLOCAL_CTOP, &
+    H08_BT_MIN, &
+    H08_BAND_USE, &
+    H08_AOEI, &
+    H08_AOEI_QC,&
+    H08_NPRED,&
+    H08_BIAS_SIMPLE, &
+    H08_BIAS_SIMPLE_CLR, &
+    H08_CLDERR_SIMPLE, &
+    H08_CA_THRES, &
+    H08_BIAS_CLEAR, &
+    H08_BIAS_CLOUD, &
+    H08_CLDERR_CLEAR, &
+    H08_CLDERR_CLOUD, &
+    H08_RTTOV_COEF_PATH, &
+    H08_VBC_PATH,&
+    H08_VBC_USE,&
+    H08_OBS_METHOD,&
+    H08_OBS_SWD_B,&
+    H08_OBS_AVE_NG,&
+    H08_OBS_AVE_OVERLAP, &
+    H08_OBS_THIN_LEV, &
+    H08_OBS_BUF_GRID, &
+    H08_CLD_THRS, &
+    H08_PQV_MIN_CMEM, &
+    H08_PQV, &
+    H08_PQV_OB_MAX, &
+    H08_PQV_PLEV, &
+    H08_PQV_QVERR
+
+  rewind(IO_FID_CONF)
+  read(IO_FID_CONF,nml=PARAM_LETKF_H08,iostat=ierr)
+  if (ierr < 0) then !--- missing
+    write(6,*) '[Warning] /PARAM_LETKF_H08/ is not found in namelist.'
+!    stop
+  elseif (ierr > 0) then !--- fatal error
+    write(6,*) '[Error] xxx Not appropriate names in namelist PARAM_LETKF_H08. Check!'
+    stop
+  endif
+
+  if(H08_OBS_STD)then
+    H08_OBS_RECL = 4 + NIRB_HIM8 + 1 ! standard deviation of Band 13
+  endif
+ 
+  if(H08_OBS_4D)then
+    H08_OBS_RECL = H08_OBS_RECL + 1 ! obs%dif for 4D LETKF
+  endif
+
+  if(H08_OBS_THIN_LEV < 1) then
+    H08_OBS_THIN_LEV = 1
+  endif
+
+  if(H08_OBS_AVE_NG < 0) then
+    H08_OBS_AVE_NG = 0
+  endif
+
+  if ((.not. H08_OBS_AVE_OVERLAP) .and. (H08_OBS_METHOD == 2)) then
+    H08_OBS_THIN_LEV = max(H08_OBS_THIN_LEV, 2*H08_OBS_AVE_NG)
+  endif
+
+  if (LOG_LEVEL >= 2) then
+    write(6, nml=PARAM_LETKF_H08)
+  end if
+
+  return
+end subroutine read_nml_letkf_h08
+
+!-------------------------------------------------------------------------------
 ! Replace the member notation in 'filename' with 'mem' (as an integer)
 !-------------------------------------------------------------------------------
 ! [INPUT]
