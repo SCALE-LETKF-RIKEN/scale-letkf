@@ -160,6 +160,7 @@ MODULE common_nml
   real(r_size) :: GROSS_ERROR_RADAR_REF = -1.0d0 ! < 0: same as GROSS_ERROR
   real(r_size) :: GROSS_ERROR_RADAR_VR = -1.0d0  ! < 0: same as GROSS_ERROR
   real(r_size) :: GROSS_ERROR_RADAR_PRH = -1.0d0 ! < 0: same as GROSS_ERROR
+  real(r_size) :: GROSS_ERROR_H08 = -1.0_r_size  ! < 0: same as GROSS_ERROR
   real(r_size) :: GROSS_ERROR_TCX = -1.0d0 ! debug ! < 0: same as GROSS_ERROR 
   real(r_size) :: GROSS_ERROR_TCY = -1.0d0 ! debug ! < 0: same as GROSS_ERROR
   real(r_size) :: GROSS_ERROR_TCP = -1.0d0 ! debug ! < 0: same as GROSS_ERROR
@@ -257,7 +258,7 @@ MODULE common_nml
   real(r_size) :: VAR_LOCAL_TC(nv3d+nv2d)        = 1.0d0
   real(r_size) :: VAR_LOCAL_RADAR_REF(nv3d+nv2d) = 1.0d0
   real(r_size) :: VAR_LOCAL_RADAR_VR(nv3d+nv2d)  = 1.0d0
-!  real(r_size) :: VAR_LOCAL_H08(nv3d+nv2d)       = 1.0d0
+  real(r_size) :: VAR_LOCAL_H08(nv3d+nv2d)       = 1.0_r_size
 
   !--- PARAM_LETKF_MONITOR
   logical :: DEPARTURE_STAT = .true.
@@ -446,6 +447,8 @@ MODULE common_nml
   real(r_size) :: OBSERR_TCY = 50.0d3 ! (m)
   real(r_size) :: OBSERR_TCP = 5.0d2 ! (Pa)
   real(r_size) :: OBSERR_PQ = 0.001d0
+  real(r_size) :: OBSERR_H08(NIRB_HIM8) = (/3.0d0,3.0d0,3.0d0,3.0d0,3.0d0,&
+                                            3.0d0,3.0d0,3.0d0,3.0d0,3.0d0/) 
 
   !--- PARAM_OBSSIM
   character(filelenmax) :: OBSSIM_IN_TYPE = 'history'
@@ -746,6 +749,7 @@ subroutine read_nml_letkf
     GROSS_ERROR_RADAR_REF, &
     GROSS_ERROR_RADAR_VR, &
     GROSS_ERROR_RADAR_PRH, &
+    GROSS_ERROR_H08, &
     GROSS_ERROR_TCX, &
     GROSS_ERROR_TCY, &
     GROSS_ERROR_TCP, &
@@ -788,6 +792,9 @@ subroutine read_nml_letkf
   end if
   if (GROSS_ERROR_RADAR_PRH < 0.0d0) then
     GROSS_ERROR_RADAR_PRH = GROSS_ERROR
+  end if
+  if ( GROSS_ERROR_H08 < 0.0_r_size ) then
+    GROSS_ERROR_H08 = GROSS_ERROR
   end if
   if (GROSS_ERROR_TCX < 0.0d0) then
     GROSS_ERROR_TCX = GROSS_ERROR
@@ -961,7 +968,8 @@ subroutine read_nml_letkf_var_local
     VAR_LOCAL_RAIN, &
     VAR_LOCAL_TC, &
     VAR_LOCAL_RADAR_REF, &
-    VAR_LOCAL_RADAR_VR
+    VAR_LOCAL_RADAR_VR, &
+    VAR_LOCAL_H08
 
   rewind(IO_FID_CONF)
   read(IO_FID_CONF,nml=PARAM_LETKF_VAR_LOCAL,iostat=ierr)
@@ -1109,7 +1117,9 @@ subroutine read_nml_obs_error
     OBSERR_TCX, &
     OBSERR_TCY, &
     OBSERR_TCP, &
-    OBSERR_PQ
+    OBSERR_PQ,  &
+    OBSERR_Q,   &
+    OBSERR_H08
 
   rewind(IO_FID_CONF)
   read(IO_FID_CONF,nml=PARAM_OBS_ERROR,iostat=ierr)

@@ -81,6 +81,12 @@ MODULE letkf_obs
   real(r_size), allocatable :: obsdep(:)
 
 
+  integer :: mem_cld
+  integer :: ch_num 
+  real(r_size) :: std13
+  real(r_size) :: sig_b ! sigma_b for AOEI
+  real(r_size) :: sig_o ! sigma_o derived from AOEI
+
 CONTAINS
 !-----------------------------------------------------------------------
 ! Initialize
@@ -422,6 +428,52 @@ SUBROUTINE set_letkf_obs
 !    end if
 !!!###### end RADAR assimilation ######
 
+!!!###### Himawari-8 assimilation ###### ! H08
+    if (obs(iof)%elm(iidx) == id_H08IR_obs) then
+      ch_num = nint(obs(iof)%lev(iidx)) - 6
+      std13 = obs(iof)%err(iidx) ! negative err corresponds to std13
+
+      ! This tentative assignment is valid only within this subroutine
+      obs(iof)%err(iidx) = OBSERR_H08(ch_num)
+
+      ! -- Detect NaN in the original Himawari-8 observations
+      if (obs(iof)%dat(iidx) /= obs(iof)%dat(iidx)) then
+        obsda%qc(n) = iqc_obs_bad
+        cycle
+      end if
+
+      if (obs(iof)%dat(iidx) == undef) then
+        obsda%qc(n) = iqc_obs_bad
+        cycle
+      end if
+
+      if (H08_BAND_USE(ch_num) /= 1) then
+        obsda%qc(n) = iqc_obs_bad
+        cycle
+      end if
+
+      ! --  Homogeneity QC
+      if(H08_OBS_STD .and. abs(std13) > H08_HOMO_QC)then
+        obsda%qc(n) = iqc_obs_bad
+        cycle
+      endif
+
+      ! -- Reject Himawari-8 obs sensitivie above H08_LIMIT_LEV (Pa) ! H08 --
+      if (obsda%lev(n) < H08_LIMIT_LEV) then
+        obsda%qc(n) = iqc_obs_bad
+        cycle
+      endif
+
+      mem_cld = 0
+      do i = 1, MEMBER
+        if ( H08_CLD_THRS( ch_num ) > obsda%ensval(i,n) ) then
+          mem_cld = mem_cld + 1
+        endif
+      enddo
+    endif
+!!!###### end Himawari-8 assimilation ###### ! H08
+
+
     obsda%val(n) = obsda%ensval(1,n)
     DO i=2,MEMBER
       obsda%val(n) = obsda%val(n) + obsda%ensval(i,n)
@@ -436,6 +488,26 @@ SUBROUTINE set_letkf_obs
       obsda%ensval(mmdetobs,n) = obs(iof)%dat(iidx) - obsda%ensval(mmdetobs,n) ! y-Hx for deterministic run
     end if
 
+!   AOEI: compute sprd in obs space (sigma_b for AOEI) ! H08
+!   sig_o will be used in letkf_tools.f90
+
+    sig_b = 0.0d0 !H08
+    do i = 1, MEMBER
+      sig_b = sig_b + obsda%ensval(i,n) * obsda%ensval(i,n)
+    enddo
+    sig_b = dsqrt(sig_b / REAL(MEMBER-1,r_size))
+
+    ! AOEI
+    sig_o = dsqrt(max(obs(iof)%err(iidx)**2,obsda%val(n)**2 - obsda%val2(n)**2))
+
+    obsda%sprd(n) = sig_b ! Store background tbb spread for additive inflation
+    if ( H08_AOEI ) then
+      obsda%val2(n) = sig_o
+    else
+      sig_o = obsda%val(n)
+      ! if AOEI is not used,
+      ! obsda%val2 stores the ensemble mean of CA (Okamoto 2017QJRMS)
+    endif
 
     select case (obs(iof)%elm(iidx)) !gross error
     case (id_rain_obs)
@@ -485,6 +557,23 @@ SUBROUTINE set_letkf_obs
       IF(ABS(obsda%val(n)) > GROSS_ERROR_RADAR_PRH * obs(iof)%err(iidx)) THEN
         obsda%qc(n) = iqc_gross_err
       END IF
+    case (id_H08IR_obs)
+      if ( H08_AOEI .and. H08_AOEI_QC == 0 ) then
+        ! No Gross-error QC
+      elseif ( H08_PQV .and. obsda%qv(n) >= 0.0_r_size ) then
+        ! No QC for pseudo Qv obs
+      elseif ( H08_AOEI .and. H08_AOEI_QC == 1 ) then
+        if ( abs(obsda%val(n)) > GROSS_ERROR_H08 * OBSERR_H08(ch_num) ) then
+          obsda%qc(n) = iqc_gross_err
+        endif
+      else
+        if ( abs( obsda%val(n) ) > GROSS_ERROR_H08 * OBSERR_H08(ch_num)) then
+          obsda%qc(n) = iqc_gross_err
+        endif
+      endif
+      if ( obs(iof)%dat(iidx) < H08_BT_MIN ) then
+        obsda%qc(n) = iqc_gross_err
+      endif
     case default
       IF(ABS(obsda%val(n)) > GROSS_ERROR * obs(iof)%err(iidx)) THEN
         obsda%qc(n) = iqc_gross_err
@@ -1594,6 +1683,11 @@ subroutine setup_obsda_sort(nobs_sub,nobs_g,obsda_sort,efso_flag)
         obsbufs%ensval(1:nensobs_part,n) = obsda%ensval(im_obs_1:im_obs_2,obsda%key(n))
       end if
       obsbufs%qc(n) = obsda%qc(obsda%key(n))
+#IFDEF RTTOV
+      obsbufs%lev(n)  = obsda%lev(obsda%key(n))   
+      obsbufs%val2(n) = obsda%val2(obsda%key(n)) 
+      obsbufs%sprd(n) = obsda%sprd(obsda%key(n))  
+#ENDIF
     end do ! [ n = 1, nobs_sub(i_after_qc) ]
 
     if ( efso_flag_) then
@@ -1684,6 +1778,12 @@ subroutine setup_obsda_sort(nobs_sub,nobs_g,obsda_sort,efso_flag)
           obsda_sort%ensval(im_obs_1:im_obs_2,ns_ext:ne_ext) = obsbufr%ensval(1:nensobs_part,ns_bufr:ne_bufr)
         end if
         obsda_sort%qc(ns_ext:ne_ext) = obsbufr%qc(ns_bufr:ne_bufr)
+
+#IFDEF RTTOV
+        obsda_sort%lev(ns_ext:ne_ext)  = obsbufr%lev(ns_bufr:ne_bufr)   
+        obsda_sort%val2(ns_ext:ne_ext) = obsbufr%val2(ns_bufr:ne_bufr) 
+        obsda_sort%sprd(ns_ext:ne_ext) = obsbufr%sprd(ns_bufr:ne_bufr)
+#ENDIF
 
         if ( efso_flag_ ) then
           obsda_sort%qv(ns_ext:ne_ext) = obsbufr%qv(ns_bufr:ne_bufr)
