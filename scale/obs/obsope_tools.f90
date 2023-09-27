@@ -82,6 +82,17 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
   ! Dupilication detection
   integer :: nn2, oidx_prev
   integer :: iof_prev
+! -- for Himawari-8 obs --
+  real(r_size), allocatable :: yobs_H08(:,:,:), plev_obs_H08(:,:,:)
+  real(r_size), allocatable :: yobs_H08_clr(:,:,:)
+  real(r_size), allocatable :: yobs_H08_prep(:,:,:)
+  real(r_size), allocatable :: yobs_H08_clr_prep(:,:,:)
+
+  integer, allocatable :: qc_H08(:,:,:)
+  integer, allocatable :: qc_H08_prep(:,:,:)
+  real(r_size), allocatable :: zangle_H08(:,:)
+  integer :: i8, j8, b8
+  integer :: i, j, ch
 
 !-------------------------------------------------------------------------------
 
@@ -136,6 +147,18 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
       do ip = 2, nprocs_a
         dspr(ip) = dspr(ip-1) + cntr(ip-1)
       end do
+
+      if ( (OBS_IN_FORMAT(iof) == obsfmt_h08 ) .and. (.not. USE_HIM8) ) then
+        ! Himawari-8 radiance obs
+
+        USE_HIM8 = .true.
+        allocate( yobs_H08(nlon,nlat,NIRB_HIM8) )
+        allocate( yobs_H08_clr(nlon,nlat,NIRB_HIM8) )
+        allocate( yobs_H08_prep(nlon,nlat,NIRB_HIM8) )
+        allocate( yobs_H08_clr_prep(nlon,nlat,NIRB_HIM8) )
+
+        allocate( plev_obs_H08(nlon,nlat,NIRB_HIM8) )
+      endif
 
       obrank_bufs(:) = -1
 !$OMP PARALLEL DO PRIVATE(ibufs,n) SCHEDULE(STATIC)
@@ -412,6 +435,18 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
         write (timer_str, '(A30,I4,A7,I4,A2)') 'obsope_cal:read_ens_history(t=', it, ', slot=', islot, '):'
         call mpi_timer(trim(timer_str), 2)
 
+#IFDEF RTTOV
+        if ( USE_HIM8 .or. H08_OUT_ETBB_NC ) then
+          call Trans_XtoY_H08_allg(v3dg,v2dg,yobs_H08,yobs_H08_clr,&
+                                   plev_obs_H08,qc_H08,zangle_H08)
+
+          ! Him8 preprocess
+          call prep_Him8_mpi(yobs_H08,    yobs_H08_prep,    qc_lprep=qc_H08_prep)
+          call prep_Him8_mpi(yobs_H08_clr,yobs_H08_clr_prep)
+
+        endif
+#ENDIF
+
 !$omp parallel do private(nn,n,iof,ril,rjl,rk,rkz)
         do nn = n1, n2
           iof = obsda%set(nn)
@@ -473,6 +508,24 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
               !end if
               !!!!!!
             end if
+#IFDEF RTTOV
+          !=====================================================================
+          case (obsfmt_h08)
+          !---------------------------------------------------------------------
+            i8 = nint(ril-IHALO)
+            j8 = nint(rjl-JHALO)
+            b8 = nint(obs(iof)%lev(n))
+            obsda%val(nn) = yobs_H08_prep(i8,j8,b8-6)
+            obsda%lev(nn) = plev_obs_H08(i8,j8,b8-6)
+            obsda%qc(nn) = qc_H08_prep(i8,j8,b8-6)
+ 
+            if ( obs(iof)%dat(n) == undef) then
+              obsda%qc(nn) = iqc_obs_bad
+            endif
+
+            obsda%val2(nn) = (abs(yobs_H08_prep(i8,j8,b8-6) - yobs_H08_clr_prep(i8,j8,b8-6) )  &
+                              + abs(obs(iof)%dat(n) - yobs_H08_clr_prep(i8,j8,b8-6)) ) * 0.5d0
+#ENDIF
           end select
 
 

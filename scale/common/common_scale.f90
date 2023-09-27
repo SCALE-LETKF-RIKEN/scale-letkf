@@ -2222,5 +2222,124 @@ subroutine copy_scale_file(filename_in, filename_out)
   return
 end subroutine copy_scale_file
 
+subroutine write_Him8_nc(filename, tbb )
+  use netcdf
+  use common_ncio
+  use scale_atmos_grid_cartesC, only: &
+      GRID_CXG => ATMOS_GRID_CARTESC_CXG, &
+      GRID_CYG => ATMOS_GRID_CARTESC_CYG
+  use scale_atmos_grid_cartesC_index, only: &
+      IHALO, JHALO
+  use scale_mapprojection, only: &
+      MAPPROJECTION_xy2lonlat
+  use scale_mapprojection, only: &
+      MAPPROJECTION_xy2lonlat
+  use scale_const, only: &
+      CONST_D2R
+  implicit none
+
+  character(len=*), intent(in) :: filename
+  real, intent(in) :: tbb(nlong, nlatg, NIRB_HIM8) 
+
+  character(len=*), parameter :: TBB_NAME = "tbb"
+
+  character(len=*), parameter :: BAND_NAME = "band"
+
+  character(len=*), parameter :: X_NAME = "x"
+  character(len=*), parameter :: Y_NAME = "y"
+
+  character(len=*), parameter :: LAT_NAME = "lat"
+  character(len=*), parameter :: LON_NAME = "lon"
+
+  integer :: ncid
+  integer :: x_dimid, y_dimid, band_dimid
+  integer :: x_varid, y_varid, band_varid
+
+  integer :: lon_varid, lat_varid
+  integer :: tbb_varid
+
+  real(RP) :: lon2d(nlong, nlatg), lat2d(nlong,nlatg)
+  real(RP) :: r2d
+  real ::  bands(NIRB_HIM8)
+  integer :: i, j, ch
+
+  integer :: dimids(3)
+  integer :: start(3), count(3)
+
+  integer :: dimids2d(2)
+  integer :: start2d(2), count2d(2)
+
+  r2d = 1.0_RP / CONST_D2R
+
+  do j = 1, nlatg
+  do i = 1, nlong
+    call MAPPROJECTION_xy2lonlat( GRID_CXG(IHALO+i), GRID_CYG(JHALO+j), &
+                       lon2d(i,j), lat2d(i,j) )
+    lon2d(i,j) = lon2d(i,j) * r2d
+    lat2d(i,j) = lat2d(i,j) * r2d
+  enddo
+  enddo
+
+  do ch = 1, NIRB_HIM8
+    bands(ch) = real( ch + 6)
+  enddo
+
+  ! Create the file. 
+  call ncio_check( nf90_create(trim(filename), nf90_clobber, ncid) )
+
+  ! Define the dimensions. 
+  call ncio_check( nf90_def_dim(ncid, BAND_NAME, NIRB_HIM8, band_dimid) )
+  call ncio_check( nf90_def_dim(ncid, X_NAME, nlong, x_dimid) )
+  call ncio_check( nf90_def_dim(ncid, Y_NAME, nlatg, y_dimid) )
+
+  ! Define the coordinate variables. 
+  call ncio_check( nf90_def_var(ncid, BAND_NAME, NF90_REAL, band_dimid, band_varid) )
+  call ncio_check( nf90_def_var(ncid, X_NAME, NF90_REAL, x_dimid, x_varid) )
+  call ncio_check( nf90_def_var(ncid, Y_NAME, NF90_REAL, y_dimid, y_varid) )
+
+  ! Assign units attributes to coordinate variables.
+  call ncio_check( nf90_put_att( ncid, x_varid, "units", "m") )
+  call ncio_check( nf90_put_att( ncid, y_varid, "units", "m") )
+
+  dimids = (/ x_dimid, y_dimid, band_dimid /)
+  dimids2d = (/ x_dimid, y_dimid /)
+
+  ! Define the netCDF variables
+  call ncio_check( nf90_def_var( ncid, TBB_NAME, NF90_REAL, dimids,   tbb_varid) )
+  call ncio_check( nf90_def_var( ncid, LON_NAME, NF90_REAL, dimids2d, lon_varid) )
+  call ncio_check( nf90_def_var( ncid, LAT_NAME, NF90_REAL, dimids2d, lat_varid) )
+
+  call ncio_check( nf90_put_att( ncid, tbb_varid, "units", "K" ) )
+  call ncio_check( nf90_put_att( ncid, lon_varid, "units", "degrees_east"  ) )
+  call ncio_check( nf90_put_att( ncid, lat_varid, "units", "degrees_north" ) )
+
+  ! End define mode.
+  call ncio_check( nf90_enddef(ncid) )
+
+  ! Write the coordinate variable data. 
+  call ncio_check( nf90_put_var( ncid, y_varid, real( GRID_CYG(1+JHALO:nlatg+JHALO), kind=r_sngl) ) )
+  call ncio_check( nf90_put_var( ncid, x_varid, real( GRID_CXG(1+IHALO:nlong+IHALO), kind=r_sngl) ) )
+  call ncio_check( nf90_put_var( ncid, band_varid, bands ) )
+
+  count2d = (/ nlong, nlatg /)
+  start2d = (/ 1, 1 /)
+  call ncio_check( nf90_put_var( ncid, lat_varid, real( lat2d, kind=r_sngl), start=start2d, &
+                   count=count2d ) )
+  call ncio_check( nf90_put_var( ncid, lon_varid, real( lon2d, kind=r_sngl), start=start2d, &
+                   count=count2d ) )
+
+  count = (/ nlong, nlatg, NIRB_HIM8 /)
+  start = (/ 1, 1, 1 /)
+
+  ! Write the data.
+  call ncio_check( nf90_put_var(ncid, tbb_varid, tbb, start = start, &
+                   count = count) )
+
+  ! Close the file. 
+  call ncio_check( nf90_close(ncid) )
+
+  return
+end subroutine write_Him8_nc
+
 !===============================================================================
 END MODULE common_scale

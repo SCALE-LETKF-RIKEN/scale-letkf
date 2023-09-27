@@ -130,6 +130,16 @@ MODULE common_obs_scale
     REAL(r_size),ALLOCATABLE :: tm(:)    ! temp (mean)
     REAL(r_size),ALLOCATABLE :: pm(:)    ! pressure (mean)
     INTEGER,ALLOCATABLE :: qc(:)
+#IFDEF RTTOV
+    !
+    ! obsda%lev array is used only for Himawari-8 assimilation.
+    ! This array saves the most sensitive height derived from transmittance outputs from RTTOV.
+    ! For Himawari-8 assimilation, LETKF uses obsda%lev instead of obs%lev.
+    ! 
+    real(r_size), allocatable :: lev(:) ! Him8
+    real(r_size), allocatable :: val2(:) ! Him8 sigma_o for AOEI (not CA)
+    real(r_size), allocatable :: sprd(:) ! background spread
+#ENDIF
   END TYPE obs_da_value
 
   character(obsformatlenmax), parameter :: obsfmt_prepbufr = 'PREPBUFR'
