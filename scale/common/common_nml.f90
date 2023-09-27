@@ -352,7 +352,6 @@ MODULE common_nml
   character(filelenmax) :: H08_RTTOV_COEF_PATH = '.'
   character(filelenmax) :: H08_VBC_PATH = '.'
   character(filelenmax) :: H08_OUTFILE_BASENAME = 'him8'
-  logical :: H08_FORMAT_NC = .false.
   logical :: H08_SIM_ALLG = .true. ! Him8 sim by using ensemble mean
   logical :: H08_OBS_STD = .true.
   logical :: H08_OBS_4D = .false.
@@ -1190,7 +1189,6 @@ subroutine read_nml_letkf_h08
     H08_RTTOV_ITMAX, &
     H08_OUT_TBB_NC, &
     H08_OUT_ETBB_NC, &
-    H08_FORMAT_NC, &
     H08_SIM_ALLG, &
     H08_NOWDATE, &
     H08_REJECT_LAND, &
