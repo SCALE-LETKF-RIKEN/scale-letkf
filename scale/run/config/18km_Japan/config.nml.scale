@@ -376,13 +376,9 @@ ATMOS_PHY_BL_RESTART_IN_BASENAME="",
 
 &HISTORY_ITEM name='T'    / ! LETKF
 &HISTORY_ITEM name='PRES' / ! LETKF
-&HISTORY_ITEM name='U'    / ! LETKF
-&HISTORY_ITEM name='V'    / ! LETKF
+&HISTORY_ITEM name='Umet'    / ! LETKF
+&HISTORY_ITEM name='Vmet'    / ! LETKF
 &HISTORY_ITEM name='W'    / ! LETKF
-&HISTORY_ITEM name='RH'   / ! LETKF (not analyzed)
-
-&HISTORY_ITEM name='Umet'    / 
-&HISTORY_ITEM name='Vmet'    / 
 
 
 &HISTORY_ITEM name='PREC', taverage=.true. /
@@ -392,8 +388,8 @@ ATMOS_PHY_BL_RESTART_IN_BASENAME="",
 &HISTORY_ITEM name='SFC_PRES'   / ! LETKF (not analyzed)
 &HISTORY_ITEM name='SFC_TEMP'   / ! LETKF (not analyzed)
 
-&HISTORY_ITEM name='U10' / ! LETKF (not analyzed)
-&HISTORY_ITEM name='V10' / ! LETKF (not analyzed)
+&HISTORY_ITEM name='U10m' / ! LETKF (not analyzed)
+&HISTORY_ITEM name='V10m' / ! LETKF (not analyzed)
 &HISTORY_ITEM name='T2'  / ! Nesting/LETKF (not analyzed)
 &HISTORY_ITEM name='Q2'  / ! LETKF (not analyzed)
 &HISTORY_ITEM name="MSLP" / ! Nesting

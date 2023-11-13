@@ -114,6 +114,8 @@ MODULE common_nml
   character(filelenmax) :: EFSO_FCST_FROM_ANAL_BASENAME = 'anal.@@@@'
   character(filelenmax) :: EFSO_EFCST_FROM_ANAL_BASENAME = 'anal.@@@@'
 
+  logical :: FILL_BY_ZERO_MISSING_VARAIBLES = .false.
+
   logical :: EFSO_USE_MOIST_ENERGY = .true.
 
   real(r_size) :: INFL_MUL = 1.0d0           ! >  0: globally constant covariance inflation
@@ -628,6 +630,7 @@ subroutine read_nml_letkf
     PS_ADJUST_THRES, &
     NOBS_OUT, &
     NOBS_OUT_BASENAME, &
+    FILL_BY_ZERO_MISSING_VARAIBLES, &
     !*** for backward compatibility ***
     COV_INFL_MUL, &
     MIN_INFL_MUL, &
