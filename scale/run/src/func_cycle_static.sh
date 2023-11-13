@@ -99,10 +99,10 @@ fi
 # database
 
 cat >> ${STAGING_DIR}/${STGINLIST_CONSTDB} << EOF
-${SCALEDIR}/scale-rm/test/data/rad|dat/rad
-${SCALEDIR}/scale-rm/test/data/land|dat/land
-${SCALEDIR}/scale-rm/test/data/urban|dat/urban
-${SCALEDIR}/scale-rm/test/data/lightning|dat/lightning
+${SCALEDIR}/data/rad|dat/rad
+${SCALEDIR}/data/land|dat/land
+${SCALEDIR}/data/urban|dat/urban
+${SCALEDIR}/data/lightning|dat/lightning
 EOF
 
 if [ "${SOUNDING}" != "" ] ; then
@@ -131,10 +131,10 @@ cp ${LETKF_DIR}/efso ${TMPROOT}/efso
 # database
 
 mkdir -p ${TMPROOT}/dat
-cp -r ${SCALEDIR}/scale-rm/test/data/rad ${TMPROOT}/dat/rad
-cp -r ${SCALEDIR}/scale-rm/test/data/land ${TMPROOT}/dat/land
-cp -r ${SCALEDIR}/scale-rm/test/data/urban ${TMPROOT}/dat/urban
-cp -r ${SCALEDIR}/scale-rm/test/data/lightning ${TMPROOT}/dat/lightning
+cp -r ${SCALEDIR}/data/rad ${TMPROOT}/dat/rad
+cp -r ${SCALEDIR}/data/land ${TMPROOT}/dat/land
+cp -r ${SCALEDIR}/data/urban ${TMPROOT}/dat/urban
+cp -r ${SCALEDIR}/data/lightning ${TMPROOT}/dat/lightning
 
 if [ "${SOUNDING}" != "" ] ; then
   cp ${SOUNDING} ${TMPROOT}/dat/
@@ -736,13 +736,21 @@ while ((time <= ETIME)); do
       BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time/bdy
 
       CONSTDB_PATH=$SCALEDIR/scale-rm/test/data
-      if [ $PRESET == 'FUGAKU' ] && (( BDY_LLIO_TMP == 1 )) ; then
-        if ((BDY_ENS ==1));then
-          BOUNDARY_PATH[$d]=/local/$time/bdy
-        else
-          BOUNDARY_PATH[$d]=/share/$time/bdy
+
+      if [ $PRESET = 'FUGAKU' ] ; then
+
+        CONSTDB_PATH=$TMPROOT_CONSTDB/dat
+
+        if (( BDY_LLIO_TMP == 1 )) ; then
+          if ((BDY_ENS ==1));then
+            BOUNDARY_PATH[$d]=/local/$time/bdy
+          else
+            BOUNDARY_PATH[$d]=/share/$time/bdy
+          fi
         fi
+
       fi
+
     fi
 
     if ((BDY_ROTATING == 1 || ${bdy_times[1]} != time_bdy_start_prev)); then
@@ -813,12 +821,17 @@ while ((time <= ETIME)); do
       BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time/bdy
 
       CONSTDB_PATH=$SCALEDIR/scale-rm/test/data
-      if [ $PRESET == 'FUGAKU' ] && (( BDY_LLIO_TMP == 1 )) ; then
-        if ((BDY_ENS ==1));then
-          BOUNDARY_PATH[$d]=/local/$time/bdy
-        else
-          BOUNDARY_PATH[$d]=/share/$time/bdy
+      if [ $PRESET = 'FUGAKU' ] ; then
+
+        CONSTDB_PATH=$TMPROOT_CONSTDB/dat
+        if (( BDY_LLIO_TMP == 1 )) ; then
+          if ((BDY_ENS ==1));then
+            BOUNDARY_PATH[$d]=/local/$time/bdy
+          else
+            BOUNDARY_PATH[$d]=/share/$time/bdy
+          fi
         fi
+
       fi
 
     fi
@@ -1287,6 +1300,7 @@ config_file_scale_core (){
               -e "/!--TIME_DT_OCEAN_RESTART--/a TIME_DT_OCEAN_RESTART = ${LCYCLE}.D0," \
               -e "/!--TIME_DT_LAND_RESTART--/a TIME_DT_LAND_RESTART = ${LCYCLE}.D0," \
               -e "/!--TIME_DT_URBAN_RESTART--/a TIME_DT_URBAN_RESTART = ${LCYCLE}.D0," \
+              -e "/!--TIME_END_RESTART_OUT--/a TIME_END_RESTART_OUT = ${TIME_END_RESTART_OUT_TF}," \
               -e "/!--ONLINE_DOMAIN_NUM--/a ONLINE_DOMAIN_NUM = ${d}," \
               -e "/!--ONLINE_IAM_PARENT--/a ONLINE_IAM_PARENT = ${ONLINE_IAM_PARENT}," \
               -e "/!--ONLINE_IAM_DAUGHTER--/a ONLINE_IAM_DAUGHTER = ${ONLINE_IAM_DAUGHTER}," \
