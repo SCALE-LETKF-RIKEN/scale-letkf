@@ -109,9 +109,9 @@ program scaleles_pp_ens
                             .false.,          & ! [IN]
                             COLOR_REORDER,    & ! [IN]
                             local_comm,       & ! [OUT]
-                            idom,             & ! [OUT]
-                            intercomm_parent, & ! [OUT]           
-                            intercomm_child )   ! [OUT]
+                            idom)!,             & ! [OUT]
+                            !intercomm_parent, & ! [OUT]           
+                            !intercomm_child )   ! [OUT]
 
     do it = 1, nitmax
       im = myrank_to_mem(it)
@@ -135,9 +135,12 @@ program scaleles_pp_ens
                                    idom              ) ! [IN]
 
         call rm_prep ( local_comm,       &
-                       intercomm_parent, &
-                       intercomm_child,  &
-                       trim(confname)  )
+                       trim(confname),   &
+                       "",               &
+                       .false.  )
+                       !intercomm_parent, &
+                       !intercomm_child,  &
+                       !trim(confname)  )
       end if
     end do ! [ it = 1, nitmax ]
 
