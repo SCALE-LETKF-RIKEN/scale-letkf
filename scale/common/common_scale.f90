@@ -85,7 +85,7 @@ MODULE common_scale
      (/.true., .true., .true., .true., .true., &
        .true., .true., .true., .true., .true., .true., .false./)
   CHARACTER(vname_max),PARAMETER :: v2dd_name(nv2dd) = &
-     (/'topo      ', 'SFC_PRES  ', 'PREC      ', 'U10       ', 'V10       ', 'T2        ', 'Q2        '/)
+     (/'topo      ', 'SFC_PRES  ', 'PREC      ', 'U10m      ', 'V10m      ', 'T2        ', 'Q2        '/)
   LOGICAL,PARAMETER :: v2dd_hastime(nv2dd) = &
      (/.false., .true., .true., .true., .true., .true., .true./)
 
