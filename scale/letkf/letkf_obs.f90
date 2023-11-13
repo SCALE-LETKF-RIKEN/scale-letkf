@@ -429,6 +429,7 @@ SUBROUTINE set_letkf_obs
 !!!###### end RADAR assimilation ######
 
 !!!###### Himawari-8 assimilation ###### ! H08
+#IFDEF RTTOV
     if (obs(iof)%elm(iidx) == id_H08IR_obs) then
       ch_num = nint(obs(iof)%lev(iidx)) - 6
       std13 = obs(iof)%err(iidx) ! negative err corresponds to std13
@@ -471,6 +472,7 @@ SUBROUTINE set_letkf_obs
         endif
       enddo
     endif
+#ENDIF
 !!!###### end Himawari-8 assimilation ###### ! H08
 
 
@@ -497,6 +499,7 @@ SUBROUTINE set_letkf_obs
     enddo
     sig_b = dsqrt(sig_b / REAL(MEMBER-1,r_size))
 
+#IFDEF RTTOV
     ! AOEI
     sig_o = dsqrt(max(obs(iof)%err(iidx)**2,obsda%val(n)**2 - obsda%val2(n)**2))
 
@@ -508,6 +511,7 @@ SUBROUTINE set_letkf_obs
       ! if AOEI is not used,
       ! obsda%val2 stores the ensemble mean of CA (Okamoto 2017QJRMS)
     endif
+#ENDIF
 
     select case (obs(iof)%elm(iidx)) !gross error
     case (id_rain_obs)
