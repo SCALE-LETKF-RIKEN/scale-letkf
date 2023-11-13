@@ -269,6 +269,10 @@ while ((time <= ETIME)); do
 
       nodestr=proc
 
+      if [ "$PRESET" = 'FUGAKU' ] ; then
+        logd=${logd}/%/200r
+      fi
+
       for it in $(seq $nit); do
         echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: start" >&2
 

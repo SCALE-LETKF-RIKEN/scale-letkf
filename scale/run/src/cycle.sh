@@ -358,6 +358,9 @@ while ((time <= ETIME)); do
         conf_time=$atime
       fi
 
+      if [ "$PRESET" = 'FUGAKU' ] ; then
+        logd=${logd}/%/200r
+      fi
 
 #      logd=/worktmp
       for it in $(seq $nit); do
