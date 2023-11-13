@@ -372,8 +372,8 @@ SUBROUTINE read_restart(filename,v3dg,v2dg)
                                  start = (/ ks, is, js, 1 /),    &
                                  count = (/ KMAX, IMAX, JMAX, 1 /)))
     else
-      write(6,'(A,A15,A)') " 3D var ", trim(v3d_name(iv3d))," not found. skipped."
-      v3dg(:,:,:,iv3d) = 0.0
+      write(6,'(A,A15,A)') " 3D var ", trim(v3d_name(iv3d))," not found. stop!"
+      stop
     end if
 !    call ncio_check(nf90_inq_varid(ncid, trim(v3d_name(iv3d)), varid))
 !    call ncio_check(nf90_get_var(ncid, varid, v3dg(:,:,:,iv3d), &
@@ -391,8 +391,8 @@ SUBROUTINE read_restart(filename,v3dg,v2dg)
                                  start = (/ is, js, 1 /),     &
                                  count = (/ IMAX, JMAX, 1 /)))
     else
-      write(6,'(A,A15,A)') " 2D var ", trim(v3d_name(iv3d))," not found. skipped."
-      v2dg(:,:,iv3d) = 0.0
+      write(6,'(A,A15,A)') " 2D var ", trim(v3d_name(iv3d))," not found. stop!"
+      stop
     end if
 !    call ncio_check(nf90_inq_varid(ncid, trim(v2d_name(iv2d)), varid))
 !    call ncio_check(nf90_get_var(ncid, varid, v2dg(:,:,iv2d), &
@@ -640,7 +640,8 @@ SUBROUTINE write_restart(filename,v3dg,v2dg)
                                  start = (/ ks, is, js, 1 /),    &
                                  count = (/ KMAX, IMAX, JMAX, 1 /)))
     else
-      write(6,'(A,A15,A)') " 3D var ", trim(v3d_name(iv3d))," not found. skipped."
+      write(6,'(A,A15,A)') " 3D var ", trim(v3d_name(iv3d))," not found. stop!"
+      stop
     end if
 !    call ncio_check(nf90_inq_varid(ncid, trim(v3d_name(iv3d)), varid))
 !    call ncio_check(nf90_put_var(ncid, varid, v3dg(:,:,:,iv3d), &
@@ -660,7 +661,8 @@ SUBROUTINE write_restart(filename,v3dg,v2dg)
                                  start = (/ is, js, 1 /),     &
                                  count = (/ IMAX, JMAX, 1 /)))
     else
-      write(6,'(A,A15,A)') " 2D var ", trim(v3d_name(iv3d))," not found. skipped."
+      write(6,'(A,A15,A)') " 2D var ", trim(v3d_name(iv3d))," not found. stop!"
+      stop
     end if
 !    call ncio_check(nf90_inq_varid(ncid, trim(v2d_name(iv2d)), varid))
 !    call ncio_check(nf90_put_var(ncid, varid, v2dg(:,:,iv2d), &
@@ -1025,8 +1027,8 @@ subroutine read_history(filename,step,v3dg,v2dg)
                     rankid=PRC_myrank,     & ! [IN]
                     step=step_             ) ! [IN]
     else
-      write(6,'(A,A15,A)') " 3D var ", trim(v3dd_name(iv3d))," not found. skipped."
-      var3D = 0.0
+      write(6,'(A,A15,A)') " 3D var ", trim(v3dd_name(iv3d))," not found. stop!"
+      stop
     end if
 
     forall (i=1:nlon, j=1:nlat, k=1:nlev) v3dg_RP(k+KHALO,i+IHALO,j+JHALO,iv3d) = var3D(i,j,k) ! use FORALL to change order of dimensions
@@ -1057,8 +1059,8 @@ subroutine read_history(filename,step,v3dg,v2dg)
                     rankid=PRC_myrank,     & ! [IN]
                     step=step_             ) ! [IN]
     else
-      write(6,'(A,A15,A)') " 2D var ", trim(v2dd_name(iv2d))," not found. skipped."
-      var2D = 0.0
+      write(6,'(A,A15,A)') " 2D var ", trim(v2dd_name(iv2d))," not found. stop!"
+      stop
     end if
 
 
