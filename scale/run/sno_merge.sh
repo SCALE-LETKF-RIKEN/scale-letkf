@@ -226,7 +226,7 @@ if [ "$PRESET" = 'FUGAKU' ]; then
 #    SNO_NODE=12
 #  fi
 
-  CVOLUME=$(pwd | cut -d "/" -f 2) # current volume (e.g., /vol0X0Y or /vol000X)
+  CVOLUME=$(realpath $(pwd) | cut -d "/" -f 2) # current volume (e.g., /vol0X0Y or /vol000X)
   NUM_VOLUME=${CVOLUME:4:1} # get number of current volume 
 
   if [ "$NUM_VOLUME" = "0" ] ; then
