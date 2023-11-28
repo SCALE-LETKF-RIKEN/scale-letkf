@@ -22,12 +22,10 @@ MODULE common
 #else
   INTEGER,PARAMETER :: r_size=r_dble
 #endif
-#ifdef KEVD
 #ifdef SINGLE_EVP
   integer, parameter :: RP_EVP = r_sngl
 #else
   integer, parameter :: RP_EVP = r_dble
-#endif
 #endif
 !-----------------------------------------------------------------------
 ! Constants

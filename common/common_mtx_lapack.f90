@@ -62,18 +62,18 @@ contains
     implicit none
 
     integer, intent(in)  :: n
-    real(r_size), intent(in)  :: a    (n,n)
-    real(r_size), intent(out) :: eival(n)
-    real(r_size), intent(out) :: eivec(n,n)
+    real(RP_EVP), intent(in)  :: a    (n,n)
+    real(RP_EVP), intent(out) :: eival(n)
+    real(RP_EVP), intent(out) :: eivec(n,n)
 
-    real(r_size) :: b    (lda,n)
-    real(r_size) :: w    (lda)
-    real(r_size) :: work (lwork)
+    real(RP_EVP) :: b    (lda,n)
+    real(RP_EVP) :: w    (lda)
+    real(RP_EVP) :: work (lwork)
     integer      :: iwork(liwork)
 
     integer :: nrank_eff
 
-    real(r_size) :: eival_inc
+    real(RP_EVP) :: eival_inc
 
     integer, parameter :: simdlen = 64
     integer :: iblk, jblk
@@ -100,7 +100,7 @@ contains
        enddo
     enddo
 
-#ifdef SINGLELETKF
+#ifdef SINGLE_EVP
     call ssyevd ("V","L",n,b,lda,w,work,lwork,iwork,liwork,ierr)
 #else
     call dsyevd ("V","L",n,b,lda,w,work,lwork,iwork,liwork,ierr)
@@ -136,7 +136,7 @@ contains
           enddo
        enddo
 
-#ifdef SINGLELETKF
+#ifdef SINGLE_EVP
        call ssyev ("V","L",n,b,lda,w,work,lwork,ierr)
 #else
        call dsyev ("V","L",n,b,lda,w,work,lwork,ierr)
