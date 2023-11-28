@@ -128,7 +128,7 @@ SUBROUTINE letkf_core(ne,nobs,nobsl,hdxb,rdiag,rloc,dep,parm_infl,trans,transm,p
 !-----------------------------------------------------------------------
 !  hdxb^T Rinv hdxb
 !-----------------------------------------------------------------------
-#ifdef SINGLELETKF
+#ifdef SINGLE_LETKF
   CALL sgemm('t','n',ne,ne,nobsl,1.0e0,hdxb_rinv,nobsl,hdxb(1:nobsl,:),&
     & nobsl,0.0e0,work1,ne)
 #else
@@ -169,7 +169,7 @@ SUBROUTINE letkf_core(ne,nobs,nobsl,hdxb,rdiag,rloc,dep,parm_infl,trans,transm,p
       work1(i,j) = eivec(i,j) / eival(j)
     END DO
   END DO
-#ifdef SINGLELETKF
+#ifdef SINGLE_LETKF
   CALL sgemm('n','t',ne,ne,ne,1.0e0,work1,ne,eivec,&
     & ne,0.0e0,pa,ne)
 #else
@@ -187,7 +187,7 @@ SUBROUTINE letkf_core(ne,nobs,nobsl,hdxb,rdiag,rloc,dep,parm_infl,trans,transm,p
 !-----------------------------------------------------------------------
 !  hdxb_rinv^T dep
 !-----------------------------------------------------------------------
-#ifdef SINGLELETKF
+#ifdef SINGLE_LETKF
   call sgemv('t',nobsl,ne,1.0e0,hdxb_rinv,nobsl,dep,1,0.0e0,work2,1)
 #else
   call dgemv('t',nobsl,ne,1.0d0,hdxb_rinv,nobsl,dep,1,0.0d0,work2,1)
@@ -195,14 +195,14 @@ SUBROUTINE letkf_core(ne,nobs,nobsl,hdxb,rdiag,rloc,dep,parm_infl,trans,transm,p
 !-----------------------------------------------------------------------
 !  Pa hdxb_rinv^T dep
 !-----------------------------------------------------------------------
-#ifdef SINGLELETKF
+#ifdef SINGLE_LETKF
   call sgemv('n',ne,ne,1.0e0,pa,ne,work2,1,0.0e0,work3,1)
 #else
   call dgemv('n',ne,ne,1.0d0,pa,ne,work2,1,0.0d0,work3,1)
 #endif
 
   IF (PRESENT(depd) .AND. PRESENT(transmd)) THEN 
-#ifdef SINGLELETKF
+#ifdef SINGLE_LETKF
     call sgemv('t',nobsl,ne,1.0e0,hdxb_rinv,nobsl,depd,1,0.0e0,work2d,1)
     call sgemv('n',ne,ne,1.0e0,pa,ne,work2d,1,0.0e0,transmd,1)
 #else
@@ -220,7 +220,7 @@ SUBROUTINE letkf_core(ne,nobs,nobsl,hdxb,rdiag,rloc,dep,parm_infl,trans,transm,p
       work1(i,j) = eivec(i,j) * rho
     END DO
   END DO
-#ifdef SINGLELETKF
+#ifdef SINGLE_LETKF
   CALL sgemm('n','t',ne,ne,ne,1.0e0,work1,ne,eivec,&
     & ne,0.0e0,trans,ne)
 #else

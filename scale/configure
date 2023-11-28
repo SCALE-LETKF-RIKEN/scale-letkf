@@ -26,7 +26,7 @@ FOPTS     += -DSCALEUV
 endif
 
 ifeq ($(LETKF_SINGLE_FP),T)
-FOPTS     += -DSINGLELETKF
+FOPTS     += -DSINGLE_LETKF
 endif
 
 ifeq ($(LETKF_DEBUG),T)
