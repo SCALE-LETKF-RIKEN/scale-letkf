@@ -658,6 +658,7 @@ fi
 
 
 mkdir -p ${OUTDIR[$d]}/score
+mkdir -p ${OUTDIR[$d]}/obsdep
 
 time=$STIME
 atime=$(datetime $time $LCYCLE s)
@@ -940,19 +941,17 @@ while ((time <= ETIME)); do
  
     rm -rf ${OUTDIR[$d]}/$atime/log/letkf
     rm -rf ${OUTDIR[$d]}/$atime/log/efso
-    rm -rf ${OUTDIR[$d]}/$atime/obs
     mkdir -p ${OUTDIR[$d]}/$atime/log/letkf
     mkdir -p ${OUTDIR[$d]}/$atime/log/efso
-    mkdir -p ${OUTDIR[$d]}/$atime/obs
 
     OBSDEP_OUT_TF=".false."
     OBSDEP_OUT_NC_TF=".false."
     OBSANAL_OUT_TF=".false."
     if (( OBSOUT_OPT < 4 )) ; then
       OBSDEP_OUT_TF=".true."
-      OBSDEP_OUT_BASENAME="${OUTDIR[$d]}/$atime/obs/obsdep"
+      OBSDEP_OUT_BASENAME="${OUTDIR[$d]}/obsdep/obsdep_${atime}"
     fi
-    OBSDEP_IN_BASENAME="${OUTDIR[$d]}/$time/obs/obsdep" # EFSO
+    OBSDEP_IN_BASENAME="${OUTDIR[$d]}/obsdep/obs/obsdep_${time}" # EFSO
     DEPARTURE_STAT_OUT_BASENAME="${OUTDIR[$d]}/score/score_${atime}"
     OBSNUM_OUT_NC_BASENAME="${OUTDIR[$d]}/score/obsnum_${atime}"
     OBSANAL_IN_BASENAME="${OUTDIR[$d]}/${time}/obs"
