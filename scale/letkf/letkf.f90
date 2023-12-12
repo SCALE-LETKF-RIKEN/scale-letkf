@@ -225,6 +225,10 @@ PROGRAM letkf
 ! Finalize
 !-----------------------------------------------------------------------
 
+  if ( myrank == 0 ) then
+    write(6,'(a)') 'letkf finished sucessfully'
+  endif
+
   call finalize_mpi_scale
 
   STOP
