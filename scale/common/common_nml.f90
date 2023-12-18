@@ -161,6 +161,8 @@ MODULE common_nml
   logical :: NOBS_OUT = .false.
   character(filelenmax) :: NOBS_OUT_BASENAME = 'nobs'
 
+  logical :: REJECT_ADPSFC_EXCEPT_PS = .false.
+
   !*** for backward compatibility ***
   real(r_size) :: COV_INFL_MUL = 1.0d0
   real(r_size) :: MIN_INFL_MUL = 0.0d0
@@ -631,6 +633,7 @@ subroutine read_nml_letkf
     NOBS_OUT, &
     NOBS_OUT_BASENAME, &
     FILL_BY_ZERO_MISSING_VARAIBLES, &
+    REJECT_ADPSFC_EXCEPT_PS, &
     !*** for backward compatibility ***
     COV_INFL_MUL, &
     MIN_INFL_MUL, &
