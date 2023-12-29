@@ -67,4 +67,4 @@ IF(RADAR_OBS_4D) THEN
 
 ```
 
-At the beginning of the file, three 4-byte floating point real values are recorded. They are latitude, longitude, elevation (m) of the radar location, respectively.  
+At the beginning of the file, three 4-byte floating point real values are recorded. They are longtitude, latitude, elevation (m) of the radar location, respectively.  
