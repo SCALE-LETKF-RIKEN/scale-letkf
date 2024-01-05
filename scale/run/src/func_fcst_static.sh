@@ -503,6 +503,7 @@ if [ "$TOPO_FORMAT" = "GTOPO30" ] || [ "$TOPO_FORMAT" = "DEM50M" ] || [ "$LANDUS
   mkdir -p $OUTDIR/const/landuse
   config_file_scale_launcher fcst fcst_scale-rm_pp_ens "f<member>/pp" 1
   OFFLINE_PARENT_BASENAME=
+  DOMAIN_CATALOGUE_OUTPUT=".true."
 
   if ((BDY_FORMAT == 1)); then
     if ((DISK_MODE >= 1)); then
@@ -563,6 +564,8 @@ if [ "$TOPO_FORMAT" = "GTOPO30" ] || [ "$TOPO_FORMAT" = "DEM50M" ] || [ "$LANDUS
                -e "/!--OFFLINE_PARENT_BASENAME--/a OFFLINE_PARENT_BASENAME = \"${OFFLINE_PARENT_BASENAME}\"," \
                -e "/!--OFFLINE_PARENT_PRC_NUM_X--/a OFFLINE_PARENT_PRC_NUM_X = ${DATA_BDY_SCALE_PRC_NUM_X}," \
                -e "/!--OFFLINE_PARENT_PRC_NUM_Y--/a OFFLINE_PARENT_PRC_NUM_Y = ${DATA_BDY_SCALE_PRC_NUM_Y}," \
+               -e "/!--DOMAIN_CATALOGUE_FNAME--/a DOMAIN_CATALOGUE_FNAME = \"${OUTDIR}/const/log/latlon_domain_catalogue.txt\"," \
+               -e "/!--DOMAIN_CATALOGUE_OUTPUT--/a DOMAIN_CATALOGUE_OUTPUT = ${DOMAIN_CATALOGUE_OUTPUT}," \
           )"
    mkdir -p $TMP/f$(printf $MEMBER_FMT 1)
    conf_file="$TMP/f$(printf $MEMBER_FMT 1)/pp.d01_${STIME}.conf"
