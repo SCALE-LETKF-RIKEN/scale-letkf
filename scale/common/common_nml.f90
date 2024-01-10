@@ -344,7 +344,7 @@ MODULE common_nml
   integer :: RADAR_ADDITIVE_Y18_MINMEM = 0 ! If the number of precipitating members is smaller than this threshold, use Y18 method
 
   !---PARAM_LETKF_HIM
-  integer, parameter :: NIRB_HIM8 = 10     ! HIM Num of Himawari-8 (IR) bands
+  integer, parameter :: NIRB_HIM = 10     ! HIM Num of Himawari-8/9 (IR) bands
   integer :: HIM_RTTOV_THREADS = 1
   logical :: HIM_MEAN_WRITE = .true.
   integer :: HIM_RTTOV_ITMAX = 1
@@ -356,7 +356,7 @@ MODULE common_nml
   logical :: HIM_SIM_ALLG = .true. ! Him8 sim by using ensemble mean
   logical :: HIM_OBS_STD = .true.
   logical :: HIM_OBS_4D = .false.
-  integer :: HIM_OBS_RECL = 4 + NIRB_HIM8 ! obstype, obsid, lon, lat, + dat(NIRB_HIM8)
+  integer :: HIM_OBS_RECL = 4 + NIRB_HIM ! obstype, obsid, lon, lat, + dat(NIRB_HIM8)
   real(r_size) :: HIM_HOMO_QC = 2.0d0 ! (K) threshold of the standard deviation (band 13) for the homogeneity QC
   integer :: HIM_NOWDATE(6) = (/0,1,1,0,0,0/)
   logical :: HIM_REJECT_LAND = .false. ! true: reject Himawari-8 radiance over the land
@@ -397,17 +397,17 @@ MODULE common_nml
   !!
   ! Constant values for band 9 are based on Honda et al. (2017 submitted to MWR)
   real(r_size) :: HIM_CA_THRES = 1.0d0 ! Threshhold of CA
-  real(r_size) :: HIM_BIAS_CLEAR(NIRB_HIM8) =  (/0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0, &
+  real(r_size) :: HIM_BIAS_CLEAR(NIRB_HIM) =  (/0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0, &
                                            0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0/) ! Constant bias for clear sky conditions
-  real(r_size) :: HIM_BIAS_CLOUD(NIRB_HIM8) = (/0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0, &
+  real(r_size) :: HIM_BIAS_CLOUD(NIRB_HIM) = (/0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0, &
                                           0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0/) ! Constant bias for cloudy sky conditions
   
-  real(r_size) :: HIM_CLDERR_CLEAR(NIRB_HIM8) =  (/3.0d0, 3.0d0, 3.0d0, 3.0d0, 3.0d0, &
+  real(r_size) :: HIM_CLDERR_CLEAR(NIRB_HIM) =  (/3.0d0, 3.0d0, 3.0d0, 3.0d0, 3.0d0, &
                                            3.0d0, 3.0d0, 3.0d0, 3.0d0, 3.0d0/) ! Constant obs err for clear sky conditions
-  real(r_size) :: HIM_CLDERR_CLOUD(NIRB_HIM8) = (/3.0d0, 3.0d0, 3.0d0, 3.0d0, 3.0d0, &
+  real(r_size) :: HIM_CLDERR_CLOUD(NIRB_HIM) = (/3.0d0, 3.0d0, 3.0d0, 3.0d0, 3.0d0, &
                                           3.0d0, 3.0d0, 3.0d0, 3.0d0, 3.0d0/) ! Constant obs err for cloudy sky conditions
 
-  integer :: HIM_BAND_USE(NIRB_HIM8) = (/0,0,1,0,0,0,0,0,0,0/)
+  integer :: HIM_BAND_USE(NIRB_HIM) = (/0,0,1,0,0,0,0,0,0,0/)
                         !! ch = (1,2,3,4,5,6,7,8,9,10)
                         !! (B07,B08,B09,B10,B11,B12,B13,B14,B15,B16)
                         !! ==1: Assimilate
@@ -425,7 +425,7 @@ MODULE common_nml
   logical :: use_him = .true. ! ! will be overwritten from obsope_tools.f90
   integer :: HIM_OBS_BUF_GRID = 20 ! Lateral # of grids where Him8 obs are not used
 
-  real(r_size) :: HIM_CLD_THRS(NIRB_HIM8) = (/300.0d0, 232.5d0, 243.5d0, 256.5d0, 300.0d0, &
+  real(r_size) :: HIM_CLD_THRS(NIRB_HIM) = (/300.0d0, 232.5d0, 243.5d0, 256.5d0, 300.0d0, &
                                               300.0d0, 295.5d0, 300.0d0, 300.0d0, 300.0d0/) ! Threshold tbb btw clear & cloudy skies
   integer :: HIM_PQV_MIN_CMEM = 0 ! Minumim # of cloudy members
   logical :: HIM_PQV = .false. ! Assimilate as pseudo qv if # of cloudy members < HIM_PQV_MIN_CMEM and O-B < HIM_PQV_OB_MAX
@@ -447,7 +447,7 @@ MODULE common_nml
   real(r_size) :: OBSERR_TCY = 50.0d3 ! (m)
   real(r_size) :: OBSERR_TCP = 5.0d2 ! (Pa)
   real(r_size) :: OBSERR_PQ = 0.001d0
-  real(r_size) :: OBSERR_HIM(NIRB_HIM8) = (/3.0d0,3.0d0,3.0d0,3.0d0,3.0d0,&
+  real(r_size) :: OBSERR_HIM(NIRB_HIM) = (/3.0d0,3.0d0,3.0d0,3.0d0,3.0d0,&
                                             3.0d0,3.0d0,3.0d0,3.0d0,3.0d0/) 
 
   !--- PARAM_OBSSIM
@@ -1256,7 +1256,7 @@ subroutine read_nml_letkf_h08
   endif
 
   if(HIM_OBS_STD)then
-    HIM_OBS_RECL = 4 + NIRB_HIM8 + 1 ! standard deviation of Band 13
+    HIM_OBS_RECL = 4 + NIRB_HIM + 1 ! standard deviation of Band 13
   endif
  
   if(HIM_OBS_4D)then

@@ -152,12 +152,12 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
         ! Himawari-8 radiance obs
 
         use_him = .true.
-        allocate( yobs_HIM(nlon,nlat,NIRB_HIM8) )
-        allocate( yobs_HIM_clr(nlon,nlat,NIRB_HIM8) )
-        allocate( yobs_HIM_prep(nlon,nlat,NIRB_HIM8) )
-        allocate( yobs_HIM_clr_prep(nlon,nlat,NIRB_HIM8) )
+        allocate( yobs_HIM(nlon,nlat,NIRB_HIM) )
+        allocate( yobs_HIM_clr(nlon,nlat,NIRB_HIM) )
+        allocate( yobs_HIM_prep(nlon,nlat,NIRB_HIM) )
+        allocate( yobs_HIM_clr_prep(nlon,nlat,NIRB_HIM) )
 
-        allocate( plev_obs_HIM(nlon,nlat,NIRB_HIM8) )
+        allocate( plev_obs_HIM(nlon,nlat,NIRB_HIM) )
       endif
 
       obrank_bufs(:) = -1

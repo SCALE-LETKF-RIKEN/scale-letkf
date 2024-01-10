@@ -2822,21 +2822,21 @@ end subroutine copy_restart4mean_and_gues
 subroutine prep_Him8_mpi(tbb_l,tbb_lprep,qc_lprep)
   implicit none
 
-  real(r_size),intent(in) :: tbb_l(nlon,nlat,NIRB_HIM8) ! superobs tbb (local)
-  real(r_size),intent(out) :: tbb_lprep(nlon,nlat,NIRB_HIM8) ! superobs tbb (local) after preprocess
-  integer,intent(out),optional :: qc_lprep(nlon,nlat,NIRB_HIM8) ! QC flag (local) after preprocess
+  real(r_size),intent(in) :: tbb_l(nlon,nlat,NIRB_HIM) ! superobs tbb (local)
+  real(r_size),intent(out) :: tbb_lprep(nlon,nlat,NIRB_HIM) ! superobs tbb (local) after preprocess
+  integer,intent(out),optional :: qc_lprep(nlon,nlat,NIRB_HIM) ! QC flag (local) after preprocess
 
-  integer :: qc_gprep(nlong,nlatg,NIRB_HIM8) ! QC flag (local) after preprocess
+  integer :: qc_gprep(nlong,nlatg,NIRB_HIM) ! QC flag (local) after preprocess
 
-  real(r_size) :: tbb_g(nlong,nlatg,NIRB_HIM8) ! superobs tbb (global)
-  real(r_size) :: tbb_gprep(nlong,nlatg,NIRB_HIM8) ! superobs tbb (global) after preprocess
+  real(r_size) :: tbb_g(nlong,nlatg,NIRB_HIM) ! superobs tbb (global)
+  real(r_size) :: tbb_gprep(nlong,nlatg,NIRB_HIM) ! superobs tbb (global) after preprocess
 
   integer ierr
 
   integer :: proc_i, proc_j
   integer :: ishift, jshift
 
-  real(r_size) :: bufs8(nlong,nlatg,NIRB_HIM8)
+  real(r_size) :: bufs8(nlong,nlatg,NIRB_HIM)
 
 
   ! Gatther Him8 obs simulated in each subdomain
@@ -2845,17 +2845,17 @@ subroutine prep_Him8_mpi(tbb_l,tbb_lprep,qc_lprep)
   jshift = proc_j * nlat
 
   bufs8(:,:,:) = 0.0d0
-  bufs8(1+ishift:nlon+ishift, 1+jshift:nlat+jshift,1:NIRB_HIM8) = tbb_l(:,:,:)
-  call MPI_ALLREDUCE(MPI_IN_PLACE, bufs8, nlong*nlatg*NIRB_HIM8, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
+  bufs8(1+ishift:nlon+ishift, 1+jshift:nlat+jshift,1:NIRB_HIM) = tbb_l(:,:,:)
+  call MPI_ALLREDUCE(MPI_IN_PLACE, bufs8, nlong*nlatg*NIRB_HIM, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
   tbb_g(:,:,:) = bufs8(:,:,:)
 
 
   call allgHim82obs(tbb_g,tbb_gprep,qc_allg_prep=qc_gprep)
   if (present(qc_lprep)) then
-    qc_lprep = qc_gprep(1+ishift:nlon+ishift,1+jshift:nlat+jshift,1:NIRB_HIM8)
+    qc_lprep = qc_gprep(1+ishift:nlon+ishift,1+jshift:nlat+jshift,1:NIRB_HIM)
   endif
 
-  tbb_lprep(1:nlon,1:nlat,1:NIRB_HIM8) = tbb_gprep(1+ishift:nlon+ishift,1+jshift:nlat+jshift,1:NIRB_HIM8)
+  tbb_lprep(1:nlon,1:nlat,1:NIRB_HIM) = tbb_gprep(1+ishift:nlon+ishift,1+jshift:nlat+jshift,1:NIRB_HIM)
 
   return
 end subroutine prep_Him8_mpi
@@ -2870,9 +2870,9 @@ subroutine read_Him8_mpi(filename,obs)
 
   real(r_sngl),allocatable :: tbb_org(:,:,:)
   real(r_sngl),allocatable :: lon_him8(:), lat_him8(:)
-  real(r_size) :: tbb_sobs_l(nlon,nlat,NIRB_HIM8) ! superobs tbb (local)
-  real(r_size) :: tbb_sobs(nlong,nlatg,NIRB_HIM8) ! superobs tbb (global)
-  real(r_size) :: tbb_sobs_prep(nlong,nlatg,NIRB_HIM8) ! superobs tbb (global) after preprocess
+  real(r_size) :: tbb_sobs_l(nlon,nlat,NIRB_HIM) ! superobs tbb (local)
+  real(r_size) :: tbb_sobs(nlong,nlatg,NIRB_HIM) ! superobs tbb (global)
+  real(r_size) :: tbb_sobs_prep(nlong,nlatg,NIRB_HIM) ! superobs tbb (global) after preprocess
 
   integer ierr
   integer :: iunit, irec
@@ -2881,7 +2881,7 @@ subroutine read_Him8_mpi(filename,obs)
   integer :: proc_i, proc_j
   integer :: ishift, jshift
 
-  real(r_size) :: bufs8(nlong,nlatg,NIRB_HIM8)
+  real(r_size) :: bufs8(nlong,nlatg,NIRB_HIM)
 
   if (myrank_a == 0) then
     call get_dim_Him8_nc(filename,imax_him8,jmax_him8)
@@ -2890,7 +2890,7 @@ subroutine read_Him8_mpi(filename,obs)
   call MPI_BCAST(imax_him8, 1, MPI_INTEGER, 0, MPI_COMM_d, ierr)
   call MPI_BCAST(jmax_him8, 1, MPI_INTEGER, 0, MPI_COMM_d, ierr)
 
-  allocate(tbb_org(imax_him8,jmax_him8,NIRB_HIM8))
+  allocate(tbb_org(imax_him8,jmax_him8,NIRB_HIM))
   allocate(lon_him8(imax_him8))
   allocate(lat_him8(jmax_him8))
 
@@ -2902,7 +2902,7 @@ subroutine read_Him8_mpi(filename,obs)
     call read_Him8_nc(filename,imax_him8,jmax_him8,lon_him8,lat_him8,tbb_org)
   endif
 
-  call MPI_BCAST(tbb_org, imax_him8*jmax_him8*NIRB_HIM8, MPI_REAL, 0, MPI_COMM_d, ierr)
+  call MPI_BCAST(tbb_org, imax_him8*jmax_him8*NIRB_HIM, MPI_REAL, 0, MPI_COMM_d, ierr)
   call MPI_BCAST(lon_him8, imax_him8, MPI_REAL, 0, MPI_COMM_d, ierr)
   call MPI_BCAST(lat_him8, jmax_him8, MPI_REAL, 0, MPI_COMM_d, ierr)
 
@@ -2915,8 +2915,8 @@ subroutine read_Him8_mpi(filename,obs)
   ishift = proc_i * nlon
   jshift = proc_j * nlat
 
-  bufs8(1+ishift:nlon+ishift, 1+jshift:nlat+jshift,1:NIRB_HIM8) = tbb_sobs_l(:,:,:)
-  call MPI_ALLREDUCE(MPI_IN_PLACE, bufs8, nlong*nlatg*NIRB_HIM8, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
+  bufs8(1+ishift:nlon+ishift, 1+jshift:nlat+jshift,1:NIRB_HIM) = tbb_sobs_l(:,:,:)
+  call MPI_ALLREDUCE(MPI_IN_PLACE, bufs8, nlong*nlatg*NIRB_HIM, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
   tbb_sobs = bufs8
 
   if (myrank_d == 0) then
@@ -2938,11 +2938,11 @@ subroutine read_Him8_mpi(filename,obs)
       open( unit=iunit, file=trim(HIM_OUTFILE_BASENAME)//"_sobs.dat", &
             form='unformatted',access='direct', &
             status='unknown', recl=nlong*nlatg*4 )
-      do ch = 1, NIRB_HIM8
+      do ch = 1, NIRB_HIM
         irec = irec + 1
         write(iunit,rec=irec) real(tbb_sobs(:,:,ch),kind=r_sngl)
       enddo
-      do ch = 1, NIRB_HIM8
+      do ch = 1, NIRB_HIM
         irec = irec + 1
         write(iunit,rec=irec) real(tbb_sobs_prep(:,:,ch),kind=r_sngl)
       enddo
@@ -2972,19 +2972,19 @@ end subroutine read_Him8_mpi
 subroutine write_Him8_mpi( tbb_l, tbb_clr_l, step )
   implicit none
 
-  real, intent(in) :: tbb_l(nlon,nlat,NIRB_HIM8)
-  real, optional, intent(in) :: tbb_clr_l(nlon,nlat,NIRB_HIM8)
-!  real, optional, intent(in) :: tbb_lm(nlon,nlat,NIRB_HIM8)
-!  real(r_size) :: tbb_lprep(nlon,nlat,NIRB_HIM8)
-!  real(r_size) :: tbb_gprep(nlong,nlatg,NIRB_HIM8)
+  real, intent(in) :: tbb_l(nlon,nlat,NIRB_HIM)
+  real, optional, intent(in) :: tbb_clr_l(nlon,nlat,NIRB_HIM)
+!  real, optional, intent(in) :: tbb_lm(nlon,nlat,NIRB_HIM)
+!  real(r_size) :: tbb_lprep(nlon,nlat,NIRB_HIM)
+!  real(r_size) :: tbb_gprep(nlong,nlatg,NIRB_HIM)
   integer, optional, intent(in) :: step
 
   character(filelenmax) :: filename
   character(4) :: foot
 
-  real :: tbb_g(nlong,nlatg,NIRB_HIM8)
-  real :: tbb_clr_g(nlong,nlatg,NIRB_HIM8)
-  real :: bufs4(nlong,nlatg,NIRB_HIM8)
+  real :: tbb_g(nlong,nlatg,NIRB_HIM)
+  real :: tbb_clr_g(nlong,nlatg,NIRB_HIM)
+  real :: bufs4(nlong,nlatg,NIRB_HIM)
 
   integer :: proc_i, proc_j
   integer :: ishift, jshift
@@ -3005,7 +3005,7 @@ subroutine write_Him8_mpi( tbb_l, tbb_clr_l, step )
 
   bufs4(:,:,:) = 0.0
   bufs4(1+ishift:nlon+ishift, 1+jshift:nlat+jshift,:) = tbb_l(:,:,:)
-  call MPI_ALLREDUCE( MPI_IN_PLACE, bufs4, nlong*nlatg*NIRB_HIM8, MPI_REAL, MPI_SUM, &
+  call MPI_ALLREDUCE( MPI_IN_PLACE, bufs4, nlong*nlatg*NIRB_HIM, MPI_REAL, MPI_SUM, &
                       MPI_COMM_d, ierr)
   tbb_g = bufs4
 
@@ -3014,7 +3014,7 @@ subroutine write_Him8_mpi( tbb_l, tbb_clr_l, step )
     bufs4(1+ishift:nlon+ishift, 1+jshift:nlat+jshift,:) = real( tbb_clr_l(:,:,:), kind=r_sngl )
 !  else
 !    bufs4(1+ishift:nlon+ishift, 1+jshift:nlat+jshift,:) = real( tbb_lprep(:,:,:), kind=r_sngl )
-    call MPI_ALLREDUCE( MPI_IN_PLACE, bufs4, nlong*nlatg*NIRB_HIM8, MPI_REAL, MPI_SUM, &
+    call MPI_ALLREDUCE( MPI_IN_PLACE, bufs4, nlong*nlatg*NIRB_HIM, MPI_REAL, MPI_SUM, &
                         MPI_COMM_d, ierr)
   endif
   tbb_clr_g = bufs4
@@ -3042,11 +3042,11 @@ subroutine write_Him8_mpi( tbb_l, tbb_clr_l, step )
       open( unit=iunit, file=trim(filename) // trim(foot), form='unformatted', &
             access='direct', &
             status='unknown', recl=nlong*nlatg*4)
-      do ch = 1, NIRB_HIM8
+      do ch = 1, NIRB_HIM
         irec = irec + 1
         write(iunit,rec=irec) tbb_g(:,:,ch)
       enddo
-      do ch = 1, NIRB_HIM8
+      do ch = 1, NIRB_HIM
         irec = irec + 1
         write(iunit,rec=irec) tbb_clr_g(:,:,ch)
       enddo

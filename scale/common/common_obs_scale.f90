@@ -3585,7 +3585,7 @@ subroutine read_Him8_nc(filename,imax_him8,jmax_him8,lon_him8,lat_him8,tbb)
 
   real(r_sngl),intent(out) :: lon_him8(imax_him8)
   real(r_sngl),intent(out) :: lat_him8(jmax_him8)
-  real(r_sngl),intent(out) :: tbb(imax_him8,jmax_him8,NIRB_HIM8)
+  real(r_sngl),intent(out) :: tbb(imax_him8,jmax_him8,NIRB_HIM)
 
   call ncio_open(trim(filename), NF90_NOWRITE, ncid)
 
@@ -3599,7 +3599,7 @@ subroutine read_Him8_nc(filename,imax_him8,jmax_him8,lon_him8,lat_him8,tbb)
 
   call ncio_check(nf90_inq_varid(ncid, 'tbb', varid))
   call ncio_check(nf90_get_var(ncid, varid, tbb, &
-                               start = (/ 1, 1, 1 /), count = (/ imax_him8, jmax_him8, NIRB_HIM8 /)))
+                               start = (/ 1, 1, 1 /), count = (/ imax_him8, jmax_him8, NIRB_HIM /)))
 
   call ncio_close(ncid)
 
@@ -3621,9 +3621,9 @@ subroutine sobs_Him8(imax_him8,jmax_him8,lon_him8,lat_him8,tbb_org,tbb_sobs)
 
   real(r_sngl),intent(in) :: lon_him8(imax_him8)
   real(r_sngl),intent(in) :: lat_him8(jmax_him8)
-  real(r_sngl),intent(in) :: tbb_org(imax_him8,jmax_him8,NIRB_HIM8)
+  real(r_sngl),intent(in) :: tbb_org(imax_him8,jmax_him8,NIRB_HIM)
 
-  real(r_size),intent(out) :: tbb_sobs(nlon,nlat,NIRB_HIM8)
+  real(r_size),intent(out) :: tbb_sobs(nlon,nlat,NIRB_HIM)
 
   real(RP) :: ri_RP, rj_RP
   real(RP) :: ri_tmp_RP(2), rj_tmp_RP(2)  
@@ -3681,14 +3681,14 @@ subroutine sobs_Him8(imax_him8,jmax_him8,lon_him8,lat_him8,tbb_org,tbb_sobs)
       if (minval(tbb_org(ii,jj,:)) < 0.0) cycle ! undef
       cnt = cnt + 1
 
-      do k = 1, NIRB_HIM8
+      do k = 1, NIRB_HIM
         tbb_sobs(i,j,k) = tbb_sobs(i,j,k) + real(tbb_org(ii,jj,k),kind=r_size)
       enddo
     enddo
     enddo
    
     if (cnt > 0) then
-      do k = 1, NIRB_HIM8
+      do k = 1, NIRB_HIM
         tbb_sobs(i,j,k) = tbb_sobs(i,j,k) / real(cnt,kind=r_size)
       enddo
     else
@@ -3740,7 +3740,7 @@ subroutine get_nobs_allgHim8(nobs)
   integer, intent(out) :: nobs
   integer :: i, j
 
-  nobs = int( nlong / HIM_OBS_THIN_LEV ) * int( nlatg / HIM_OBS_THIN_LEV ) * NIRB_HIM8
+  nobs = int( nlong / HIM_OBS_THIN_LEV ) * int( nlatg / HIM_OBS_THIN_LEV ) * NIRB_HIM
 
   return
 end subroutine get_nobs_allgHim8
@@ -3756,16 +3756,16 @@ subroutine allgHim82obs(tbb_allg,tbb_allg_prep,qc_allg_prep,obsdat,obslon,obslat
       MAPPROJECTION_xy2lonlat
   implicit none
 
-  real(r_size),intent(in) :: tbb_allg(nlong,nlatg,NIRB_HIM8)
-  real(r_size),intent(out) :: tbb_allg_prep(nlong,nlatg,NIRB_HIM8)
+  real(r_size),intent(in) :: tbb_allg(nlong,nlatg,NIRB_HIM)
+  real(r_size),intent(out) :: tbb_allg_prep(nlong,nlatg,NIRB_HIM)
 
-  integer,intent(out),optional :: qc_allg_prep(nlong,nlatg,NIRB_HIM8)
+  integer,intent(out),optional :: qc_allg_prep(nlong,nlatg,NIRB_HIM)
 
-  real(r_size), intent(out), optional :: obsdat( int(nlong/HIM_OBS_THIN_LEV)*int(nlatg/HIM_OBS_THIN_LEV)*NIRB_HIM8 )
-  real(r_size), intent(out), optional :: obslon( int(nlong/HIM_OBS_THIN_LEV)*int(nlatg/HIM_OBS_THIN_LEV)*NIRB_HIM8 )
-  real(r_size), intent(out), optional :: obslat( int(nlong/HIM_OBS_THIN_LEV)*int(nlatg/HIM_OBS_THIN_LEV)*NIRB_HIM8 )
-  real(r_size), intent(out), optional :: obslev( int(nlong/HIM_OBS_THIN_LEV)*int(nlatg/HIM_OBS_THIN_LEV)*NIRB_HIM8 )
-  real(r_size), intent(out), optional :: obserr( int(nlong/HIM_OBS_THIN_LEV)*int(nlatg/HIM_OBS_THIN_LEV)*NIRB_HIM8 )
+  real(r_size), intent(out), optional :: obsdat( int(nlong/HIM_OBS_THIN_LEV)*int(nlatg/HIM_OBS_THIN_LEV)*NIRB_HIM )
+  real(r_size), intent(out), optional :: obslon( int(nlong/HIM_OBS_THIN_LEV)*int(nlatg/HIM_OBS_THIN_LEV)*NIRB_HIM )
+  real(r_size), intent(out), optional :: obslat( int(nlong/HIM_OBS_THIN_LEV)*int(nlatg/HIM_OBS_THIN_LEV)*NIRB_HIM )
+  real(r_size), intent(out), optional :: obslev( int(nlong/HIM_OBS_THIN_LEV)*int(nlatg/HIM_OBS_THIN_LEV)*NIRB_HIM )
+  real(r_size), intent(out), optional :: obserr( int(nlong/HIM_OBS_THIN_LEV)*int(nlatg/HIM_OBS_THIN_LEV)*NIRB_HIM )
 
   real(RP) :: ril_RP, rjl_RP
   real(RP) :: lon_RP, lat_RP
@@ -3806,7 +3806,7 @@ subroutine allgHim82obs(tbb_allg,tbb_allg_prep,qc_allg_prep,obsdat,obslon,obslat
                                     (rjl_RP - 1.0_RP) * DY + CYG(1), lon_RP, lat_RP )
     endif
 
-    do ch = 1, NIRB_HIM8
+    do ch = 1, NIRB_HIM
 
       select case(HIM_OBS_METHOD)
       case(1) ! simple thinning
@@ -3932,16 +3932,16 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,yobs_clr,mwgt_plev2d,qc,zenith1d,stg
   real(r_size) :: azm
 
 ! -- brightness temp from RTTOV
-  REAL(r_size) :: btall_out(NIRB_HIM8,nlon*nlat) ! NOTE: RTTOV always calculates all (10) channels!!
-  REAL(r_size) :: btclr_out(NIRB_HIM8,nlon*nlat) ! NOTE: RTTOV always calculates all (10) channels!!
+  REAL(r_size) :: btall_out(NIRB_HIM,nlon*nlat) ! NOTE: RTTOV always calculates all (10) channels!!
+  REAL(r_size) :: btclr_out(NIRB_HIM,nlon*nlat) ! NOTE: RTTOV always calculates all (10) channels!!
 ! -- cloud top height
   REAL(r_size) :: ctop_out1d(nlon*nlat) 
 
-  REAL(r_size),INTENT(OUT) :: yobs(nlon,nlat,NIRB_HIM8)
-  REAL(r_size),INTENT(OUT) :: yobs_clr(nlon,nlat,NIRB_HIM8)
-  REAL(r_size),INTENT(OUT) :: mwgt_plev2d(nlon,nlat,NIRB_HIM8)
-  INTEGER,INTENT(OUT) :: qc(nlon,nlat,NIRB_HIM8)
-  REAL(r_size) :: mwgt_plev1d(NIRB_HIM8,nlon*nlat)
+  REAL(r_size),INTENT(OUT) :: yobs(nlon,nlat,NIRB_HIM)
+  REAL(r_size),INTENT(OUT) :: yobs_clr(nlon,nlat,NIRB_HIM)
+  REAL(r_size),INTENT(OUT) :: mwgt_plev2d(nlon,nlat,NIRB_HIM)
+  INTEGER,INTENT(OUT) :: qc(nlon,nlat,NIRB_HIM)
+  REAL(r_size) :: mwgt_plev1d(NIRB_HIM,nlon*nlat)
 
   REAL(r_size) :: utmp, vtmp ! U10m & V10m tmp for rotation
   real(r_size) :: lon_tmp(1,1), lat_tmp(1,1)
@@ -4087,7 +4087,7 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,yobs_clr,mwgt_plev2d,qc,zenith1d,stg
   
     if ( it == HIM_RTTOV_ITMAX ) npe = max( npe, nlon*nlat )
 
-    CALL rttov13_fwd_ir(NIRB_HIM8, & ! num of channels
+    CALL rttov13_fwd_ir(NIRB_HIM, & ! num of channels
                          KMAX,& ! num of levels
                          npe-nps+1, & ! num of profs
                          prs2d(:,nps:npe),& ! (Pa)
@@ -4121,7 +4121,7 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,yobs_clr,mwgt_plev2d,qc,zenith1d,stg
   do i = 1, nlon
     np = (j - 1) * nlon + i
 
-    do ch = 1, NIRB_HIM8
+    do ch = 1, NIRB_HIM
       qc(i,j,ch) = iqc_good
       yobs(i,j,ch) = btall_out(ch,np)
       yobs_clr(i,j,ch) = btclr_out(ch,np)

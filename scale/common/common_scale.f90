@@ -2239,7 +2239,7 @@ subroutine write_Him8_nc(filename, tbb )
   implicit none
 
   character(len=*), intent(in) :: filename
-  real, intent(in) :: tbb(nlong, nlatg, NIRB_HIM8) 
+  real, intent(in) :: tbb(nlong, nlatg, NIRB_HIM) 
 
   character(len=*), parameter :: TBB_NAME = "tbb"
 
@@ -2260,7 +2260,7 @@ subroutine write_Him8_nc(filename, tbb )
 
   real(RP) :: lon2d(nlong, nlatg), lat2d(nlong,nlatg)
   real(RP) :: r2d
-  real ::  bands(NIRB_HIM8)
+  real ::  bands(NIRB_HIM)
   integer :: i, j, ch
 
   integer :: dimids(3)
@@ -2280,7 +2280,7 @@ subroutine write_Him8_nc(filename, tbb )
   enddo
   enddo
 
-  do ch = 1, NIRB_HIM8
+  do ch = 1, NIRB_HIM
     bands(ch) = real( ch + 6)
   enddo
 
@@ -2288,7 +2288,7 @@ subroutine write_Him8_nc(filename, tbb )
   call ncio_check( nf90_create(trim(filename), nf90_clobber, ncid) )
 
   ! Define the dimensions. 
-  call ncio_check( nf90_def_dim(ncid, BAND_NAME, NIRB_HIM8, band_dimid) )
+  call ncio_check( nf90_def_dim(ncid, BAND_NAME, NIRB_HIM, band_dimid) )
   call ncio_check( nf90_def_dim(ncid, X_NAME, nlong, x_dimid) )
   call ncio_check( nf90_def_dim(ncid, Y_NAME, nlatg, y_dimid) )
 
@@ -2328,7 +2328,7 @@ subroutine write_Him8_nc(filename, tbb )
   call ncio_check( nf90_put_var( ncid, lon_varid, real( lon2d, kind=r_sngl), start=start2d, &
                    count=count2d ) )
 
-  count = (/ nlong, nlatg, NIRB_HIM8 /)
+  count = (/ nlong, nlatg, NIRB_HIM /)
   start = (/ 1, 1, 1 /)
 
   ! Write the data.
