@@ -83,14 +83,14 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
   integer :: nn2, oidx_prev
   integer :: iof_prev
 ! -- for Himawari-8 obs --
-  real(r_size), allocatable :: yobs_H08(:,:,:), plev_obs_H08(:,:,:)
-  real(r_size), allocatable :: yobs_H08_clr(:,:,:)
-  real(r_size), allocatable :: yobs_H08_prep(:,:,:)
-  real(r_size), allocatable :: yobs_H08_clr_prep(:,:,:)
+  real(r_size), allocatable :: yobs_HIM(:,:,:), plev_obs_HIM(:,:,:)
+  real(r_size), allocatable :: yobs_HIM_clr(:,:,:)
+  real(r_size), allocatable :: yobs_HIM_prep(:,:,:)
+  real(r_size), allocatable :: yobs_HIM_clr_prep(:,:,:)
 
-  integer, allocatable :: qc_H08(:,:,:)
-  integer, allocatable :: qc_H08_prep(:,:,:)
-  real(r_size), allocatable :: zangle_H08(:,:)
+  integer, allocatable :: qc_HIM(:,:,:)
+  integer, allocatable :: qc_HIM_prep(:,:,:)
+  real(r_size), allocatable :: zangle_HIM(:,:)
   integer :: i8, j8, b8
   integer :: i, j, ch
 
@@ -148,16 +148,16 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
         dspr(ip) = dspr(ip-1) + cntr(ip-1)
       end do
 
-      if ( (OBS_IN_FORMAT(iof) == obsfmt_h08 ) .and. (.not. USE_HIM8) ) then
+      if ( (OBS_IN_FORMAT(iof) == obsfmt_him ) .and. (.not. use_him ) ) then
         ! Himawari-8 radiance obs
 
-        USE_HIM8 = .true.
-        allocate( yobs_H08(nlon,nlat,NIRB_HIM8) )
-        allocate( yobs_H08_clr(nlon,nlat,NIRB_HIM8) )
-        allocate( yobs_H08_prep(nlon,nlat,NIRB_HIM8) )
-        allocate( yobs_H08_clr_prep(nlon,nlat,NIRB_HIM8) )
+        use_him = .true.
+        allocate( yobs_HIM(nlon,nlat,NIRB_HIM8) )
+        allocate( yobs_HIM_clr(nlon,nlat,NIRB_HIM8) )
+        allocate( yobs_HIM_prep(nlon,nlat,NIRB_HIM8) )
+        allocate( yobs_HIM_clr_prep(nlon,nlat,NIRB_HIM8) )
 
-        allocate( plev_obs_H08(nlon,nlat,NIRB_HIM8) )
+        allocate( plev_obs_HIM(nlon,nlat,NIRB_HIM8) )
       endif
 
       obrank_bufs(:) = -1
@@ -436,13 +436,13 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
         call mpi_timer(trim(timer_str), 2)
 
 #IFDEF RTTOV
-        if ( USE_HIM8 .or. H08_OUT_ETBB_NC ) then
-          call Trans_XtoY_H08_allg(v3dg,v2dg,yobs_H08,yobs_H08_clr,&
-                                   plev_obs_H08,qc_H08,zangle_H08)
+        if ( use_him .or. HIM_OUT_ETBB_NC ) then
+          call Trans_XtoY_HIM_allg(v3dg,v2dg,yobs_HIM,yobs_HIM_clr,&
+                                   plev_obs_HIM,qc_HIM,zangle_HIM)
 
           ! Him8 preprocess
-          call prep_Him8_mpi(yobs_H08,    yobs_H08_prep,    qc_lprep=qc_H08_prep)
-          call prep_Him8_mpi(yobs_H08_clr,yobs_H08_clr_prep)
+          call prep_Him8_mpi(yobs_HIM,    yobs_HIM_prep,    qc_lprep=qc_HIM_prep)
+          call prep_Him8_mpi(yobs_HIM_clr,yobs_HIM_clr_prep)
 
         endif
 #ENDIF
@@ -510,21 +510,21 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
             end if
 #IFDEF RTTOV
           !=====================================================================
-          case (obsfmt_h08)
+          case (obsfmt_him)
           !---------------------------------------------------------------------
             i8 = nint(ril-IHALO)
             j8 = nint(rjl-JHALO)
             b8 = nint(obs(iof)%lev(n))
-            obsda%val(nn) = yobs_H08_prep(i8,j8,b8-6)
-            obsda%lev(nn) = plev_obs_H08(i8,j8,b8-6)
-            obsda%qc(nn) = qc_H08_prep(i8,j8,b8-6)
+            obsda%val(nn) = yobs_HIM_prep(i8,j8,b8-6)
+            obsda%lev(nn) = plev_obs_HIM(i8,j8,b8-6)
+            obsda%qc(nn) = qc_HIM_prep(i8,j8,b8-6)
  
             if ( obs(iof)%dat(n) == undef) then
               obsda%qc(nn) = iqc_obs_bad
             endif
 
-            obsda%val2(nn) = (abs(yobs_H08_prep(i8,j8,b8-6) - yobs_H08_clr_prep(i8,j8,b8-6) )  &
-                              + abs(obs(iof)%dat(n) - yobs_H08_clr_prep(i8,j8,b8-6)) ) * 0.5d0
+            obsda%val2(nn) = (abs(yobs_HIM_prep(i8,j8,b8-6) - yobs_HIM_clr_prep(i8,j8,b8-6) )  &
+                              + abs(obs(iof)%dat(n) - yobs_HIM_clr_prep(i8,j8,b8-6)) ) * 0.5d0
 #ENDIF
           end select
 

@@ -2921,12 +2921,12 @@ subroutine read_Him8_mpi(filename,obs)
 
   if (myrank_d == 0) then
     ! it would be better to enable multiple processes in the following subroutine
-    if ( H08_OUT_TBB_NC ) then
-      call write_Him8_nc( trim(H08_OUTFILE_BASENAME)//"_sobs.nc", &
+    if ( HIM_OUT_TBB_NC ) then
+      call write_Him8_nc( trim(HIM_OUTFILE_BASENAME)//"_sobs.nc", &
                           real( tbb_sobs, kind=r_sngl) )
 
       if ( present( obs ) ) then
-        call write_Him8_nc( trim(H08_OUTFILE_BASENAME)//"_sobs_prep.nc", &
+        call write_Him8_nc( trim(HIM_OUTFILE_BASENAME)//"_sobs_prep.nc", &
                           real( tbb_sobs_prep, kind=r_sngl) )
       endif
 
@@ -2935,7 +2935,7 @@ subroutine read_Him8_mpi(filename,obs)
       iunit = 65
       irec = 0
   
-      open( unit=iunit, file=trim(H08_OUTFILE_BASENAME)//"_sobs.dat", &
+      open( unit=iunit, file=trim(HIM_OUTFILE_BASENAME)//"_sobs.dat", &
             form='unformatted',access='direct', &
             status='unknown', recl=nlong*nlatg*4 )
       do ch = 1, NIRB_HIM8
@@ -2954,7 +2954,7 @@ subroutine read_Him8_mpi(filename,obs)
     if ( present( obs ) ) then
 
       call allgHim82obs(tbb_sobs,tbb_sobs_prep,obsdat=obs%dat,obslon=obs%lon,obslat=obs%lat,obslev=obs%lev,obserr=obs%err)
-      obs%elm(:) = id_H08IR_obs
+      obs%elm(:) = id_HIMIR_obs
       obs%typ(:) = 23
       obs%dif(:) = 0.0d0 ! Assume 3D-LETKF for Himawari-8
 
@@ -3025,16 +3025,16 @@ subroutine write_Him8_mpi( tbb_l, tbb_clr_l, step )
     irec = 0
 
     if (step == 1) then
-      filename = trim(H08_OUTFILE_BASENAME)//"_b"
+      filename = trim(HIM_OUTFILE_BASENAME)//"_b"
     elseif (step == 2) then
-      filename = trim(H08_OUTFILE_BASENAME)//"_a"
+      filename = trim(HIM_OUTFILE_BASENAME)//"_a"
     elseif (step == -1) then
-      filename = trim(H08_OUTFILE_BASENAME)//"_sprd"
+      filename = trim(HIM_OUTFILE_BASENAME)//"_sprd"
     elseif (step == -2) then
-      filename = trim(H08_OUTFILE_BASENAME)//"_sprdc"
+      filename = trim(HIM_OUTFILE_BASENAME)//"_sprdc"
     endif
 
-    if ( H08_OUT_TBB_NC ) then
+    if ( HIM_OUT_TBB_NC ) then
       foot = ".nc"
       call write_Him8_nc( trim(filename) // trim(foot), tbb_g )
     else

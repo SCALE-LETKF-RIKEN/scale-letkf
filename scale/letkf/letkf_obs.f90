@@ -428,14 +428,14 @@ SUBROUTINE set_letkf_obs
 !    end if
 !!!###### end RADAR assimilation ######
 
-!!!###### Himawari-8 assimilation ###### ! H08
+!!!###### Himawari-8 assimilation ###### ! HIM
 #IFDEF RTTOV
-    if (obs(iof)%elm(iidx) == id_H08IR_obs) then
+    if (obs(iof)%elm(iidx) == id_HIMIR_obs) then
       ch_num = nint(obs(iof)%lev(iidx)) - 6
       std13 = obs(iof)%err(iidx) ! negative err corresponds to std13
 
       ! This tentative assignment is valid only within this subroutine
-      obs(iof)%err(iidx) = OBSERR_H08(ch_num)
+      obs(iof)%err(iidx) = OBSERR_HIM(ch_num)
 
       ! -- Detect NaN in the original Himawari-8 observations
       if (obs(iof)%dat(iidx) /= obs(iof)%dat(iidx)) then
@@ -448,32 +448,32 @@ SUBROUTINE set_letkf_obs
         cycle
       end if
 
-      if (H08_BAND_USE(ch_num) /= 1) then
+      if (HIM_BAND_USE(ch_num) /= 1) then
         obsda%qc(n) = iqc_obs_bad
         cycle
       end if
 
       ! --  Homogeneity QC
-      if(H08_OBS_STD .and. abs(std13) > H08_HOMO_QC)then
+      if(HIM_OBS_STD .and. abs(std13) > HIM_HOMO_QC)then
         obsda%qc(n) = iqc_obs_bad
         cycle
       endif
 
-      ! -- Reject Himawari-8 obs sensitivie above H08_LIMIT_LEV (Pa) ! H08 --
-      if (obsda%lev(n) < H08_LIMIT_LEV) then
+      ! -- Reject Himawari-8 obs sensitivie above HIM_LIMIT_LEV (Pa) ! HIM --
+      if (obsda%lev(n) < HIM_LIMIT_LEV) then
         obsda%qc(n) = iqc_obs_bad
         cycle
       endif
 
       mem_cld = 0
       do i = 1, MEMBER
-        if ( H08_CLD_THRS( ch_num ) > obsda%ensval(i,n) ) then
+        if ( HIM_CLD_THRS( ch_num ) > obsda%ensval(i,n) ) then
           mem_cld = mem_cld + 1
         endif
       enddo
     endif
 #ENDIF
-!!!###### end Himawari-8 assimilation ###### ! H08
+!!!###### end Himawari-8 assimilation ###### ! HIM
 
 
     obsda%val(n) = obsda%ensval(1,n)
@@ -490,10 +490,10 @@ SUBROUTINE set_letkf_obs
       obsda%ensval(mmdetobs,n) = obs(iof)%dat(iidx) - obsda%ensval(mmdetobs,n) ! y-Hx for deterministic run
     end if
 
-!   AOEI: compute sprd in obs space (sigma_b for AOEI) ! H08
+!   AOEI: compute sprd in obs space (sigma_b for AOEI) ! HIM
 !   sig_o will be used in letkf_tools.f90
 
-    sig_b = 0.0d0 !H08
+    sig_b = 0.0d0 !HIM
     do i = 1, MEMBER
       sig_b = sig_b + obsda%ensval(i,n) * obsda%ensval(i,n)
     enddo
@@ -504,7 +504,7 @@ SUBROUTINE set_letkf_obs
     sig_o = dsqrt(max(obs(iof)%err(iidx)**2,obsda%val(n)**2 - obsda%val2(n)**2))
 
     obsda%sprd(n) = sig_b ! Store background tbb spread for additive inflation
-    if ( H08_AOEI ) then
+    if ( HIM_AOEI ) then
       obsda%val2(n) = sig_o
     else
       sig_o = obsda%val(n)
@@ -561,21 +561,21 @@ SUBROUTINE set_letkf_obs
       IF(ABS(obsda%val(n)) > GROSS_ERROR_RADAR_PRH * obs(iof)%err(iidx)) THEN
         obsda%qc(n) = iqc_gross_err
       END IF
-    case (id_H08IR_obs)
-      if ( H08_AOEI .and. H08_AOEI_QC == 0 ) then
+    case (id_HIMIR_obs)
+      if ( HIM_AOEI .and. HIM_AOEI_QC == 0 ) then
         ! No Gross-error QC
-      elseif ( H08_PQV .and. obsda%qv(n) >= 0.0_r_size ) then
+      elseif ( HIM_PQV .and. obsda%qv(n) >= 0.0_r_size ) then
         ! No QC for pseudo Qv obs
-      elseif ( H08_AOEI .and. H08_AOEI_QC == 1 ) then
-        if ( abs(obsda%val(n)) > GROSS_ERROR_H08 * OBSERR_H08(ch_num) ) then
+      elseif ( HIM_AOEI .and. HIM_AOEI_QC == 1 ) then
+        if ( abs(obsda%val(n)) > GROSS_ERROR_HIM * OBSERR_HIM(ch_num) ) then
           obsda%qc(n) = iqc_gross_err
         endif
       else
-        if ( abs( obsda%val(n) ) > GROSS_ERROR_H08 * OBSERR_H08(ch_num)) then
+        if ( abs( obsda%val(n) ) > GROSS_ERROR_HIM * OBSERR_HIM(ch_num)) then
           obsda%qc(n) = iqc_gross_err
         endif
       endif
-      if ( obs(iof)%dat(iidx) < H08_BT_MIN ) then
+      if ( obs(iof)%dat(iidx) < HIM_BT_MIN ) then
         obsda%qc(n) = iqc_gross_err
       endif
     case default

@@ -67,22 +67,21 @@ MODULE common_obs_scale
   INTEGER,PARAMETER :: id_radar_vr_obs=4002
   INTEGER,PARAMETER :: id_radar_prh_obs=4003
 !
-! Himawari-8 (H08) observations
+! Himawari-8/9 observations
 !
-  INTEGER,PARAMETER :: id_H08IR_obs=8800
+  INTEGER,PARAMETER :: id_HIMIR_obs=8800
 
   INTEGER,PARAMETER :: elem_uid(nid_obs)= &
      (/id_u_obs, id_v_obs, id_t_obs, id_tv_obs, id_q_obs, id_rh_obs, &
        id_ps_obs, id_rain_obs, id_radar_ref_obs, id_radar_ref_zero_obs, id_radar_vr_obs, id_radar_prh_obs, &
-       id_H08IR_obs, id_tclon_obs, id_tclat_obs, id_tcmip_obs/)
+       id_HIMIR_obs, id_tclon_obs, id_tclat_obs, id_tcmip_obs/)
 
   CHARACTER(3),PARAMETER :: obelmlist(nid_obs)= &
      (/'  U', '  V', '  T', ' Tv', '  Q', ' RH', ' PS', 'PRC', 'REF', 'RE0', ' Vr', 'PRH',&
-       'H08', 'TCX', 'TCY', 'TCP'/)
+       'HIM', 'TCX', 'TCY', 'TCP'/)
 
   CHARACTER(3),PARAMETER :: obelmlist_varlocal(nid_obs_varlocal)= &
-     (/'WND', '  T', 'MOI', ' PS', 'PRC', 'TCV', 'REF', ' Vr'/)
-!     (/'WND', '  T', 'MOI', ' PS', 'PRC', 'TCV', 'REF', ' Vr', 'H08'/)
+     (/'WND', '  T', 'MOI', ' PS', 'PRC', 'TCV', 'REF', ' Vr', 'HIM'/)
 
   ! Parameter 'nobtype' is set in common_nml.f90
   CHARACTER(6),PARAMETER :: obtypelist(nobtype)= &
@@ -90,7 +89,7 @@ MODULE common_obs_scale
        'VADWND', 'SATEMP', 'ADPSFC', 'SFCSHP', 'SFCBOG', &
        'SPSSMI', 'SYNDAT', 'ERS1DA', 'GOESND', 'QKSWND', &
        'MSONET', 'GPSIPW', 'RASSDA', 'WDSATR', 'ASCATW', &
-       'TMPAPR', 'PHARAD', 'H08IRB', 'TCVITL'/) 
+       'TMPAPR', 'PHARAD', 'HIMIRB', 'TCVITL'/) 
 
   INTEGER,PARAMETER :: max_obs_info_meta = 3 ! maximum array size for type(obs_info)%meta
 
@@ -144,11 +143,11 @@ MODULE common_obs_scale
 
   character(obsformatlenmax), parameter :: obsfmt_prepbufr = 'PREPBUFR'
   character(obsformatlenmax), parameter :: obsfmt_radar    = 'RADAR'
-  character(obsformatlenmax), parameter :: obsfmt_h08      = 'HIMAWARI8'
+  character(obsformatlenmax), parameter :: obsfmt_HIM      = 'HIMAWARI8'
   character(obsformatlenmax), parameter :: obsfmt_radar_nc = 'RADAR-NC'
 !  integer, parameter :: nobsformats = 3
 !  character(obsformatlenmax), parameter :: obsformat(nobsformats) = &
-!    (/obsfmt_prepbufr, obsfmt_radar, obsfmt_h08/)
+!    (/obsfmt_prepbufr, obsfmt_radar, obsfmt_HIM/)
 
   INTEGER,PARAMETER :: iqc_good=0
   INTEGER,PARAMETER :: iqc_gross_err=5
@@ -215,7 +214,7 @@ function uid_obs(id_obs)
     uid_obs = 11
   case(id_radar_prh_obs)
     uid_obs = 12
-  case(id_h08ir_obs) 
+  case(id_HIMir_obs) 
     uid_obs = 13     
   case(id_tclon_obs)
     uid_obs = 14
@@ -252,8 +251,8 @@ function uid_obs_varlocal(id_obs)
     uid_obs_varlocal = 7
   case(id_radar_vr_obs)
     uid_obs_varlocal = 8
-  case(id_h08ir_obs)      ! H08
-    uid_obs_varlocal = 9  ! H08
+  case(id_HIMir_obs)      ! HIM
+    uid_obs_varlocal = 9  ! HIM
   case default
     uid_obs_varlocal = -1 ! error
   end select
@@ -2642,7 +2641,7 @@ subroutine read_obs_all(obs)
       call get_nobs_radar(trim(OBS_IN_NAME(iof)), obs(iof)%nobs, obs(iof)%meta(1), obs(iof)%meta(2), obs(iof)%meta(3))
     case (obsfmt_radar_nc)
       call get_nobs_radar_nc(trim(OBS_IN_NAME(iof)), obs(iof)%nobs, obs(iof)%meta(1), obs(iof)%meta(2), obs(iof)%meta(3))
-    case (obsfmt_h08)
+    case (obsfmt_HIM)
       call get_nobs_allgHim8(obs(iof)%nobs) 
     case default
       write(6,*) '[Error] Unsupported observation file format!'
@@ -3741,7 +3740,7 @@ subroutine get_nobs_allgHim8(nobs)
   integer, intent(out) :: nobs
   integer :: i, j
 
-  nobs = int( nlong / H08_OBS_THIN_LEV ) * int( nlatg / H08_OBS_THIN_LEV ) * NIRB_HIM8
+  nobs = int( nlong / HIM_OBS_THIN_LEV ) * int( nlatg / HIM_OBS_THIN_LEV ) * NIRB_HIM8
 
   return
 end subroutine get_nobs_allgHim8
@@ -3762,11 +3761,11 @@ subroutine allgHim82obs(tbb_allg,tbb_allg_prep,qc_allg_prep,obsdat,obslon,obslat
 
   integer,intent(out),optional :: qc_allg_prep(nlong,nlatg,NIRB_HIM8)
 
-  real(r_size), intent(out), optional :: obsdat( int(nlong/H08_OBS_THIN_LEV)*int(nlatg/H08_OBS_THIN_LEV)*NIRB_HIM8 )
-  real(r_size), intent(out), optional :: obslon( int(nlong/H08_OBS_THIN_LEV)*int(nlatg/H08_OBS_THIN_LEV)*NIRB_HIM8 )
-  real(r_size), intent(out), optional :: obslat( int(nlong/H08_OBS_THIN_LEV)*int(nlatg/H08_OBS_THIN_LEV)*NIRB_HIM8 )
-  real(r_size), intent(out), optional :: obslev( int(nlong/H08_OBS_THIN_LEV)*int(nlatg/H08_OBS_THIN_LEV)*NIRB_HIM8 )
-  real(r_size), intent(out), optional :: obserr( int(nlong/H08_OBS_THIN_LEV)*int(nlatg/H08_OBS_THIN_LEV)*NIRB_HIM8 )
+  real(r_size), intent(out), optional :: obsdat( int(nlong/HIM_OBS_THIN_LEV)*int(nlatg/HIM_OBS_THIN_LEV)*NIRB_HIM8 )
+  real(r_size), intent(out), optional :: obslon( int(nlong/HIM_OBS_THIN_LEV)*int(nlatg/HIM_OBS_THIN_LEV)*NIRB_HIM8 )
+  real(r_size), intent(out), optional :: obslat( int(nlong/HIM_OBS_THIN_LEV)*int(nlatg/HIM_OBS_THIN_LEV)*NIRB_HIM8 )
+  real(r_size), intent(out), optional :: obslev( int(nlong/HIM_OBS_THIN_LEV)*int(nlatg/HIM_OBS_THIN_LEV)*NIRB_HIM8 )
+  real(r_size), intent(out), optional :: obserr( int(nlong/HIM_OBS_THIN_LEV)*int(nlatg/HIM_OBS_THIN_LEV)*NIRB_HIM8 )
 
   real(RP) :: ril_RP, rjl_RP
   real(RP) :: lon_RP, lat_RP
@@ -3794,7 +3793,7 @@ subroutine allgHim82obs(tbb_allg,tbb_allg_prep,qc_allg_prep,obsdat,obslon,obslat
     qc_allg_prep = iqc_obs_bad
   endif
 
-  ave_ng = 2 * H08_OBS_AVE_NG + 1
+  ave_ng = 2 * HIM_OBS_AVE_NG + 1
 
   n = 0
   do j = 1, nlatg
@@ -3809,18 +3808,18 @@ subroutine allgHim82obs(tbb_allg,tbb_allg_prep,qc_allg_prep,obsdat,obslon,obslat
 
     do ch = 1, NIRB_HIM8
 
-      select case(H08_OBS_METHOD)
+      select case(HIM_OBS_METHOD)
       case(1) ! simple thinning
         tbb_allg_prep(i,j,ch) = tbb_allg(i,j,ch)
 
       case(2) ! averaging adjacent grids
-        if (i <= H08_OBS_AVE_NG .or. (nlong - i) <= H08_OBS_AVE_NG .or.&
-            j <= H08_OBS_AVE_NG .or. (nlatg - j) <= H08_OBS_AVE_NG) cycle
+        if (i <= HIM_OBS_AVE_NG .or. (nlong - i) <= HIM_OBS_AVE_NG .or.&
+            j <= HIM_OBS_AVE_NG .or. (nlatg - j) <= HIM_OBS_AVE_NG) cycle
 
-        is = i - H08_OBS_AVE_NG       
-        ie = i + H08_OBS_AVE_NG       
-        js = j - H08_OBS_AVE_NG       
-        je = j + H08_OBS_AVE_NG       
+        is = i - HIM_OBS_AVE_NG       
+        ie = i + HIM_OBS_AVE_NG       
+        js = j - HIM_OBS_AVE_NG       
+        je = j + HIM_OBS_AVE_NG       
    
         tbb_allg_prep(i,j,ch) = 0.0d0
         do jj = js, je
@@ -3831,26 +3830,26 @@ subroutine allgHim82obs(tbb_allg,tbb_allg_prep,qc_allg_prep,obsdat,obslon,obslat
         tbb_allg_prep(i,j,ch) = tbb_allg_prep(i,j,ch) / (ave_ng**2)
 
       case(3) ! take a difference btw two bands
-        tbb_allg_prep(i,j,ch) = tbb_allg(i,j,ch) -  tbb_allg(i,j,H08_OBS_SWD_B-6) 
+        tbb_allg_prep(i,j,ch) = tbb_allg(i,j,ch) -  tbb_allg(i,j,HIM_OBS_SWD_B-6) 
       end select
 
-      if (H08_OBS_THIN_LEV > 1) then
-        if ((mod(i, H08_OBS_THIN_LEV) /= 0) .or. (mod(j, H08_OBS_THIN_LEV) /= 0)) then
+      if (HIM_OBS_THIN_LEV > 1) then
+        if ((mod(i, HIM_OBS_THIN_LEV) /= 0) .or. (mod(j, HIM_OBS_THIN_LEV) /= 0)) then
           tbb_allg_prep(i,j,ch) = abs(tbb_allg_prep(i,j,ch)) * (-1.0d10) 
         endif
       endif
 
       if (present(obslon) .and. present(obslat) .and. present(obslev) .and. present(obserr)) then
-        if ( ( mod(i, H08_OBS_THIN_LEV) == 0 ) .and. ( mod(j, H08_OBS_THIN_LEV) == 0 ) ) then
+        if ( ( mod(i, HIM_OBS_THIN_LEV) == 0 ) .and. ( mod(j, HIM_OBS_THIN_LEV) == 0 ) ) then
           n = n + 1
           obslon(n) = real( lon_RP, kind=r_size) * rad2deg
           obslat(n) = real( lat_RP, kind=r_size) * rad2deg
           obslev(n) = ch + 6.0
-!          obserr(n) = REAL(OBSERR_H08(ch),r_size)
+!          obserr(n) = REAL(OBSERR_HIM(ch),r_size)
           obsdat(n) = tbb_allg_prep(i,j,ch)
 
-          if ( i <= H08_OBS_BUF_GRID .or. ( nlong - i ) <= H08_OBS_BUF_GRID .or. &
-               j <= H08_OBS_BUF_GRID .or. ( nlatg - j ) <= H08_OBS_BUF_GRID  ) then
+          if ( i <= HIM_OBS_BUF_GRID .or. ( nlong - i ) <= HIM_OBS_BUF_GRID .or. &
+               j <= HIM_OBS_BUF_GRID .or. ( nlatg - j ) <= HIM_OBS_BUF_GRID  ) then
             obsdat(n) = undef
           endif
 
@@ -3860,7 +3859,7 @@ subroutine allgHim82obs(tbb_allg,tbb_allg_prep,qc_allg_prep,obsdat,obslon,obslat
       if (present(qc_allg_prep)) then
         qc_allg_prep(i,j,ch) = iqc_good
 
-        ! tbb_allg_prep can be negative when [H08_OBS_METHOD == 3]:
+        ! tbb_allg_prep can be negative when [HIM_OBS_METHOD == 3]:
         ! take a difference btw two bands
         if (tbb_allg_prep(i,j,ch) < -200.0d0) then
           qc_allg_prep(i,j,ch) = iqc_obs_bad
@@ -3875,7 +3874,7 @@ subroutine allgHim82obs(tbb_allg,tbb_allg_prep,qc_allg_prep,obsdat,obslon,obslat
 end subroutine allgHim82obs
 
 #IFDEF RTTOV
-SUBROUTINE Trans_XtoY_H08_allg(v3d,v2d,yobs,yobs_clr,mwgt_plev2d,qc,zenith1d,stggrd)
+SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,yobs_clr,mwgt_plev2d,qc,zenith1d,stggrd)
   use scale_mapprojection, only: &
       MAPPROJECTION_xy2lonlat
   use common_scale_rttov13, only: &
@@ -3962,18 +3961,18 @@ SUBROUTINE Trans_XtoY_H08_allg(v3d,v2d,yobs,yobs_clr,mwgt_plev2d,qc,zenith1d,stg
   integer, parameter :: RD_naero      = N_HYD + N_AE ! # of cloud/aerosol species
 
   integer :: RD_KMAX ! # of computational cells: z for radiation scheme
-  real(RP) :: RD_zh          (KMAX + H08_RTTOV_KADD + 1)   ! altitude    at the interface [km]
-  real(RP) :: RD_z           (KMAX + H08_RTTOV_KADD)   ! altitude    at the center [km]
-  real(RP) :: RD_rhodz       (KMAX + H08_RTTOV_KADD)   ! density * delta z [kg/m2]
-  real(RP) :: RD_pres        (KMAX + H08_RTTOV_KADD)   ! pressure    at the center [hPa]
-  real(RP) :: RD_presh       (KMAX + H08_RTTOV_KADD + 1)   ! pressure    at the interface [hPa]
-  real(RP) :: RD_temp        (KMAX + H08_RTTOV_KADD)   ! temperature at the center [K]
-  real(RP) :: RD_temph       (KMAX + H08_RTTOV_KADD + 1)   ! temperature at the interface [K]
-  real(RP) :: RD_gas         (KMAX + H08_RTTOV_KADD,ngas) ! gas species   volume mixing ratio [ppmv]
-  real(RP) :: RD_cfc         (KMAX + H08_RTTOV_KADD,ncfc) ! CFCs          volume mixing ratio [ppmv]
-  real(RP) :: RD_aerosol_conc(KMAX + H08_RTTOV_KADD,RD_naero) ! cloud/aerosol volume mixing ratio [ppmv]
-  real(RP) :: RD_aerosol_radi(KMAX + H08_RTTOV_KADD,RD_naero) ! cloud/aerosol effective radius [cm]
-  real(RP) :: RD_cldfrac     (KMAX + H08_RTTOV_KADD)   ! cloud fraction (0-1)
+  real(RP) :: RD_zh          (KMAX + HIM_RTTOV_KADD + 1)   ! altitude    at the interface [km]
+  real(RP) :: RD_z           (KMAX + HIM_RTTOV_KADD)   ! altitude    at the center [km]
+  real(RP) :: RD_rhodz       (KMAX + HIM_RTTOV_KADD)   ! density * delta z [kg/m2]
+  real(RP) :: RD_pres        (KMAX + HIM_RTTOV_KADD)   ! pressure    at the center [hPa]
+  real(RP) :: RD_presh       (KMAX + HIM_RTTOV_KADD + 1)   ! pressure    at the interface [hPa]
+  real(RP) :: RD_temp        (KMAX + HIM_RTTOV_KADD)   ! temperature at the center [K]
+  real(RP) :: RD_temph       (KMAX + HIM_RTTOV_KADD + 1)   ! temperature at the interface [K]
+  real(RP) :: RD_gas         (KMAX + HIM_RTTOV_KADD,ngas) ! gas species   volume mixing ratio [ppmv]
+  real(RP) :: RD_cfc         (KMAX + HIM_RTTOV_KADD,ncfc) ! CFCs          volume mixing ratio [ppmv]
+  real(RP) :: RD_aerosol_conc(KMAX + HIM_RTTOV_KADD,RD_naero) ! cloud/aerosol volume mixing ratio [ppmv]
+  real(RP) :: RD_aerosol_radi(KMAX + HIM_RTTOV_KADD,RD_naero) ! cloud/aerosol effective radius [cm]
+  real(RP) :: RD_cldfrac     (KMAX + HIM_RTTOV_KADD)   ! cloud fraction (0-1)
 
   integer :: i, j
   real(RP) :: ri_RP, rj_RP
@@ -3990,20 +3989,20 @@ SUBROUTINE Trans_XtoY_H08_allg(v3d,v2d,yobs,yobs_clr,mwgt_plev2d,qc,zenith1d,stg
                real(nlatg/2+JHALO, kind=r_size),&
                blon, blat)
 
-  RD_KMAX = KMAX + H08_RTTOV_KADD
+  RD_KMAX = KMAX + HIM_RTTOV_KADD
 
   !--- setup vartical grid for radiation (larger TOA than Model domain)
-  call ATMOS_PHY_RD_PROFILE_setup_zgrid( KA, KS, KE, RD_KMAX, H08_RTTOV_KADD, & ! [IN]
+  call ATMOS_PHY_RD_PROFILE_setup_zgrid( KA, KS, KE, RD_KMAX, HIM_RTTOV_KADD, & ! [IN]
                                          RD_TOA, CZ, FZ, & ! [IN]
                                          RD_zh(:), RD_z(:)         ) ! [INOUT]
 
   !--- read climatological profile
-  call ATMOS_PHY_RD_PROFILE_read( KMAX + H08_RTTOV_KADD,  & ! [IN]
+  call ATMOS_PHY_RD_PROFILE_read( KMAX + HIM_RTTOV_KADD,  & ! [IN]
                                   ngas,                   & ! [IN]
                                   ncfc,                   & ! [IN]
                                   RD_naero,               & ! [IN]
                                   real( blat, kind=RP )*CONST_D2R,         & ! [IN]
-                                  H08_NOWDATE    (:),     & ! [IN]
+                                  HIM_NOWDATE    (:),     & ! [IN]
                                   RD_zh          (:),     & ! [IN]
                                   RD_z           (:),     & ! [IN]
                                   RD_rhodz       (:),     & ! [OUT]
@@ -4082,11 +4081,11 @@ SUBROUTINE Trans_XtoY_H08_allg(v3d,v2d,yobs,yobs_clr,mwgt_plev2d,qc,zenith1d,stg
 !        : Satellite zenith angles are computed within SCALE_RTTOV_fwd using (lon,lat).
 !
 
-  do it = 1, H08_RTTOV_ITMAX
-    nps = int( nlon*nlat / H08_RTTOV_ITMAX ) * ( it - 1) + 1
-    npe = int( nlon*nlat / H08_RTTOV_ITMAX ) * it
+  do it = 1, HIM_RTTOV_ITMAX
+    nps = int( nlon*nlat / HIM_RTTOV_ITMAX ) * ( it - 1) + 1
+    npe = int( nlon*nlat / HIM_RTTOV_ITMAX ) * it
   
-    if ( it == H08_RTTOV_ITMAX ) npe = max( npe, nlon*nlat )
+    if ( it == HIM_RTTOV_ITMAX ) npe = max( npe, nlon*nlat )
 
     CALL rttov13_fwd_ir(NIRB_HIM8, & ! num of channels
                          KMAX,& ! num of levels
@@ -4128,15 +4127,15 @@ SUBROUTINE Trans_XtoY_H08_allg(v3d,v2d,yobs,yobs_clr,mwgt_plev2d,qc,zenith1d,stg
       yobs_clr(i,j,ch) = btclr_out(ch,np)
       mwgt_plev2d(i,j,ch) = mwgt_plev1d(ch,np)
 
-      if(H08_VLOCAL_CTOP)then
+      if(HIM_VLOCAL_CTOP)then
         if((ctop_out1d(np) > 0.0d0) .and. (ctop_out1d(np) < mwgt_plev1d(ch,np)) .and. &
-           (mwgt_plev1d(ch,np)>H08_LIMIT_LEV)) then
+           (mwgt_plev1d(ch,np)>HIM_LIMIT_LEV)) then
           mwgt_plev1d(ch,np) = (ctop_out1d(np) + mwgt_plev1d(ch,np))*0.5d0
         endif
       endif
 
       ! QC
-      if(H08_REJECT_LAND .and. (lsmask1d(np) > 0.5d0))then
+      if(HIM_REJECT_LAND .and. (lsmask1d(np) > 0.5d0))then
         qc(i,j,ch) = iqc_obs_bad
       endif
 
@@ -4150,7 +4149,7 @@ SUBROUTINE Trans_XtoY_H08_allg(v3d,v2d,yobs,yobs_clr,mwgt_plev2d,qc,zenith1d,stg
   enddo ! j
 
   return
-END SUBROUTINE Trans_XtoY_H08_allg
+END SUBROUTINE Trans_XtoY_HIM_allg
 #ENDIF
 
 subroutine zenith_geosat( sat_lon, lon, lat, zenith, azm )

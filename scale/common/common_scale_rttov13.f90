@@ -65,14 +65,14 @@ contains
     ! jpim, jprb and jplm are the RTTOV integer, real and logical KINDs
     USE parkind1, ONLY : jpim, jprb, jplm
     USE common_nml, ONLY: &
-          H08_RTTOV_THREADS,    &
-          H08_RTTOV_CFRAC_CNST, &
-          H08_RTTOV_MINQ_CTOP,  &
-          H08_RTTOV_COEF_PATH,  &
-          H08_RTTOV_PROF_SHIFT, &
-          H08_RTTOV_CFRAC,      &
-          H08_RTTOV_CLD,        &
-          H08_RTTOV_KADD
+          HIM_RTTOV_THREADS,    &
+          HIM_RTTOV_CFRAC_CNST, &
+          HIM_RTTOV_MINQ_CTOP,  &
+          HIM_RTTOV_COEF_PATH,  &
+          HIM_RTTOV_PROF_SHIFT, &
+          HIM_RTTOV_CFRAC,      &
+          HIM_RTTOV_CLD,        &
+          HIM_RTTOV_KADD
     IMPLICIT NONE
   
   #include "rttov_direct.interface"
@@ -155,8 +155,8 @@ contains
   
     integer :: orgk
   
-    real(kind=r_size), intent(in)  :: RD_presh(nlevs+H08_RTTOV_KADD+1)
-    real(kind=r_size), intent(in)  :: RD_temph(nlevs+H08_RTTOV_KADD+1)
+    real(kind=r_size), intent(in)  :: RD_presh(nlevs+HIM_RTTOV_KADD+1)
+    real(kind=r_size), intent(in)  :: RD_temph(nlevs+HIM_RTTOV_KADD+1)
     real(kind=jprb) :: tmp_dif
    
     real(Kind=jprb), parameter :: q_mixratio_to_ppmv  = 1.60771704e+6_JPRB
@@ -190,7 +190,7 @@ contains
     opts % rt_all % addrefrac          = .TRUE.  ! Include refraction in path calc
     opts % rt_ir % addaerosl           = .FALSE. ! Don't include aerosol effects
   
-    opts % rt_ir % addclouds           = H08_RTTOV_CLD ! Include cloud effects
+    opts % rt_ir % addclouds           = HIM_RTTOV_CLD ! Include cloud effects
   
     opts % rt_ir % ir_scatt_model      = 2       ! Scattering model for emission source term:
                                                  !   1 => doM; 2 => Chou-scaling
@@ -229,11 +229,11 @@ contains
     ! --------------------------------------------------------------------------
     if(debug) write(6,'(1x,a)')"hello from RTTOV3"
     call rttov_read_coefs(errorstatus, coefs, opts, form_coef='formatted', &
-                         &file_coef=trim(H08_RTTOV_COEF_PATH)//trim(coef_filename), &
-                         &file_sccld=trim(H08_RTTOV_COEF_PATH)//trim(sccoef_filename))
+                         &file_coef=trim(HIM_RTTOV_COEF_PATH)//trim(coef_filename), &
+                         &file_sccld=trim(HIM_RTTOV_COEF_PATH)//trim(sccoef_filename))
     IF (errorstatus /= errorstatus_success) THEN
       WRITE(*,*) 'fatal error reading coefficients'
-      write(*,*) trim(H08_RTTOV_COEF_PATH)//trim(coef_filename)
+      write(*,*) trim(HIM_RTTOV_COEF_PATH)//trim(coef_filename)
       call rttov_exit(errorstatus)
     ENDIF
   
@@ -266,7 +266,7 @@ contains
           1_jpim,                  &  ! 1 => allocate
           nprof,                   &
           nchanprof,               &
-          nlevs+H08_RTTOV_KADD,    &
+          nlevs+HIM_RTTOV_KADD,    &
           chanprof,                &
           opts,                    &
           profiles,                &
@@ -326,14 +326,14 @@ contains
     if(debug) write(6,*) 'START SUBSTITUTE PROFILE'
     do iprof = 1, nprof
   
-      if(H08_RTTOV_PROF_SHIFT)then
-        tmp_dif = RD_temph(H08_RTTOV_KADD+1) - tk(1,iprof)
+      if(HIM_RTTOV_PROF_SHIFT)then
+        tmp_dif = RD_temph(HIM_RTTOV_KADD+1) - tk(1,iprof)
       else
         tmp_dif = 0.0_jprb
-      endif ! H08_RTTOV_PROF_SHIFT
+      endif ! HIM_RTTOV_PROF_SHIFT
   
-      ! Above the model top (p < RD_presh(H08_RTTOV_KADD+1))
-      do ilev = 1, H08_RTTOV_KADD
+      ! Above the model top (p < RD_presh(HIM_RTTOV_KADD+1))
+      do ilev = 1, HIM_RTTOV_KADD
         profiles(iprof)%p(ilev) = real(RD_presh(ilev),kind=jprb) ! (hPa)
         profiles(iprof)%t(ilev) = max(RD_temph(ilev) - tmp_dif,tmin * 1.01_jprb) ! (K)
   
@@ -344,15 +344,15 @@ contains
         end if
       enddo
   
-      do ilev = H08_RTTOV_KADD + 1, H08_RTTOV_KADD + nlevs
+      do ilev = HIM_RTTOV_KADD + 1, HIM_RTTOV_KADD + nlevs
   
-        profiles(iprof)%p(ilev) = real(prs(ilev-H08_RTTOV_KADD,iprof),kind=jprb) * 0.01_jprb ! (hPa)
-        profiles(iprof)%t(ilev) = real(tk(ilev-H08_RTTOV_KADD,iprof),kind=jprb) ! (K) 
+        profiles(iprof)%p(ilev) = real(prs(ilev-HIM_RTTOV_KADD,iprof),kind=jprb) * 0.01_jprb ! (hPa)
+        profiles(iprof)%t(ilev) = real(tk(ilev-HIM_RTTOV_KADD,iprof),kind=jprb) ! (K) 
   
         if ( unit_kgkg ) then
-          profiles(iprof)%q(ilev) = real(qv(ilev-H08_RTTOV_KADD,iprof),kind=jprb) ! (kg/kg)
+          profiles(iprof)%q(ilev) = real(qv(ilev-HIM_RTTOV_KADD,iprof),kind=jprb) ! (kg/kg)
         else
-          profiles(iprof)%q(ilev) = min(max(qv(ilev-H08_RTTOV_KADD,iprof) * q_mixratio_to_ppmv, qmin * 1.01_jprb), qmax*0.99) ! (ppmv)
+          profiles(iprof)%q(ilev) = min(max(qv(ilev-HIM_RTTOV_KADD,iprof) * q_mixratio_to_ppmv, qmin * 1.01_jprb), qmax*0.99) ! (ppmv)
         endif
   
       enddo
@@ -434,8 +434,8 @@ contains
   
         ctop_out(iprof) = -1.0d0
   
-        do ilev = H08_RTTOV_KADD + 1, H08_RTTOV_KADD + nlevs - 1
-          orgk = ilev - H08_RTTOV_KADD ! k index for original profile
+        do ilev = HIM_RTTOV_KADD + 1, HIM_RTTOV_KADD + nlevs - 1
+          orgk = ilev - HIM_RTTOV_KADD ! k index for original profile
   
           ! ilev
           liqc1 = real(max(qc(orgk,iprof),0.0_r_size),kind=jprb)
@@ -458,12 +458,12 @@ contains
           !
           ! cloud fraction & cloud top diagnosis
           !
-          select case (H08_RTTOV_CFRAC)
-          case (0) ! use H08_RTTOV_MINQ_CTOP as in Honda et al. (2017a,b)
+          select case (HIM_RTTOV_CFRAC)
+          case (0) ! use HIM_RTTOV_MINQ_CTOP as in Honda et al. (2017a,b)
                    !
-                   ! H08_RTTOV_CFRAC_CNST (g/kg)
+                   ! HIM_RTTOV_CFRAC_CNST (g/kg)
             profiles(iprof) % cfrac(ilev) = min( ( profiles(iprof) % cloud(2,ilev) + &
-                                                  profiles(iprof) % cloud(6,ilev) ) * 1.e3 / H08_RTTOV_CFRAC_CNST, &
+                                                  profiles(iprof) % cloud(6,ilev) ) * 1.e3 / HIM_RTTOV_CFRAC_CNST, &
                                                   1.0_jprb )
   
           case (1) ! SCALE microphysics method with a minor modification
@@ -483,7 +483,7 @@ contains
   
           ! Need to modify? if openmp
           if(profiles(iprof) % cloud(2,ilev) + &
-             profiles(iprof) % cloud(6,ilev) >= H08_RTTOV_MINQ_CTOP)then
+             profiles(iprof) % cloud(6,ilev) >= HIM_RTTOV_MINQ_CTOP)then
             if(ctop_out(iprof) < 0.0d0)then
               ctop_out(iprof) = ptmp
             endif
@@ -493,7 +493,7 @@ contains
       endif ! addclouds
   
       if(debug .and. mod(iprof,20)==0)then
-        do ilev = 1, nlevs + H08_RTTOV_KADD - 1
+        do ilev = 1, nlevs + HIM_RTTOV_KADD - 1
           write(6,'(a,i5,5f11.4)')"DEBUG PROF",ilev,profiles(iprof) % t(ilev),&
                                                     profiles(iprof) % q(ilev),&
                                                     profiles(iprof) % p(ilev),&
@@ -505,7 +505,7 @@ contains
     enddo ! prof
   !### OMP END PARALLEL DO
   
-  !   do ilev = 1, H08_RTTOV_KADD + nlevs - 1
+  !   do ilev = 1, HIM_RTTOV_KADD + nlevs - 1
   !     print *,"DEBUG RD RTTOV",ilev,profiles(iprof) % p(ilev)
   !   enddo
   
@@ -540,7 +540,7 @@ contains
   
     if(debug) write(6,*)"Enter direct"
   
-    if ( H08_RTTOV_THREADS <= 1) then
+    if ( HIM_RTTOV_THREADS <= 1) then
       call rttov_direct(                &
               errorstatus,              &! out   error flag
               chanprof,                 &! in    channel and profile index structure
@@ -566,7 +566,7 @@ contains
               emissivity  = emissivity, &! inout input/output emissivities per channel
               calcrefl    = calcrefl,   &! in    flag for internal BRDF calcs
               reflectance = reflectance,&! inout input/output BRDFs per channel
-              nthreads    = H08_RTTOV_THREADS )    ! in    number of threads to use
+              nthreads    = HIM_RTTOV_THREADS )    ! in    number of threads to use
     endif
   
     if (errorstatus /= errorstatus_success) then
@@ -605,7 +605,7 @@ contains
         endif
   
         ! TOA to the ground
-        do ilev = 2, nlevs - 1 + H08_RTTOV_KADD - 1
+        do ilev = 2, nlevs - 1 + HIM_RTTOV_KADD - 1
           rdp = 1.0d0 / (abs(profiles(iprof)%p(ilev) - profiles(iprof)%p(ilev+1)) * 1.0d2) ! Pa
           tmp_wgt = abs(transmission % tau_levels(ilev,joff+ich) &
                       - transmission % tau_levels(ilev+1,joff+ich)) * rdp
@@ -642,7 +642,7 @@ contains
           0_jpim,                  &  ! 0 => deallocate
           nprof,                   &
           nchanprof,               &
-          nlevs+H08_RTTOV_KADD,    &
+          nlevs+HIM_RTTOV_KADD,    &
           chanprof,                &
           opts,                    &
           profiles,                &

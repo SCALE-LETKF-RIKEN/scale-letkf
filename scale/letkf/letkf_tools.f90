@@ -144,7 +144,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
   var_local(:,6) = VAR_LOCAL_TC(:)
   var_local(:,7) = VAR_LOCAL_RADAR_REF(:)
   var_local(:,8) = VAR_LOCAL_RADAR_VR(:)
-  var_local(:,9) = VAR_LOCAL_H08(:)
+  var_local(:,9) = VAR_LOCAL_HIM(:)
   var_local_n2nc_max = 1
   var_local_n2nc(1) = 1
   var_local_n2n(1) = 1
@@ -2047,10 +2047,10 @@ subroutine obs_local_cal(ri, rj, rlev, rz, nvar, iob, ic, ndist, nrloc, nrdiag)
   else if (obtyp == 22) then ! obtypelist(obtyp) == 'PHARAD'
     nd_v = ABS(obs(obset)%lev(obidx) - rz) / vert_loc_ctype(ic)             ! for PHARAD, use z-coordinate for vertical localization
 #IFDEF RTTOV
-  else if (obtyp == 23) then ! obtypelist(obtyp) == 'H08IRB'                ! H08
-    nd_v = abs( log( obsda_sort%lev(iob) ) - log( rlev ) ) / vert_loc_ctype(ic)   ! H08 for H08IRB, use obsda_sort%lev(iob) for vertical localization
-!    if ( H08_PQV .and. obsda_sort%qv(iob) >= 0.0_r_size ) then ! Pseudo qv
-!      nd_v = abs( log(H08_PQV_PLEV) - log(rlev) ) / vert_loc_ctype(ic)   
+  else if (obtyp == 23) then ! obtypelist(obtyp) == 'HIMIRB'                ! HIM
+    nd_v = abs( log( obsda_sort%lev(iob) ) - log( rlev ) ) / vert_loc_ctype(ic)   ! HIM for HIMIRB, use obsda_sort%lev(iob) for vertical localization
+!    if ( HIM_PQV .and. obsda_sort%qv(iob) >= 0.0_r_size ) then ! Pseudo qv
+!      nd_v = abs( log(HIM_PQV_PLEV) - log(rlev) ) / vert_loc_ctype(ic)   
 !    endif
 #ENDIF
   else
@@ -2145,27 +2145,27 @@ subroutine obs_local_cal(ri, rj, rlev, rz, nvar, iob, ic, ndist, nrloc, nrdiag)
   endif
 
 #IFDEF RTTOV
-  if (obtyp == 23) then ! obtypelist(obtyp) == 'H08IRB'
+  if (obtyp == 23) then ! obtypelist(obtyp) == 'HIMIRB'
     ch_num = nint(obs(obset)%lev(obidx)) - 6
-    if ( H08_AOEI .and. INFL_ADD == 0.0d0 ) then 
+    if ( HIM_AOEI .and. INFL_ADD == 0.0d0 ) then 
     ! obs%err: sigma_ot/true (not inflated) obs error 
     ! obsda%val: O–B (innovation)
     ! obsda%val2: sigma_o (inflated obs error)
     ! nrdiag = max(obs(obset)%err(obidx)**2, obsda_sort%val(iob)**2 - obsda_sort%val2(iob)**2)**2 / nrloc 
       nrdiag = obsda_sort%val2(iob)**2 / nrloc 
 
-    elseif ( H08_PQV .and. obsda_sort%qv(iob) >= 0.0_r_size ) then ! pseudo qv
-      nrdiag = H08_PQV_QVERR**2 / nrloc
+    elseif ( HIM_PQV .and. obsda_sort%qv(iob) >= 0.0_r_size ) then ! pseudo qv
+      nrdiag = HIM_PQV_QVERR**2 / nrloc
 
-    elseif ( H08_CLDERR_SIMPLE ) then ! simple cloud-dependent obs err (Honda et al. 2017MWR)
-      if( obsda_sort%val2(iob) > H08_CA_THRES )then
-        nrdiag = H08_CLDERR_CLOUD(ch_num) * H08_CLDERR_CLOUD(ch_num) / nrloc
+    elseif ( HIM_CLDERR_SIMPLE ) then ! simple cloud-dependent obs err (Honda et al. 2017MWR)
+      if( obsda_sort%val2(iob) > HIM_CA_THRES )then
+        nrdiag = HIM_CLDERR_CLOUD(ch_num) * HIM_CLDERR_CLOUD(ch_num) / nrloc
       else
-        nrdiag = H08_CLDERR_CLEAR(ch_num) * H08_CLDERR_CLEAR(ch_num) / nrloc
+        nrdiag = HIM_CLDERR_CLEAR(ch_num) * HIM_CLDERR_CLEAR(ch_num) / nrloc
       endif
 
     else
-      nrdiag = OBSERR_H08(ch_num) * OBSERR_H08(ch_num) / nrloc ! constant everywhere
+      nrdiag = OBSERR_HIM(ch_num) * OBSERR_HIM(ch_num) / nrloc ! constant everywhere
     endif
   endif
 #ENDIF
