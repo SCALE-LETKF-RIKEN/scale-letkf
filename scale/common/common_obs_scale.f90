@@ -664,8 +664,6 @@ SUBROUTINE prsadj(p,dz,t,q)
   RETURN
 END SUBROUTINE prsadj
 
-
-
 !-----------------------------------------------------------------------
 ! Compute radar reflectivity and radial wind.
 ! Radial wind computations for certain methods depend on model reflectivity
@@ -1127,7 +1125,7 @@ END SUBROUTINE calc_ref_vr
 !OCL SERIAL
 SUBROUTINE phys2ijk(p_full,elem,ri,rj,rlev,rk,qc,typ)
   use scale_atmos_grid_cartesC_index, only: &
-      KHALO
+      IHALO, KHALO, IA
   IMPLICIT NONE
 
   REAL(r_size),INTENT(IN) :: p_full(nlevh,nlonh,nlath)
@@ -1150,13 +1148,17 @@ SUBROUTINE phys2ijk(p_full,elem,ri,rj,rlev,rk,qc,typ)
 ! rlev -> rk
 !
   if (ri < 1.0d0 .or. ri > nlonh .or. rj < 1.0d0 .or. rj > nlath) then
-    if (LOG_LEVEL >= 1) then
-      write (6,'(A)') '[Warning] observation is outside of the horizontal domain'
+    if (IA /= 1) then !!! exception: 2D ideal case
+      write(6,*) "IA=",IA
+      if (LOG_LEVEL >= 1) then
+        write (6,'(A)') '[Warning] observation is outside of the horizontal domain'
+      end if
+      rk = undef
+      qc = iqc_out_h
+      return
     end if
-    rk = undef
-    qc = iqc_out_h
-    return
   end if
+  !
   !
   IF(elem > 9999) THEN ! surface observation
     rk = rlev
@@ -1177,7 +1179,7 @@ SUBROUTINE phys2ijk(p_full,elem,ri,rj,rlev,rk,qc,typ)
     !
     ks = 1+KHALO
     do jj = j-1, j
-      do ii = i-1, i
+      do ii = max(i-1,1), min(i,nlong+IHALO)
 
 
 !print *, p_full(:,ii,jj)
@@ -1237,8 +1239,13 @@ SUBROUTINE phys2ijk(p_full,elem,ri,rj,rlev,rk,qc,typ)
     DO k=ks+1,nlev+KHALO
       IF(plev(k) < rk) EXIT ! assuming descending order of plev
     END DO
-    ak = (rk - plev(k-1)) / (plev(k) - plev(k-1))
-    rk = REAL(k-1,r_size) + ak
+    if (k == nlev+KHALO+1) then !tentative
+      ak = 0.99
+      rk = REAL(k-2,r_size) + ak
+    else
+      ak = (rk - plev(k-1)) / (plev(k) - plev(k-1))
+      rk = REAL(k-1,r_size) + ak
+    end if
   END IF
 
   RETURN
@@ -1251,7 +1258,7 @@ END SUBROUTINE phys2ijk
 !OCL SERIAL
 SUBROUTINE phys2ijkz(z_full,ri,rj,rlev,rk,qc)
   use scale_atmos_grid_cartesC_index, only: &
-      KHALO
+      IHALO, KHALO, IA
 !  use common_mpi
   IMPLICIT NONE
 
@@ -1276,14 +1283,15 @@ SUBROUTINE phys2ijkz(z_full,ri,rj,rlev,rk,qc)
 ! rlev -> rk
 !
   if (ri < 1.0d0 .or. ri > nlonh .or. rj < 1.0d0 .or. rj > nlath) then
-    if (LOG_LEVEL >= 1) then
-      write (6,'(A)') '[Warning] observation is outside of the horizontal domain'
+    if (IA /= 1) then !!! exception: 2D ideal case
+      if (LOG_LEVEL >= 1) then
+        write (6,'(A)') '[Warning] observation is outside of the horizontal domain'
+      end if
+      rk = undef
+      qc = iqc_out_h
+      return
     end if
-    rk = undef
-    qc = iqc_out_h
-    return
   end if
-
 
 !  rrtimer = MPI_WTIME()
 !  WRITE(6,'(A,F18.10)') '###### phys2ijkz:check_domain:',rrtimer-rrtimer00
@@ -1300,7 +1308,7 @@ SUBROUTINE phys2ijkz(z_full,ri,rj,rlev,rk,qc)
   !
   ks = 1+KHALO
   do jj = j-1, j
-    do ii = i-1, i
+    do ii = max(i-1,1), min(i,nlong+IHALO)
       DO k=1+KHALO,nlev+KHALO
         if (z_full(k,ii,jj) > -300.0d0 .and. z_full(k,ii,jj) < 10000.0d0) exit
       END DO
@@ -1360,8 +1368,13 @@ SUBROUTINE phys2ijkz(z_full,ri,rj,rlev,rk,qc)
   DO k=ks+1,nlev+KHALO
     IF(zlev(k) > rlev) EXIT ! assuming ascending order of zlev
   END DO
-  ak = (rlev - zlev(k-1)) / (zlev(k) - zlev(k-1))
-  rk = REAL(k-1,r_size) + ak
+  if (k == nlev+KHALO+1) then !tentative
+    ak = 0.99
+    rk = REAL(k-2,r_size) + ak
+  else
+    ak = (rlev - zlev(k-1)) / (zlev(k) - zlev(k-1))
+    rk = REAL(k-1,r_size) + ak
+  end if
 
 
 !  rrtimer = MPI_WTIME()
@@ -1396,6 +1409,11 @@ SUBROUTINE phys2ij(rlon,rlat,rig,rjg)
                                 real(rlat*pi/180.0_r_size, kind=RP), rig_RP, rjg_RP )
   rig = real((rig_RP - CXG(1)) / DX, kind=r_size) + 1.0_r_size
   rjg = real((rjg_RP - CYG(1)) / DY, kind=r_size) + 1.0_r_size
+
+  if (nlonh==1) then !!! adjustment : ideal 2-D case
+    write(6,*) "phys2ij : rig adjusted to 1 from",rig
+    rig = 1.0_r_size
+  end if
 
   RETURN
 END SUBROUTINE phys2ij
@@ -1461,10 +1479,15 @@ SUBROUTINE itpl_2d(var,ri,rj,var5)
   j = CEILING(rj)
   aj = rj - REAL(j-1,r_size)
 
-  var5 = var(i-1,j-1) * (1-ai) * (1-aj) &
-     & + var(i  ,j-1) *    ai  * (1-aj) &
-     & + var(i-1,j  ) * (1-ai) *    aj  &
-     & + var(i  ,j  ) *    ai  *    aj
+  if (nlonh==1) then
+    var5 = var(i  ,j-1) * (1-aj) &
+       & + var(i  ,j  ) *    aj
+  else
+    var5 = var(i-1,j-1) * (1-ai) * (1-aj) &
+       & + var(i  ,j-1) *    ai  * (1-aj) &
+       & + var(i-1,j  ) * (1-ai) *    aj  &
+       & + var(i  ,j  ) *    ai  *    aj
+  end if
 
   RETURN
 END SUBROUTINE itpl_2d
@@ -1483,10 +1506,15 @@ SUBROUTINE itpl_2d_column(var,ri,rj,var5)
   j = CEILING(rj)
   aj = rj - REAL(j-1,r_size)
 
-  var5(:) = var(:,i-1,j-1) * (1-ai) * (1-aj) &
-        & + var(:,i  ,j-1) *    ai  * (1-aj) &
-        & + var(:,i-1,j  ) * (1-ai) *    aj  &
-        & + var(:,i  ,j  ) *    ai  *    aj
+  if (nlonh==1) then
+    var5(:) = var(:,i  ,j-1) * (1-aj) &
+          & + var(:,i  ,j  ) *    aj
+  else
+    var5(:) = var(:,i-1,j-1) * (1-ai) * (1-aj) &
+          & + var(:,i  ,j-1) *    ai  * (1-aj) &
+          & + var(:,i-1,j  ) * (1-ai) *    aj  &
+          & + var(:,i  ,j  ) *    ai  *    aj
+  end if
 
   RETURN
 END SUBROUTINE itpl_2d_column
@@ -1508,14 +1536,21 @@ SUBROUTINE itpl_3d(var,rk,ri,rj,var5)
   k = CEILING(rk)
   ak = rk - REAL(k-1,r_size)
 
-  var5 = var(k-1,i-1,j-1) * (1-ai) * (1-aj) * (1-ak) &
-     & + var(k-1,i  ,j-1) *    ai  * (1-aj) * (1-ak) &
-     & + var(k-1,i-1,j  ) * (1-ai) *    aj  * (1-ak) &
-     & + var(k-1,i  ,j  ) *    ai  *    aj  * (1-ak) &
-     & + var(k,  i-1,j-1) * (1-ai) * (1-aj) *    ak  &
-     & + var(k,  i  ,j-1) *    ai  * (1-aj) *    ak  &
-     & + var(k,  i-1,j  ) * (1-ai) *    aj  *    ak  &
-     & + var(k,  i  ,j  ) *    ai  *    aj  *    ak
+  if (nlonh==1) then
+    var5 = var(k-1,i  ,j-1) * (1-aj) * (1-ak) &
+       & + var(k-1,i  ,j  ) *    aj  * (1-ak) &
+       & + var(k,  i  ,j-1) * (1-aj) *    ak  &
+       & + var(k,  i  ,j  ) *    aj  *    ak
+  else
+    var5 = var(k-1,i-1,j-1) * (1-ai) * (1-aj) * (1-ak) &
+       & + var(k-1,i  ,j-1) *    ai  * (1-aj) * (1-ak) &
+       & + var(k-1,i-1,j  ) * (1-ai) *    aj  * (1-ak) &
+       & + var(k-1,i  ,j  ) *    ai  *    aj  * (1-ak) &
+       & + var(k,  i-1,j-1) * (1-ai) * (1-aj) *    ak  &
+       & + var(k,  i  ,j-1) *    ai  * (1-aj) *    ak  &
+       & + var(k,  i-1,j  ) * (1-ai) *    aj  *    ak  &
+       & + var(k,  i  ,j  ) *    ai  *    aj  *    ak
+  end if
 
   RETURN
 END SUBROUTINE itpl_3d

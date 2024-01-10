@@ -1959,7 +1959,7 @@ subroutine rij_rank(ig, jg, rank)
 #ifdef LETKF_DEBUG
   use scale_atmos_grid_cartesC_index, only: &
       IHALO, JHALO, &
-      IA, JA, IS, JS
+      IA, JA, IS, JS, IE
   use scale_prc, only: &
       PRC_myrank
   use scale_atmos_grid_cartesC, only: &
@@ -1982,6 +1982,10 @@ subroutine rij_rank(ig, jg, rank)
 
   if (ig < real(IS,r_size) .or. ig > real(nlon*PRC_NUM_X+IHALO,r_size) .or. &
       jg < real(JS,r_size) .or. jg > real(nlat*PRC_NUM_Y+JHALO,r_size)) then
+    if (.not.(IS == IE .and. (ig < real(IS,r_size) .or. ig > real(nlon*PRC_NUM_X+IHALO,r_size) ))) then !!! exception : 2-D ideal case
+      rank = -1
+      return
+    end if
     rank = -1
     return
   end if
@@ -1991,7 +1995,7 @@ subroutine rij_rank(ig, jg, rank)
   call rank_2d_1d(rank_i, rank_j, rank)
 
 #ifdef LETKF_DEBUG
-  if (PRC_myrank == rank) then
+  if (PRC_myrank == rank.and.nlon > 1) then
     if (ig < (GRID_CX(1) - GRID_CXG(1)) / DX + 1.0d0 .or. &
         ig > (GRID_CX(IA) - GRID_CXG(1)) / DX + 1.0d0 .or. &
         jg < (GRID_CY(1) - GRID_CYG(1)) / DY + 1.0d0 .or. &

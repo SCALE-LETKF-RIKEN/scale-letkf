@@ -1769,7 +1769,11 @@ subroutine obs_local_range(ctype, ri, rj, imin, imax, jmin, jmax)
 
   real(r_size) :: dist_zero_i, dist_zero_j
 
-  dist_zero_i = hori_loc_ctype(ctype) * dist_zero_fac / DX
+  if (nlon == 1) then !!! 2-D
+    dist_zero_i = 0.0_r_size
+  else
+    dist_zero_i = hori_loc_ctype(ctype) * dist_zero_fac / DX
+  end if
   dist_zero_j = hori_loc_ctype(ctype) * dist_zero_fac / DY
   call ij_obsgrd_ext(ctype, ri - dist_zero_i, rj - dist_zero_j, imin, jmin)
   call ij_obsgrd_ext(ctype, ri + dist_zero_i, rj + dist_zero_j, imax, jmax)
