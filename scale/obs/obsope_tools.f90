@@ -90,7 +90,6 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
 
   integer, allocatable :: qc_HIM(:,:,:)
   integer, allocatable :: qc_HIM_prep(:,:,:)
-  real(r_size), allocatable :: zangle_HIM(:,:)
   integer :: i8, j8, b8
   integer :: i, j, ch
 
@@ -152,12 +151,16 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
         ! Himawari-8 radiance obs
 
         use_him = .true.
-        allocate( yobs_HIM(nlon,nlat,NIRB_HIM) )
-        allocate( yobs_HIM_clr(nlon,nlat,NIRB_HIM) )
-        allocate( yobs_HIM_prep(nlon,nlat,NIRB_HIM) )
-        allocate( yobs_HIM_clr_prep(nlon,nlat,NIRB_HIM) )
+        allocate( yobs_HIM    (nlon,nlat,NIRB_HIM_USE) )
+        allocate( yobs_HIM_clr(nlon,nlat,NIRB_HIM_USE) )
+        allocate( yobs_HIM_prep    (nlon,nlat,NIRB_HIM_USE) )
+        allocate( yobs_HIM_clr_prep(nlon,nlat,NIRB_HIM_USE) )
 
-        allocate( plev_obs_HIM(nlon,nlat,NIRB_HIM) )
+        allocate( plev_obs_HIM(nlon,nlat,NIRB_HIM_USE) )
+
+        allocate( qc_HIM     (nlon,nlat,NIRB_HIM_USE) )
+        allocate( qc_HIM_prep(nlon,nlat,NIRB_HIM_USE) )
+
       endif
 
       obrank_bufs(:) = -1
@@ -438,11 +441,11 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
 #IFDEF RTTOV
         if ( use_him .or. HIM_OUT_ETBB_NC ) then
           call Trans_XtoY_HIM_allg(v3dg,v2dg,yobs_HIM,yobs_HIM_clr,&
-                                   plev_obs_HIM,qc_HIM,zangle_HIM)
+                                   plev_obs_HIM,qc_HIM)
 
-          ! Him8 preprocess
-          call prep_Him8_mpi(yobs_HIM,    yobs_HIM_prep,    qc_lprep=qc_HIM_prep)
-          call prep_Him8_mpi(yobs_HIM_clr,yobs_HIM_clr_prep)
+          ! Him preprocess
+          call prep_Him_mpi(yobs_HIM,    yobs_HIM_prep,    qc_lprep=qc_HIM_prep)
+          call prep_Him_mpi(yobs_HIM_clr,yobs_HIM_clr_prep)
 
         endif
 #ENDIF

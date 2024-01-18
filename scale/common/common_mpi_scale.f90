@@ -696,6 +696,24 @@ subroutine set_scalelib(execname)
   use mod_user, only: &
     USER_tracer_setup,  &
     USER_setup
+  use scale_io, only: &
+    IO_setup, &
+    IO_LOG_setup, &
+    H_LONG
+  use scale_prc, only: &
+!    PRC_MPIstart, &
+!    PRC_UNIVERSAL_setup, &
+!    PRC_MPIsplit_letkf, &
+    PRC_MPIsplit_nest, &
+    PRC_GLOBAL_setup, &
+    PRC_LOCAL_setup, &
+    PRC_UNIVERSAL_IsMaster, &
+    PRC_nprocs, &
+    PRC_myrank, &
+    PRC_masterrank, &
+    PRC_DOMAIN_nlim
+  use scale_atmos_phy_rd_profile, only: &
+    ATMOS_PHY_RD_PROFILE_setup
 
   implicit none
 
@@ -833,6 +851,7 @@ subroutine set_scalelib(execname)
     call read_nml_letkf_var_local
     call read_nml_letkf_monitor
     call read_nml_letkf_radar
+    call read_nml_letkf_him
   case ('OBSOPE ', 'OBSMAKE')
     call read_nml_obs_error
     call read_nml_obsope
@@ -928,6 +947,9 @@ subroutine set_scalelib(execname)
   call ATMOS_HYDROMETEOR_setup
   call ATMOS_driver_tracer_setup
   call USER_tracer_setup
+
+  ! setup climatological profile for radiation
+  call ATMOS_PHY_RD_PROFILE_setup
 
   ! setup file I/O
   call FILE_CARTESC_setup
@@ -2157,6 +2179,12 @@ subroutine read_obs_all_mpi(obs)
       call obs_info_allocate(obs(iof), extended=.true.)
     end if
 
+    if((OBS_IN_FORMAT(iof) == obsfmt_him) .and. obs(iof)%nobs > 0) then
+      if (myrank_e == 0) then ! this should include myrank_a=0
+        call read_Him_mpi( OBS_IN_NAME(iof), obs=obs(iof) )
+      endif
+    endif
+
     call MPI_BCAST(obs(iof)%elm, obs(iof)%nobs, MPI_INTEGER, 0, MPI_COMM_a, ierr)
     call MPI_BCAST(obs(iof)%lon, obs(iof)%nobs, MPI_r_size, 0, MPI_COMM_a, ierr)
     call MPI_BCAST(obs(iof)%lat, obs(iof)%nobs, MPI_r_size, 0, MPI_COMM_a, ierr)
@@ -2820,6 +2848,7 @@ subroutine copy_restart4mean_and_gues()
   return
 end subroutine copy_restart4mean_and_gues
 subroutine prep_Him8_mpi(tbb_l,tbb_lprep,qc_lprep)
+subroutine prep_Him_mpi(tbb_l,tbb_lprep,qc_lprep)
   implicit none
 
   real(r_size),intent(in) :: tbb_l(nlon,nlat,NIRB_HIM) ! superobs tbb (local)
@@ -2839,7 +2868,7 @@ subroutine prep_Him8_mpi(tbb_l,tbb_lprep,qc_lprep)
   real(r_size) :: bufs8(nlong,nlatg,NIRB_HIM)
 
 
-  ! Gatther Him8 obs simulated in each subdomain
+  ! Gatther Him obs simulated in each subdomain
   call rank_1d_2d(myrank_d, proc_i, proc_j)
   ishift = proc_i * nlon
   jshift = proc_j * nlat
@@ -2850,7 +2879,7 @@ subroutine prep_Him8_mpi(tbb_l,tbb_lprep,qc_lprep)
   tbb_g(:,:,:) = bufs8(:,:,:)
 
 
-  call allgHim82obs(tbb_g,tbb_gprep,qc_allg_prep=qc_gprep)
+  call allgHim2obs(tbb_g,tbb_gprep,qc_allg_prep=qc_gprep)
   if (present(qc_lprep)) then
     qc_lprep = qc_gprep(1+ishift:nlon+ishift,1+jshift:nlat+jshift,1:NIRB_HIM)
   endif
@@ -2858,21 +2887,21 @@ subroutine prep_Him8_mpi(tbb_l,tbb_lprep,qc_lprep)
   tbb_lprep(1:nlon,1:nlat,1:NIRB_HIM) = tbb_gprep(1+ishift:nlon+ishift,1+jshift:nlat+jshift,1:NIRB_HIM)
 
   return
-end subroutine prep_Him8_mpi
+end subroutine prep_Him_mpi
 
-subroutine read_Him8_mpi(filename,obs)
+subroutine read_Him_mpi(filename,obs)
   implicit none
 
   character(*),intent(in) :: filename
   type(obs_info), intent(inout), optional :: obs
 
-  integer :: imax_him8, jmax_him8
+  integer :: imax_him, jmax_him
 
-  real(r_sngl),allocatable :: tbb_org(:,:,:)
-  real(r_sngl),allocatable :: lon_him8(:), lat_him8(:)
-  real(r_size) :: tbb_sobs_l(nlon,nlat,NIRB_HIM) ! superobs tbb (local)
-  real(r_size) :: tbb_sobs(nlong,nlatg,NIRB_HIM) ! superobs tbb (global)
-  real(r_size) :: tbb_sobs_prep(nlong,nlatg,NIRB_HIM) ! superobs tbb (global) after preprocess
+  real(r_sngl), allocatable :: tbb_org(:,:,:)
+  real(r_sngl), allocatable :: lon_him(:), lat_him(:)
+  real(r_size) :: tbb_sobs_l(nlon,nlat,NIRB_HIM_USE) ! superobs tbb (local)
+  real(r_size) :: tbb_sobs(nlong,nlatg,NIRB_HIM_USE) ! superobs tbb (global)
+  real(r_size) :: tbb_sobs_prep(nlong,nlatg,NIRB_HIM_USE) ! superobs tbb (global) after preprocess
 
   integer ierr
   integer :: iunit, irec
@@ -2881,95 +2910,72 @@ subroutine read_Him8_mpi(filename,obs)
   integer :: proc_i, proc_j
   integer :: ishift, jshift
 
-  real(r_size) :: bufs8(nlong,nlatg,NIRB_HIM)
-
-  if (myrank_a == 0) then
-    call get_dim_Him8_nc(filename,imax_him8,jmax_him8)
-  endif
-
-  call MPI_BCAST(imax_him8, 1, MPI_INTEGER, 0, MPI_COMM_d, ierr)
-  call MPI_BCAST(jmax_him8, 1, MPI_INTEGER, 0, MPI_COMM_d, ierr)
-
-  allocate(tbb_org(imax_him8,jmax_him8,NIRB_HIM))
-  allocate(lon_him8(imax_him8))
-  allocate(lat_him8(jmax_him8))
-
-  tbb_org = 0.0
-  lon_him8 = 0.0
-  lat_him8 = 0.0
+  real(r_size) :: bufs(nlong,nlatg,NIRB_HIM_USE)
 
   if (myrank_d == 0) then
-    call read_Him8_nc(filename,imax_him8,jmax_him8,lon_him8,lat_him8,tbb_org)
+    call get_dim_Him_nc(filename,imax_him,jmax_him)
   endif
 
-  call MPI_BCAST(tbb_org, imax_him8*jmax_him8*NIRB_HIM, MPI_REAL, 0, MPI_COMM_d, ierr)
-  call MPI_BCAST(lon_him8, imax_him8, MPI_REAL, 0, MPI_COMM_d, ierr)
-  call MPI_BCAST(lat_him8, jmax_him8, MPI_REAL, 0, MPI_COMM_d, ierr)
+  call MPI_BCAST(imax_him, 1, MPI_INTEGER, 0, MPI_COMM_d, ierr)
+  call MPI_BCAST(jmax_him, 1, MPI_INTEGER, 0, MPI_COMM_d, ierr)
 
-  bufs8(:,:,:) = 0.0d0
+  allocate(tbb_org(imax_him,jmax_him,NIRB_HIM_USE))
+  allocate(lon_him(imax_him))
+  allocate(lat_him(jmax_him))
+
+  tbb_org = 0.0
+  lon_him = 0.0
+  lat_him = 0.0
+
+  if (myrank_d == 0) then
+    call read_Him_nc(filename,imax_him,jmax_him,lon_him,lat_him,tbb_org)
+  endif
+
+  call MPI_BCAST(tbb_org, imax_him*jmax_him*NIRB_HIM_USE, MPI_REAL, 0, MPI_COMM_d, ierr)
+  call MPI_BCAST(lon_him, imax_him, MPI_REAL, 0, MPI_COMM_d, ierr)
+  call MPI_BCAST(lat_him, jmax_him, MPI_REAL, 0, MPI_COMM_d, ierr)
+
+  bufs(:,:,:) = 0.0_r_size
 
   ! Superobing
-  call sobs_Him8(imax_him8,jmax_him8,lon_him8,lat_him8,tbb_org,tbb_sobs_l)
+  call sobs_Him(imax_him,jmax_him,lon_him,lat_him,tbb_org,tbb_sobs_l)
 
   call rank_1d_2d(myrank_d, proc_i, proc_j)
   ishift = proc_i * nlon
   jshift = proc_j * nlat
 
-  bufs8(1+ishift:nlon+ishift, 1+jshift:nlat+jshift,1:NIRB_HIM) = tbb_sobs_l(:,:,:)
-  call MPI_ALLREDUCE(MPI_IN_PLACE, bufs8, nlong*nlatg*NIRB_HIM, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
-  tbb_sobs = bufs8
+  bufs(1+ishift:nlon+ishift, 1+jshift:nlat+jshift,1:NIRB_HIM_USE) = tbb_sobs_l(:,:,:)
+  call MPI_ALLREDUCE(MPI_IN_PLACE, bufs, nlong*nlatg*NIRB_HIM_USE, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
+  tbb_sobs = bufs
 
   if (myrank_d == 0) then
     ! it would be better to enable multiple processes in the following subroutine
-    if ( HIM_OUT_TBB_NC ) then
-      call write_Him8_nc( trim(HIM_OUTFILE_BASENAME)//"_sobs.nc", &
-                          real( tbb_sobs, kind=r_sngl) )
+    call write_Him_nc( trim(HIM_OUTFILE_BASENAME)//"_sobs.nc", &
+                        real( tbb_sobs, kind=r_sngl) )
 
-      if ( present( obs ) ) then
-        call write_Him8_nc( trim(HIM_OUTFILE_BASENAME)//"_sobs_prep.nc", &
-                          real( tbb_sobs_prep, kind=r_sngl) )
-      endif
-
-    else
-
-      iunit = 65
-      irec = 0
-  
-      open( unit=iunit, file=trim(HIM_OUTFILE_BASENAME)//"_sobs.dat", &
-            form='unformatted',access='direct', &
-            status='unknown', recl=nlong*nlatg*4 )
-      do ch = 1, NIRB_HIM
-        irec = irec + 1
-        write(iunit,rec=irec) real(tbb_sobs(:,:,ch),kind=r_sngl)
-      enddo
-      do ch = 1, NIRB_HIM
-        irec = irec + 1
-        write(iunit,rec=irec) real(tbb_sobs_prep(:,:,ch),kind=r_sngl)
-      enddo
-  
-      close(unit=iunit)    
-
+    if ( present( obs ) ) then
+      call write_Him_nc( trim(HIM_OUTFILE_BASENAME)//"_sobs_prep.nc", &
+                        real( tbb_sobs_prep, kind=r_sngl) )
     endif
 
     if ( present( obs ) ) then
 
-      call allgHim82obs(tbb_sobs,tbb_sobs_prep,obsdat=obs%dat,obslon=obs%lon,obslat=obs%lat,obslev=obs%lev,obserr=obs%err)
+      call allgHim2obs(tbb_sobs,tbb_sobs_prep,obsdat=obs%dat,obslon=obs%lon,obslat=obs%lat,obslev=obs%lev,obserr=obs%err)
       obs%elm(:) = id_HIMIR_obs
       obs%typ(:) = 23
-      obs%dif(:) = 0.0d0 ! Assume 3D-LETKF for Himawari-8
+      obs%dif(:) = 0.0_r_size ! Assume 3D-LETKF for Himawari-8
 
     endif
-
 
   endif
 
   deallocate(tbb_org)
-  deallocate(lon_him8,lat_him8)
+  deallocate(lon_him,lat_him)
 
   return
-end subroutine read_Him8_mpi
+end subroutine read_Him_mpi
 
-subroutine write_Him8_mpi( tbb_l, tbb_clr_l, step )
+subroutine write_Him_mpi( tbb_l, tbb_clr_l, step )
   implicit none
 
   real, intent(in) :: tbb_l(nlon,nlat,NIRB_HIM)
@@ -2996,7 +3002,7 @@ subroutine write_Him8_mpi( tbb_l, tbb_clr_l, step )
 !  if (step <= 0 .and. present(tbb_lm)) then ! called from obsope
 !    tbb_lprep = real( tbb_lm, kind=r_size )
 !  else
-!    call prep_Him8_mpi( real( tbb_l, kind=r_size), tbb_lprep )
+!    call prep_Him_mpi( real( tbb_l, kind=r_size), tbb_lprep )
 !  endif
 
   call rank_1d_2d(myrank_d, proc_i, proc_j)
@@ -3036,7 +3042,7 @@ subroutine write_Him8_mpi( tbb_l, tbb_clr_l, step )
 
     if ( HIM_OUT_TBB_NC ) then
       foot = ".nc"
-      call write_Him8_nc( trim(filename) // trim(foot), tbb_g )
+      call write_Him_nc( trim(filename) // trim(foot), tbb_g )
     else
       foot = ".dat"
       open( unit=iunit, file=trim(filename) // trim(foot), form='unformatted', &
@@ -3057,7 +3063,7 @@ subroutine write_Him8_mpi( tbb_l, tbb_clr_l, step )
   endif ! myrank_d == 0
 
   return
-end subroutine write_Him8_mpi
+end subroutine write_Him_mpi
 
 !===============================================================================
 end module common_mpi_scale

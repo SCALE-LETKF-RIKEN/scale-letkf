@@ -1,6 +1,5 @@
 module common_scale_rttov13
 !$USE OMP_LIB
-
   USE common, ONLY : r_size
   USE scale_const, ONLY: &
         Rdry    => CONST_Rdry,  &
@@ -13,7 +12,7 @@ module common_scale_rttov13
   implicit none
 
 contains
-
+  !OCL SERIAL
   subroutine rttov13_fwd_ir(nchannels,&
                             nlevs,&
                             nprof,&
@@ -38,7 +37,6 @@ contains
                             btclr_out,& 
                             mwgt_plev,&
                             ctop_out)
- 
     ! rttov_const contains useful RTTOV constants
     USE rttov_const, ONLY :     &
          & errorstatus_success, &
@@ -65,13 +63,17 @@ contains
     ! jpim, jprb and jplm are the RTTOV integer, real and logical KINDs
     USE parkind1, ONLY : jpim, jprb, jplm
     USE common_nml, ONLY: &
-          HIM_RTTOV_THREADS,    &
-          HIM_RTTOV_CFRAC_CNST, &
-          HIM_RTTOV_MINQ_CTOP,  &
-          HIM_RTTOV_COEF_PATH,  &
-          HIM_RTTOV_PROF_SHIFT, &
-          HIM_RTTOV_CFRAC,      &
-          HIM_RTTOV_CLD,        &
+          HIM_RTTOV_THREADS,      &
+          NIRB_HIM,               &
+          HIM_IR_BAND_RTTOV_LIST, &
+          HIM_RTTOV_CFRAC_CNST,   &
+          HIM_RTTOV_MINQ_CTOP,    &
+          RTTOV_COEF_PATH,        &
+          RTTOV_COEF_FILE,        &
+          RTTOV_COEF_FILE_CLD,    &
+          HIM_RTTOV_PROF_SHIFT,   &
+          HIM_RTTOV_CFRAC,        &
+          HIM_RTTOV_CLD,          &
           HIM_RTTOV_KADD
     IMPLICIT NONE
   
@@ -99,9 +101,8 @@ contains
     type(rttov_radiance)             :: radiance                 ! Output radiances
   
     integer(kind=jpim)               :: errorstatus              ! Return error status of RTTOV subroutine calls
-  
-    integer(kind=jpim) :: alloc_status
-  
+    integer(kind=jpim)               :: channel_list(nchannels)
+
     integer, intent(in) :: nprof
     integer, intent(in) :: nlevs
   
@@ -127,8 +128,6 @@ contains
   
     ! variables for input
     !====================
-    character(len=256) :: coef_filename='/rtcoef_himawari_8_ahi.dat'
-    character(len=256) :: sccoef_filename='/sccldcoef_himawari_8_ahi.dat'
     integer(kind=jpim) :: dosolar = 0_jpim
     integer(kind=jpim), intent(in) :: nchannels
     integer(kind=jpim) :: nchanprof
@@ -136,7 +135,7 @@ contains
     ! loop variables
     integer(kind=jpim) :: j, jch
     integer(kind=jpim) :: nch
-    integer(kind=jpim) :: ilev
+    integer(kind=jpim) :: ilev, ic
     integer(kind=jpim) :: iprof, joff
   
   ! by T.Honda
@@ -148,8 +147,7 @@ contains
     real(kind=r_size) :: rdp, max_wgt, tmp_wgt
     real(kind=r_size), intent(out) :: mwgt_plev(nchannels,nprof) ! Max weight level (Pa)
   
-    logical :: debug = .false.
-  !  logical :: debug = .true.
+    logical :: debug = .true.
   
     real(kind=jprb) :: repsb 
   
@@ -164,7 +162,6 @@ contains
   
     logical :: unit_kgkg = .true.
   
-   
     if(debug) write(6,'(1x,a)')"hello from RTTOV"
   
   ! -- set thermodynamic constants
@@ -173,8 +170,14 @@ contains
   
     errorstatus     = 0_jpim
   
-    if(debug) write(6,'(1x,a)')"hello from RTTOV2"
-  
+    ic = 0
+    do jch = 1, NIRB_HIM
+      if ( HIM_IR_BAND_RTTOV_LIST(jch) > 0 ) then
+        ic = ic + 1
+        channel_list(ic) = HIM_IR_BAND_RTTOV_LIST(jch)
+      endif
+    enddo
+
     ! --------------------------------------------------------------------------
     ! 1. Initialise RTTOV options structure
     ! --------------------------------------------------------------------------
@@ -191,6 +194,7 @@ contains
     opts % rt_ir % addaerosl           = .FALSE. ! Don't include aerosol effects
   
     opts % rt_ir % addclouds           = HIM_RTTOV_CLD ! Include cloud effects
+    opts % rt_ir % grid_box_avg_cloud  = .TRUE.  ! Cloud concentrations are grid box averages
   
     opts % rt_ir % ir_scatt_model      = 2       ! Scattering model for emission source term:
                                                  !   1 => doM; 2 => Chou-scaling
@@ -206,18 +210,19 @@ contains
     opts % rt_all % ch4_data            = .FALSE. !   coef file supports the gas)
     opts % rt_all % co_data             = .FALSE. !
     opts % rt_all % so2_data            = .FALSE. !
-    opts % rt_mw % clw_data            = .FALSE. !
+    opts % rt_mw % clw_data             = .FALSE. !
   
     opts%rt_ir%ir_sea_emis_model       = 2       ! IREMIS for IR emissivity
   
+    opts % rt_ir % user_cld_opt_param  = .false.
+
     if (debug) then
       opts % config % verbose            = .true.  ! Enable printing of warnings
     else
       opts % config % verbose            = .false.  ! Enable printing of warnings
     endif
   
-  !  opts%config%apply_reg_limits       = .true.
-    opts%config%do_checkinput          = .false.
+    opts%config%apply_reg_limits       = .true.
   
   !! added by T.Honda(2015/06/10)
   !  opts % interpolation % reg_limit_extrap  = .TRUE.  ! see UG 7.3 (32pp)
@@ -228,27 +233,29 @@ contains
     ! 2. Read coefficients
     ! --------------------------------------------------------------------------
     if(debug) write(6,'(1x,a)')"hello from RTTOV3"
-    call rttov_read_coefs(errorstatus, coefs, opts, form_coef='formatted', &
-                         &file_coef=trim(HIM_RTTOV_COEF_PATH)//trim(coef_filename), &
-                         &file_sccld=trim(HIM_RTTOV_COEF_PATH)//trim(sccoef_filename))
-    IF (errorstatus /= errorstatus_success) THEN
-      WRITE(*,*) 'fatal error reading coefficients'
-      write(*,*) trim(HIM_RTTOV_COEF_PATH)//trim(coef_filename)
+    call rttov_read_coefs(errorstatus, coefs, opts, form_coef='formatted',                     &
+                         channels=channel_list,                                                &
+                         &file_coef =trim(RTTOV_COEF_PATH) // '/' // trim(RTTOV_COEF_FILE),    &
+                         &file_sccld=trim(RTTOV_COEF_PATH) // '/' // trim(RTTOV_COEF_FILE_CLD) )
+    if (errorstatus /= errorstatus_success) then
+      write(*,*) 'fatal error reading coefficients'
+      write(*,*) trim(RTTOV_COEF_PATH) // '/' // trim(RTTOV_COEF_FILE)
       call rttov_exit(errorstatus)
-    ENDIF
+    endif
   
     ! Ensure input number of channels is not higher than number stored in coefficient file
-  !  IF (nchannels > coefs % coef % fmv_chn) THEN
-  !    nchannels = coefs % coef % fmv_chn
-  !  ENDIF
+    if (nchannels > coefs % coef % fmv_chn) then
+      write(*,*) 'fatal error nchannels'
+      call rttov_exit(errorstatus)
+    endif
   
   
     ! Ensure the options and coefficients are consistent
     call rttov_user_options_checkinput(errorstatus, opts, coefs)
-    IF (errorstatus /= errorstatus_success) THEN
-      WRITE(*,*) 'error in rttov options'
+    if (errorstatus /= errorstatus_success) then
+      write(*,*) 'error in rttov options'
       call rttov_exit(errorstatus)
-    ENDIF
+    endif
   
     ! --------------------------------------------------------------------------
     ! 3. Allocate RTTOV input and output structures
@@ -287,12 +294,11 @@ contains
     ! 4. Build the list of profile/channel indices in chanprof
     ! --------------------------------------------------------------------------
   
-    nch = 0_jpim
     do j = 1, nprof
       do jch = 1, nchannels
-        nch = nch + 1_jpim
+        nch = nchannels*(j-1) + jch
         chanprof(nch)%prof = j
-        chanprof(nch)%chan = jch !+ NVIS_HIM8 !channel_list(jch)
+        chanprof(nch)%chan = jch
       enddo
     enddo
   
@@ -323,7 +329,7 @@ contains
   
     !===============================================
     !========== READ profiles == start =============
-    if(debug) write(6,*) 'START SUBSTITUTE PROFILE'
+    if(debug) write(6,*) 'start substitute profile'
     do iprof = 1, nprof
   
       if(HIM_RTTOV_PROF_SHIFT)then
@@ -373,8 +379,9 @@ contains
       profiles(iprof)%s2m%wfetc = 100000.0_jprb
   
       profiles(iprof) % skin % t = max(real(tk2m(iprof),kind=jprb), tmin + tmin * 0.01_jprb)
-  
-  
+      profiles(iprof) % skin % surftype = int(land(iprof))
+      profiles(iprof) % skin % watertype = 1 ! tentative (11/18/2015)
+    
       profiles(iprof)% zenangle = real(zenith(iprof),kind=jprb)
   
       if ( unit_kgkg ) then
@@ -386,43 +393,29 @@ contains
   !      stop
       endif
   
-      profiles(iprof) % skin % surftype = int(land(iprof))
-      profiles(iprof) % skin % watertype = 1 ! tentative (11/18/2015)
-  
       profiles(iprof) % elevation = real(elev(iprof),kind=jprb) * 0.001_jprb ! (km)
       profiles(iprof) % latitude  = real(lat(iprof),kind=jprb)
       profiles(iprof) % longitude = real(lon(iprof),kind=jprb)
   
   
-      if(mod(iprof,1000) == 0 .and. debug)write(6,'(a,f15.10)'),'zenangle ',profiles(iprof)% zenangle
-      if(mod(iprof,1000) == 0 .and. debug)write(6,'(a,2f10.5)'),' ',lon(iprof),lat(iprof)
+      if(mod(iprof,100) == 0 .and. debug)write(6,'(a,f15.10)'),'zenangle ',profiles(iprof)% zenangle
+      if(mod(iprof,100) == 0 .and. debug)write(6,'(a,2f10.5)'),' ',lon(iprof),lat(iprof)
+  
+    enddo ! prof
   
   
+    if( HIM_RTTOV_CLD ) then
+      do iprof = 1, nprof
+        !These are parameters for simple cloud.
+        !Not used.
+        profiles(iprof) % ctp       = 500.0_jprb
+        profiles(iprof) % cfraction = 0.0_jprb
   
-  !    profiles(iprof)% zenangle = 30.0_jprb ! tentative
-  !    profiles(iprof)%azangle=0.0_jprb     ! Not required for [opts % rt_ir %
-  !    addsolar = .FALSE.] 
-  !    profiles(iprof)%sunzenangle=0.0_jprb ! Not required for [opts % rt_ir %
-  !    addsolar = .FALSE.] 
-  !    profiles(iprof)%sunazangle=0.0_jprb  ! Not required for [opts % rt_ir %
-  !    addsolar = .FALSE.]
   
-  !   These are parameters for simple cloud.
-  !   Not used.
-      profiles(iprof) % ctp       = 500.0_jprb
-      profiles(iprof) % cfraction = 0.0_jprb
-  
-    !-- 6 general cloud 
-      if( opts % rt_ir % addclouds ) then
-  
+        !-- 6 general cloud 
         ! Select the CLW and ice cloud properties:
-        profiles(:) % clw_scheme = 1
-        profiles(:) % ice_scheme = 2 ! Baran
-  
-  
-        profiles(iprof) % cloud(:,:) = 0._jprb
-        profiles(iprof) % cfrac(:)   = 0._jprb
-  
+        profiles(iprof) % clw_scheme = 1
+        profiles(iprof) % ice_scheme = 3 ! Baran (2018)
   
         ! Set the ice Deff parameterisation to a suitable value
         !profiles(:) % idg = 4
@@ -432,26 +425,33 @@ contains
         !profiles(iprof) % icede(:)= 0._jprb !ice effective diameter, set non-zero if you give by yourself
   
   
-        ctop_out(iprof) = -1.0d0
+        ctop_out(iprof) = -1.0_r_size
   
         do ilev = HIM_RTTOV_KADD + 1, HIM_RTTOV_KADD + nlevs - 1
           orgk = ilev - HIM_RTTOV_KADD ! k index for original profile
-  
+ 
+          profiles(iprof) % cfrac(ilev)     = 0.0_jprb
+ 
+          do ic = 1, 6
+            profiles(iprof) % cloud(ic,ilev) = 0.0_jprb
+          enddo
+
           ! ilev
-          liqc1 = real(max(qc(orgk,iprof),0.0_r_size),kind=jprb)
-          icec1 = real(max(qice(orgk,iprof),0.0_r_size),kind=jprb) 
+          liqc1 = real(qc  (orgk,iprof), kind=jprb)
+          icec1 = real(qice(orgk,iprof), kind=jprb) 
   
           ! ilev + 1
   
-          liqc2 = real(max(qc(orgk+1,iprof),0.0_r_size),kind=jprb) 
-          icec2 = real(max(qice(orgk+1,iprof),0.0_r_size),kind=jprb)
+          liqc2 = real(qc  (orgk+1,iprof), kind=jprb) 
+          icec2 = real(qice(orgk+1,iprof), kind=jprb)
   
-          profiles(iprof) % cloud(2,ilev) = & !stratus maritime (default)
-                     (liqc1 + liqc2) * 0.5_jprb
+          !stratus maritime (default)
+          profiles(iprof) % cloud(2,ilev) = & 
+                     max((liqc1 + liqc2) * 0.5_jprb, 0.0_jprb)
           profiles(iprof) % cloud(6,ilev) = &
-                     (icec1 + icec2) * 0.5_jprb
+                     max((icec1 + icec2) * 0.5_jprb, 0.0_jprb)
   
-          ptmp = (prs(orgk+1,iprof) + prs(orgk,iprof))*0.5_jprb    ! (Pa)
+          ptmp  = (prs(orgk+1,iprof) + prs(orgk,iprof))*0.5_jprb    ! (Pa)
           tktmp = (tk(orgk+1,iprof) + tk(orgk,iprof))*0.5_jprb ! (K)
           qvtmp = max((qv(orgk+1,iprof) + qv(orgk,iprof)) * 0.5_jprb, 0.0_r_size) ! (kgkg-1)
   
@@ -490,18 +490,23 @@ contains
           endif
   
         end do ! ilev
-      endif ! addclouds
+      enddo ! prof
+    endif ! HIM_RTTOV_CLD
   
-      if(debug .and. mod(iprof,20)==0)then
-        do ilev = 1, nlevs + HIM_RTTOV_KADD - 1
-          write(6,'(a,i5,5f11.4)')"DEBUG PROF",ilev,profiles(iprof) % t(ilev),&
-                                                    profiles(iprof) % q(ilev),&
-                                                    profiles(iprof) % p(ilev),&
-                                                    profiles(iprof) % cloud(4,ilev)*1.e3,&
-                                                    profiles(iprof) % cloud(6,ilev)*1.e3
+    do iprof = 1, nprof
+      if ( debug .and. mod(iprof,20)==0 .and. HIM_RTTOV_CLD )then
+        do ilev = 1, nlevs + HIM_RTTOV_KADD - 1, 1
+          write(6,'(a,2i5,6f11.4)')"DEBUG PROF",iprof,ilev,                          &
+                                                profiles(iprof) % t(ilev),&
+                                                profiles(iprof) % p(ilev),           &
+                                                profiles(iprof) % q(ilev)*1.e3,      &
+                                                profiles(iprof) % cloud(4,ilev)*1.e6,&
+                                                profiles(iprof) % cloud(6,ilev)*1.e6,&
+                                                minval(profiles(iprof) % cloud(1:6,ilev)*1.e6)
         end do ! ilev
-        print *,""
       endif
+      if(debug) write(6,*) 'status ', any(profiles(iprof)%cloud(:,:) < 0.0_jprb)
+      write(6,*)''   
     enddo ! prof
   !### OMP END PARALLEL DO
   
@@ -509,31 +514,46 @@ contains
   !     print *,"DEBUG RD RTTOV",ilev,profiles(iprof) % p(ilev)
   !   enddo
   
-    if(debug) write(6,*)"ch2",nprof,nlevs
+    if (debug) write(6,*)"ch2",nprof,nlevs
   
-    if(debug) WRITE(6,*) 'END SUBSTITUTE PROFILE'
-  
+    if (debug) WRITE(6,*) 'end substitute profile'
+    if (debug) then
+      do iprof = 1, nprof
+        write(6,*) 'prof', iprof
+        write(6,*) 'check p', maxval(profiles(iprof)%p(:)), minval(profiles(iprof)%p(:))  
+        write(6,*) 'check t', maxval(profiles(iprof)%t(:)), minval(profiles(iprof)%t(:))  
+        write(6,*) 'check q', maxval(profiles(iprof)%q(:)), minval(profiles(iprof)%q(:))  
+        write(6,*) 'check cl', maxval(profiles(iprof)%cloud(:,:)), minval(profiles(iprof)%cloud(:,:))  
+        write(6,*) 'check cf', maxval(profiles(iprof)%cfrac(:)), minval(profiles(iprof)%cfrac(:))  
+        write(6,*) 'check elevation', profiles(iprof)%elevation  
+        write(6,*) 'check lon',       profiles(iprof)%longitude 
+        write(6,*) 'check lat',       profiles(iprof)%latitude
+        write(6,*) 'check zenith',    profiles(iprof)%zenangle  
+        write(6,*) 'check p2',        profiles(iprof)%s2m%p
+        write(6,*) 'check t2',        profiles(iprof)%s2m%t
+        write(6,*) 'check u2',        profiles(iprof)%s2m%u
+        write(6,*) 'check v2',        profiles(iprof)%s2m%v
+        write(6,*) 'check w2',        profiles(iprof)%s2m%wfetc
+        write(6,*) 'check skin t',    profiles(iprof)%skin%t
+        write(6,*) 'check skin s',    profiles(iprof)%skin%surftype
+        write(6,*) 'check skin w',    profiles(iprof)%skin%watertype
+      enddo
+
+    endif
     ! --------------------------------------------------------------------------
     ! 6. Specify surface emissivity and reflectance
     ! --------------------------------------------------------------------------
-  
-    ! In this example we have no values for input emissivities
-    emissivity(:) % emis_in = 0._jprb
+ 
+    call rttov_init_emis_refl(emissivity, reflectance)
   
     ! Calculate emissivity within RTTOV where the input emissivity value is
     ! zero or less (all channels in this case)
     calcemis(:) = (emissivity(:) % emis_in <= 0._jprb)
   
-    ! In this example we have no values for input reflectances
-    reflectance(:) % refl_in = 0._jprb
-  
-    ! Calculate BRDF within RTTOV where the input BRDF value is zero or less
-    ! (all channels in this case)
-    calcrefl(:) = (reflectance(:) % refl_in <= 0._jprb)
-  
-    ! Use default cloud top BRDF for simple cloud in VIS/NIR channels
-    reflectance(:) % refl_cloud_top = 0._jprb
-  
+    ! Calculate reflectances within RTTOV where the input BRDF value is zero or
+    ! less (all channels in this case)
+    calcrefl(:) = (reflectance(:) % refl_in <= 0._jprb) 
+
     ! --------------------------------------------------------------------------
     ! 7. Call RTTOV forward model
     ! --------------------------------------------------------------------------
@@ -574,6 +594,8 @@ contains
       call rttov_exit(errorstatus)
     endif
   
+    if(debug) write(6,*)"Exit direct"
+
     ! --- Output the results --------------------------------------------------
   
     do iprof = 1, nprof 
@@ -583,7 +605,7 @@ contains
       !
       !     OUTPUT RESULTS
       !
-      btall_out(1:nchannels,iprof) = real(radiance%bt(1+joff:nchannels+joff), kind = r_size)
+      btall_out(1:nchannels,iprof) = real(radiance%bt(1+joff:nchannels+joff),       kind=r_size)
       btclr_out(1:nchannels,iprof) = real(radiance%bt_clear(1+joff:nchannels+joff), kind=r_size)
   
       if(debug .and. iprof<=2) print *,"DEBUG HIM8 SCALE_RTTOV:",btall_out(3,iprof),btclr_out(3,iprof),iprof

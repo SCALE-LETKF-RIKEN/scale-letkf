@@ -344,15 +344,26 @@ MODULE common_nml
   integer :: RADAR_ADDITIVE_Y18_MINMEM = 0 ! If the number of precipitating members is smaller than this threshold, use Y18 method
 
   !---PARAM_LETKF_HIM
-  integer, parameter :: NIRB_HIM = 10     ! HIM Num of Himawari-8/9 (IR) bands
+  integer, parameter :: NIRB_HIM  = 10     ! HIM Num of Himawari-8/9 (IR) bands
+  integer, parameter :: NVISB_HIM =  6     ! HIM Num of Himawari-8/9 (VIS/NIR) bands
+  integer :: NIRB_HIM_USE = 0 ! set in read_nml_letkf_him
+  real(r_size) :: HIM_LON = 140.7_r_size
+
+  integer :: HIM_IR_BAND_RTTOV_LIST(NIRB_HIM) = (/0,0,0,0,0,0,0,0,0,0/)
+  integer :: HIM_IR_BAND_DA_LIST(NIRB_HIM)    = (/0,0,0,0,0,0,0,0,0,0/)
+
+  logical :: HIM_RTTOV_CLD = .true. ! true: all-sky, false: CSR in RTTOV fwd model
   integer :: HIM_RTTOV_THREADS = 1
-  logical :: HIM_MEAN_WRITE = .true.
   integer :: HIM_RTTOV_ITMAX = 1
+
+  logical :: HIM_MEAN_WRITE = .true.
   logical :: HIM_OUT_TBB_NC = .true.
   logical :: HIM_OUT_ETBB_NC = .false.
-  character(filelenmax) :: HIM_RTTOV_COEF_PATH = '.'
+  character(filelenmax) :: RTTOV_COEF_PATH     = '.'
+  character(filelenmax) :: RTTOV_COEF_FILE     = ''
+  character(filelenmax) :: RTTOV_COEF_FILE_CLD = ''
   character(filelenmax) :: HIM_VBC_PATH = '.'
-  character(filelenmax) :: HIM_OUTFILE_BASENAME = 'him8'
+  character(filelenmax) :: HIM_OUTFILE_BASENAME = 'him'
   logical :: HIM_SIM_ALLG = .true. ! Him8 sim by using ensemble mean
   logical :: HIM_OBS_STD = .true.
   logical :: HIM_OBS_4D = .false.
@@ -360,7 +371,6 @@ MODULE common_nml
   real(r_size) :: HIM_HOMO_QC = 2.0d0 ! (K) threshold of the standard deviation (band 13) for the homogeneity QC
   integer :: HIM_NOWDATE(6) = (/0,1,1,0,0,0/)
   logical :: HIM_REJECT_LAND = .false. ! true: reject Himawari-8 radiance over the land
-  logical :: HIM_RTTOV_CLD = .true. ! true: all-sky, false: CSR in RTTOV fwd model
   real(r_size) :: HIM_LIMIT_LEV = 20000.0d0 ! (Pa) Upper limit level of the sensitive height for Himawari-8 IR
   real(r_size) :: HIM_RTTOV_CFRAC_CNST = 0.10d0 ! Denominator constant for diagnosing SEQUENTIAL(0-1) cloud fraction (g m-3)
   real(r_size) :: HIM_RTTOV_MINQ_CTOP = 0.10d0 ! Threshold of water/ice contents for diagnosing the cloud top (g m-3)
@@ -1189,25 +1199,34 @@ end subroutine read_nml_obssim
 !-------------------------------------------------------------------------------
 ! PARAM_LETKF_HIM
 !-------------------------------------------------------------------------------
-subroutine read_nml_letkf_h08
+subroutine read_nml_letkf_him
   implicit none
+
   integer :: ierr
+  integer :: ch
 
   namelist /PARAM_LETKF_HIM/ &
+    HIM_IR_BAND_RTTOV_LIST, &
+    HIM_IR_BAND_DA_LIST,    &
+    HIM_LON,                &
     HIM_RTTOV_THREADS, &
-    HIM_MEAN_WRITE, &
     HIM_RTTOV_ITMAX, &
+    HIM_NOWDATE, &
+    RTTOV_COEF_PATH,     &
+    RTTOV_COEF_FILE,     &
+    RTTOV_COEF_FILE_CLD, &
+    HIM_RTTOV_CLD, &
+!
+    HIM_MEAN_WRITE, &
     HIM_OUT_TBB_NC, &
     HIM_OUT_ETBB_NC, &
     HIM_SIM_ALLG, &
-    HIM_NOWDATE, &
     HIM_REJECT_LAND, &
     HIM_OUTFILE_BASENAME,&
     HIM_OBS_STD, &
     HIM_OBS_4D, &
     HIM_OBS_RECL, &
     HIM_HOMO_QC, &
-    HIM_RTTOV_CLD, &
     HIM_RTTOV_MINQ_CTOP, &
     HIM_LIMIT_LEV, &
     HIM_RTTOV_CFRAC_CNST, &
@@ -1229,7 +1248,6 @@ subroutine read_nml_letkf_h08
     HIM_BIAS_CLOUD, &
     HIM_CLDERR_CLEAR, &
     HIM_CLDERR_CLOUD, &
-    HIM_RTTOV_COEF_PATH, &
     HIM_VBC_PATH,&
     HIM_VBC_USE,&
     HIM_OBS_METHOD,&
@@ -1275,12 +1293,28 @@ subroutine read_nml_letkf_h08
     HIM_OBS_THIN_LEV = max(HIM_OBS_THIN_LEV, 2*HIM_OBS_AVE_NG)
   endif
 
-  if (LOG_LEVEL >= 2) then
+  NIRB_HIM_USE = 0
+  do ch = 1, NIRB_HIM
+    if ( HIM_IR_BAND_DA_LIST(ch) > 0 ) then
+
+      if ( minval( abs( HIM_IR_BAND_RTTOV_LIST(:) - HIM_IR_BAND_DA_LIST(ch) ) ) /= 0 ) then
+        write(6,*) '[Error] HIM_IR_BAND_DA_LIST and HIM_IR_BAND_RTTOV_LIST are inconsistent!'
+        stop
+      endif
+
+    endif
+    if ( HIM_IR_BAND_RTTOV_LIST(ch) > 0 ) then
+      NIRB_HIM_USE = NIRB_HIM_USE + 1
+    endif
+
+  enddo
+
+  !if (LOG_LEVEL >= 2) then
     write(6, nml=PARAM_LETKF_HIM)
-  end if
+  !end if
 
   return
-end subroutine read_nml_letkf_h08
+end subroutine read_nml_letkf_him
 
 !-------------------------------------------------------------------------------
 ! Replace the member notation in 'filename' with 'mem' (as an integer)

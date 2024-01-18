@@ -93,7 +93,7 @@ MODULE common_scale
   LOGICAL,PARAMETER :: v2dd_hastime(nv2dd) = &
      (/.false., .true., .true., .true., .true., .true., .true., .false., .true./)
 
-  INTEGER,SAVE :: nv2dd_use=7
+  INTEGER,SAVE :: nv2dd_use = 9
 
   ! 
   !--- Variables for model coordinates
@@ -2222,7 +2222,7 @@ subroutine copy_scale_file(filename_in, filename_out)
   return
 end subroutine copy_scale_file
 
-subroutine write_Him8_nc(filename, tbb )
+subroutine write_Him_nc(filename, tbb )
   use netcdf
   use common_ncio
   use scale_atmos_grid_cartesC, only: &
@@ -2239,7 +2239,7 @@ subroutine write_Him8_nc(filename, tbb )
   implicit none
 
   character(len=*), intent(in) :: filename
-  real, intent(in) :: tbb(nlong, nlatg, NIRB_HIM) 
+  real, intent(in) :: tbb(nlong, nlatg, NIRB_HIM_USE) 
 
   character(len=*), parameter :: TBB_NAME = "tbb"
 
@@ -2260,7 +2260,7 @@ subroutine write_Him8_nc(filename, tbb )
 
   real(RP) :: lon2d(nlong, nlatg), lat2d(nlong,nlatg)
   real(RP) :: r2d
-  real ::  bands(NIRB_HIM)
+  integer ::  bands(NIRB_HIM_USE)
   integer :: i, j, ch
 
   integer :: dimids(3)
@@ -2280,15 +2280,15 @@ subroutine write_Him8_nc(filename, tbb )
   enddo
   enddo
 
-  do ch = 1, NIRB_HIM
-    bands(ch) = real( ch + 6)
+  do ch = 1, NIRB_HIM_USE
+    bands(ch) = HIM_IR_BAND_RTTOV_LIST(ch) 
   enddo
 
   ! Create the file. 
   call ncio_check( nf90_create(trim(filename), nf90_clobber, ncid) )
 
   ! Define the dimensions. 
-  call ncio_check( nf90_def_dim(ncid, BAND_NAME, NIRB_HIM, band_dimid) )
+  call ncio_check( nf90_def_dim(ncid, BAND_NAME, NIRB_HIM_USE, band_dimid) )
   call ncio_check( nf90_def_dim(ncid, X_NAME, nlong, x_dimid) )
   call ncio_check( nf90_def_dim(ncid, Y_NAME, nlatg, y_dimid) )
 
@@ -2328,7 +2328,7 @@ subroutine write_Him8_nc(filename, tbb )
   call ncio_check( nf90_put_var( ncid, lon_varid, real( lon2d, kind=r_sngl), start=start2d, &
                    count=count2d ) )
 
-  count = (/ nlong, nlatg, NIRB_HIM /)
+  count = (/ nlong, nlatg, NIRB_HIM_USE /)
   start = (/ 1, 1, 1 /)
 
   ! Write the data.
@@ -2339,7 +2339,7 @@ subroutine write_Him8_nc(filename, tbb )
   call ncio_check( nf90_close(ncid) )
 
   return
-end subroutine write_Him8_nc
+end subroutine write_Him_nc
 
 !===============================================================================
 END MODULE common_scale
