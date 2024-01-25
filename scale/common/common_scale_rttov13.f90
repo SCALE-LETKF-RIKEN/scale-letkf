@@ -163,7 +163,13 @@ contains
     logical :: unit_kgkg = .true.
   
     if(debug) write(6,'(1x,a)')"hello from RTTOV"
-  
+    write(6,*) 'Give a dummy result for debug from RTTOV'
+    btall_out = 250.0_r_size
+    btclr_out = 270.0_r_size
+    ctop_out  = 300.0_r_size
+    mwgt_plev = 40000.0_r_size 
+    return
+
   ! -- set thermodynamic constants
   
     repsb = real(Rvap / Rdry, kind=jprb)
@@ -212,7 +218,7 @@ contains
     opts % rt_all % so2_data            = .FALSE. !
     opts % rt_mw % clw_data             = .FALSE. !
   
-    opts%rt_ir%ir_sea_emis_model       = 2       ! IREMIS for IR emissivity
+    opts % rt_ir % ir_sea_emis_model       = 2       ! IREMIS for IR emissivity
   
     opts % rt_ir % user_cld_opt_param  = .false.
 
@@ -222,19 +228,19 @@ contains
       opts % config % verbose            = .false.  ! Enable printing of warnings
     endif
   
-    opts%config%apply_reg_limits       = .true.
+    opts % config % apply_reg_limits     = .false.
   
-  !! added by T.Honda(2015/06/10)
-  !  opts % interpolation % reg_limit_extrap  = .TRUE.  ! see UG 7.3 (32pp)
-  !  opts % config % apply_reg_limits  = .TRUE.  ! see UG 7.3 (32pp)
-  !!  opts%config%do_checkinput = .FALSE. ! see UG 85pp
+    opts % interpolation % addinterp     = .true.
+    opts % interpolation % interp_mode   = 1
   
     ! --------------------------------------------------------------------------
     ! 2. Read coefficients
     ! --------------------------------------------------------------------------
-    if(debug) write(6,'(1x,a)')"hello from RTTOV3"
-    call rttov_read_coefs(errorstatus, coefs, opts, form_coef='formatted',                     &
+    if ( debug ) write(6,'(1x,a)')"hello from RTTOV3"
+    call rttov_read_coefs(errorstatus, coefs, opts,                                            &
                          channels=channel_list,                                                &
+                         form_coef='formatted',                                                &
+                         form_sccld='formatted',                                               &
                          &file_coef =trim(RTTOV_COEF_PATH) // '/' // trim(RTTOV_COEF_FILE),    &
                          &file_sccld=trim(RTTOV_COEF_PATH) // '/' // trim(RTTOV_COEF_FILE_CLD) )
     if (errorstatus /= errorstatus_success) then
@@ -248,7 +254,6 @@ contains
       write(*,*) 'fatal error nchannels'
       call rttov_exit(errorstatus)
     endif
-  
   
     ! Ensure the options and coefficients are consistent
     call rttov_user_options_checkinput(errorstatus, opts, coefs)
@@ -495,7 +500,7 @@ contains
   
     do iprof = 1, nprof
       if ( debug .and. mod(iprof,20)==0 .and. HIM_RTTOV_CLD )then
-        do ilev = 1, nlevs + HIM_RTTOV_KADD - 1, 1
+        do ilev = 1, nlevs + HIM_RTTOV_KADD - 1, 10
           write(6,'(a,2i5,6f11.4)')"DEBUG PROF",iprof,ilev,                          &
                                                 profiles(iprof) % t(ilev),&
                                                 profiles(iprof) % p(ilev),           &
@@ -505,7 +510,6 @@ contains
                                                 minval(profiles(iprof) % cloud(1:6,ilev)*1.e6)
         end do ! ilev
       endif
-      if(debug) write(6,*) 'status ', any(profiles(iprof)%cloud(:,:) < 0.0_jprb)
       write(6,*)''   
     enddo ! prof
   !### OMP END PARALLEL DO
@@ -518,13 +522,15 @@ contains
   
     if (debug) WRITE(6,*) 'end substitute profile'
     if (debug) then
-      do iprof = 1, nprof
+      do iprof = 1, nprof, 20
         write(6,*) 'prof', iprof
         write(6,*) 'check p', maxval(profiles(iprof)%p(:)), minval(profiles(iprof)%p(:))  
         write(6,*) 'check t', maxval(profiles(iprof)%t(:)), minval(profiles(iprof)%t(:))  
         write(6,*) 'check q', maxval(profiles(iprof)%q(:)), minval(profiles(iprof)%q(:))  
-        write(6,*) 'check cl', maxval(profiles(iprof)%cloud(:,:)), minval(profiles(iprof)%cloud(:,:))  
-        write(6,*) 'check cf', maxval(profiles(iprof)%cfrac(:)), minval(profiles(iprof)%cfrac(:))  
+!        if ( HIM_RTTOV_CLD ) then
+!        write(6,*) 'check cl', maxval(profiles(iprof)%cloud(:,:)), minval(profiles(iprof)%cloud(:,:))  
+!        write(6,*) 'check cf', maxval(profiles(iprof)%cfrac(:)), minval(profiles(iprof)%cfrac(:))  
+!        endif
         write(6,*) 'check elevation', profiles(iprof)%elevation  
         write(6,*) 'check lon',       profiles(iprof)%longitude 
         write(6,*) 'check lat',       profiles(iprof)%latitude
@@ -544,6 +550,25 @@ contains
     ! 6. Specify surface emissivity and reflectance
     ! --------------------------------------------------------------------------
  
+    write(6,*)'DEBUG ', size( emissivity ), size( reflectance )
+    emissivity%emis_in          = 0._jprb
+    write(6,*)'DEBUG check1'
+    emissivity%emis_out         = 0._jprb
+    write(6,*)'DEBUG check2'
+    emissivity%specularity      = 0._jprb
+    write(6,*)'DEBUG check3'
+    emissivity%tskin_eff        = 0._jprb
+    write(6,*)'DEBUG check4'
+    reflectance%refl_in          = 0._jprb
+    write(6,*)'DEBUG check5'
+    reflectance%refl_out         = 0._jprb
+    write(6,*)'DEBUG check6'
+    reflectance%diffuse_refl_in  = 0._jprb
+    write(6,*)'DEBUG check7'
+    reflectance%diffuse_refl_out = 0._jprb
+    write(6,*)'DEBUG check8'
+    reflectance%refl_cloud_top   = 0._jprb
+    write(6,*)'DEBUG check9'
     call rttov_init_emis_refl(emissivity, reflectance)
   
     ! Calculate emissivity within RTTOV where the input emissivity value is

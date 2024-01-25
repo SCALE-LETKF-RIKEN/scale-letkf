@@ -355,6 +355,14 @@ MODULE common_nml
   logical :: HIM_RTTOV_CLD = .true. ! true: all-sky, false: CSR in RTTOV fwd model
   integer :: HIM_RTTOV_THREADS = 1
   integer :: HIM_RTTOV_ITMAX = 1
+  logical :: HIM_REJECT_LAND = .false. ! true: reject Himawari-8 radiance over the land
+
+   ! How to prepare Himawari-8 obs using that "superobs"ed into the model grid
+  integer :: HIM_OBS_METHOD = 1 ! 1: simple thinning, 2: averaging adjacent grids
+                                ! 3: take a difference btw two bands (B1 - B2)
+  integer :: HIM_OBS_AVE_NG = 0 ! # of grids for averaging adjacent grids (HIM_OBS_METHOD=2)
+  logical :: HIM_OBS_AVE_OVERLAP = .false.
+  integer :: HIM_OBS_THIN_LEV = 1 ! thinning level (1: no thinning)
 
   logical :: HIM_MEAN_WRITE = .true.
   logical :: HIM_OUT_TBB_NC = .true.
@@ -365,12 +373,9 @@ MODULE common_nml
   character(filelenmax) :: HIM_VBC_PATH = '.'
   character(filelenmax) :: HIM_OUTFILE_BASENAME = 'him'
   logical :: HIM_SIM_ALLG = .true. ! Him8 sim by using ensemble mean
-  logical :: HIM_OBS_STD = .true.
   logical :: HIM_OBS_4D = .false.
   integer :: HIM_OBS_RECL = 4 + NIRB_HIM ! obstype, obsid, lon, lat, + dat(NIRB_HIM8)
-  real(r_size) :: HIM_HOMO_QC = 2.0d0 ! (K) threshold of the standard deviation (band 13) for the homogeneity QC
   integer :: HIM_NOWDATE(6) = (/0,1,1,0,0,0/)
-  logical :: HIM_REJECT_LAND = .false. ! true: reject Himawari-8 radiance over the land
   real(r_size) :: HIM_LIMIT_LEV = 20000.0d0 ! (Pa) Upper limit level of the sensitive height for Himawari-8 IR
   real(r_size) :: HIM_RTTOV_CFRAC_CNST = 0.10d0 ! Denominator constant for diagnosing SEQUENTIAL(0-1) cloud fraction (g m-3)
   real(r_size) :: HIM_RTTOV_MINQ_CTOP = 0.10d0 ! Threshold of water/ice contents for diagnosing the cloud top (g m-3)
@@ -425,14 +430,7 @@ MODULE common_nml
                         !! It is better to reject B11(ch=5) & B12(ch=6) obs because these bands are 
                         !! sensitive to chemicals.
  
-  ! How to prepare Himawari-8 obs using that "superobs"ed into the model grid
-  integer :: HIM_OBS_METHOD = 1 ! 1: simple thinning, 2: averaging adjacent grids
-                                ! 3: take a difference btw two bands (B1 - B2)
   integer :: HIM_OBS_SWD_B= 8
-  integer :: HIM_OBS_AVE_NG = 0 ! # of grids for averaging adjacent grids (HIM_OBS_METHOD=2)
-  logical :: HIM_OBS_AVE_OVERLAP = .false.
-  integer :: HIM_OBS_THIN_LEV = 1 ! thinning level (1: no thinning)
-  logical :: use_him = .true. ! ! will be overwritten from obsope_tools.f90
   integer :: HIM_OBS_BUF_GRID = 20 ! Lateral # of grids where Him8 obs are not used
 
   real(r_size) :: HIM_CLD_THRS(NIRB_HIM) = (/300.0d0, 232.5d0, 243.5d0, 256.5d0, 300.0d0, &
@@ -1209,31 +1207,38 @@ subroutine read_nml_letkf_him
     HIM_IR_BAND_RTTOV_LIST, &
     HIM_IR_BAND_DA_LIST,    &
     HIM_LON,                &
-    HIM_RTTOV_THREADS, &
-    HIM_RTTOV_ITMAX, &
-    HIM_NOWDATE, &
-    RTTOV_COEF_PATH,     &
-    RTTOV_COEF_FILE,     &
-    RTTOV_COEF_FILE_CLD, &
-    HIM_RTTOV_CLD, &
-!
+    ! RTTOV related parameters
+    HIM_RTTOV_THREADS,      &
+    HIM_RTTOV_ITMAX,        &
+    HIM_NOWDATE,            &
+    RTTOV_COEF_PATH,        &
+    RTTOV_COEF_FILE,        &
+    RTTOV_COEF_FILE_CLD,    &
+    HIM_RTTOV_CLD,          &
+    HIM_LIMIT_LEV,          &
+    HIM_RTTOV_CFRAC_CNST,   &
+    HIM_RTTOV_PROF_SHIFT,   &
+    HIM_RTTOV_KADD,         &
+    HIM_RTTOV_MINQ_CTOP,    &
+    HIM_RTTOV_RLX_HGT,      &
+    HIM_RTTOV_CFRAC,        &
+    !
+    ! Superob & thinning parameters 
+    HIM_OBS_METHOD,         &
+    HIM_OBS_THIN_LEV,       &
+    HIM_OBS_AVE_NG,         &
+    HIM_OBS_AVE_OVERLAP,    &
+    HIM_OBS_BUF_GRID,       &
+    !
+    !
     HIM_MEAN_WRITE, &
     HIM_OUT_TBB_NC, &
     HIM_OUT_ETBB_NC, &
     HIM_SIM_ALLG, &
     HIM_REJECT_LAND, &
     HIM_OUTFILE_BASENAME,&
-    HIM_OBS_STD, &
     HIM_OBS_4D, &
     HIM_OBS_RECL, &
-    HIM_HOMO_QC, &
-    HIM_RTTOV_MINQ_CTOP, &
-    HIM_LIMIT_LEV, &
-    HIM_RTTOV_CFRAC_CNST, &
-    HIM_RTTOV_PROF_SHIFT, &
-    HIM_RTTOV_KADD,       &
-    HIM_RTTOV_RLX_HGT,    &
-    HIM_RTTOV_CFRAC, &
     HIM_VLOCAL_CTOP, &
     HIM_BT_MIN, &
     HIM_BAND_USE, &
@@ -1250,12 +1255,7 @@ subroutine read_nml_letkf_him
     HIM_CLDERR_CLOUD, &
     HIM_VBC_PATH,&
     HIM_VBC_USE,&
-    HIM_OBS_METHOD,&
     HIM_OBS_SWD_B,&
-    HIM_OBS_AVE_NG,&
-    HIM_OBS_AVE_OVERLAP, &
-    HIM_OBS_THIN_LEV, &
-    HIM_OBS_BUF_GRID, &
     HIM_CLD_THRS, &
     HIM_PQV_MIN_CMEM, &
     HIM_PQV, &
@@ -1273,10 +1273,6 @@ subroutine read_nml_letkf_him
     stop
   endif
 
-  if(HIM_OBS_STD)then
-    HIM_OBS_RECL = 4 + NIRB_HIM + 1 ! standard deviation of Band 13
-  endif
- 
   if(HIM_OBS_4D)then
     HIM_OBS_RECL = HIM_OBS_RECL + 1 ! obs%dif for 4D LETKF
   endif

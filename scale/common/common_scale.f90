@@ -1562,6 +1562,7 @@ end subroutine state_trans_inv
 !-------------------------------------------------------------------------------
 subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
   use scale_atmos_grid_cartesC_index, only: &
+      IHALO, JHALO, &
       IA, IS, IE, JA, JS, JE, KS, KE, KA
   use scale_comm_cartesC, only: &
       COMM_vars8, &
@@ -1690,6 +1691,17 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
   v2dgh_RP(IS:IE,JS:JE,iv2dd_q2m)  = v3dg(1,1:nlon,1:nlat,iv3d_q)
 
 !  v2dgh_RP(IS:IE,JS:JE,iv2dd_rain) = [[No way]]
+!$omp parallel do private(i,j) schedule(static) collapse(1)
+  do j = 1, nlat
+    do i = 1, nlon
+      v2dgh_RP(i+IHALO,j+JHALO,iv2dd_skint)  = v3dg(KS,i,j,iv3d_t)
+      if ( v2dgh_RP(i,j,iv2dd_topo) > 0.0_RP ) then
+        v2dgh_RP(i+IHALO,j+JHALO,iv2dd_lsmask) = 1.0_RP
+      else
+        v2dgh_RP(i+IHALO,j+JHALO,iv2dd_lsmask) = 0.0_RP
+      endif
+    enddo
+  enddo
 
   call ATMOS_BOTTOM_estimate(nlev,1,nlev,nlon,1,nlon,nlat,1,nlat,          &
                               rho_RP(KS:KE,IS:IE,JS:JE),v3dgh_RP(KS:KE,IS:IE,JS:JE,iv3d_p),v3dgh_RP(KS:KE,IS:IE,JS:JE,iv3d_q),&

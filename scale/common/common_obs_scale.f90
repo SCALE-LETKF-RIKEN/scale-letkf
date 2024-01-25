@@ -2049,6 +2049,15 @@ SUBROUTINE obs_da_value_allocate(obsda,member)
     endif
   endif
 
+#IFDEF RTTOV
+  allocate( obsda%lev  (obsda%nobs) )
+  allocate( obsda%val2 (obsda%nobs) )
+  allocate( obsda%sprd (obsda%nobs) )
+  obsda%lev  = 0.0_r_size
+  obsda%val2 = 0.0_r_size
+  obsda%sprd = 0.0_r_size
+#ENDIF
+
   RETURN
 END SUBROUTINE obs_da_value_allocate
 !-----------------------------------------------------------------------
@@ -2072,6 +2081,13 @@ SUBROUTINE obs_da_value_deallocate(obsda)
   IF(ALLOCATED(obsda%qv    )) DEALLOCATE(obsda%qv    )
   IF(ALLOCATED(obsda%pert  )) DEALLOCATE(obsda%pert  )
   IF(ALLOCATED(obsda%epert )) DEALLOCATE(obsda%epert )
+
+#IFDEF RTTOV
+  if ( allocated(obsda%lev  ) ) deallocate( obsda%lev  )
+  if ( allocated(obsda%val2 ) ) deallocate( obsda%val2 )
+  if ( allocated(obsda%sprd ) ) deallocate( obsda%sprd )
+
+#ENDIF
 
   RETURN
 END SUBROUTINE obs_da_value_deallocate
@@ -3773,7 +3789,7 @@ subroutine allgHim2obs(tbb_allg,tbb_allg_prep,qc_allg_prep,obsdat,obslon,obslat,
       MAPPROJECTION_xy2lonlat
   implicit none
 
-  real(r_size), intent(in) :: tbb_allg(nlong,nlatg,NIRB_HIM_USE)
+  real(r_size), intent(in)  :: tbb_allg     (nlong,nlatg,NIRB_HIM_USE)
   real(r_size), intent(out) :: tbb_allg_prep(nlong,nlatg,NIRB_HIM_USE)
 
   integer, intent(out), optional :: qc_allg_prep(nlong,nlatg,NIRB_HIM_USE)
@@ -3838,7 +3854,7 @@ subroutine allgHim2obs(tbb_allg,tbb_allg_prep,qc_allg_prep,obsdat,obslon,obslat,
         js = j - HIM_OBS_AVE_NG       
         je = j + HIM_OBS_AVE_NG       
    
-        tbb_allg_prep(i,j,ch) = 0.0d0
+        tbb_allg_prep(i,j,ch) = 0.0_r_size
         do jj = js, je
         do ii = is, ie
           tbb_allg_prep(i,j,ch) = tbb_allg_prep(i,j,ch) + tbb_allg(ii,jj,ch)
@@ -3861,8 +3877,8 @@ subroutine allgHim2obs(tbb_allg,tbb_allg_prep,qc_allg_prep,obsdat,obslon,obslat,
           n = n + 1
           obslon(n) = real( lon_RP, kind=r_size) * rad2deg
           obslat(n) = real( lat_RP, kind=r_size) * rad2deg
-          obslev(n) = HIM_IR_BAND_RTTOV_LIST(ch)
-!          obserr(n) = REAL(OBSERR_HIM(ch),r_size)
+          obslev(n) = ch !HIM_IR_BAND_RTTOV_LIST(ch)
+          obserr(n) = real( OBSERR_HIM(ch), kind=r_size )
           obsdat(n) = tbb_allg_prep(i,j,ch)
 
           if ( i <= HIM_OBS_BUF_GRID .or. ( nlong - i ) <= HIM_OBS_BUF_GRID .or. &
@@ -4153,7 +4169,7 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,yobs_clr,mwgt_plev2d,qc,stggrd)
       endif
 
       ! QC
-      if(HIM_REJECT_LAND .and. (lsmask1d(np) > 0.5_r_size))then
+      if(HIM_REJECT_LAND .and. v2d(i+IHALO,j+JHALO,iv2dd_lsmask) > 0.5_r_size )then
         qc(i,j,ch) = iqc_obs_bad
       endif
 

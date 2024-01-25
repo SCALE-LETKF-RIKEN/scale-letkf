@@ -83,6 +83,7 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
   integer :: nn2, oidx_prev
   integer :: iof_prev
 ! -- for Himawari-8 obs --
+! -- for Himawari obs --
   real(r_size), allocatable :: yobs_HIM(:,:,:), plev_obs_HIM(:,:,:)
   real(r_size), allocatable :: yobs_HIM_clr(:,:,:)
   real(r_size), allocatable :: yobs_HIM_prep(:,:,:)
@@ -90,8 +91,8 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
 
   integer, allocatable :: qc_HIM(:,:,:)
   integer, allocatable :: qc_HIM_prep(:,:,:)
-  integer :: i8, j8, b8
   integer :: i, j, ch
+  logical :: use_him = .false.
 
 !-------------------------------------------------------------------------------
 
@@ -147,7 +148,7 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
         dspr(ip) = dspr(ip-1) + cntr(ip-1)
       end do
 
-      if ( (OBS_IN_FORMAT(iof) == obsfmt_him ) .and. (.not. use_him ) ) then
+      if ( (OBS_IN_FORMAT(iof) == obsfmt_him ) .and. (.not. use_him ) .and. ( NIRB_HIM_USE > 0 ) ) then
         ! Himawari-8 radiance obs
 
         use_him = .true.
@@ -439,7 +440,8 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
         call mpi_timer(trim(timer_str), 2)
 
 #IFDEF RTTOV
-        if ( use_him .or. HIM_OUT_ETBB_NC ) then
+        if ( use_him .or. HIM_OUT_ETBB_NC .and. NIRB_HIM_USE > 0 ) then
+
           call Trans_XtoY_HIM_allg(v3dg,v2dg,yobs_HIM,yobs_HIM_clr,&
                                    plev_obs_HIM,qc_HIM)
 
@@ -450,7 +452,11 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
         endif
 #ENDIF
 
-!$omp parallel do private(nn,n,iof,ril,rjl,rk,rkz)
+#IFDEF RTTOV
+  !$omp parallel do private(nn,n,iof,ril,rjl,rk,rkz,i,j,ch)
+#ELSE
+  !$omp parallel do private(nn,n,iof,ril,rjl,rk,rkz)
+#ENDIF
         do nn = n1, n2
           iof = obsda%set(nn)
           n = obsda%idx(nn)
@@ -515,19 +521,19 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
           !=====================================================================
           case (obsfmt_him)
           !---------------------------------------------------------------------
-            i8 = nint(ril-IHALO)
-            j8 = nint(rjl-JHALO)
-            b8 = nint(obs(iof)%lev(n))
-            obsda%val(nn) = yobs_HIM_prep(i8,j8,b8-6)
-            obsda%lev(nn) = plev_obs_HIM(i8,j8,b8-6)
-            obsda%qc(nn) = qc_HIM_prep(i8,j8,b8-6)
+            i  = nint(ril-IHALO)
+            j  = nint(rjl-JHALO)
+            ch = nint(obs(iof)%lev(n))
+            obsda%val(nn) = yobs_HIM_prep(i,j,ch)
+            obsda%lev(nn) = plev_obs_HIM (i,j,ch)
+            obsda%qc (nn) = qc_HIM_prep  (i,j,ch)
  
             if ( obs(iof)%dat(n) == undef) then
               obsda%qc(nn) = iqc_obs_bad
             endif
 
-            obsda%val2(nn) = (abs(yobs_HIM_prep(i8,j8,b8-6) - yobs_HIM_clr_prep(i8,j8,b8-6) )  &
-                              + abs(obs(iof)%dat(n) - yobs_HIM_clr_prep(i8,j8,b8-6)) ) * 0.5d0
+            obsda%val2(nn) = (abs(yobs_HIM_prep(i,j,ch) - yobs_HIM_clr_prep(i,j,ch) )  &
+                              + abs(obs(iof)%dat(n) - yobs_HIM_clr_prep(i,j,ch)) ) * 0.5_r_size
 #ENDIF
           end select
 
@@ -612,7 +618,11 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
         elseif ( RADAR_ADDITIVE_Y18 ) then
           call obs_da_value_partial_reduce_iter(obsda_return, it, 1, nobs, obsda%val, obsda%qc, pert=obsda%pert)
         else
+#IFDEF RTTOV
+          call obs_da_value_partial_reduce_iter(obsda_return, it, 1, nobs, obsda%val, obsda%qc, lev=obsda%lev, val2=obsda%val2 )
+#ELSE
           call obs_da_value_partial_reduce_iter(obsda_return, it, 1, nobs, obsda%val, obsda%qc )
+#ENDIF
         endif
 
         write (timer_str, '(A30,I4,A2)') 'obsope_cal:partial_reduce  (t=', it, '):'

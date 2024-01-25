@@ -81,9 +81,6 @@ MODULE letkf_obs
   real(r_size), allocatable :: obsdep(:)
 
 
-  integer :: mem_cld
-  integer :: ch_num 
-  real(r_size) :: std13
   real(r_size) :: sig_b ! sigma_b for AOEI
   real(r_size) :: sig_o ! sigma_o derived from AOEI
 
@@ -431,11 +428,9 @@ SUBROUTINE set_letkf_obs
 !!!###### Himawari-8 assimilation ###### ! HIM
 #IFDEF RTTOV
     if (obs(iof)%elm(iidx) == id_HIMIR_obs) then
-      ch_num = nint(obs(iof)%lev(iidx)) - 6
-      std13 = obs(iof)%err(iidx) ! negative err corresponds to std13
-
+      
       ! This tentative assignment is valid only within this subroutine
-      obs(iof)%err(iidx) = OBSERR_HIM(ch_num)
+      obs(iof)%err(iidx) = OBSERR_HIM(nint(obs(iof)%lev(iidx)))
 
       ! -- Detect NaN in the original Himawari-8 observations
       if (obs(iof)%dat(iidx) /= obs(iof)%dat(iidx)) then
@@ -448,16 +443,10 @@ SUBROUTINE set_letkf_obs
         cycle
       end if
 
-      if (HIM_BAND_USE(ch_num) /= 1) then
+      if (HIM_IR_BAND_DA_LIST(nint(obs(iof)%lev(iidx))) < 1) then
         obsda%qc(n) = iqc_obs_bad
         cycle
       end if
-
-      ! --  Homogeneity QC
-      if(HIM_OBS_STD .and. abs(std13) > HIM_HOMO_QC)then
-        obsda%qc(n) = iqc_obs_bad
-        cycle
-      endif
 
       ! -- Reject Himawari-8 obs sensitivie above HIM_LIMIT_LEV (Pa) ! HIM --
       if (obsda%lev(n) < HIM_LIMIT_LEV) then
@@ -465,10 +454,10 @@ SUBROUTINE set_letkf_obs
         cycle
       endif
 
-      mem_cld = 0
+      mem_ref = 0
       do i = 1, MEMBER
-        if ( HIM_CLD_THRS( ch_num ) > obsda%ensval(i,n) ) then
-          mem_cld = mem_cld + 1
+        if ( HIM_CLD_THRS( nint(obs(iof)%lev(iidx)) ) > obsda%ensval(i,n) ) then
+          mem_ref = mem_ref + 1
         endif
       enddo
     endif
@@ -567,11 +556,11 @@ SUBROUTINE set_letkf_obs
       elseif ( HIM_PQV .and. obsda%qv(n) >= 0.0_r_size ) then
         ! No QC for pseudo Qv obs
       elseif ( HIM_AOEI .and. HIM_AOEI_QC == 1 ) then
-        if ( abs(obsda%val(n)) > GROSS_ERROR_HIM * OBSERR_HIM(ch_num) ) then
+        if ( abs(obsda%val(n)) > GROSS_ERROR_HIM * OBSERR_HIM(nint(obs(iof)%lev(iidx))) ) then
           obsda%qc(n) = iqc_gross_err
         endif
       else
-        if ( abs( obsda%val(n) ) > GROSS_ERROR_HIM * OBSERR_HIM(ch_num)) then
+        if ( abs( obsda%val(n) ) > GROSS_ERROR_HIM * OBSERR_HIM(nint(obs(iof)%lev(iidx)))) then
           obsda%qc(n) = iqc_gross_err
         endif
       endif
@@ -744,6 +733,7 @@ SUBROUTINE set_letkf_obs
   else
     nobstotal = 0
   endif
+  
   obsda_sort%nobs = nobstotal
   call obs_da_value_allocate(obsda_sort, nensobs)
 
@@ -1724,6 +1714,11 @@ subroutine setup_obsda_sort(nobs_sub,nobs_g,obsda_sort,efso_flag)
       call MPI_ALLGATHERV(obsbufs%ensval, cnts*nensobs_part, MPI_r_size, obsbufr%ensval, cntr*nensobs_part, dspr*nensobs_part, MPI_r_size, MPI_COMM_d, ierr)
     end if
     call MPI_ALLGATHERV(obsbufs%qc, cnts, MPI_INTEGER, obsbufr%qc, cntr, dspr, MPI_INTEGER, MPI_COMM_d, ierr)
+
+#IFDEF RTTOV
+    call MPI_ALLGATHERV(obsbufs%lev,  cnts, MPI_r_size, obsbufr%lev,  cntr, dspr, MPI_r_size, MPI_COMM_d, ierr)
+    call MPI_ALLGATHERV(obsbufs%val2, cnts, MPI_r_size, obsbufr%val2, cntr, dspr, MPI_r_size, MPI_COMM_d, ierr)
+#ENDIF
 
     if ( efso_flag_ ) then
       call MPI_ALLGATHERV(obsbufs%qv, cnts, MPI_r_size, obsbufr%qv, cntr, dspr, MPI_r_size, MPI_COMM_d, ierr)

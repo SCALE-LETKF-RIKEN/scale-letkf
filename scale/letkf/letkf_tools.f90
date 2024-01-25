@@ -1998,6 +1998,7 @@ subroutine obs_local_cal(ri, rj, rlev, rz, nvar, iob, ic, ndist, nrloc, nrdiag)
   real(r_size) :: nd_h, nd_v ! normalized horizontal/vertical distances
 
   integer :: di, dj, dk
+  integer :: ch_num
 
   nrloc = 1.0_r_size
   nrdiag = -1.0_r_size
@@ -2146,7 +2147,7 @@ subroutine obs_local_cal(ri, rj, rlev, rz, nvar, iob, ic, ndist, nrloc, nrdiag)
 
 #IFDEF RTTOV
   if (obtyp == 23) then ! obtypelist(obtyp) == 'HIMIRB'
-    ch_num = nint(obs(obset)%lev(obidx)) - 6
+    ch_num = nint(obs(obset)%lev(obidx))
     if ( HIM_AOEI .and. INFL_ADD == 0.0d0 ) then 
     ! obs%err: sigma_ot/true (not inflated) obs error 
     ! obsda%val: O–B (innovation)
