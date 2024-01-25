@@ -263,6 +263,7 @@ MODULE common_nml
   !--- PARAM_LETKF_MONITOR
   logical :: DEPARTURE_STAT = .true.
   logical :: DEPARTURE_STAT_RADAR = .false.
+  logical :: DEPARTURE_STAT_HIM   = .false.
   real(r_size) :: DEPARTURE_STAT_T_RANGE = 0.0d0   ! time range within which observations are considered in the departure statistics.
                                                    ! 0: no limit
   logical :: DEPARTURE_STAT_ALL_PROCESSES = .true. ! print the departure statistics by all processes?
@@ -364,6 +365,9 @@ MODULE common_nml
   logical :: HIM_OBS_AVE_OVERLAP = .false.
   integer :: HIM_OBS_THIN_LEV = 1 ! thinning level (1: no thinning)
 
+  logical :: HIM_VLOCAL_CTOP = .true.
+ 
+
   logical :: HIM_MEAN_WRITE = .true.
   logical :: HIM_OUT_TBB_NC = .true.
   logical :: HIM_OUT_ETBB_NC = .false.
@@ -394,7 +398,6 @@ MODULE common_nml
                                   ! 1: SCALE method as of 11/15/2017 with a minor modification (excluding qr)
                                   ! 2: Tompkins and Janiskova (2004QJRMS) method (as in Okamoto 2017QJRMS)
 
-  logical :: HIM_VLOCAL_CTOP = .true.
   logical :: HIM_AOEI = .false. ! Use AOEI (Zhang et al. 2016; Minamide and Zhang 2017)?
   integer :: HIM_AOEI_QC = 0 !  0: AOEI w/o any QC
                              !  1: AOEI w/ a standard QC based on the ratio btw O-B and obs err
@@ -1006,6 +1009,7 @@ subroutine read_nml_letkf_monitor
   namelist /PARAM_LETKF_MONITOR/ &
     DEPARTURE_STAT, &
     DEPARTURE_STAT_RADAR, &
+    DEPARTURE_STAT_HIM,   &
     DEPARTURE_STAT_T_RANGE, &
     DEPARTURE_STAT_ALL_PROCESSES, &
     DEPARTURE_STAT_OUT_NC,        &
@@ -1230,6 +1234,7 @@ subroutine read_nml_letkf_him
     HIM_OBS_AVE_OVERLAP,    &
     HIM_OBS_BUF_GRID,       &
     !
+    HIM_VLOCAL_CTOP, &
     !
     HIM_MEAN_WRITE, &
     HIM_OUT_TBB_NC, &
@@ -1239,7 +1244,6 @@ subroutine read_nml_letkf_him
     HIM_OUTFILE_BASENAME,&
     HIM_OBS_4D, &
     HIM_OBS_RECL, &
-    HIM_VLOCAL_CTOP, &
     HIM_BT_MIN, &
     HIM_BAND_USE, &
     HIM_AOEI, &

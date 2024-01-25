@@ -1571,6 +1571,9 @@ END SUBROUTINE itpl_3d
 subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
   use scale_prc, only: &
       PRC_myrank
+  use scale_atmos_grid_cartesC_index, only: &
+      IHALO, JHALO
+ 
 
   implicit none
 
@@ -1602,6 +1605,10 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
   logical :: efso_ = .false.
 
   if (present(efso)) efso_ = efso
+#IFDEF RTTOV
+  real(r_size), allocatable :: yobs_him(:,:,:)
+  integer, allocatable :: qc_him(:,:,:)
+#ENDIF
 
   call state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
 
@@ -1638,6 +1645,14 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
 !  obs_idx_TCX = -1
 !  obs_idx_TCY = -1
 !  obs_idx_TCP = -1
+
+#IFDEF RTTOV
+  if ( DEPARTURE_STAT_HIM ) then
+    allocate( yobs_him(nlon,nlat,NIRB_HIM_USE) )
+    allocate( qc_him (nlon,nlat,NIRB_HIM_USE) )
+    call Trans_XtoY_HIM_allg(v3dgh,v2dgh,yobs_him,qc_him)
+  endif
+#ENDIF
 
 !$omp parallel do private(n,nn,iset,iidx,ril,rjl,rk,rkz,m,obsdep_mean)
   do n = 1, nnobs
@@ -1732,6 +1747,14 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
             if (oqc(n) == iqc_ref_low) oqc(n) = iqc_good ! when process the observation operator, we don't care if reflectivity is too small
           end if
         end if
+        !=========================================================================
+      case (obsfmt_HIM )
+        !-------------------------------------------------------------------------
+          if (DEPARTURE_STAT_HIM) then
+            ohx(n) = yobs_him(nint(ril-IHALO),nint(rjl-JHALO),nint(obs(iset)%lev(iidx)))
+            !oqc(n) = qc_him  (nint(ril-IHALO),nint(rjl-JHALO),nint(obs(iset)%lev(iidx)))
+            oqc(n) = obsda_sort%qc(nn) 
+          endif
       !=========================================================================
       end select
 
@@ -1817,6 +1840,14 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
     monit_type(uid_obs(id_radar_vr_obs)) = .true.
 !    monit_type(uid_obs(id_radar_prh_obs)) = .true.
   end if
+
+#IFDEF RTTOV
+  if (DEPARTURE_STAT_HIM) then
+    monit_type(uid_obs(id_HIMIR_obs)) = .true.
+    deallocate(yobs_him)
+    deallocate(qc_him)
+  endif
+#ENDIF RTTOV
 
   deallocate (oelm)
   deallocate (ohx)
@@ -3907,7 +3938,7 @@ subroutine allgHim2obs(tbb_allg,tbb_allg_prep,qc_allg_prep,obsdat,obslon,obslat,
 end subroutine allgHim2obs
 
 #IFDEF RTTOV
-SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,yobs_clr,mwgt_plev2d,qc,stggrd)
+SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd)
   use scale_mapprojection, only: &
       MAPPROJECTION_xy2lonlat
   use common_scale_rttov13, only: &
@@ -3936,7 +3967,13 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,yobs_clr,mwgt_plev2d,qc,stggrd)
 
   real(r_size), intent(in) :: v3d(nlevh,nlonh,nlath,nv3dd)
   real(r_size), intent(in) :: v2d(nlonh,nlath,nv2dd)
+  real(r_size), intent(out) :: yobs(nlon,nlat,NIRB_HIM_USE)
+  integer, intent(out) :: qc(nlon,nlat,NIRB_HIM_USE)
+
+  real(r_size), intent(out), optional :: yobs_clr(nlon,nlat,NIRB_HIM_USE)
+  real(r_size), intent(out), optional :: mwgt_plev2d(nlon,nlat,NIRB_HIM_USE)
   integer, intent(in), optional :: stggrd
+
   REAL(r_size) :: rotc(1,1,2)
   REAL(RP) :: rotc_RP(1,1,2)
 
@@ -3969,10 +4006,6 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,yobs_clr,mwgt_plev2d,qc,stggrd)
 ! -- cloud top height
   REAL(r_size) :: ctop_out1d(nlon*nlat) 
 
-  real(r_size), intent(out) :: yobs(nlon,nlat,NIRB_HIM_USE)
-  real(r_size), intent(out) :: yobs_clr(nlon,nlat,NIRB_HIM_USE)
-  real(r_size), intent(out) :: mwgt_plev2d(nlon,nlat,NIRB_HIM_USE)
-  integer, intent(out) :: qc(nlon,nlat,NIRB_HIM_USE)
   real(r_size) :: mwgt_plev1d(NIRB_HIM_USE,nlon*nlat)
 
   REAL(r_size) :: utmp, vtmp ! U10m & V10m tmp for rotation
@@ -4158,16 +4191,7 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,yobs_clr,mwgt_plev2d,qc,stggrd)
     do ch = 1, NIRB_HIM_USE
       qc(i,j,ch) = iqc_good
       yobs(i,j,ch) = btall_out(ch,np)
-      yobs_clr(i,j,ch) = btclr_out(ch,np)
-      mwgt_plev2d(i,j,ch) = mwgt_plev1d(ch,np)
-
-      if(HIM_VLOCAL_CTOP)then
-        if((ctop_out1d(np) > 0.0d0) .and. (ctop_out1d(np) < mwgt_plev1d(ch,np)) .and. &
-           (mwgt_plev1d(ch,np)>HIM_LIMIT_LEV)) then
-          mwgt_plev1d(ch,np) = (ctop_out1d(np) + mwgt_plev1d(ch,np))*0.5_r_size
-        endif
-      endif
-
+   
       ! QC
       if(HIM_REJECT_LAND .and. v2d(i+IHALO,j+JHALO,iv2dd_lsmask) > 0.5_r_size )then
         qc(i,j,ch) = iqc_obs_bad
@@ -4181,6 +4205,44 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,yobs_clr,mwgt_plev2d,qc,stggrd)
 
   enddo ! i
   enddo ! j
+
+  if ( present(yobs_clr) ) then
+    do j = 1, nlat
+      do i = 1, nlon
+        np = (j - 1) * nlon + i
+    
+        do ch = 1, NIRB_HIM_USE
+          yobs_clr(i,j,ch) = btclr_out(ch,np)
+        enddo    
+      enddo ! i
+    enddo ! j
+  endif
+
+  if ( present(mwgt_plev2d) ) then
+    if( HIM_VLOCAL_CTOP ) then
+      do j = 1, nlat
+        do i = 1, nlon
+          np = (j - 1) * nlon + i
+          do ch = 1, NIRB_HIM_USE  
+            if ( (ctop_out1d(np) > 0.0d0) .and. (ctop_out1d(np) < mwgt_plev1d(ch,np)) .and. &
+                 (mwgt_plev1d(ch,np)>HIM_LIMIT_LEV) ) then
+              mwgt_plev1d(ch,np) = (ctop_out1d(np) + mwgt_plev1d(ch,np))*0.5_r_size
+            endif
+          enddo
+        enddo
+      enddo
+    endif ! HIM_VLOCAL_CTOP
+
+    do j = 1, nlat
+      do i = 1, nlon
+        np = (j - 1) * nlon + i
+        do ch = 1, NIRB_HIM_USE
+          mwgt_plev2d(i,j,ch) = mwgt_plev1d(ch,np)
+        enddo    
+      enddo ! i
+    enddo ! j
+  endif  ! present(mwgt_plev2d)
+
 
   return
 END SUBROUTINE Trans_XtoY_HIM_allg
