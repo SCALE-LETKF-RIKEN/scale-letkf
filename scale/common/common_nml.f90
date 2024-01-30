@@ -384,14 +384,7 @@ MODULE common_nml
   real(r_size) :: HIM_RTTOV_MINQ_CTOP = 0.10d0 ! Threshold of water/ice contents for diagnosing the cloud top (g m-3)
   real(r_size) :: HIM_BT_MIN = 0.0d0 ! Lower limit of the BT for Himawari-8 IR
                                            ! Negative values: turn off
-  logical :: HIM_RTTOV_PROF_SHIFT = .false. ! true: shift the climatological profile above the model top 
-                                            !       (equivalent to extrapolate by using the climatological
-                                            !       lapse rate)
-                                            ! false: relax the original (model)
-                                            ! profiles above [HIM_RTTOV_RLX_HGT] m back to the climatological profile 
   logical :: HIM_VBC_USE = .false. ! Turn on adaptive bias correction for Him8?
-  integer :: HIM_RTTOV_KADD = 5
-  real(r_size) :: HIM_RTTOV_RLX_HGT = 20.0d3 ! (m) Lowest hight for relaxing profiles to climatology
   integer :: HIM_RTTOV_CFRAC =  1 ! cloud fraction diagnosis 
                                   ! 0: using HIM_RTTOV_CFRAC_CNST following Honda et al. (2017a,b)
                                   ! 1: SCALE method as of 11/15/2017 with a minor modification (excluding qr)
@@ -1215,10 +1208,7 @@ subroutine read_nml_letkf_him
     HIM_RTTOV_CLD,          &
     HIM_LIMIT_LEV,          &
     HIM_RTTOV_CFRAC_CNST,   &
-    HIM_RTTOV_PROF_SHIFT,   &
-    HIM_RTTOV_KADD,         &
     HIM_RTTOV_MINQ_CTOP,    &
-    HIM_RTTOV_RLX_HGT,      &
     HIM_RTTOV_CFRAC,        &
     !
     ! Superob & thinning parameters 

@@ -3955,9 +3955,6 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd)
       DX, DY
   use scale_const, only: &
       CONST_D2R
-  use scale_atmos_phy_rd_profile, only: &
-      ATMOS_PHY_RD_PROFILE_read, &
-      ATMOS_PHY_RD_PROFILE_setup_zgrid
   use scale_atmos_hydrometeor, only: &
       N_HYD
   use scale_atmos_aerosol, only: &
@@ -4017,72 +4014,12 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd)
   real(r_size) :: blon, blat ! lat/lon at the domain center
   integer :: k
 
-  real(RP), parameter:: RD_TOA  = 50.0_RP !< top of atmosphere [km]
-
-  integer, parameter :: MSTRN_ngas     =  7 !< # of gas species ! MSTRNX
-  integer, parameter :: MSTRN_ncfc     = 28 !< # of CFC species ! MSTRNX
-
-  integer, parameter :: ngas = MSTRN_ngas
-  integer, parameter :: ncfc = MSTRN_ncfc
-  integer, parameter :: RD_naero      = N_HYD + N_AE ! # of cloud/aerosol species
-
-  integer :: RD_KMAX ! # of computational cells: z for radiation scheme
-  real(RP) :: RD_zh          (KMAX + HIM_RTTOV_KADD + 1)   ! altitude    at the interface [km]
-  real(RP) :: RD_z           (KMAX + HIM_RTTOV_KADD)   ! altitude    at the center [km]
-  real(RP) :: RD_rhodz       (KMAX + HIM_RTTOV_KADD)   ! density * delta z [kg/m2]
-  real(RP) :: RD_pres        (KMAX + HIM_RTTOV_KADD)   ! pressure    at the center [hPa]
-  real(RP) :: RD_presh       (KMAX + HIM_RTTOV_KADD + 1)   ! pressure    at the interface [hPa]
-  real(RP) :: RD_temp        (KMAX + HIM_RTTOV_KADD)   ! temperature at the center [K]
-  real(RP) :: RD_temph       (KMAX + HIM_RTTOV_KADD + 1)   ! temperature at the interface [K]
-  real(RP) :: RD_gas         (KMAX + HIM_RTTOV_KADD,ngas) ! gas species   volume mixing ratio [ppmv]
-  real(RP) :: RD_cfc         (KMAX + HIM_RTTOV_KADD,ncfc) ! CFCs          volume mixing ratio [ppmv]
-  real(RP) :: RD_aerosol_conc(KMAX + HIM_RTTOV_KADD,RD_naero) ! cloud/aerosol volume mixing ratio [ppmv]
-  real(RP) :: RD_aerosol_radi(KMAX + HIM_RTTOV_KADD,RD_naero) ! cloud/aerosol effective radius [cm]
-  real(RP) :: RD_cldfrac     (KMAX + HIM_RTTOV_KADD)   ! cloud fraction (0-1)
-
   integer :: i, j
   real(RP) :: ri_RP, rj_RP
 
   integer :: nps, npe, it
   
   write(6,'(a)') 'Hello from Trans_XtoY_HIM_allg'
-
-  !
-  ! Extrapolate input profiles by using climatology (MIPAS)
-  ! Based on "scalelib/src/atmos-physics/scale_atmos_phy_rd_mstrnx.F90"
-  !
-
-  ! Get basepoint lat/lon
-  call ij2phys(real(nlong/2+IHALO, kind=r_size),&
-               real(nlatg/2+JHALO, kind=r_size),&
-               blon, blat)
-
-  RD_KMAX = KMAX + HIM_RTTOV_KADD
-
-  !--- setup vartical grid for radiation (larger TOA than Model domain)
-  call ATMOS_PHY_RD_PROFILE_setup_zgrid( KA, KS, KE, RD_KMAX, HIM_RTTOV_KADD, & ! [IN]
-                                         RD_TOA, CZ, FZ, & ! [IN]
-                                         RD_zh(:), RD_z(:)         ) ! [INOUT]
-
-  !--- read climatological profile
-  call ATMOS_PHY_RD_PROFILE_read( RD_KMAX,                & ! [IN]
-                                  ngas,                   & ! [IN]
-                                  ncfc,                   & ! [IN]
-                                  RD_naero,               & ! [IN]
-                                  real( blat, kind=RP )*CONST_D2R,         & ! [IN]
-                                  HIM_NOWDATE    (:),     & ! [IN]
-                                  RD_zh          (:),     & ! [IN]
-                                  RD_z           (:),     & ! [IN]
-                                  RD_rhodz       (:),     & ! [OUT]
-                                  RD_pres        (:),     & ! [OUT]
-                                  RD_presh       (:),     & ! [OUT]
-                                  RD_temp        (:),     & ! [OUT]
-                                  RD_temph       (:),     & ! [OUT]
-                                  RD_gas         (:,:),   & ! [OUT]
-                                  RD_cfc         (:,:),   & ! [OUT]
-                                  RD_aerosol_conc(:,:),   & ! [OUT]
-                                  RD_aerosol_radi(:,:),   & ! [OUT]
-                                  RD_cldfrac     (:)      ) ! [OUT]
 
   if (present(stggrd)) stggrd_ = stggrd
 
@@ -4138,7 +4075,6 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd)
 
     enddo
 
-
   enddo ! i
   enddo ! j
 
@@ -4173,8 +4109,6 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd)
                          lat1d(nps:npe),& ! (deg)
                          lsmask1d(nps:npe),& ! (0-1)
                          zenith1d(nps:npe), & ! (deg) 
-                         real( RD_presh(1:RD_KMAX+1), kind=r_size ), & ! (hPa) 
-                         real( RD_temph(1:RD_KMAX+1), kind=r_size ), & ! (K) 
                          btall_out(1:NIRB_HIM_USE,nps:npe),& ! (K)
                          btclr_out(1:NIRB_HIM_USE,nps:npe),& ! (K)
                          mwgt_plev1d(1:NIRB_HIM_USE,nps:npe),& ! (Pa)

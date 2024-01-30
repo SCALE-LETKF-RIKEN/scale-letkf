@@ -31,8 +31,6 @@ contains
                             lat,&
                             land,&
                             zenith,&
-                            RD_presh, &
-                            RD_temph, &
                             btall_out,& 
                             btclr_out,& 
                             mwgt_plev,&
@@ -72,10 +70,8 @@ contains
           RTTOV_COEF_PATH,        &
           RTTOV_COEF_FILE,        &
           RTTOV_COEF_FILE_CLD,    &
-          HIM_RTTOV_PROF_SHIFT,   &
           HIM_RTTOV_CFRAC,        &
-          HIM_RTTOV_CLD,          &
-          HIM_RTTOV_KADD
+          HIM_RTTOV_CLD
     IMPLICIT NONE
   
   #include "rttov_direct.interface"
@@ -151,13 +147,7 @@ contains
     logical :: debug = .true.
   
     real(kind=jprb) :: repsb 
-  
-    integer :: orgk
-  
-    real(kind=r_size), intent(in)  :: RD_presh(nlevs+HIM_RTTOV_KADD+1)
-    real(kind=r_size), intent(in)  :: RD_temph(nlevs+HIM_RTTOV_KADD+1)
-    real(kind=jprb) :: tmp_dif
-   
+    
     real(Kind=jprb), parameter :: q_mixratio_to_ppmv  = 1.60771704e+6_JPRB
     real(Kind=jprb), parameter :: q_ppmv_to_mixratio  = 1.0_JPRB / q_mixratio_to_ppmv
   
@@ -275,7 +265,7 @@ contains
           1_jpim,                  &  ! 1 => allocate
           nprof,                   &
           nchanprof,               &
-          nlevs+HIM_RTTOV_KADD,    &
+          nlevs,    &
           chanprof,                &
           opts,                    &
           profiles,                &
@@ -333,34 +323,16 @@ contains
     !========== READ profiles == start =============
     if(debug) write(6,*) 'start substitute profile'
     do iprof = 1, nprof
+    
+      do ilev = 1, nlevs
   
-      if(HIM_RTTOV_PROF_SHIFT)then
-        tmp_dif = RD_temph(HIM_RTTOV_KADD+1) - tk(1,iprof)
-      else
-        tmp_dif = 0.0_jprb
-      endif ! HIM_RTTOV_PROF_SHIFT
-  
-      ! Above the model top (p < RD_presh(HIM_RTTOV_KADD+1))
-      do ilev = 1, HIM_RTTOV_KADD
-        profiles(iprof)%p(ilev) = real(RD_presh(ilev),kind=jprb) ! (hPa)
-        profiles(iprof)%t(ilev) = max(RD_temph(ilev) - tmp_dif,tmin * 1.01_jprb) ! (K)
+        profiles(iprof)%p(ilev) = real(prs(ilev,iprof),kind=jprb) * 0.01_jprb ! (hPa)
+        profiles(iprof)%t(ilev) = real(tk (ilev,iprof),kind=jprb) ! (K) 
   
         if ( unit_kgkg ) then
-          profiles(iprof)%q(ilev) = qmin_kgkg * 1.01_jprb
+          profiles(iprof)%q(ilev) = max(real(qv(ilev,iprof),kind=jprb),qmin_kgkg*1.01_jprb) ! (kg/kg)
         else
-          profiles(iprof)%q(ilev) = qmin * 1.01_jprb
-        end if
-      enddo
-  
-      do ilev = HIM_RTTOV_KADD + 1, HIM_RTTOV_KADD + nlevs
-  
-        profiles(iprof)%p(ilev) = real(prs(ilev-HIM_RTTOV_KADD,iprof),kind=jprb) * 0.01_jprb ! (hPa)
-        profiles(iprof)%t(ilev) = real(tk(ilev-HIM_RTTOV_KADD,iprof),kind=jprb) ! (K) 
-  
-        if ( unit_kgkg ) then
-          profiles(iprof)%q(ilev) = max(real(qv(ilev-HIM_RTTOV_KADD,iprof),kind=jprb),qmin_kgkg*1.01_jprb) ! (kg/kg)
-        else
-          profiles(iprof)%q(ilev) = min(max(qv(ilev-HIM_RTTOV_KADD,iprof) * q_mixratio_to_ppmv, qmin*1.01_jprb), qmax*0.99) ! (ppmv)
+          profiles(iprof)%q(ilev) = min(max(qv(ilev,iprof) * q_mixratio_to_ppmv, qmin*1.01_jprb), qmax*0.99) ! (ppmv)
         endif
   
       enddo
@@ -432,9 +404,8 @@ contains
   
         ctop_out(iprof) = -1.0_r_size
   
-        do ilev = HIM_RTTOV_KADD + 1, HIM_RTTOV_KADD + nlevs - 1
-          orgk = ilev - HIM_RTTOV_KADD ! k index for original profile
- 
+        do ilev = 1, nlevs - 1
+          
           profiles(iprof) % cfrac(ilev)     = 0.0_jprb
  
           do ic = 1, 6
@@ -442,13 +413,13 @@ contains
           enddo
 
           ! ilev
-          liqc1 = real(qc  (orgk,iprof), kind=jprb)
-          icec1 = real(qice(orgk,iprof), kind=jprb) 
+          liqc1 = real(qc  (ilev,iprof), kind=jprb)
+          icec1 = real(qice(ilev,iprof), kind=jprb) 
   
           ! ilev + 1
   
-          liqc2 = real(qc  (orgk+1,iprof), kind=jprb) 
-          icec2 = real(qice(orgk+1,iprof), kind=jprb)
+          liqc2 = real(qc  (ilev+1,iprof), kind=jprb) 
+          icec2 = real(qice(ilev+1,iprof), kind=jprb)
   
           !stratus maritime (default)
           profiles(iprof) % cloud(2,ilev) = & 
@@ -456,9 +427,9 @@ contains
           profiles(iprof) % cloud(6,ilev) = &
                      max((icec1 + icec2) * 0.5_jprb, 0.0_jprb)
   
-          ptmp  = (prs(orgk+1,iprof) + prs(orgk,iprof))*0.5_jprb    ! (Pa)
-          tktmp = (tk(orgk+1,iprof) + tk(orgk,iprof))*0.5_jprb ! (K)
-          qvtmp = max((qv(orgk+1,iprof) + qv(orgk,iprof)) * 0.5_jprb, 0.0_r_size) ! (kgkg-1)
+          ptmp  = (prs(ilev+1,iprof) + prs(ilev,iprof))*0.5_jprb    ! (Pa)
+          tktmp = (tk (ilev+1,iprof) + tk (ilev,iprof))*0.5_jprb ! (K)
+          qvtmp = max((qv(ilev+1,iprof) + qv(ilev,iprof)) * 0.5_jprb, 0.0_r_size) ! (kgkg-1)
   
           !
           ! cloud fraction & cloud top diagnosis
@@ -500,7 +471,7 @@ contains
   
     do iprof = 1, nprof
       if ( debug .and. mod(iprof,40)==0 .and. HIM_RTTOV_CLD )then
-        do ilev = 1, nlevs + HIM_RTTOV_KADD - 1, 10
+        do ilev = 1, nlevs-1, 10
           write(6,'(a,2i5,6f11.4)')"DEBUG PROF",iprof,ilev,                          &
                                                 profiles(iprof) % t(ilev),&
                                                 profiles(iprof) % p(ilev),           &
@@ -513,9 +484,6 @@ contains
     enddo ! prof
   !### OMP END PARALLEL DO
   
-  !   do ilev = 1, HIM_RTTOV_KADD + nlevs - 1
-  !     print *,"DEBUG RD RTTOV",ilev,profiles(iprof) % p(ilev)
-  !   enddo
   
     if (debug) write(6,*)"ch2",nprof,nlevs
   
@@ -651,7 +619,7 @@ contains
         endif
   
         ! TOA to the ground
-        do ilev = 2, nlevs - 1 + HIM_RTTOV_KADD - 1
+        do ilev = 2, nlevs - 1
           rdp = 1.0d0 / (abs(profiles(iprof)%p(ilev) - profiles(iprof)%p(ilev+1)) * 1.0d2) ! Pa
           tmp_wgt = abs(transmission % tau_levels(ilev,joff+ich) &
                       - transmission % tau_levels(ilev+1,joff+ich)) * rdp
@@ -688,7 +656,7 @@ contains
           0_jpim,                  &  ! 0 => deallocate
           nprof,                   &
           nchanprof,               &
-          nlevs+HIM_RTTOV_KADD,    &
+          nlevs,                   &
           chanprof,                &
           opts,                    &
           profiles,                &
