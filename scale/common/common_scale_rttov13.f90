@@ -46,6 +46,7 @@ contains
   !       & q_mixratio_to_ppmv,  &
          & qmin,                &
          & qmax,                &
+         & qmin_kgkg,           &
          & tmin
   
     ! rttov_types contains definitions of all RTTOV data types
@@ -82,11 +83,12 @@ contains
   #include "rttov_read_coefs.interface"
   #include "rttov_dealloc_coefs.interface"
   #include "rttov_alloc_direct.interface"
+  #include "rttov_init_emis_refl.interface"
   #include "rttov_user_options_checkinput.interface"
   #include "rttov_print_opts.interface"
   #include "rttov_print_profile.interface"
-  #include "rttov_skipcommentline.interface"
-  
+  #include "rttov_skipcommentline.interface"  
+
     ! RTTOV variables/structures
     !====================
     type(rttov_options)              :: opts                     ! Options structure
@@ -128,7 +130,6 @@ contains
   
     ! variables for input
     !====================
-    integer(kind=jpim) :: dosolar = 0_jpim
     integer(kind=jpim), intent(in) :: nchannels
     integer(kind=jpim) :: nchanprof
     integer(kind=jpim) :: ich
@@ -163,12 +164,12 @@ contains
     logical :: unit_kgkg = .true.
   
     if(debug) write(6,'(1x,a)')"hello from RTTOV"
-    write(6,*) 'Give a dummy result for debug from RTTOV'
-    btall_out = 250.0_r_size
-    btclr_out = 270.0_r_size
-    ctop_out  = 300.0_r_size
-    mwgt_plev = 40000.0_r_size 
-    return
+    !write(6,*) 'Give a dummy result for debug from RTTOV'
+    !btall_out = 250.0_r_size
+    !btclr_out = 270.0_r_size
+    !ctop_out  = 300.0_r_size
+    !mwgt_plev = 40000.0_r_size 
+    !return
 
   ! -- set thermodynamic constants
   
@@ -188,12 +189,8 @@ contains
     ! 1. Initialise RTTOV options structure
     ! --------------------------------------------------------------------------
   
-    if (dosolar == 1) then
-      opts % rt_ir % addsolar = .TRUE.           ! Include solar radiation
-    else
-      opts % rt_ir % addsolar = .FALSE.          ! Do not include solar radiation
-    endif
-  
+    opts % rt_ir % addsolar = .FALSE.          ! Do not include solar radiation
+    
     opts % interpolation % addinterp   = .TRUE.  ! Allow interpolation of input profile
     opts % interpolation % interp_mode = 1       ! Set interpolation method
     opts % rt_all % addrefrac          = .TRUE.  ! Include refraction in path calc
@@ -228,7 +225,7 @@ contains
       opts % config % verbose            = .false.  ! Enable printing of warnings
     endif
   
-    opts % config % apply_reg_limits     = .false.
+    opts % config % apply_reg_limits     = .true.
   
     opts % interpolation % addinterp     = .true.
     opts % interpolation % interp_mode   = 1
@@ -349,7 +346,7 @@ contains
         profiles(iprof)%t(ilev) = max(RD_temph(ilev) - tmp_dif,tmin * 1.01_jprb) ! (K)
   
         if ( unit_kgkg ) then
-          profiles(iprof)%q(ilev) = qmin * q_ppmv_to_mixratio * 1.01_jprb
+          profiles(iprof)%q(ilev) = qmin_kgkg * 1.01_jprb
         else
           profiles(iprof)%q(ilev) = qmin * 1.01_jprb
         end if
@@ -361,9 +358,9 @@ contains
         profiles(iprof)%t(ilev) = real(tk(ilev-HIM_RTTOV_KADD,iprof),kind=jprb) ! (K) 
   
         if ( unit_kgkg ) then
-          profiles(iprof)%q(ilev) = real(qv(ilev-HIM_RTTOV_KADD,iprof),kind=jprb) ! (kg/kg)
+          profiles(iprof)%q(ilev) = max(real(qv(ilev-HIM_RTTOV_KADD,iprof),kind=jprb),qmin_kgkg*1.01_jprb) ! (kg/kg)
         else
-          profiles(iprof)%q(ilev) = min(max(qv(ilev-HIM_RTTOV_KADD,iprof) * q_mixratio_to_ppmv, qmin * 1.01_jprb), qmax*0.99) ! (ppmv)
+          profiles(iprof)%q(ilev) = min(max(qv(ilev-HIM_RTTOV_KADD,iprof) * q_mixratio_to_ppmv, qmin*1.01_jprb), qmax*0.99) ! (ppmv)
         endif
   
       enddo
@@ -372,7 +369,7 @@ contains
         profiles(iprof)%s2m%q = real(q2m(iprof),kind=jprb) ! (kg/kg)
       else
         profiles(iprof)%s2m%q = real(q2m(iprof),kind=jprb) * q_mixratio_to_ppmv ! (ppmv)
-        if(profiles(iprof)%s2m%q < qmin) profiles(iprof)%s2m%q = qmin + qmin * 0.01_jprb
+        if(profiles(iprof)%s2m%q < qmin_kgkg) profiles(iprof)%s2m%q = qmin_kgkg*1.01_jprb
       endif
       profiles(iprof)%s2m%t = real(tk2m(iprof),kind=jprb)
   
@@ -419,16 +416,19 @@ contains
   
         !-- 6 general cloud 
         ! Select the CLW and ice cloud properties:
-        profiles(iprof) % clw_scheme = 1
-        profiles(iprof) % ice_scheme = 3 ! Baran (2018)
+        !profiles(iprof) % clw_scheme = 1
+        !profiles(iprof) % ice_scheme = 3 ! Baran (2018)
   
-        ! Set the ice Deff parameterisation to a suitable value
-        !profiles(:) % idg = 4
-        !profiles(iprof) % ish = icecld_ish  !ice water shape
-  
-        !profiles(iprof) % idg = icecld_idg  !ice water effective diameter 
-        !profiles(iprof) % icede(:)= 0._jprb !ice effective diameter, set non-zero if you give by yourself
-  
+        ! Select the CLW and ice cloud properties:
+        profiles(iprof) % clw_scheme = 1    ! OPAC CLW properties
+        profiles(iprof) % ice_scheme = 2    ! Baran2014 ice properties
+
+        ! Set the CLW Deff parameterisation (only used with "Deff" CLW properties)
+        profiles(iprof) % clwde_param = 1
+
+        ! Set the ice Deff parameterisation to the recommended value (only used with Baum properties)
+        profiles(iprof) % icede_param = 2
+
   
         ctop_out(iprof) = -1.0_r_size
   
@@ -499,7 +499,7 @@ contains
     endif ! HIM_RTTOV_CLD
   
     do iprof = 1, nprof
-      if ( debug .and. mod(iprof,20)==0 .and. HIM_RTTOV_CLD )then
+      if ( debug .and. mod(iprof,40)==0 .and. HIM_RTTOV_CLD )then
         do ilev = 1, nlevs + HIM_RTTOV_KADD - 1, 10
           write(6,'(a,2i5,6f11.4)')"DEBUG PROF",iprof,ilev,                          &
                                                 profiles(iprof) % t(ilev),&
@@ -509,8 +509,7 @@ contains
                                                 profiles(iprof) % cloud(6,ilev)*1.e6,&
                                                 minval(profiles(iprof) % cloud(1:6,ilev)*1.e6)
         end do ! ilev
-      endif
-      write(6,*)''   
+      endif  
     enddo ! prof
   !### OMP END PARALLEL DO
   
@@ -522,7 +521,7 @@ contains
   
     if (debug) WRITE(6,*) 'end substitute profile'
     if (debug) then
-      do iprof = 1, nprof, 20
+      do iprof = 1, nprof, 40
         write(6,*) 'prof', iprof
         write(6,*) 'check p', maxval(profiles(iprof)%p(:)), minval(profiles(iprof)%p(:))  
         write(6,*) 'check t', maxval(profiles(iprof)%t(:)), minval(profiles(iprof)%t(:))  
@@ -550,25 +549,25 @@ contains
     ! 6. Specify surface emissivity and reflectance
     ! --------------------------------------------------------------------------
  
-    write(6,*)'DEBUG ', size( emissivity ), size( reflectance )
-    emissivity%emis_in          = 0._jprb
-    write(6,*)'DEBUG check1'
-    emissivity%emis_out         = 0._jprb
-    write(6,*)'DEBUG check2'
-    emissivity%specularity      = 0._jprb
-    write(6,*)'DEBUG check3'
-    emissivity%tskin_eff        = 0._jprb
-    write(6,*)'DEBUG check4'
-    reflectance%refl_in          = 0._jprb
-    write(6,*)'DEBUG check5'
-    reflectance%refl_out         = 0._jprb
-    write(6,*)'DEBUG check6'
-    reflectance%diffuse_refl_in  = 0._jprb
-    write(6,*)'DEBUG check7'
-    reflectance%diffuse_refl_out = 0._jprb
-    write(6,*)'DEBUG check8'
-    reflectance%refl_cloud_top   = 0._jprb
-    write(6,*)'DEBUG check9'
+    ! write(6,*)'DEBUG ', size( emissivity ), size( reflectance )
+    ! emissivity%emis_in          = 0._jprb
+    ! write(6,*)'DEBUG check1'
+    ! emissivity%emis_out         = 0._jprb
+    ! write(6,*)'DEBUG check2'
+    ! emissivity%specularity      = 0._jprb
+    ! write(6,*)'DEBUG check3'
+    ! emissivity%tskin_eff        = 0._jprb
+    ! write(6,*)'DEBUG check4'
+    ! reflectance%refl_in          = 0._jprb
+    ! write(6,*)'DEBUG check5'
+    ! reflectance%refl_out         = 0._jprb
+    ! write(6,*)'DEBUG check6'
+    ! reflectance%diffuse_refl_in  = 0._jprb
+    ! write(6,*)'DEBUG check7'
+    ! reflectance%diffuse_refl_out = 0._jprb
+    ! write(6,*)'DEBUG check8'
+    ! reflectance%refl_cloud_top   = 0._jprb
+    ! write(6,*)'DEBUG check9'
     call rttov_init_emis_refl(emissivity, reflectance)
   
     ! Calculate emissivity within RTTOV where the input emissivity value is
@@ -633,8 +632,8 @@ contains
       btall_out(1:nchannels,iprof) = real(radiance%bt(1+joff:nchannels+joff),       kind=r_size)
       btclr_out(1:nchannels,iprof) = real(radiance%bt_clear(1+joff:nchannels+joff), kind=r_size)
   
-      if(debug .and. iprof<=2) print *,"DEBUG HIM8 SCALE_RTTOV:",btall_out(3,iprof),btclr_out(3,iprof),iprof
-      if(debug .and. mod(iprof,100)==0) print *,"DEBUG HIM8 SCALE_RTTOV:",btall_out(3,iprof),btclr_out(3,iprof)
+      if(debug .and. iprof<=2) print *,"DEBUG HIM8 SCALE_RTTOV:",btall_out(1,iprof),btclr_out(1,iprof),iprof
+      if(debug .and. mod(iprof,100)==0) print *,"DEBUG HIM8 SCALE_RTTOV:",btall_out(1,iprof),btclr_out(1,iprof)
   
       do ich = 1, nchannels
         rdp = 1.0d0 / (abs(profiles(iprof)%p(1) - profiles(iprof)%p(2)) * 1.0d2) ! Pa

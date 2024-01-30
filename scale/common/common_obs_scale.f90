@@ -2087,6 +2087,7 @@ SUBROUTINE obs_da_value_allocate(obsda,member)
   obsda%lev  = 0.0_r_size
   obsda%val2 = 0.0_r_size
   obsda%sprd = 0.0_r_size
+
 #ENDIF
 
   RETURN

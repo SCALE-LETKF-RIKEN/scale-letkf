@@ -367,7 +367,6 @@ MODULE common_nml
 
   logical :: HIM_VLOCAL_CTOP = .true.
  
-
   logical :: HIM_MEAN_WRITE = .true.
   logical :: HIM_OUT_TBB_NC = .true.
   logical :: HIM_OUT_ETBB_NC = .false.
@@ -438,12 +437,7 @@ MODULE common_nml
 
   real(r_size) :: HIM_CLD_THRS(NIRB_HIM) = (/300.0d0, 232.5d0, 243.5d0, 256.5d0, 300.0d0, &
                                               300.0d0, 295.5d0, 300.0d0, 300.0d0, 300.0d0/) ! Threshold tbb btw clear & cloudy skies
-  integer :: HIM_PQV_MIN_CMEM = 0 ! Minumim # of cloudy members
-  logical :: HIM_PQV = .false. ! Assimilate as pseudo qv if # of cloudy members < HIM_PQV_MIN_CMEM and O-B < HIM_PQV_OB_MAX
-  real(r_size) :: HIM_PQV_OB_MAX = -5.0d0 ! O-B threshold for HIM_PQV (K)
-  real(r_size) :: HIM_PQV_PLEV = 850.0d2 ! Assumed pressure level (Pa) for pseudo qv obs 
-  real(r_size) :: HIM_PQV_QVERR = 1.0d-3 ! obs error for pseudo qv (kg/kg)
-
+ 
 
   !--- PARAM_OBS_ERROR
   real(r_size) :: OBSERR_U = 1.0d0
@@ -1260,12 +1254,7 @@ subroutine read_nml_letkf_him
     HIM_VBC_PATH,&
     HIM_VBC_USE,&
     HIM_OBS_SWD_B,&
-    HIM_CLD_THRS, &
-    HIM_PQV_MIN_CMEM, &
-    HIM_PQV, &
-    HIM_PQV_OB_MAX, &
-    HIM_PQV_PLEV, &
-    HIM_PQV_QVERR
+    HIM_CLD_THRS
 
   rewind(IO_FID_CONF)
   read(IO_FID_CONF,nml=PARAM_LETKF_HIM,iostat=ierr)

@@ -2050,9 +2050,6 @@ subroutine obs_local_cal(ri, rj, rlev, rz, nvar, iob, ic, ndist, nrloc, nrdiag)
 #IFDEF RTTOV
   else if (obtyp == 23) then ! obtypelist(obtyp) == 'HIMIRB'                ! HIM
     nd_v = abs( log( obsda_sort%lev(iob) ) - log( rlev ) ) / vert_loc_ctype(ic)   ! HIM for HIMIRB, use obsda_sort%lev(iob) for vertical localization
-!    if ( HIM_PQV .and. obsda_sort%qv(iob) >= 0.0_r_size ) then ! Pseudo qv
-!      nd_v = abs( log(HIM_PQV_PLEV) - log(rlev) ) / vert_loc_ctype(ic)   
-!    endif
 #ENDIF
   else
     nd_v = ABS(LOG(obs(obset)%lev(obidx)) - LOG(rlev)) / vert_loc_ctype(ic)
@@ -2154,9 +2151,6 @@ subroutine obs_local_cal(ri, rj, rlev, rz, nvar, iob, ic, ndist, nrloc, nrdiag)
     ! obsda%val2: sigma_o (inflated obs error)
     ! nrdiag = max(obs(obset)%err(obidx)**2, obsda_sort%val(iob)**2 - obsda_sort%val2(iob)**2)**2 / nrloc 
       nrdiag = obsda_sort%val2(iob)**2 / nrloc 
-
-    elseif ( HIM_PQV .and. obsda_sort%qv(iob) >= 0.0_r_size ) then ! pseudo qv
-      nrdiag = HIM_PQV_QVERR**2 / nrloc
 
     elseif ( HIM_CLDERR_SIMPLE ) then ! simple cloud-dependent obs err (Honda et al. 2017MWR)
       if( obsda_sort%val2(iob) > HIM_CA_THRES )then
