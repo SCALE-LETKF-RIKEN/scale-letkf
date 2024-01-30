@@ -358,7 +358,14 @@ MODULE common_nml
   integer :: HIM_RTTOV_ITMAX = 1
   logical :: HIM_REJECT_LAND = .false. ! true: reject Himawari-8 radiance over the land
 
-   ! How to prepare Himawari-8 obs using that "superobs"ed into the model grid
+  integer :: HIM_RTTOV_CFRAC =  1 ! cloud fraction diagnosis 
+  ! 1: using HIM_RTTOV_CFRAC_CNST following Honda et al. (2018a,b)
+  ! 2: SCALE method as of 11/15/2017 with a minor modification (excluding qr)
+  ! 3: Tompkins and Janiskova (2004QJRMS) method (as in Okamoto 2017QJRMS)
+  real(r_size) :: HIM_RTTOV_CFRAC_CNST = 0.10d0 ! Denominator constant for diagnosing SEQUENTIAL(0-1) cloud fraction (g m-3)
+  real(r_size) :: HIM_RTTOV_MINQ_CTOP = 0.10d0 ! Threshold of water/ice contents for diagnosing the cloud top (g m-3)
+
+  ! How to prepare Himawari-8 obs using that "superobs"ed into the model grid
   integer :: HIM_OBS_METHOD = 1 ! 1: simple thinning, 2: averaging adjacent grids
                                 ! 3: take a difference btw two bands (B1 - B2)
   integer :: HIM_OBS_AVE_NG = 0 ! # of grids for averaging adjacent grids (HIM_OBS_METHOD=2)
@@ -366,6 +373,7 @@ MODULE common_nml
   integer :: HIM_OBS_THIN_LEV = 1 ! thinning level (1: no thinning)
 
   logical :: HIM_VLOCAL_CTOP = .true.
+
  
   logical :: HIM_MEAN_WRITE = .true.
   logical :: HIM_OUT_TBB_NC = .true.
@@ -380,15 +388,9 @@ MODULE common_nml
   integer :: HIM_OBS_RECL = 4 + NIRB_HIM ! obstype, obsid, lon, lat, + dat(NIRB_HIM8)
   integer :: HIM_NOWDATE(6) = (/0,1,1,0,0,0/)
   real(r_size) :: HIM_LIMIT_LEV = 20000.0d0 ! (Pa) Upper limit level of the sensitive height for Himawari-8 IR
-  real(r_size) :: HIM_RTTOV_CFRAC_CNST = 0.10d0 ! Denominator constant for diagnosing SEQUENTIAL(0-1) cloud fraction (g m-3)
-  real(r_size) :: HIM_RTTOV_MINQ_CTOP = 0.10d0 ! Threshold of water/ice contents for diagnosing the cloud top (g m-3)
   real(r_size) :: HIM_BT_MIN = 0.0d0 ! Lower limit of the BT for Himawari-8 IR
                                            ! Negative values: turn off
   logical :: HIM_VBC_USE = .false. ! Turn on adaptive bias correction for Him8?
-  integer :: HIM_RTTOV_CFRAC =  1 ! cloud fraction diagnosis 
-                                  ! 0: using HIM_RTTOV_CFRAC_CNST following Honda et al. (2017a,b)
-                                  ! 1: SCALE method as of 11/15/2017 with a minor modification (excluding qr)
-                                  ! 2: Tompkins and Janiskova (2004QJRMS) method (as in Okamoto 2017QJRMS)
 
   logical :: HIM_AOEI = .false. ! Use AOEI (Zhang et al. 2016; Minamide and Zhang 2017)?
   integer :: HIM_AOEI_QC = 0 !  0: AOEI w/o any QC

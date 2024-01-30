@@ -286,6 +286,7 @@ contains
     ! 4. Build the list of profile/channel indices in chanprof
     ! --------------------------------------------------------------------------
   
+    !omp parallel do private(j,jch,nch)
     do j = 1, nprof
       do jch = 1, nchannels
         nch = nchannels*(j-1) + jch
@@ -293,6 +294,7 @@ contains
         chanprof(nch)%chan = jch
       enddo
     enddo
+    !omp end parallel do
   
     if(debug) write(6,'(1x,a)')"hello from RTTOV5"
   
@@ -322,6 +324,7 @@ contains
     !===============================================
     !========== READ profiles == start =============
     if(debug) write(6,*) 'start substitute profile'
+    !omp parallel do private(iprof,ilev)
     do iprof = 1, nprof
     
       do ilev = 1, nlevs
@@ -376,9 +379,10 @@ contains
       if(mod(iprof,100) == 0 .and. debug)write(6,'(a,2f10.5)'),' ',lon(iprof),lat(iprof)
   
     enddo ! prof
-  
+    !omp end parallel do
   
     if( HIM_RTTOV_CLD ) then
+      !omp parallel do private(iprof,ilev,liqc1,liqc2,icec1,icec2,ptmp,qvtmp,tktmp)
       do iprof = 1, nprof
         !These are parameters for simple cloud.
         !Not used.
@@ -435,14 +439,14 @@ contains
           ! cloud fraction & cloud top diagnosis
           !
           select case (HIM_RTTOV_CFRAC)
-          case (0) ! use HIM_RTTOV_MINQ_CTOP as in Honda et al. (2017a,b)
+          case (1) ! use HIM_RTTOV_MINQ_CTOP as in Honda et al. (2018a,b)
                    !
                    ! HIM_RTTOV_CFRAC_CNST (g/kg)
             profiles(iprof) % cfrac(ilev) = min( ( profiles(iprof) % cloud(2,ilev) + &
                                                   profiles(iprof) % cloud(6,ilev) ) * 1.e3 / HIM_RTTOV_CFRAC_CNST, &
                                                   1.0_jprb )
   
-          case (1) ! SCALE microphysics method with a minor modification
+          case (2) ! SCALE microphysics method with a minor modification
                    ! e.g.,
                    ! scalelib/src/atmos-physics/microphysics/scale_atmos_phy_mp_tomita08.F90 
                    !                                 /radiation/scale_atmos_phy_rd_mstrnx.F90
@@ -451,7 +455,7 @@ contains
             profiles(iprof) % cfrac(ilev) = 0.5_jprb + sign(0.5_jprb, profiles(iprof) % cloud(2,ilev) + &
                                                                       profiles(iprof) % cloud(6,ilev) - Q_EPS)
   
-          case (2) ! Tompkins and Janiskova (2004QJRMS) method (as in Okamoto 2017QJRMS)
+          case (3) ! Tompkins and Janiskova (2004QJRMS) method (as in Okamoto 2017QJRMS)
                    !
             profiles(iprof) % cfrac(ilev) = cldfrac_TJ04(ptmp,tktmp,qvtmp) ! Pa, K, kgkg-1
   
@@ -460,31 +464,32 @@ contains
           ! Need to modify? if openmp
           if(profiles(iprof) % cloud(2,ilev) + &
              profiles(iprof) % cloud(6,ilev) >= HIM_RTTOV_MINQ_CTOP)then
-            if(ctop_out(iprof) < 0.0d0)then
+            if(ctop_out(iprof) < 0.0_r_size)then
               ctop_out(iprof) = ptmp
             endif
           endif
   
         end do ! ilev
       enddo ! prof
+      !omp end parallel do
     endif ! HIM_RTTOV_CLD
   
-    do iprof = 1, nprof
-      if ( debug .and. mod(iprof,40)==0 .and. HIM_RTTOV_CLD )then
-        do ilev = 1, nlevs-1, 10
-          write(6,'(a,2i5,6f11.4)')"DEBUG PROF",iprof,ilev,                          &
-                                                profiles(iprof) % t(ilev),&
-                                                profiles(iprof) % p(ilev),           &
-                                                profiles(iprof) % q(ilev)*1.e3,      &
-                                                profiles(iprof) % cloud(4,ilev)*1.e6,&
-                                                profiles(iprof) % cloud(6,ilev)*1.e6,&
-                                                minval(profiles(iprof) % cloud(1:6,ilev)*1.e6)
-        end do ! ilev
-      endif  
-    enddo ! prof
-  !### OMP END PARALLEL DO
-  
-  
+    if ( debug ) then
+      do iprof = 1, nprof
+        if ( mod(iprof,40)==0 .and. HIM_RTTOV_CLD )then
+          do ilev = 1, nlevs-1, 10
+            write(6,'(a,2i5,6f11.4)')"DEBUG PROF",iprof,ilev,                          &
+                                                  profiles(iprof) % t(ilev),&
+                                                  profiles(iprof) % p(ilev),           &
+                                                  profiles(iprof) % q(ilev)*1.e3,      &
+                                                  profiles(iprof) % cloud(4,ilev)*1.e6,&
+                                                  profiles(iprof) % cloud(6,ilev)*1.e6,&
+                                                  minval(profiles(iprof) % cloud(1:6,ilev)*1.e6)
+          end do ! ilev
+        endif  
+      enddo ! prof
+    endif
+      
     if (debug) write(6,*)"ch2",nprof,nlevs
   
     if (debug) WRITE(6,*) 'end substitute profile'
@@ -590,6 +595,7 @@ contains
 
     ! --- Output the results --------------------------------------------------
   
+    !omp parallel do private(iprof,ich,ilev,joff,rdp,max_wgt,tmp_wgt)
     do iprof = 1, nprof 
   
       joff = (iprof-1_jpim) * nchannels
@@ -604,7 +610,7 @@ contains
       if(debug .and. mod(iprof,100)==0) print *,"DEBUG HIM8 SCALE_RTTOV:",btall_out(1,iprof),btclr_out(1,iprof)
   
       do ich = 1, nchannels
-        rdp = 1.0d0 / (abs(profiles(iprof)%p(1) - profiles(iprof)%p(2)) * 1.0d2) ! Pa
+        rdp = 1.0_r_size / (abs(profiles(iprof)%p(1) - profiles(iprof)%p(2)) * 1.0d2) ! Pa
         max_wgt = abs(transmission % tau_levels(1,joff+ich) & 
                     - transmission % tau_levels(2,joff+ich)) * rdp
         mwgt_plev(ich,iprof) = (profiles(iprof)%p(1) + profiles(iprof)%p(2)) * 0.5d2 ! Pa
@@ -641,6 +647,7 @@ contains
       enddo ! ich
   
     enddo ! iprof
+    !omp end parallel do
   
     if(debug) write(6,'(a)')"End WGT calculation"
   
