@@ -1749,12 +1749,14 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
         end if
         !=========================================================================
       case (obsfmt_HIM )
+#IFDEF RTTOV
         !-------------------------------------------------------------------------
           if (DEPARTURE_STAT_HIM) then
             ohx(n) = yobs_him(nint(ril-IHALO),nint(rjl-JHALO),nint(obs(iset)%lev(iidx)))
             !oqc(n) = qc_him  (nint(ril-IHALO),nint(rjl-JHALO),nint(obs(iset)%lev(iidx)))
             oqc(n) = obsda_sort%qc(nn) 
           endif
+#ENDIF
       !=========================================================================
       end select
 

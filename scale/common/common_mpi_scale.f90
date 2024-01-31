@@ -2254,12 +2254,12 @@ subroutine obs_da_value_partial_reduce_iter(obsda, iter, nstart, nobs, ensval, q
   integer, intent(in)      :: nobs
   real(r_size), intent(in) :: ensval(nobs)
   integer, intent(in)      :: qc(nobs)
-  real(r_size), intent(in), optional :: qv(nobs)  ! additional ensemble perturbation ! PQV
+  real(r_size), intent(in), optional :: qv(nobs)   ! additional ensemble perturbation ! PQV
   real(r_size), intent(in), optional :: tm(nobs)   ! additional ensemble perturbation ! PQV
   real(r_size), intent(in), optional :: pm(nobs)   ! additional ensemble perturbation ! PQV
   real(r_size), intent(in), optional :: pert(nobs) ! additional ensemble perturbation ! Y18
   real(r_size), intent(in), optional :: lev(nobs)  ! additional information for HIM obs
-  real(r_size), intent(in), optional :: val2(nobs)  ! additional information for HIM obs
+  real(r_size), intent(in), optional :: val2(nobs) ! additional information for HIM obs
   integer :: nend
   integer :: im
 
@@ -2284,8 +2284,10 @@ subroutine obs_da_value_partial_reduce_iter(obsda, iter, nstart, nobs, ensval, q
  
   ! variables without an ensemble dimension
   obsda%qc(nstart:nend) = max(obsda%qc(nstart:nend), qc)
+#IFDEF RTTOV
   if ( present( lev  ) ) obsda%lev (nstart:nend) = max(lev, obsda%lev (nstart:nend))
   if ( present( val2 ) ) obsda%val2(nstart:nend) = max(val2,obsda%val2(nstart:nend))
+#ENDIF
 
   return
 end subroutine obs_da_value_partial_reduce_iter
