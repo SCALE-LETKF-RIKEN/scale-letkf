@@ -1378,6 +1378,7 @@ subroutine read_restart_trans_history(filename, v3dgh, v2dgh)
  !    topo2d = real(v2dg_RP(:,:,iv2dd_topo),kind=r_size)
   end if
 
+  write(6,*)'CHECK from read_restart_trans_history'
   call state_to_history(v3dg_RP, v2dg_RP, topo2d, v3dgh, v2dgh)
 
   return

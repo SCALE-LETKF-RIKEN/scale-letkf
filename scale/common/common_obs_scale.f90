@@ -3685,42 +3685,33 @@ subroutine sobs_Him(imax_him,jmax_him,lon_him,lat_him,tbb_org,tbb_sobs)
       MAPPROJECTION_xy2lonlat
   implicit none
 
-  integer,intent(in) :: imax_him, jmax_him
+  integer, intent(in) :: imax_him, jmax_him
 
-  real(r_sngl),intent(in) :: lon_him(imax_him)
-  real(r_sngl),intent(in) :: lat_him(jmax_him)
-  real(r_sngl),intent(in) :: tbb_org(imax_him,jmax_him,NIRB_HIM_USE)
+  real(r_sngl), intent(in) :: lon_him(imax_him)
+  real(r_sngl), intent(in) :: lat_him(jmax_him)
+  real(r_sngl), intent(in) :: tbb_org(imax_him,jmax_him,NIRB_HIM_USE)
 
-  real(r_size),intent(out) :: tbb_sobs(nlon,nlat,NIRB_HIM_USE)
+  real(r_size), intent(out) :: tbb_sobs(nlon,nlat,NIRB_HIM_USE)
 
   real(RP) :: ri_RP, rj_RP
-  real(RP) :: ri_tmp_RP(2), rj_tmp_RP(2)  
-  real(RP) :: rlon_tmp_RP(2), rlat_tmp_RP(2)
-  real(r_size) :: rlon_tmp(2), rlat_tmp(2)
   real(r_size) :: lon2d(nlon,nlat), lat2d(nlon,nlat)
   real(RP) :: lon_RP, lat_RP
 
   integer :: i, j, k, ii, jj
   integer :: is, ie, js, je
-  integer :: dix, diy, cnt
-  integer :: i_him, j_him
+  integer, parameter :: dix = 1
+  integer, parameter :: diy = 1
+  
+  real(r_size) :: weight2d(dix*2+1,diy*2+1)
+  real(r_size) :: dist
+  real(r_size) :: rig, rjg
+  real(r_size) :: rig_him, rjg_him
 
+  integer :: i_him, j_him
+  
   ! Assumte that Himawari-8 obs is based on a uniform lat-lon coordinate
   !
-  ! Use a distance btw. the center of a subdomain & an adjacent grid point
-  do i = 1, 2
-    ri_tmp_RP(i) = real( int(nlon/2) + i - 1 + IHALO, RP ) 
-    rj_tmp_RP(i) = real( int(nlat/2) + i - 1 + JHALO, RP )
-    call MAPPROJECTION_xy2lonlat( (ri_tmp_RP(i)-1.0_RP) * DX + CX(1), &
-                                  (rj_tmp_RP(i)-1.0_RP) * DY + CY(1),&
-                                  rlon_tmp_RP(i), rlat_tmp_RP(i) )
-    rlon_tmp(i) = real( rlon_tmp_RP(i), kind=r_size ) * rad2deg
-    rlat_tmp(i) = real( rlat_tmp_RP(i), kind=r_size ) * rad2deg
-  enddo
-
-  dix = max(nint(abs(rlon_tmp(2) - rlon_tmp(1)) * 0.5d0 / abs(lon_him(2)-lon_him(1))),1)
-  diy = max(nint(abs(rlat_tmp(2) - rlat_tmp(1)) * 0.5d0 / abs(lat_him(2)-lat_him(1))),1)
-
+  
   tbb_sobs = 0.0_r_size
 
   do j = 1, nlat
@@ -3743,25 +3734,26 @@ subroutine sobs_Him(imax_him,jmax_him,lon_him,lat_him,tbb_org,tbb_sobs)
     js = max(j_him - diy,1)
     je = min(j_him + diy, jmax_him)
 
-    cnt = 0
+    call phys2ij(lon2d(i,j),lat2d(i,j),rig,rjg)
+
+    weight2d = 0.0_r_size
     do jj = js, je
     do ii = is, ie
-      if (minval(tbb_org(ii,jj,:)) < 0.0) cycle ! undef
-      cnt = cnt + 1
+      ! get global grid indices for Him obs
+      call phys2ij(lon_him(ii)*deg2rad,lat_him(jj)*deg2rad,rig_him,rjg_him)
 
-      do k = 1, NIRB_HIM_USE
-        tbb_sobs(i,j,k) = tbb_sobs(i,j,k) + real(tbb_org(ii,jj,k),kind=r_size)
-      enddo
+      ! distance between Him obs on its original coordinate and SCALE grids
+      dist = sqrt( ( ( rig - rig_him ) * DX )**2 + ( ( rjg - rjg_him ) * DY )**2 )
+
+      weight2d(ii-is+1,jj-js+1) = dist
+
     enddo
     enddo
-   
-    if (cnt > 0) then
-      do k = 1, NIRB_HIM_USE
-        tbb_sobs(i,j,k) = tbb_sobs(i,j,k) / real(cnt,kind=r_size)
-      enddo
-    else
-      tbb_sobs(i,j,:) = -1.0_r_size
-    endif
+
+    do k = 1, NIRB_HIM_USE
+      tbb_sobs(i,j,k) = sum(tbb_org(is:ie,js:je,k) * weight2d(:,:)) / sum(weight2d)
+    enddo
+  
   enddo ! i
   enddo ! j
 
@@ -4093,6 +4085,7 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd)
   
     if ( it == HIM_RTTOV_ITMAX ) npe = max( npe, nlon*nlat )
 
+    write(6,*) 'CHECK999 ', nps, npe, maxval( tsfc1d(nps:npe) ), minval( tsfc1d(nps:npe) )
     CALL rttov13_fwd_ir(NIRB_HIM_USE, & ! num of channels
                          nlev,& ! num of levels
                          npe-nps+1, & ! num of profs
