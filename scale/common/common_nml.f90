@@ -120,6 +120,9 @@ MODULE common_nml
   character(filelenmax) :: ANAL_SPRD_OUT_BASENAME = ''
   character(filelenmax) :: LETKF_TOPOGRAPHY_IN_BASENAME = ''  !!!!!! -- directly use the SCALE namelist --???? !!!!!!
   character(filelenmax) :: EFSO_ANAL_IN_BASENAME         = 'anal.@@@@'
+  character(filelenmax) :: GUES_MEAN_INOUT_BASENAME_EFSO = ''
+  logical               :: USE_HISTORY_3DLETKF = .false.
+  character(filelenmax) :: EFSO_ANAL_IN_BASENAME = 'anal.@@@@'
   character(filelenmax) :: EFSO_FCST_FROM_GUES_BASENAME = 'anal.@@@@'
   character(filelenmax) :: EFSO_FCST_FROM_ANAL_BASENAME = 'anal.@@@@'
   character(filelenmax) :: EFSO_EFCST_FROM_ANAL_BASENAME = 'anal.@@@@'
@@ -717,8 +720,9 @@ subroutine read_nml_letkf
     ANAL_SPRD_OUT, &
     ANAL_SPRD_OUT_BASENAME, &
     LETKF_TOPOGRAPHY_IN_BASENAME, &
-    EFSO_DIAGNOSE_PS,        &
-    EFSO_ANAL_IN_BASENAME, &
+    EFSO_DIAGNOSE_PS,             &
+    USE_HISTORY_3DLETKF,          &
+    EFSO_ANAL_IN_BASENAME,        &
     EFSO_FCST_FROM_GUES_BASENAME, &
     EFSO_FCST_FROM_ANAL_BASENAME, &
     EFSO_EFCST_FROM_ANAL_BASENAME, &

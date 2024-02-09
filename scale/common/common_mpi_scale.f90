@@ -1256,7 +1256,7 @@ subroutine read_ens_history_iter(iter, step, v3dg, v2dg)
       filename = HISTORY_MDET_IN_BASENAME
     end if
 
-    if ( (.not. force_use_hist) .and. (SLOT_START == SLOT_END .and. SLOT_START == SLOT_BASE) ) then !!! 3D-LETKF without history files 
+    if ( (.not. force_use_hist) .and. (.not. USE_HISTORY_3DLETKF) .and. (SLOT_START == SLOT_END .and. SLOT_START == SLOT_BASE) ) then !!! 3D-LETKF without history files 
 
       if (im >= 1 .and. im <= nens) then
         if (im <= MEMBER) then
