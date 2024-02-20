@@ -1588,11 +1588,11 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
 
   v2dgh_RP(IS:IE,JS:JE,iv2dd_topo) = height(1,1:nlon,1:nlat)      ! Use the first model level as topography (is this good?)
 
-  v2dgh_RP(IS:IE,JS:JE,iv2dd_ps)   = v3dg(KS,1:nlon,1:nlat,iv3d_p)
-  v2dgh_RP(IS:IE,JS:JE,iv2dd_u10m) = v3dg(KS,1:nlon,1:nlat,iv3d_u)
-  v2dgh_RP(IS:IE,JS:JE,iv2dd_v10m) = v3dg(KS,1:nlon,1:nlat,iv3d_v)
-  v2dgh_RP(IS:IE,JS:JE,iv2dd_t2m)  = v3dg(KS,1:nlon,1:nlat,iv3d_t)
-  v2dgh_RP(IS:IE,JS:JE,iv2dd_q2m)  = v3dg(KS,1:nlon,1:nlat,iv3d_q)
+  v2dgh_RP(IS:IE,JS:JE,iv2dd_ps)   = v3dg(1,1:nlon,1:nlat,iv3d_p)
+  v2dgh_RP(IS:IE,JS:JE,iv2dd_u10m) = v3dg(1,1:nlon,1:nlat,iv3d_u)
+  v2dgh_RP(IS:IE,JS:JE,iv2dd_v10m) = v3dg(1,1:nlon,1:nlat,iv3d_v)
+  v2dgh_RP(IS:IE,JS:JE,iv2dd_t2m)  = v3dg(1,1:nlon,1:nlat,iv3d_t)
+  v2dgh_RP(IS:IE,JS:JE,iv2dd_q2m)  = v3dg(1,1:nlon,1:nlat,iv3d_q)
 
 !  v2dgh_RP(IS:IE,JS:JE,iv2dd_rain) = [[No way]]
 
