@@ -2251,7 +2251,7 @@ subroutine write_Him_nc(filename, tbb )
   implicit none
 
   character(len=*), intent(in) :: filename
-  real, intent(in) :: tbb(nlong, nlatg, NIRB_HIM_USE) 
+  real, intent(in) :: tbb(NIRB_HIM_USE, nlong, nlatg) 
 
   character(len=*), parameter :: TBB_NAME = "tbb"
 
@@ -2313,7 +2313,7 @@ subroutine write_Him_nc(filename, tbb )
   call ncio_check( nf90_put_att( ncid, x_varid, "units", "m") )
   call ncio_check( nf90_put_att( ncid, y_varid, "units", "m") )
 
-  dimids = (/ x_dimid, y_dimid, band_dimid /)
+  dimids = (/ band_dimid, x_dimid, y_dimid /)
   dimids2d = (/ x_dimid, y_dimid /)
 
   ! Define the netCDF variables
@@ -2340,7 +2340,7 @@ subroutine write_Him_nc(filename, tbb )
   call ncio_check( nf90_put_var( ncid, lon_varid, real( lon2d, kind=r_sngl), start=start2d, &
                    count=count2d ) )
 
-  count = (/ nlong, nlatg, NIRB_HIM_USE /)
+  count = (/ NIRB_HIM_USE, nlong, nlatg /)
   start = (/ 1, 1, 1 /)
 
   ! Write the data.

@@ -2856,40 +2856,46 @@ subroutine prep_Him8_mpi(tbb_l,tbb_lprep,qc_lprep)
 subroutine prep_Him_mpi(tbb_l,tbb_lprep,qc_lprep)
   implicit none
 
-  real(r_size),intent(in) :: tbb_l(nlon,nlat,NIRB_HIM_USE) ! superobs tbb (local)
-  real(r_size),intent(out) :: tbb_lprep(nlon,nlat,NIRB_HIM_USE) ! superobs tbb (local) after preprocess
-  integer,intent(out),optional :: qc_lprep(nlon,nlat,NIRB_HIM_USE) ! QC flag (local) after preprocess
+  real(r_size),intent(in) :: tbb_l(NIRB_HIM_USE,nlon,nlat) ! superobs tbb (local)
+  real(r_size),intent(out) :: tbb_lprep(NIRB_HIM_USE,nlon,nlat) ! superobs tbb (local) after preprocess
+  integer,intent(out),optional :: qc_lprep(NIRB_HIM_USE,nlon,nlat) ! QC flag (local) after preprocess
 
-  integer :: qc_gprep(nlong,nlatg,NIRB_HIM_USE) ! QC flag (local) after preprocess
+  integer :: qc_gprep(NIRB_HIM_USE,nlong,nlatg) ! QC flag (local) after preprocess
 
-  real(r_size) :: tbb_g(nlong,nlatg,NIRB_HIM_USE) ! superobs tbb (global)
-  real(r_size) :: tbb_gprep(nlong,nlatg,NIRB_HIM_USE) ! superobs tbb (global) after preprocess
+  real(r_size) :: tbb_g(NIRB_HIM_USE,nlong,nlatg) ! superobs tbb (global)
+  real(r_size) :: tbb_gprep(NIRB_HIM_USE,nlong,nlatg) ! superobs tbb (global) after preprocess
 
   integer ierr
 
   integer :: proc_i, proc_j
   integer :: ishift, jshift
 
-  real(r_size) :: bufs8(nlong,nlatg,NIRB_HIM_USE)
-
+  real(r_size) :: bufs2d(nlong,nlatg)
+  integer :: ch
 
   ! Gatther Him obs simulated in each subdomain
   call rank_1d_2d(myrank_d, proc_i, proc_j)
   ishift = proc_i * nlon
   jshift = proc_j * nlat
 
-  bufs8(:,:,:) = 0.0d0
-  bufs8(1+ishift:nlon+ishift, 1+jshift:nlat+jshift,1:NIRB_HIM_USE) = tbb_l(:,:,:)
-  call MPI_ALLREDUCE(MPI_IN_PLACE, bufs8, nlong*nlatg*NIRB_HIM_USE, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
-  tbb_g(:,:,:) = bufs8(:,:,:)
+  do ch = 1, NIRB_HIM_USE
+    bufs2d(1:nlong,1:nlatg) = 0.0_r_size
+    bufs2d(1+ishift:nlon+ishift, 1+jshift:nlat+jshift) = tbb_l(ch,1:nlon,1:nlat)
 
+    call MPI_ALLREDUCE(MPI_IN_PLACE, bufs2d, nlong*nlatg, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
+    
+    tbb_g(ch,1:nlong,1:nlatg) = bufs2d(1:nlong,1:nlatg)
+  enddo
 
   call allgHim2obs(tbb_g,tbb_gprep,qc_allg_prep=qc_gprep)
-  if (present(qc_lprep)) then
-    qc_lprep = qc_gprep(1+ishift:nlon+ishift,1+jshift:nlat+jshift,1:NIRB_HIM_USE)
-  endif
 
-  tbb_lprep(1:nlon,1:nlat,1:NIRB_HIM_USE) = tbb_gprep(1+ishift:nlon+ishift,1+jshift:nlat+jshift,1:NIRB_HIM_USE)
+  do ch = 1, NIRB_HIM_USE
+    if (present(qc_lprep)) then
+      qc_lprep(ch,1:nlon,1:nlat) = qc_gprep(ch,1+ishift:nlon+ishift,1+jshift:nlat+jshift)
+    endif
+
+    tbb_lprep(ch,1:nlon,1:nlat) = tbb_gprep(ch,1+ishift:nlon+ishift,1+jshift:nlat+jshift)
+  enddo
 
   return
 end subroutine prep_Him_mpi
@@ -2904,9 +2910,9 @@ subroutine read_Him_mpi(filename,obs)
 
   real(r_sngl), allocatable :: tbb_org(:,:,:)
   real(r_sngl), allocatable :: lon_him(:), lat_him(:)
-  real(r_size) :: tbb_sobs_l(nlon,nlat,NIRB_HIM_USE) ! superobs tbb (local)
-  real(r_size) :: tbb_sobs(nlong,nlatg,NIRB_HIM_USE) ! superobs tbb (global)
-  real(r_size) :: tbb_sobs_prep(nlong,nlatg,NIRB_HIM_USE) ! superobs tbb (global) after preprocess
+  real(r_size) :: tbb_sobs_l(NIRB_HIM_USE,nlon,nlat) ! superobs tbb (local)
+  real(r_size) :: tbb_sobs(NIRB_HIM_USE,nlong,nlatg) ! superobs tbb (global)
+  real(r_size) :: tbb_sobs_prep(NIRB_HIM_USE,nlong,nlatg) ! superobs tbb (global) after preprocess
 
   integer ierr
   integer :: iunit, irec
@@ -2915,7 +2921,7 @@ subroutine read_Him_mpi(filename,obs)
   integer :: proc_i, proc_j
   integer :: ishift, jshift
 
-  real(r_size) :: bufs(nlong,nlatg,NIRB_HIM_USE)
+  real(r_size) :: bufs2d(nlong,nlatg)
 
   if (myrank_d == 0) then
     call get_dim_Him_nc(filename,imax_him,jmax_him)
@@ -2924,7 +2930,7 @@ subroutine read_Him_mpi(filename,obs)
   call MPI_BCAST(imax_him, 1, MPI_INTEGER, 0, MPI_COMM_d, ierr)
   call MPI_BCAST(jmax_him, 1, MPI_INTEGER, 0, MPI_COMM_d, ierr)
 
-  allocate(tbb_org(imax_him,jmax_him,NIRB_HIM_USE))
+  allocate(tbb_org(NIRB_HIM_USE,imax_him,jmax_him))
   allocate(lon_him(imax_him))
   allocate(lat_him(jmax_him))
 
@@ -2936,11 +2942,10 @@ subroutine read_Him_mpi(filename,obs)
     call read_Him_nc(filename,imax_him,jmax_him,lon_him,lat_him,tbb_org)
   endif
 
-  call MPI_BCAST(tbb_org, imax_him*jmax_him*NIRB_HIM_USE, MPI_REAL, 0, MPI_COMM_d, ierr)
+  call MPI_BCAST(tbb_org, NIRB_HIM_USE*imax_him*jmax_him, MPI_REAL, 0, MPI_COMM_d, ierr)
   call MPI_BCAST(lon_him, imax_him, MPI_REAL, 0, MPI_COMM_d, ierr)
   call MPI_BCAST(lat_him, jmax_him, MPI_REAL, 0, MPI_COMM_d, ierr)
 
-  bufs(:,:,:) = 0.0_r_size
 
   ! Superobing
   call sobs_Him(imax_him,jmax_him,lon_him,lat_him,tbb_org,tbb_sobs_l)
@@ -2949,9 +2954,14 @@ subroutine read_Him_mpi(filename,obs)
   ishift = proc_i * nlon
   jshift = proc_j * nlat
 
-  bufs(1+ishift:nlon+ishift, 1+jshift:nlat+jshift,1:NIRB_HIM_USE) = tbb_sobs_l(:,:,:)
-  call MPI_ALLREDUCE(MPI_IN_PLACE, bufs, nlong*nlatg*NIRB_HIM_USE, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
-  tbb_sobs = bufs
+  do ch = 1, NIRB_HIM_USE
+    bufs2d(1:nlong,1:nlatg) = 0.0_r_size
+    bufs2d(1+ishift:nlon+ishift, 1+jshift:nlat+jshift) = tbb_sobs_l(ch,1:nlon,1:nlat)
+
+    call MPI_ALLREDUCE(MPI_IN_PLACE, bufs2d, nlong*nlatg, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
+
+    tbb_sobs(ch,1:nlong,1:nlatg) = bufs2d(1:nlong,1:nlatg)
+  enddo
 
   if (myrank_d == 0) then
     ! it would be better to enable multiple processes in the following subroutine
@@ -2983,8 +2993,8 @@ end subroutine read_Him_mpi
 subroutine write_Him_mpi( tbb_l, tbb_clr_l, step )
   implicit none
 
-  real, intent(in) :: tbb_l(nlon,nlat,NIRB_HIM_USE)
-  real, optional, intent(in) :: tbb_clr_l(nlon,nlat,NIRB_HIM_USE)
+  real, intent(in) :: tbb_l(NIRB_HIM_USE,nlon,nlat)
+  real, optional, intent(in) :: tbb_clr_l(NIRB_HIM_USE,nlon,nlat)
 !  real, optional, intent(in) :: tbb_lm(nlon,nlat,NIRB_HIM)
 !  real(r_size) :: tbb_lprep(nlon,nlat,NIRB_HIM)
 !  real(r_size) :: tbb_gprep(nlong,nlatg,NIRB_HIM)
@@ -2993,9 +3003,9 @@ subroutine write_Him_mpi( tbb_l, tbb_clr_l, step )
   character(filelenmax) :: filename
   character(4) :: foot
 
-  real :: tbb_g(nlong,nlatg,NIRB_HIM_USE)
-  real :: tbb_clr_g(nlong,nlatg,NIRB_HIM_USE)
-  real :: bufs4(nlong,nlatg,NIRB_HIM_USE)
+  real :: tbb_g(NIRB_HIM_USE,nlong,nlatg)
+  real :: tbb_clr_g(NIRB_HIM_USE,nlong,nlatg)
+  real :: bufs2d(nlong,nlatg)
 
   integer :: proc_i, proc_j
   integer :: ishift, jshift
@@ -3014,23 +3024,23 @@ subroutine write_Him_mpi( tbb_l, tbb_clr_l, step )
   ishift = proc_i * nlon
   jshift = proc_j * nlat
 
-  bufs4(:,:,:) = 0.0
-  bufs4(1+ishift:nlon+ishift, 1+jshift:nlat+jshift,:) = tbb_l(:,:,:)
-  call MPI_ALLREDUCE( MPI_IN_PLACE, bufs4, nlong*nlatg*NIRB_HIM_USE, MPI_REAL, MPI_SUM, &
-                      MPI_COMM_d, ierr)
-  tbb_g = bufs4
+  do ch = 1, NIRB_HIM_USE
+    bufs2d(1:nlong,1:nlatg) = 0.0
+    bufs2d(1+ishift:nlon+ishift, 1+jshift:nlat+jshift) = tbb_l(ch,1:nlon,1:nlat)
+    call MPI_ALLREDUCE( MPI_IN_PLACE, bufs2d, nlong*nlatg, MPI_REAL, MPI_SUM, MPI_COMM_d, ierr)
+    tbb_g(ch,1:nlong,1:nlatg) = bufs2d(1:nlong,1:nlatg)
+  enddo
 
-  bufs4(:,:,:) = 0.0
   if ( present(tbb_clr_l) ) then
-    bufs4(1+ishift:nlon+ishift, 1+jshift:nlat+jshift,:) = real( tbb_clr_l(:,:,:), kind=r_sngl )
-!  else
-!    bufs4(1+ishift:nlon+ishift, 1+jshift:nlat+jshift,:) = real( tbb_lprep(:,:,:), kind=r_sngl )
-    call MPI_ALLREDUCE( MPI_IN_PLACE, bufs4, nlong*nlatg*NIRB_HIM_USE, MPI_REAL, MPI_SUM, &
-                        MPI_COMM_d, ierr)
-  endif
-  tbb_clr_g = bufs4
-  
+    do ch = 1, NIRB_HIM_USE
+      bufs2d(:,:) = 0.0
 
+      bufs2d(1+ishift:nlon+ishift, 1+jshift:nlat+jshift) = real( tbb_clr_l(ch,1:nlon,1:nlat), kind=r_sngl )
+      call MPI_ALLREDUCE( MPI_IN_PLACE, bufs2d, nlong*nlatg, MPI_REAL, MPI_SUM, MPI_COMM_d, ierr)
+      tbb_clr_g(ch,1:nlong,1:nlatg) = bufs2d(1:nlong,1:nlatg)
+    enddo
+  endif
+  
   if (myrank_d == 0) then
     iunit = 65
     irec = 0
@@ -3055,11 +3065,11 @@ subroutine write_Him_mpi( tbb_l, tbb_clr_l, step )
             status='unknown', recl=nlong*nlatg*4)
       do ch = 1, NIRB_HIM_USE
         irec = irec + 1
-        write(iunit,rec=irec) tbb_g(:,:,ch)
+        write(iunit,rec=irec) tbb_g(ch,:,:)
       enddo
       do ch = 1, NIRB_HIM_USE
         irec = irec + 1
-        write(iunit,rec=irec) tbb_clr_g(:,:,ch)
+        write(iunit,rec=irec) tbb_clr_g(ch,:,:)
       enddo
   
       close(unit=iunit)

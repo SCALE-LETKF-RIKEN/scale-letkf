@@ -1648,8 +1648,8 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
 
 #IFDEF RTTOV
   if ( DEPARTURE_STAT_HIM ) then
-    allocate( yobs_him(nlon,nlat,NIRB_HIM_USE) )
-    allocate( qc_him (nlon,nlat,NIRB_HIM_USE) )
+    allocate( yobs_him(NIRB_HIM_USE,nlon,nlat) )
+    allocate( qc_him  (NIRB_HIM_USE,nlon,nlat) )
     call Trans_XtoY_HIM_allg(v3dgh,v2dgh,yobs_him,qc_him)
   endif
 #ENDIF
@@ -1752,7 +1752,7 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
 #IFDEF RTTOV
         !-------------------------------------------------------------------------
           if (DEPARTURE_STAT_HIM) then
-            ohx(n) = yobs_him(nint(ril-IHALO),nint(rjl-JHALO),nint(obs(iset)%lev(iidx)))
+            ohx(n) = yobs_him(nint(obs(iset)%lev(iidx)),nint(ril-IHALO),nint(rjl-JHALO))
             !oqc(n) = qc_him  (nint(ril-IHALO),nint(rjl-JHALO),nint(obs(iset)%lev(iidx)))
             oqc(n) = obsda_sort%qc(nn) 
           endif
@@ -3635,7 +3635,7 @@ subroutine read_Him_nc(filename_org,imax_him,jmax_him,lon_him,lat_him,tbb3d)
   integer,intent(in) :: imax_him, jmax_him
   real(r_sngl),intent(out) :: lon_him(imax_him)
   real(r_sngl),intent(out) :: lat_him(jmax_him)
-  real(r_sngl),intent(out) :: tbb3d(imax_him,jmax_him,NIRB_HIM_USE)
+  real(r_sngl),intent(out) :: tbb3d(NIRB_HIM_USE,imax_him,jmax_him)
 
   real(r_sngl) :: tbb2d(imax_him,jmax_him)
   integer :: ncid, varid
@@ -3667,7 +3667,7 @@ subroutine read_Him_nc(filename_org,imax_him,jmax_him,lon_him,lat_him,tbb3d)
                                  start = (/ 1, 1/), count = (/ imax_him, jmax_him/)))
    
     call ncio_close(ncid)
-    tbb3d(:,:,ch) = tbb2d(:,:)
+    tbb3d(ch,:,:) = tbb2d(:,:)
     !write(6,'(2a)')'Read him B', band2
   enddo
 
@@ -3689,15 +3689,15 @@ subroutine sobs_Him(imax_him,jmax_him,lon_him,lat_him,tbb_org,tbb_sobs)
 
   real(r_sngl), intent(in) :: lon_him(imax_him)
   real(r_sngl), intent(in) :: lat_him(jmax_him)
-  real(r_sngl), intent(in) :: tbb_org(imax_him,jmax_him,NIRB_HIM_USE)
+  real(r_sngl), intent(in) :: tbb_org(NIRB_HIM_USE,imax_him,jmax_him)
 
-  real(r_size), intent(out) :: tbb_sobs(nlon,nlat,NIRB_HIM_USE)
+  real(r_size), intent(out) :: tbb_sobs(NIRB_HIM_USE,nlon,nlat)
 
   real(RP) :: ri_RP, rj_RP
   real(r_size) :: lon2d(nlon,nlat), lat2d(nlon,nlat)
   real(RP) :: lon_RP, lat_RP
 
-  integer :: i, j, k, ii, jj
+  integer :: i, j, ch, ii, jj
   integer :: is, ie, js, je
   integer, parameter :: dix = 1
   integer, parameter :: diy = 1
@@ -3750,8 +3750,8 @@ subroutine sobs_Him(imax_him,jmax_him,lon_him,lat_him,tbb_org,tbb_sobs)
     enddo
     enddo
 
-    do k = 1, NIRB_HIM_USE
-      tbb_sobs(i,j,k) = sum(tbb_org(is:ie,js:je,k) * weight2d(:,:)) / sum(weight2d)
+    do ch = 1, NIRB_HIM_USE
+      tbb_sobs(ch,i,j) = sum(tbb_org(ch,is:ie,js:je) * weight2d(:,:)) / sum(weight2d)
     enddo
   
   enddo ! i
@@ -3815,10 +3815,10 @@ subroutine allgHim2obs(tbb_allg,tbb_allg_prep,qc_allg_prep,nobs,obsdat,obslon,ob
       MAPPROJECTION_xy2lonlat
   implicit none
 
-  real(r_size), intent(in)  :: tbb_allg     (nlong,nlatg,NIRB_HIM_USE)
-  real(r_size), intent(out) :: tbb_allg_prep(nlong,nlatg,NIRB_HIM_USE)
+  real(r_size), intent(in)  :: tbb_allg     (NIRB_HIM_USE,nlong,nlatg)
+  real(r_size), intent(out) :: tbb_allg_prep(NIRB_HIM_USE,nlong,nlatg)
 
-  integer, intent(out), optional :: qc_allg_prep(nlong,nlatg,NIRB_HIM_USE)
+  integer, intent(out), optional :: qc_allg_prep(NIRB_HIM_USE,nlong,nlatg)
 
   integer, intent(in), optional :: nobs
   real(r_size), intent(out), allocatable, optional :: obsdat(:)
@@ -3876,7 +3876,7 @@ subroutine allgHim2obs(tbb_allg,tbb_allg_prep,qc_allg_prep,nobs,obsdat,obslon,ob
 
       select case(HIM_OBS_METHOD)
       case(1) ! simple thinning
-        tbb_allg_prep(i,j,ch) = tbb_allg(i,j,ch)
+        tbb_allg_prep(ch,i,j) = tbb_allg(ch,i,j)
 
       case(2) ! averaging adjacent grids
         if (i <= HIM_OBS_AVE_NG .or. (nlong - i) <= HIM_OBS_AVE_NG .or.&
@@ -3887,21 +3887,21 @@ subroutine allgHim2obs(tbb_allg,tbb_allg_prep,qc_allg_prep,nobs,obsdat,obslon,ob
         js = j - HIM_OBS_AVE_NG       
         je = j + HIM_OBS_AVE_NG       
    
-        tbb_allg_prep(i,j,ch) = 0.0_r_size
+        tbb_allg_prep(ch,i,j) = 0.0_r_size
         do jj = js, je
         do ii = is, ie
-          tbb_allg_prep(i,j,ch) = tbb_allg_prep(i,j,ch) + tbb_allg(ii,jj,ch)
+          tbb_allg_prep(ch,i,j) = tbb_allg_prep(ch,i,j) + tbb_allg(ch,ii,jj)
         enddo ! ii
         enddo ! jj
-        tbb_allg_prep(i,j,ch) = tbb_allg_prep(i,j,ch) / (ave_ng**2)
+        tbb_allg_prep(ch,i,j) = tbb_allg_prep(ch,i,j) / (ave_ng**2)
 
       case(3) ! take a difference btw two bands
-        tbb_allg_prep(i,j,ch) = tbb_allg(i,j,ch) -  tbb_allg(i,j,HIM_OBS_SWD_B-6) 
+        tbb_allg_prep(ch,i,j) = tbb_allg(ch,i,j) -  tbb_allg(HIM_OBS_SWD_B-6,i,j) 
       end select
 
       if (HIM_OBS_THIN_LEV > 1) then
         if ((mod(i, HIM_OBS_THIN_LEV) /= 0) .or. (mod(j, HIM_OBS_THIN_LEV) /= 0)) then
-          tbb_allg_prep(i,j,ch) = abs(tbb_allg_prep(i,j,ch)) * (-1.0d10) 
+          tbb_allg_prep(ch,i,j) = abs(tbb_allg_prep(ch,i,j)) * (-1.0d10) 
         endif
       endif
 
@@ -3912,7 +3912,7 @@ subroutine allgHim2obs(tbb_allg,tbb_allg_prep,qc_allg_prep,nobs,obsdat,obslon,ob
           obslat(n) = real( lat_RP, kind=r_size) * rad2deg
           obslev(n) = ch !HIM_IR_BAND_RTTOV_LIST(ch)
           obserr(n) = real( OBSERR_HIM(ch), kind=r_size )
-          obsdat(n) = tbb_allg_prep(i,j,ch)
+          obsdat(n) = tbb_allg_prep(ch,i,j)
 
           if ( i <= HIM_OBS_BUF_GRID .or. ( nlong - i ) <= HIM_OBS_BUF_GRID .or. &
                j <= HIM_OBS_BUF_GRID .or. ( nlatg - j ) <= HIM_OBS_BUF_GRID  ) then
@@ -3923,12 +3923,12 @@ subroutine allgHim2obs(tbb_allg,tbb_allg_prep,qc_allg_prep,nobs,obsdat,obslon,ob
       endif
 
       if (present(qc_allg_prep)) then
-        qc_allg_prep(i,j,ch) = iqc_good
+        qc_allg_prep(ch,i,j) = iqc_good
 
         ! tbb_allg_prep can be negative when [HIM_OBS_METHOD == 3]:
         ! take a difference btw two bands
-        if (tbb_allg_prep(i,j,ch) < -200.0d0) then
-          qc_allg_prep(i,j,ch) = iqc_obs_bad
+        if (tbb_allg_prep(ch,i,j) < -200.0d0) then
+          qc_allg_prep(ch,i,j) = iqc_obs_bad
         endif
       endif
 
@@ -3966,11 +3966,11 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd)
 
   real(r_size), intent(in) :: v3d(nlevh,nlonh,nlath,nv3dd)
   real(r_size), intent(in) :: v2d(nlonh,nlath,nv2dd)
-  real(r_size), intent(out) :: yobs(nlon,nlat,NIRB_HIM_USE)
-  integer, intent(out) :: qc(nlon,nlat,NIRB_HIM_USE)
+  real(r_size), intent(out) :: yobs(NIRB_HIM_USE,nlon,nlat)
+  integer, intent(out) :: qc(NIRB_HIM_USE,nlon,nlat)
 
-  real(r_size), intent(out), optional :: yobs_clr(nlon,nlat,NIRB_HIM_USE)
-  real(r_size), intent(out), optional :: mwgt_plev2d(nlon,nlat,NIRB_HIM_USE)
+  real(r_size), intent(out), optional :: yobs_clr(NIRB_HIM_USE,nlon,nlat)
+  real(r_size), intent(out), optional :: mwgt_plev2d(NIRB_HIM_USE,nlon,nlat)
   integer, intent(in), optional :: stggrd
 
   REAL(r_size) :: rotc(1,1,2)
@@ -4125,16 +4125,16 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd)
     np = (j - 1) * nlon + i
 
     do ch = 1, NIRB_HIM_USE
-      qc(i,j,ch) = iqc_good
-      yobs(i,j,ch) = btall_out(ch,np)
+      qc(ch,i,j) = iqc_good
+      yobs(ch,i,j) = btall_out(ch,np)
    
       ! QC
       if(HIM_REJECT_LAND .and. v2d(i+IHALO,j+JHALO,iv2dd_lsmask) > 0.5_r_size )then
-        qc(i,j,ch) = iqc_obs_bad
+        qc(ch,i,j) = iqc_obs_bad
       endif
 
-      if(yobs(i,j,ch) > btmax .or. yobs(i,j,ch) < btmin .or. yobs(i,j,ch) /= yobs(i,j,ch))then
-        qc(i,j,ch) = iqc_obs_bad
+      if(yobs(ch,i,j) > btmax .or. yobs(ch,i,j) < btmin .or. yobs(ch,i,j) /= yobs(ch,i,j))then
+        qc(ch,i,j) = iqc_obs_bad
       endif
 
     enddo ! ch
@@ -4148,7 +4148,7 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd)
         np = (j - 1) * nlon + i
     
         do ch = 1, NIRB_HIM_USE
-          yobs_clr(i,j,ch) = btclr_out(ch,np)
+          yobs_clr(ch,i,j) = btclr_out(ch,np)
         enddo    
       enddo ! i
     enddo ! j
@@ -4173,7 +4173,7 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd)
       do i = 1, nlon
         np = (j - 1) * nlon + i
         do ch = 1, NIRB_HIM_USE
-          mwgt_plev2d(i,j,ch) = mwgt_plev1d(ch,np)
+          mwgt_plev2d(ch,i,j) = mwgt_plev1d(ch,np)
         enddo    
       enddo ! i
     enddo ! j

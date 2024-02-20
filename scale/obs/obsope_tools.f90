@@ -152,15 +152,15 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
         ! Himawari-8 radiance obs
 
         use_him = .true.
-        allocate( yobs_him    (nlon,nlat,NIRB_HIM_USE) )
-        allocate( yobs_him_clr(nlon,nlat,NIRB_HIM_USE) )
-        allocate( yobs_him_prep    (nlon,nlat,NIRB_HIM_USE) )
-        allocate( yobs_him_clr_prep(nlon,nlat,NIRB_HIM_USE) )
+        allocate( yobs_him    (NIRB_HIM_USE,nlon,nlat) )
+        allocate( yobs_him_clr(NIRB_HIM_USE,nlon,nlat) )
+        allocate( yobs_him_prep    (NIRB_HIM_USE,nlon,nlat) )
+        allocate( yobs_him_clr_prep(NIRB_HIM_USE,nlon,nlat) )
 
-        allocate( plev_obs_him(nlon,nlat,NIRB_HIM_USE) )
+        allocate( plev_obs_him(NIRB_HIM_USE,nlon,nlat) )
 
-        allocate( qc_him     (nlon,nlat,NIRB_HIM_USE) )
-        allocate( qc_him_prep(nlon,nlat,NIRB_HIM_USE) )
+        allocate( qc_him     (NIRB_HIM_USE,nlon,nlat) )
+        allocate( qc_him_prep(NIRB_HIM_USE,nlon,nlat) )
 
       endif
 
@@ -525,16 +525,16 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
             i  = nint(ril-IHALO)
             j  = nint(rjl-JHALO)
             ch = nint(obs(iof)%lev(n))
-            obsda%val(nn) = yobs_him_prep(i,j,ch)
-            obsda%lev(nn) = plev_obs_him (i,j,ch)
-            obsda%qc (nn) = qc_him_prep  (i,j,ch)
+            obsda%val(nn) = yobs_him_prep(ch,i,j)
+            obsda%lev(nn) = plev_obs_him (ch,i,j)
+            obsda%qc (nn) = qc_him_prep  (ch,i,j)
  
             if ( obs(iof)%dat(n) == undef) then
               obsda%qc(nn) = iqc_obs_bad
             endif
 
-            obsda%val2(nn) = (abs(yobs_him_prep(i,j,ch) - yobs_him_clr_prep(i,j,ch) )  &
-                              + abs(obs(iof)%dat(n) - yobs_him_clr_prep(i,j,ch)) ) * 0.5_r_size
+            obsda%val2(nn) = (abs(yobs_him_prep(ch,i,j) - yobs_him_clr_prep(ch,i,j) )  &
+                              + abs(obs(iof)%dat(n) - yobs_him_clr_prep(ch,i,j)) ) * 0.5_r_size
 #ENDIF
           end select
 
