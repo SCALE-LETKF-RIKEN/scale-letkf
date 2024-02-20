@@ -1349,8 +1349,8 @@ subroutine read_restart_trans_history(filename, v3dgh, v2dgh)
   real(r_size),intent(out) :: v3dgh(nlevh,nlonh,nlath,nv3dd)
   real(r_size),intent(out) :: v2dgh(nlonh,nlath,nv2dd)
 
-  real(RP) :: v3dg_RP(nlev,nlon,nlat,nv3dd)
-  real(RP) :: v2dg_RP(nlon,nlat,nv2dd)
+  real(RP) :: v3dg_RP(nlev,nlon,nlat,nv3d)
+  real(RP) :: v2dg_RP(nlon,nlat,nv2d)
 
   integer :: i, j, iv3d, iv2d
 
