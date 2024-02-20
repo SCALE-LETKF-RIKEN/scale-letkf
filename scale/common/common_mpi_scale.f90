@@ -2965,7 +2965,7 @@ subroutine read_Him_mpi(filename,obs)
 
     if ( present( obs ) ) then
 
-      call allgHim2obs(tbb_sobs,tbb_sobs_prep,obsdat=obs%dat,obslon=obs%lon,obslat=obs%lat,obslev=obs%lev,obserr=obs%err)
+      call allgHim2obs(tbb_sobs,tbb_sobs_prep,nobs=obs%nobs,obsdat=obs%dat,obslon=obs%lon,obslat=obs%lat,obslev=obs%lev,obserr=obs%err)
       obs%elm(:) = id_HIMIR_obs
       obs%typ(:) = 23
       obs%dif(:) = 0.0_r_size ! Assume 3D-LETKF for Himawari-8

@@ -3804,7 +3804,7 @@ subroutine get_nobs_allgHim(nobs)
   return
 end subroutine get_nobs_allgHim
 
-subroutine allgHim2obs(tbb_allg,tbb_allg_prep,qc_allg_prep,obsdat,obslon,obslat,obslev,obserr)
+subroutine allgHim2obs(tbb_allg,tbb_allg_prep,qc_allg_prep,nobs,obsdat,obslon,obslat,obslev,obserr)
   use scale_atmos_grid_cartesC, only: &
       CXG => ATMOS_GRID_CARTESC_CXG, &
       CYG => ATMOS_GRID_CARTESC_CYG, &
@@ -3820,12 +3820,13 @@ subroutine allgHim2obs(tbb_allg,tbb_allg_prep,qc_allg_prep,obsdat,obslon,obslat,
 
   integer, intent(out), optional :: qc_allg_prep(nlong,nlatg,NIRB_HIM_USE)
 
-  real(r_size), intent(out), optional :: obsdat( int(nlong/HIM_OBS_THIN_LEV)*int(nlatg/HIM_OBS_THIN_LEV)*NIRB_HIM_USE )
-  real(r_size), intent(out), optional :: obslon( int(nlong/HIM_OBS_THIN_LEV)*int(nlatg/HIM_OBS_THIN_LEV)*NIRB_HIM_USE )
-  real(r_size), intent(out), optional :: obslat( int(nlong/HIM_OBS_THIN_LEV)*int(nlatg/HIM_OBS_THIN_LEV)*NIRB_HIM_USE )
-  real(r_size), intent(out), optional :: obslev( int(nlong/HIM_OBS_THIN_LEV)*int(nlatg/HIM_OBS_THIN_LEV)*NIRB_HIM_USE )
-  real(r_size), intent(out), optional :: obserr( int(nlong/HIM_OBS_THIN_LEV)*int(nlatg/HIM_OBS_THIN_LEV)*NIRB_HIM_USE )
-
+  integer, intent(in), optional :: nobs
+  real(r_size), intent(out), allocatable, optional :: obsdat(:)
+  real(r_size), intent(out), allocatable, optional :: obslon(:)
+  real(r_size), intent(out), allocatable, optional :: obslat(:)
+  real(r_size), intent(out), allocatable, optional :: obslev(:)
+  real(r_size), intent(out), allocatable, optional :: obserr(:)
+  
   real(RP) :: ril_RP, rjl_RP
   real(RP) :: lon_RP, lat_RP
   real(r_size) :: lon, lat
@@ -3839,7 +3840,13 @@ subroutine allgHim2obs(tbb_allg,tbb_allg_prep,qc_allg_prep,obsdat,obslon,obslat,
 
   tbb_allg_prep(:,:,:) = undef
 
-  if (present(obsdat) .and. present(obslon) .and. present(obslat) .and. present(obslev) .and. present(obserr)) then
+  if ( present(nobs) ) then
+    allocate(obsdat(nobs))
+    allocate(obslon(nobs))
+    allocate(obslat(nobs))
+    allocate(obslev(nobs))
+    allocate(obserr(nobs))
+    
     obsdat(:) = undef
     obslon(:) = 0.0
     obslat(:) = 0.0
@@ -3857,7 +3864,7 @@ subroutine allgHim2obs(tbb_allg,tbb_allg_prep,qc_allg_prep,obsdat,obslon,obslat,
   n = 0
   do j = 1, nlatg
   do i = 1, nlong
-    if (present(obslon) .and. present(obslat) .and. present(obslev) .and. present(obserr)) then
+    if ( present(nobs) ) then
       ril_RP = real( i+IHALO,kind=RP )
       rjl_RP = real( j+JHALO,kind=RP )
 
@@ -3898,7 +3905,7 @@ subroutine allgHim2obs(tbb_allg,tbb_allg_prep,qc_allg_prep,obsdat,obslon,obslat,
         endif
       endif
 
-      if (present(obslon) .and. present(obslat) .and. present(obslev) .and. present(obserr)) then
+      if ( present(nobs) ) then
         if ( ( mod(i, HIM_OBS_THIN_LEV) == 0 ) .and. ( mod(j, HIM_OBS_THIN_LEV) == 0 ) ) then
           n = n + 1
           obslon(n) = real( lon_RP, kind=r_size) * rad2deg
