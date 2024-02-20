@@ -144,7 +144,7 @@ contains
     real(kind=r_size) :: rdp, max_wgt, tmp_wgt
     real(kind=r_size), intent(out) :: mwgt_plev(nchannels,nprof) ! Max weight level (Pa)
   
-    logical :: debug = .true.
+    logical :: debug = .false.
   
     real(kind=jprb) :: repsb 
     

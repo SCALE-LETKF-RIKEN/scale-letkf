@@ -1294,9 +1294,9 @@ subroutine read_nml_letkf_him
 
   enddo
 
-  !if (LOG_LEVEL >= 2) then
+  if (LOG_LEVEL >= 2) then
     write(6, nml=PARAM_LETKF_HIM)
-  !end if
+  end if
 
   return
 end subroutine read_nml_letkf_him

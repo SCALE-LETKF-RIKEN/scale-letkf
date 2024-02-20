@@ -4013,7 +4013,7 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd)
 
   integer :: nps, npe, it
   
-  write(6,'(a)') 'Hello from Trans_XtoY_HIM_allg'
+!  write(6,'(a)') 'Hello from Trans_XtoY_HIM_allg'
 
   if (present(stggrd)) stggrd_ = stggrd
 
@@ -4085,7 +4085,6 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd)
   
     if ( it == HIM_RTTOV_ITMAX ) npe = max( npe, nlon*nlat )
 
-    write(6,*) 'CHECK999 ', nps, npe, maxval( tsfc1d(nps:npe) ), minval( tsfc1d(nps:npe) )
     CALL rttov13_fwd_ir(NIRB_HIM_USE, & ! num of channels
                          nlev,& ! num of levels
                          npe-nps+1, & ! num of profs
