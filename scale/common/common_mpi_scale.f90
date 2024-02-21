@@ -3148,6 +3148,7 @@ subroutine allgHim2obs_mpi(tbb_allg,tbb_allg_prep,qc_allg_prep,nobs,obsdat,obslo
 
   ave_ng = 2 * HIM_OBS_AVE_NG + 1
 
+  !omp parallel do private(i,j,ch,is,ie,js,je)
   do j = 1+jshift, nlat+jshift
     do i = 1+ishift, nlon+ishift
 
@@ -3197,6 +3198,7 @@ subroutine allgHim2obs_mpi(tbb_allg,tbb_allg_prep,qc_allg_prep,nobs,obsdat,obslo
       enddo ! ch
     enddo ! i
   enddo ! j
+  !omp end parallel do
 
   call MPI_ALLREDUCE(MPI_IN_PLACE, tbb_allg_prep, NIRB_HIM_USE*nlong*nlatg, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
   if (present(qc_allg_prep)) then
@@ -3205,6 +3207,7 @@ subroutine allgHim2obs_mpi(tbb_allg,tbb_allg_prep,qc_allg_prep,nobs,obsdat,obslo
   if ( present(nobs) ) then
     R2D_RP = 1.0_RP / CONST_D2R
 
+    !omp parallel do private(i,j,ch,ii,jj,ril_RP,rjl_RP,lon_RP,lat_RP,n)
     do j = 1+jshift, nlat+jshift
       jj = int(j / HIM_OBS_THIN_LEV)
       do i = 1+ishift, nlon+ishift
@@ -3235,6 +3238,7 @@ subroutine allgHim2obs_mpi(tbb_allg,tbb_allg_prep,qc_allg_prep,nobs,obsdat,obslo
         enddo ! ch
       enddo ! i
     enddo ! j
+    !omp end parallel do
 
     call MPI_ALLREDUCE(MPI_IN_PLACE, obslon, nobs, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
     call MPI_ALLREDUCE(MPI_IN_PLACE, obslat, nobs, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
