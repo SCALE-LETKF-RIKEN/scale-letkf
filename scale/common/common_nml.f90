@@ -369,8 +369,11 @@ MODULE common_nml
   real(r_size) :: HIM_RTTOV_MINQ_CTOP = 0.10d0 ! Threshold of water/ice contents for diagnosing the cloud top (g m-3)
 
   ! How to prepare Himawari-8 obs using that "superobs"ed into the model grid
-  integer :: HIM_OBS_METHOD = 1 ! 1: simple thinning, 2: averaging adjacent grids
-                                ! 3: take a difference btw two bands (B1 - B2)
+  character(10) :: HIM_OBS_METHOD = 'SIMPLE' 
+                                ! SIMPLE : Simple thinning
+                                ! AVERAGE: Use area-averaged obs 
+                                ! MAX    : Use maximum value in a local area
+                                ! MIN    : Use minimum value in a local area 
   integer :: HIM_OBS_AVE_NG = 0 ! # of grids for averaging adjacent grids (HIM_OBS_METHOD=2)
   logical :: HIM_OBS_AVE_OVERLAP = .false.
   integer :: HIM_OBS_THIN_LEV = 1 ! thinning level (1: no thinning)
@@ -1270,11 +1273,18 @@ subroutine read_nml_letkf_him
     HIM_OBS_THIN_LEV = 1
   endif
 
-  if(HIM_OBS_AVE_NG < 0) then
+  if ( trim(HIM_OBS_METHOD) == 'SIMPLE' ) then
     HIM_OBS_AVE_NG = 0
+  else
+    if ( HIM_OBS_AVE_NG < 1 ) then
+      write(6,'(a)')  'Invalid HIM_OBS_AVE_NG'
+      write(6,'(2a)') 'HIM_OBS_AVE_NG should be > 0 for HIM_OBS_METHOD of ', trim(HIM_OBS_METHOD)
+      stop
+    endif
   endif
 
-  if ((.not. HIM_OBS_AVE_OVERLAP) .and. (HIM_OBS_METHOD == 2)) then
+  if ( (.not. HIM_OBS_AVE_OVERLAP) .and. ( trim(HIM_OBS_METHOD) /= 'SIMPLE' ) ) then
+    write(6,'(a)') 'HIM_OBS_THIN_LEV is overwritten because HIM_OBS_AVE_OVERLAP=T'
     HIM_OBS_THIN_LEV = max(HIM_OBS_THIN_LEV, 2*HIM_OBS_AVE_NG)
   endif
 

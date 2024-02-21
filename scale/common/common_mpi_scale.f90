@@ -3153,19 +3153,22 @@ subroutine allgHim2obs_mpi(tbb_allg,tbb_allg_prep,qc_allg_prep,nobs,obsdat,obslo
     do i = 1+ishift, nlon+ishift
 
       do ch = 1, NIRB_HIM_USE
+        ! define a local area
+        is = i - HIM_OBS_AVE_NG
+        ie = i + HIM_OBS_AVE_NG
+        js = j - HIM_OBS_AVE_NG
+        je = j + HIM_OBS_AVE_NG
 
-        select case(HIM_OBS_METHOD)
-        case(1) ! simple thinning
+        if ( is < 1 .or. js < 1 .or. ie > nlong .or. je > nlatg ) then
+          tbb_allg_prep(ch,i,j) = -1.0_r_size
+          cycle
+        endif
+
+        select case(trim(HIM_OBS_METHOD))
+        case('SIMPLE') ! simple thinning
           tbb_allg_prep(ch,i,j) = tbb_allg(ch,i,j)
 
-        case(2) ! averaging adjacent grids
-          if (i <= HIM_OBS_AVE_NG .or. (nlong - i) <= HIM_OBS_AVE_NG .or.&
-              j <= HIM_OBS_AVE_NG .or. (nlatg - j) <= HIM_OBS_AVE_NG) cycle
-
-          is = i - HIM_OBS_AVE_NG
-          ie = i + HIM_OBS_AVE_NG
-          js = j - HIM_OBS_AVE_NG
-          je = j + HIM_OBS_AVE_NG
+        case('AVERAGE') ! averaging adjacent grids
           
           tbb_allg_prep(ch,i,j) = 0.0_r_size
           do jj = js, je
@@ -3175,8 +3178,14 @@ subroutine allgHim2obs_mpi(tbb_allg,tbb_allg_prep,qc_allg_prep,nobs,obsdat,obslo
           enddo ! jj
           tbb_allg_prep(ch,i,j) = tbb_allg_prep(ch,i,j) / (ave_ng**2)
 
-        case(3) ! take a difference btw two bands
-          tbb_allg_prep(ch,i,j) = tbb_allg(ch,i,j) -  tbb_allg(HIM_OBS_SWD_B-6,i,j) 
+        case('MAX')  ! Maximum in a local area
+          tbb_allg_prep(ch,i,j) = maxval(tbb_allg(ch,is:ie,js:je))
+
+        case('MIN')  ! Maximum in a local area
+          tbb_allg_prep(ch,i,j) = minval(tbb_allg(ch,is:ie,js:je))
+
+        case default
+          write(6,'(2a)') 'Invalid option for HIM_OBS_METHOD ', HIM_OBS_METHOD
         end select
 
         if (HIM_OBS_THIN_LEV > 1) then
@@ -3190,7 +3199,7 @@ subroutine allgHim2obs_mpi(tbb_allg,tbb_allg_prep,qc_allg_prep,nobs,obsdat,obslo
 
           ! tbb_allg_prep can be negative when [HIM_OBS_METHOD == 3]:
           ! take a difference btw two bands
-          if (tbb_allg_prep(ch,i,j) < -200.0_r_size) then
+          if (tbb_allg_prep(ch,i,j) < 0.0_r_size) then
             qc_allg_prep(ch,i,j) = iqc_obs_bad
           endif
         endif
