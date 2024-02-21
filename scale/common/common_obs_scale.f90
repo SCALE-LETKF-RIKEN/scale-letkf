@@ -1568,7 +1568,11 @@ END SUBROUTINE itpl_3d
 !-----------------------------------------------------------------------
 ! Monitor observation departure by giving the v3dg,v2dg data
 !-----------------------------------------------------------------------
+#IFDEF RTTOV
+subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso,yobs_him,qc_him)
+#ELSE
 subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
+#ENDIF
   use scale_prc, only: &
       PRC_myrank
   use scale_atmos_grid_cartesC_index, only: &
@@ -1588,6 +1592,11 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
   integer,intent(in) :: step
   logical, intent(in), optional :: efso
 
+#IFDEF RTTOV
+  real(r_size), intent(in), optional :: yobs_him(NIRB_HIM_USE,nlon,nlat)
+  integer,      intent(in), optional :: qc_him  (NIRB_HIM_USE,nlon,nlat)
+#ENDIF
+
   REAL(r_size) :: v3dgh(nlevh,nlonh,nlath,nv3dd)
   REAL(r_size) :: v2dgh(nlonh,nlath,nv2dd)
   integer :: nnobs
@@ -1602,6 +1611,7 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
   integer :: m
   real(r_size) :: obsdep_mean
 
+<<<<<<< HEAD
   logical :: efso_ = .false.
 
   if (present(efso)) efso_ = efso
@@ -1610,6 +1620,8 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
   integer, allocatable :: qc_him(:,:,:)
 #ENDIF
 
+=======
+>>>>>>> 149926d1 (Enalbe HIM_MEAN_WRITE from monit_obs_mpi)
   call state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
 
   if (use_key) then
@@ -1645,14 +1657,6 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
 !  obs_idx_TCX = -1
 !  obs_idx_TCY = -1
 !  obs_idx_TCP = -1
-
-#IFDEF RTTOV
-  if ( DEPARTURE_STAT_HIM ) then
-    allocate( yobs_him(NIRB_HIM_USE,nlon,nlat) )
-    allocate( qc_him  (NIRB_HIM_USE,nlon,nlat) )
-    call Trans_XtoY_HIM_allg(v3dgh,v2dgh,yobs_him,qc_him)
-  endif
-#ENDIF
 
 !$omp parallel do private(n,nn,iset,iidx,ril,rjl,rk,rkz,m,obsdep_mean)
   do n = 1, nnobs
@@ -1846,8 +1850,6 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
 #IFDEF RTTOV
   if (DEPARTURE_STAT_HIM) then
     monit_type(uid_obs(id_HIMIR_obs)) = .true.
-    deallocate(yobs_him)
-    deallocate(qc_him)
   endif
 #ENDIF RTTOV
 

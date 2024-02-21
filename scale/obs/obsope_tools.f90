@@ -447,8 +447,8 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
                                    mwgt_plev2d=plev_obs_him   )
 
           ! Him preprocess
-          call prep_Him_mpi(yobs_him,    yobs_him_prep,    qc_lprep=qc_him_prep)
-          call prep_Him_mpi(yobs_him_clr,yobs_him_clr_prep)
+          call prep_Him_mpi(yobs_him,     tbb_lprep=yobs_him_prep,    qc_lprep=qc_him_prep)
+          call prep_Him_mpi(yobs_him_clr, tbb_lprep=yobs_him_clr_prep)
 
         endif
 #ENDIF

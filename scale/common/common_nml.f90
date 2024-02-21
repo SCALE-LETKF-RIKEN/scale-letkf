@@ -380,8 +380,9 @@ MODULE common_nml
 
   logical :: HIM_VLOCAL_CTOP = .true.
 
+  logical :: HIM_MEAN_WRITE = .true. ! write anal/gues simulated him obs
+
  
-  logical :: HIM_MEAN_WRITE = .true.
   logical :: HIM_OUT_TBB_NC = .true.
   logical :: HIM_OUT_ETBB_NC = .false.
   character(filelenmax) :: RTTOV_COEF_PATH     = '.'
@@ -1226,10 +1227,11 @@ subroutine read_nml_letkf_him
     HIM_OBS_AVE_NG,         &
     HIM_OBS_AVE_OVERLAP,    &
     HIM_OBS_BUF_GRID,       &
+    ! 
+    HIM_MEAN_WRITE,         &
     !
     HIM_VLOCAL_CTOP, &
     !
-    HIM_MEAN_WRITE, &
     HIM_OUT_TBB_NC, &
     HIM_OUT_ETBB_NC, &
     HIM_SIM_ALLG, &

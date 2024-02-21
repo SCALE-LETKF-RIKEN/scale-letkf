@@ -1891,13 +1891,41 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
   integer :: dspr(nprocs_d)
   integer :: i, ip, ierr
 
+#IFDEF RTTOV
+  real(r_size) :: v3dgh(nlevh,nlonh,nlath,nv3dd)
+  real(r_size) :: v2dgh(nlonh,nlath,nv2dd)
+
+  real(r_size) :: yobs_him(NIRB_HIM_USE,nlon,nlat)
+  integer      :: qc_him  (NIRB_HIM_USE,nlon,nlat)
+  character(256) :: filename_him 
+#ENDIF
+
   call mpi_timer('', 2)
 
   ! NOTE: need to use 'mmean_rank_e' processes to run this calculation
   !       because only these processes have read topo files in 'topo2d'
   ! 
   if (myrank_e == mmean_rank_e) then
+#IFDEF RTTOV
+
+    call state_to_history(v3dg, v2dg, topo2d, v3dgh, v2dgh)
+
+    call Trans_XtoY_HIM_allg(v3dgh,v2dgh,yobs_him,qc_him)
+    if ( HIM_MEAN_WRITE ) then 
+      if ( monit_step == 1) then
+        filename_him = trim(HIM_OUTFILE_BASENAME) // '_gues'
+      else
+        filename_him = trim(HIM_OUTFILE_BASENAME) // '_anal'
+      endif
+      call prep_Him_mpi(yobs_him,write_global=.true.,filename=filename_him)
+    endif
+
+    call monit_obs(v3dg, v2dg, topo2d, nobs, bias, rmse, monit_type, .true., monit_step, efso=.false.,&
+                 yobs_him=yobs_him,qc_him=qc_him)
+#ELSE
     call monit_obs(v3dg, v2dg, topo2d, nobs, bias, rmse, monit_type, .true., monit_step, efso=.false.)
+
+#ENDIF
 
     call mpi_timer('monit_obs_mpi:monit_obs:', 2)
     do i = 1, nid_obs
@@ -2854,12 +2882,17 @@ subroutine copy_restart4mean_and_gues()
 end subroutine copy_restart4mean_and_gues
 subroutine prep_Him8_mpi(tbb_l,tbb_lprep,qc_lprep)
 subroutine prep_Him_mpi(tbb_l,tbb_lprep,qc_lprep)
+subroutine prep_Him_mpi(tbb_l,tbb_lprep,qc_lprep,write_global,filename)
   implicit none
 
-  real(r_size),intent(in) :: tbb_l(NIRB_HIM_USE,nlon,nlat) ! superobs tbb (local)
-  real(r_size),intent(out) :: tbb_lprep(NIRB_HIM_USE,nlon,nlat) ! superobs tbb (local) after preprocess
-  integer,intent(out),optional :: qc_lprep(NIRB_HIM_USE,nlon,nlat) ! QC flag (local) after preprocess
+  real(r_size), intent(in) :: tbb_l(NIRB_HIM_USE,nlon,nlat) ! superobs tbb (local)
+  real(r_size), intent(out), optional :: tbb_lprep(NIRB_HIM_USE,nlon,nlat) ! superobs tbb (local) after preprocess
+  integer,      intent(out), optional :: qc_lprep(NIRB_HIM_USE,nlon,nlat) ! QC flag (local) after preprocess
 
+  logical,        intent(in), optional :: write_global
+  character(256), intent(in), optional :: filename
+
+  logical :: write_global_ = .false.
   integer :: qc_gprep(NIRB_HIM_USE,nlong,nlatg) ! QC flag (local) after preprocess
 
   real(r_size) :: tbb_g(NIRB_HIM_USE,nlong,nlatg) ! superobs tbb (global)
@@ -2872,6 +2905,8 @@ subroutine prep_Him_mpi(tbb_l,tbb_lprep,qc_lprep)
 
   real(r_size) :: bufs2d(nlong,nlatg)
   integer :: ch
+
+  if ( present(write_global) ) write_global_ = write_global
 
   ! Gatther Him obs simulated in each subdomain
   call rank_1d_2d(myrank_d, proc_i, proc_j)
@@ -2889,13 +2924,22 @@ subroutine prep_Him_mpi(tbb_l,tbb_lprep,qc_lprep)
 
   call allgHim2obs_mpi(tbb_g,tbb_gprep,qc_allg_prep=qc_gprep)
 
-  do ch = 1, NIRB_HIM_USE
-    if (present(qc_lprep)) then
-      qc_lprep(ch,1:nlon,1:nlat) = qc_gprep(ch,1+ishift:nlon+ishift,1+jshift:nlat+jshift)
-    endif
+  if ( present( tbb_lprep) ) then
+    do ch = 1, NIRB_HIM_USE
+      if (present(qc_lprep)) then
+        qc_lprep(ch,1:nlon,1:nlat) = qc_gprep(ch,1+ishift:nlon+ishift,1+jshift:nlat+jshift)
+      endif
 
-    tbb_lprep(ch,1:nlon,1:nlat) = tbb_gprep(ch,1+ishift:nlon+ishift,1+jshift:nlat+jshift)
-  enddo
+      tbb_lprep(ch,1:nlon,1:nlat) = tbb_gprep(ch,1+ishift:nlon+ishift,1+jshift:nlat+jshift)
+    enddo
+  endif
+
+  if ( write_global_ ) then
+    if ( myrank_d == 0 ) then
+      call write_Him_nc(trim(filename)//'.nc',      tbb_g     )
+      call write_Him_nc(trim(filename)//'_prep.nc', tbb_gprep )
+    endif
+  endif
 
   return
 end subroutine prep_Him_mpi
