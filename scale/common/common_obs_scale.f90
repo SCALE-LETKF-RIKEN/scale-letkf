@@ -3813,6 +3813,8 @@ subroutine allgHim2obs(tbb_allg,tbb_allg_prep,qc_allg_prep,nobs,obsdat,obslon,ob
       IHALO, JHALO
   use scale_mapprojection, only: &
       MAPPROJECTION_xy2lonlat
+  use scale_const, only: &
+      CONST_D2R
   implicit none
 
   real(r_size), intent(in)  :: tbb_allg     (NIRB_HIM_USE,nlong,nlatg)
@@ -3829,6 +3831,7 @@ subroutine allgHim2obs(tbb_allg,tbb_allg_prep,qc_allg_prep,nobs,obsdat,obslon,ob
   
   real(RP) :: ril_RP, rjl_RP
   real(RP) :: lon_RP, lat_RP
+  real(RP) :: R2D_RP
   real(r_size) :: lon, lat
 
   integer :: i, j
@@ -3847,11 +3850,11 @@ subroutine allgHim2obs(tbb_allg,tbb_allg_prep,qc_allg_prep,nobs,obsdat,obslon,ob
     allocate(obslev(nobs))
     allocate(obserr(nobs))
     
-    obsdat(:) = undef
-    obslon(:) = 0.0
-    obslat(:) = 0.0
-    obslev(:) = undef
-    obserr(:) = undef
+    obsdat(:) = 0.0_r_size
+    obslon(:) = 0.0_r_size
+    obslat(:) = 0.0_r_size
+    obslev(:) = 0.0_r_size
+    obserr(:) = 0.0_r_size
   endif
 
 
@@ -3861,80 +3864,90 @@ subroutine allgHim2obs(tbb_allg,tbb_allg_prep,qc_allg_prep,nobs,obsdat,obslon,ob
 
   ave_ng = 2 * HIM_OBS_AVE_NG + 1
 
-  n = 0
   do j = 1, nlatg
-  do i = 1, nlong
-    if ( present(nobs) ) then
-      ril_RP = real( i+IHALO,kind=RP )
-      rjl_RP = real( j+JHALO,kind=RP )
+    do i = 1, nlong
 
-      call MAPPROJECTION_xy2lonlat( (ril_RP - 1.0_RP) * DX + CXG(1), &
-                                    (rjl_RP - 1.0_RP) * DY + CYG(1), lon_RP, lat_RP )
-    endif
+      do ch = 1, NIRB_HIM_USE
 
-    do ch = 1, NIRB_HIM_USE
+        select case(HIM_OBS_METHOD)
+        case(1) ! simple thinning
+          tbb_allg_prep(ch,i,j) = tbb_allg(ch,i,j)
 
-      select case(HIM_OBS_METHOD)
-      case(1) ! simple thinning
-        tbb_allg_prep(ch,i,j) = tbb_allg(ch,i,j)
+        case(2) ! averaging adjacent grids
+          if (i <= HIM_OBS_AVE_NG .or. (nlong - i) <= HIM_OBS_AVE_NG .or.&
+              j <= HIM_OBS_AVE_NG .or. (nlatg - j) <= HIM_OBS_AVE_NG) cycle
 
-      case(2) ! averaging adjacent grids
-        if (i <= HIM_OBS_AVE_NG .or. (nlong - i) <= HIM_OBS_AVE_NG .or.&
-            j <= HIM_OBS_AVE_NG .or. (nlatg - j) <= HIM_OBS_AVE_NG) cycle
+          is = i - HIM_OBS_AVE_NG
+          ie = i + HIM_OBS_AVE_NG
+          js = j - HIM_OBS_AVE_NG
+          je = j + HIM_OBS_AVE_NG
+          
+          tbb_allg_prep(ch,i,j) = 0.0_r_size
+          do jj = js, je
+          do ii = is, ie
+            tbb_allg_prep(ch,i,j) = tbb_allg_prep(ch,i,j) + tbb_allg(ch,ii,jj)
+          enddo ! ii
+          enddo ! jj
+          tbb_allg_prep(ch,i,j) = tbb_allg_prep(ch,i,j) / (ave_ng**2)
 
-        is = i - HIM_OBS_AVE_NG       
-        ie = i + HIM_OBS_AVE_NG       
-        js = j - HIM_OBS_AVE_NG       
-        je = j + HIM_OBS_AVE_NG       
-   
-        tbb_allg_prep(ch,i,j) = 0.0_r_size
-        do jj = js, je
-        do ii = is, ie
-          tbb_allg_prep(ch,i,j) = tbb_allg_prep(ch,i,j) + tbb_allg(ch,ii,jj)
-        enddo ! ii
-        enddo ! jj
-        tbb_allg_prep(ch,i,j) = tbb_allg_prep(ch,i,j) / (ave_ng**2)
+        case(3) ! take a difference btw two bands
+          tbb_allg_prep(ch,i,j) = tbb_allg(ch,i,j) -  tbb_allg(HIM_OBS_SWD_B-6,i,j) 
+        end select
 
-      case(3) ! take a difference btw two bands
-        tbb_allg_prep(ch,i,j) = tbb_allg(ch,i,j) -  tbb_allg(HIM_OBS_SWD_B-6,i,j) 
-      end select
-
-      if (HIM_OBS_THIN_LEV > 1) then
-        if ((mod(i, HIM_OBS_THIN_LEV) /= 0) .or. (mod(j, HIM_OBS_THIN_LEV) /= 0)) then
-          tbb_allg_prep(ch,i,j) = abs(tbb_allg_prep(ch,i,j)) * (-1.0d10) 
+        if (HIM_OBS_THIN_LEV > 1) then
+          if ((mod(i, HIM_OBS_THIN_LEV) /= 0) .or. (mod(j, HIM_OBS_THIN_LEV) /= 0)) then
+            tbb_allg_prep(ch,i,j) = abs(tbb_allg_prep(ch,i,j)) * (-1.0d10) 
+          endif
         endif
-      endif
 
-      if ( present(nobs) ) then
-        if ( ( mod(i, HIM_OBS_THIN_LEV) == 0 ) .and. ( mod(j, HIM_OBS_THIN_LEV) == 0 ) ) then
-          n = n + 1
-          obslon(n) = real( lon_RP, kind=r_size) * rad2deg
-          obslat(n) = real( lat_RP, kind=r_size) * rad2deg
+        if (present(qc_allg_prep)) then
+          qc_allg_prep(ch,i,j) = iqc_good
+
+          ! tbb_allg_prep can be negative when [HIM_OBS_METHOD == 3]:
+          ! take a difference btw two bands
+          if (tbb_allg_prep(ch,i,j) < -200.0_r_size) then
+            qc_allg_prep(ch,i,j) = iqc_obs_bad
+          endif
+        endif
+
+      enddo ! ch
+    enddo ! i
+  enddo ! j
+
+  if ( present(nobs) ) then
+    R2D_RP = 1.0_RP / CONST_D2R
+
+    do j = 1, nlatg
+      jj = int(j / HIM_OBS_THIN_LEV)
+      do i = 1, nlong
+        ii = int(i / HIM_OBS_THIN_LEV)
+     
+        if ( ( mod(i, HIM_OBS_THIN_LEV) /= 0 ) .or. ( mod(j, HIM_OBS_THIN_LEV) /= 0 ) ) cycle
+
+        ril_RP = real( i+IHALO, kind=RP )
+        rjl_RP = real( j+JHALO, kind=RP )
+
+        call MAPPROJECTION_xy2lonlat( (ril_RP - 1.0_RP) * DX + CXG(1), &
+                                      (rjl_RP - 1.0_RP) * DY + CYG(1), lon_RP, lat_RP )
+        lon_RP = lon_RP * R2D_RP
+        lat_RP = lat_RP * R2D_RP
+
+        do ch = 1, NIRB_HIM_USE
+          n = NIRB_HIM_USE * ( ii - 1 + ( jj - 1 ) * int(nlong/HIM_OBS_THIN_LEV) ) + ch
+
+          obslon(n) = real( lon_RP, kind=r_size)
+          obslat(n) = real( lat_RP, kind=r_size)
           obslev(n) = ch !HIM_IR_BAND_RTTOV_LIST(ch)
           obserr(n) = real( OBSERR_HIM(ch), kind=r_size )
           obsdat(n) = tbb_allg_prep(ch,i,j)
-
-          if ( i <= HIM_OBS_BUF_GRID .or. ( nlong - i ) <= HIM_OBS_BUF_GRID .or. &
-               j <= HIM_OBS_BUF_GRID .or. ( nlatg - j ) <= HIM_OBS_BUF_GRID  ) then
+          if ( i <= HIM_OBS_BUF_GRID .or. ( nlong - i + 1) <= HIM_OBS_BUF_GRID .or. &
+               j <= HIM_OBS_BUF_GRID .or. ( nlatg - j + 1) <= HIM_OBS_BUF_GRID  ) then
             obsdat(n) = undef
           endif
-
-        endif
-      endif
-
-      if (present(qc_allg_prep)) then
-        qc_allg_prep(ch,i,j) = iqc_good
-
-        ! tbb_allg_prep can be negative when [HIM_OBS_METHOD == 3]:
-        ! take a difference btw two bands
-        if (tbb_allg_prep(ch,i,j) < -200.0d0) then
-          qc_allg_prep(ch,i,j) = iqc_obs_bad
-        endif
-      endif
-
-    enddo ! ch
-  enddo ! i
-  enddo ! j
+        enddo ! ch
+      enddo ! i
+    enddo ! j
+  endif ! if ( present(nobs) )
 
   return
 end subroutine allgHim2obs
