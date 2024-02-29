@@ -382,6 +382,17 @@ MODULE common_nml
 
   logical :: HIM_MEAN_WRITE = .true. ! write anal/gues simulated him obs
 
+  logical :: HIM_CLDERR_SIMPLE = .false. ! Simple cloud dependent obs 
+  !! Sky condition is diagnosed by CA (Okamoto et al. 2014 for each band)
+  !! CA > HIM_CA_THRES: Cloudy
+  !! CA <= HIM_CA_THRES: Clear
+  !!
+  ! Constant values for band 9 are based on Honda et al. (2017 submitted to MWR)
+  real(r_size) :: HIM_CA_THRES = 1.0d0 ! Threshhold of CA
+  real(r_size) :: HIM_CLDERR_CLEAR(NIRB_HIM) =  (/3.0d0, 3.0d0, 3.0d0, 3.0d0, 3.0d0, &
+                                           3.0d0, 3.0d0, 3.0d0, 3.0d0, 3.0d0/) ! Constant obs err for clear sky conditions
+  real(r_size) :: HIM_CLDERR_CLOUD(NIRB_HIM) = (/3.0d0, 3.0d0, 3.0d0, 3.0d0, 3.0d0, &
+                                          3.0d0, 3.0d0, 3.0d0, 3.0d0, 3.0d0/) ! Constant obs err for cloudy sky conditions
  
   logical :: HIM_OUT_TBB_NC = .true.
   logical :: HIM_OUT_ETBB_NC = .false.
@@ -409,22 +420,11 @@ MODULE common_nml
 
   logical :: HIM_BIAS_SIMPLE = .false. ! Simple bias correction (just subtract prescribed constant (clear/cloudy))
   logical :: HIM_BIAS_SIMPLE_CLR = .false. ! Simple bias correction (just subtract prescribed constant (only clear sky value))
-  logical :: HIM_CLDERR_SIMPLE = .false. ! Simple cloud dependent obs 
-  !! Sky condition is diagnosed by CA (Okamoto et al. 2014 for each band)
-  !! CA > HIM_CA_THRES: Cloudy
-  !! CA <= HIM_CA_THRES: Clear
-  !!
-  ! Constant values for band 9 are based on Honda et al. (2017 submitted to MWR)
-  real(r_size) :: HIM_CA_THRES = 1.0d0 ! Threshhold of CA
   real(r_size) :: HIM_BIAS_CLEAR(NIRB_HIM) =  (/0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0, &
                                            0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0/) ! Constant bias for clear sky conditions
   real(r_size) :: HIM_BIAS_CLOUD(NIRB_HIM) = (/0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0, &
                                           0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0/) ! Constant bias for cloudy sky conditions
   
-  real(r_size) :: HIM_CLDERR_CLEAR(NIRB_HIM) =  (/3.0d0, 3.0d0, 3.0d0, 3.0d0, 3.0d0, &
-                                           3.0d0, 3.0d0, 3.0d0, 3.0d0, 3.0d0/) ! Constant obs err for clear sky conditions
-  real(r_size) :: HIM_CLDERR_CLOUD(NIRB_HIM) = (/3.0d0, 3.0d0, 3.0d0, 3.0d0, 3.0d0, &
-                                          3.0d0, 3.0d0, 3.0d0, 3.0d0, 3.0d0/) ! Constant obs err for cloudy sky conditions
 
   integer :: HIM_BAND_USE(NIRB_HIM) = (/0,0,1,0,0,0,0,0,0,0/)
                         !! ch = (1,2,3,4,5,6,7,8,9,10)
@@ -1230,6 +1230,12 @@ subroutine read_nml_letkf_him
     ! 
     HIM_MEAN_WRITE,         &
     !
+    ! Adaptive obs error
+    HIM_CLDERR_SIMPLE,      &
+    HIM_CA_THRES,           &
+    HIM_CLDERR_CLEAR,       &
+    HIM_CLDERR_CLOUD,       &
+    !
     HIM_VLOCAL_CTOP, &
     !
     HIM_OUT_TBB_NC, &
@@ -1246,12 +1252,8 @@ subroutine read_nml_letkf_him
     HIM_NPRED,&
     HIM_BIAS_SIMPLE, &
     HIM_BIAS_SIMPLE_CLR, &
-    HIM_CLDERR_SIMPLE, &
-    HIM_CA_THRES, &
     HIM_BIAS_CLEAR, &
     HIM_BIAS_CLOUD, &
-    HIM_CLDERR_CLEAR, &
-    HIM_CLDERR_CLOUD, &
     HIM_VBC_PATH,&
     HIM_VBC_USE,&
     HIM_OBS_SWD_B,&
@@ -1306,9 +1308,9 @@ subroutine read_nml_letkf_him
 
   enddo
 
-  if (LOG_LEVEL >= 2) then
+  !if (LOG_LEVEL >= 2) then
     write(6, nml=PARAM_LETKF_HIM)
-  end if
+  !end if
 
   return
 end subroutine read_nml_letkf_him
