@@ -341,7 +341,8 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
         n2nc = var_local_n2nc(n)
         n2n = var_local_n2n(n)
 
-        if (gues3d(ij,ilev,mmean,iv3d_p) < Q_UPDATE_TOP .and. n >= iv3d_q .and. n <= iv3d_qg) then !GYL - Upper bound of Q update levels
+        if ( (gues3d(ij,ilev,mmean,iv3d_p) < Q_UPDATE_TOP .and. n >= iv3d_q .and. n <= iv3d_qg) .or. & !GYL - Upper bound of Q update levels
+             (gues3d(ij,ilev,mmean,iv3d_p) < UPDATE_TOP ) ) then                                       ! Upper bound for all variables 
           do m = 1, MEMBER                                                             !GYL
             anal3d(ij,ilev,m,n) = gues3d(ij,ilev,mmean,n) + gues3d(ij,ilev,m,n)        !GYL
           end do                                                                       !GYL
