@@ -386,7 +386,7 @@ while ((time <= ETIME)); do
         elif (( s == 5 && ANAL_LLIO_TMP == 1)) ; then
           mpiexec rm -rf ${ANAL_LLIO_TMPDIR_TOP_OLD}
           mpiexec_cnt=$((mpiexec_cnt+1))
-        elif (( s == 4 && BDY_LLIO_TMP == 1)) ; then
+        elif (( s == 3 && BDY_LLIO_TMP == 1)) ; then
           mpiexec rm -rf ${BDY_LLIO_TMPDIR_TOP}
           mpiexec_cnt=$((mpiexec_cnt+1))
         fi
