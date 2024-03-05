@@ -2075,7 +2075,7 @@ SUBROUTINE obs_da_value_allocate(obsda,member)
     end if
   end if
 
-  if ( RADAR_ADDITIVE_Y18 ) then
+  if ( RADAR_ADDITIVE_Y18 .or. HIM_ADDITIVE_Y18 ) then
     allocate( obsda%pert (obsda%nobs) )
     obsda%pert = 0.0_r_size
     if (member > 0) then
@@ -3807,7 +3807,8 @@ subroutine get_nobs_allgHim(nobs)
 end subroutine get_nobs_allgHim
 
 #IFDEF RTTOV
-SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd)
+SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd,&
+                               mv3d,slope1d,him_add2d)
   use scale_mapprojection, only: &
       MAPPROJECTION_xy2lonlat
   use common_scale_rttov13, only: &
@@ -3839,6 +3840,10 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd)
   real(r_size), intent(out), optional :: yobs_clr(NIRB_HIM_USE,nlon,nlat)
   real(r_size), intent(out), optional :: mwgt_plev2d(NIRB_HIM_USE,nlon,nlat)
   integer, intent(in), optional :: stggrd
+
+  real(r_size), intent(in),  optional :: mv3d(nlevh,nlonh,nlath,nv3dd)
+  real(r_size), intent(in),  optional :: slope1d(NIRB_HIM_USE,nlevh,nv3dd)
+  real(r_size), intent(out), optional :: him_add2d(NIRB_HIM_USE,nlon,nlat)
 
   REAL(r_size) :: rotc(1,1,2)
   REAL(RP) :: rotc_RP(1,1,2)
@@ -3886,6 +3891,10 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd)
   real(RP) :: ri_RP, rj_RP
 
   integer :: nps, npe, it
+
+  integer :: iv3d
+  real(r_size) :: ri, rj
+  real(r_size), allocatable :: mean1d(:), pert1d(:)
   
 !  write(6,'(a)') 'Hello from Trans_XtoY_HIM_allg'
 
@@ -4046,6 +4055,37 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd)
     enddo ! j
   endif  ! present(mwgt_plev2d)
 
+  if ( HIM_ADDITIVE_Y18 ) then
+    if ( present( mv3d ) .and. present( slope1d ) .and. present( him_add2d ) ) then
+
+      him_add2d(1:NIRB_HIM_USE,1:nlon,1:nlat) = 0.0_r_size
+      allocate( mean1d(1:nlevh) )
+      allocate( pert1d(1:nlevh) )
+
+      do iv3d = 1, nv3dd
+        do j = 1, nlat
+          rj = real(j + JHALO, kind=r_size )
+          do i = 1, nlon
+            ri = real(i + IHALO, kind=r_size )
+
+            call itpl_2d_column(mv3d(:,:,:,iv3d), ri, rj, mean1d)
+    
+            call itpl_2d_column( v3d(:,:,:,iv3d), ri, rj, pert1d)
+
+            pert1d = pert1d - mean1d
+            do k = 1, nlev
+              do ch = 1, NIRB_HIM_USE
+                him_add2d(ch,i,j) = him_add2d(ch,i,j) + pert1d(KHALO+k) * slope1d(ch,KHALO+k,iv3d)
+              enddo ! ch
+            enddo ! k
+          enddo ! i
+        enddo ! j
+      enddo ! iv3d
+
+      deallocate( mean1d, pert1d )
+
+    endif
+  endif
 
   return
 END SUBROUTINE Trans_XtoY_HIM_allg

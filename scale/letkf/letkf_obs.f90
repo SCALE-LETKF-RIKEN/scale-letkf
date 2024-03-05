@@ -214,7 +214,7 @@ SUBROUTINE set_letkf_obs
 
         if ( RADAR_PQV ) then
           call obs_da_value_partial_reduce_iter(obsda, it, n1, n2, obsda_ext%val, obsda_ext%qc, qv=obsda_ext%qv, tm=obsda_ext%tm, pm=obsda_ext%pm )
-        elseif ( RADAR_ADDITIVE_Y18 ) then
+        elseif ( RADAR_ADDITIVE_Y18 .or. HIM_ADDITIVE_Y18 ) then
           call obs_da_value_partial_reduce_iter(obsda, it, n1, n2, obsda_ext%val, obsda_ext%qc, pert=obsda_ext%pert)
         else
           call obs_da_value_partial_reduce_iter(obsda, it, n1, n2, obsda_ext%val, obsda_ext%qc )
@@ -460,6 +460,17 @@ SUBROUTINE set_letkf_obs
           mem_ref = mem_ref + 1
         endif
       enddo
+
+
+      if ( HIM_ADDITIVE_Y18 ) then
+        if ( mem_ref < HIM_ADDITIVE_Y18_MINMEM ) then
+          ! *Ensemble mean of obsda%epert should be zero
+          obsda%ensval(1:MEMBER,n) = obsda%epert(1:MEMBER,n) + HIM_CLD_THRS( nint(obs(iof)%lev(iidx)) )
+          obsda%qc(n) = iqc_good
+        endif
+      endif
+
+
     endif
 #ENDIF
 !!!###### end Himawari-8 assimilation ###### ! HIM

@@ -393,7 +393,13 @@ MODULE common_nml
                                            3.0d0, 3.0d0, 3.0d0, 3.0d0, 3.0d0/) ! Constant obs err for clear sky conditions
   real(r_size) :: HIM_CLDERR_CLOUD(NIRB_HIM) = (/3.0d0, 3.0d0, 3.0d0, 3.0d0, 3.0d0, &
                                           3.0d0, 3.0d0, 3.0d0, 3.0d0, 3.0d0/) ! Constant obs err for cloudy sky conditions
- 
+
+  !Yokota et al.(2018JGRA, Y18) additive inflation method for Him radiance obs
+  logical :: HIM_ADDITIVE_Y18 = .false.    ! switch of additive inflation for Him radiance obs 
+  integer :: HIM_ADDITIVE_Y18_MINMEM = 0 ! If the number of cloudy members is smaller than this threshold, use Y18 method
+
+
+
   logical :: HIM_OUT_TBB_NC = .true.
   logical :: HIM_OUT_ETBB_NC = .false.
   character(filelenmax) :: RTTOV_COEF_PATH     = '.'
@@ -416,7 +422,6 @@ MODULE common_nml
                              !  Not yet 2: AOEI w/ a QC method based on the ratio defind by O-B, obs err, and variances (Aksoy et al. 2017AMS annual meeting)
 
   integer :: HIM_NPRED = 1 ! number of predirctors for Him8
-
 
   logical :: HIM_BIAS_SIMPLE = .false. ! Simple bias correction (just subtract prescribed constant (clear/cloudy))
   logical :: HIM_BIAS_SIMPLE_CLR = .false. ! Simple bias correction (just subtract prescribed constant (only clear sky value))
@@ -1236,7 +1241,10 @@ subroutine read_nml_letkf_him
     HIM_CLDERR_CLEAR,       &
     HIM_CLDERR_CLOUD,       &
     !
-    HIM_VLOCAL_CTOP, &
+    HIM_VLOCAL_CTOP,        &
+    !
+    HIM_ADDITIVE_Y18,       &
+    HIM_ADDITIVE_Y18_MINMEM,&
     !
     HIM_OUT_TBB_NC, &
     HIM_OUT_ETBB_NC, &

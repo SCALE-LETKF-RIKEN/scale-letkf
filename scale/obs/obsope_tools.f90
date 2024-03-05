@@ -94,6 +94,10 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
   integer :: i, j, ch
   logical :: use_him = .false.
 
+  real(r_size), allocatable :: mhim2dg     (:,:,:,:)
+  real(r_size), allocatable :: slope1dg_him(:,:,:,:)
+  real(r_size), allocatable :: him_add2d(:,:,:)
+
 !-------------------------------------------------------------------------------
 
   call mpi_timer('', 2)
@@ -373,16 +377,36 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
   allocate ( v3dg (nlevh,nlonh,nlath,nv3dd) )
   allocate ( v2dg (nlonh,nlath,nv2dd) )
 
-  if ( RADAR_ADDITIVE_Y18 ) then
+  if ( RADAR_ADDITIVE_Y18 .or. HIM_ADDITIVE_Y18 ) then
     allocate ( mv3dg (SLOT_END-SLOT_START+1,nlevh,nlonh,nlath,nv3dd) )
     allocate ( mv2dg (SLOT_END-SLOT_START+1,nlonh,nlath,nv2dd) )
-    allocate ( mdbz3dg(SLOT_END-SLOT_START+1,nlev,nlon,nlat) )
 
-    allocate ( slope3dg (SLOT_END-SLOT_START+1,nlevh,nv3dd) )
+    if ( RADAR_ADDITIVE_Y18 ) then
 
-    call get_history_ensemble_mean_mpi( mv3dg, mv2dg, mdbz3dg )
+      allocate ( mdbz3dg(SLOT_END-SLOT_START+1,nlev,nlon,nlat) )
+      allocate ( slope3dg (SLOT_END-SLOT_START+1,nlevh,nv3dd) )
+
+      call get_history_ensemble_mean_mpi( mv3dg, mv2dg, mdbz3dg )
+
+    elseif( HIM_ADDITIVE_Y18 ) then
+
+      allocate( mhim2dg      (NIRB_HIM_USE,SLOT_END-SLOT_START+1,nlon,nlat) )
+      allocate( slope1dg_him (NIRB_HIM_USE,SLOT_END-SLOT_START+1,nlevh,nv3dd) )
+      allocate( him_add2d(NIRB_HIM_USE,nlon,nlat))
+
+#ifdef RTTOV
+      call get_history_ensemble_mean_mpi_him( mv3dg, mv2dg, mhim2dg )
+#endif
+    endif
     call mpi_timer('obsope_cal:get_mean_Y18:', 2)
-    call get_regression_slope_dbz_mpi( mv3dg, mv2dg, mdbz3dg, slope3dg )
+    
+    if (RADAR_ADDITIVE_Y18 ) then
+      call get_regression_slope_dbz_mpi( mv3dg, mv2dg, mdbz3dg, slope3dg )
+    elseif(HIM_ADDITIVE_Y18 ) then
+#ifdef RTTOV
+      call get_regression_slope_him_mpi( mv3dg, mv2dg, mhim2dg, slope1dg_him )
+#endif
+    endif
     call mpi_timer('obsope_cal:get_slope_Y18:', 2)
   endif
 
@@ -442,9 +466,18 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
 #IFDEF RTTOV
         if ( use_him .or. HIM_OUT_ETBB_NC .and. NIRB_HIM_USE > 0 ) then
 
-          call Trans_XtoY_HIM_allg(v3dg,v2dg,yobs_him,qc_him, &
-                                   yobs_clr=yobs_him_clr,     &
-                                   mwgt_plev2d=plev_obs_him   )
+          if ( HIM_ADDITIVE_Y18 ) then
+            call Trans_XtoY_HIM_allg(v3dg,v2dg,yobs_him,qc_him, &
+                                     yobs_clr=yobs_him_clr,     &
+                                     mwgt_plev2d=plev_obs_him,  &
+                                     mv3d=mv3dg(islot-SLOT_START+1,1:nlevh,1:nlonh,1:nlath,1:nv3dd), &
+                                     slope1d=slope1dg_him(1:NIRB_HIM_USE,islot-SLOT_START+1,1:nlevh,1:nv3dd), &
+                                     him_add2d=him_add2d)
+          else
+            call Trans_XtoY_HIM_allg(v3dg,v2dg,yobs_him,qc_him, &
+                                     yobs_clr=yobs_him_clr,     &
+                                     mwgt_plev2d=plev_obs_him   )
+          endif
 
           ! Him preprocess
           call prep_Him_mpi(yobs_him,     tbb_lprep=yobs_him_prep,    qc_lprep=qc_him_prep)
@@ -535,6 +568,10 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
 
             obsda%val2(nn) = (abs(yobs_him_prep(ch,i,j) - yobs_him_clr_prep(ch,i,j) )  &
                               + abs(obs(iof)%dat(n) - yobs_him_clr_prep(ch,i,j)) ) * 0.5_r_size
+
+            if ( HIM_ADDITIVE_Y18 ) then
+              obsda%pert(nn) = him_add2d(ch,i,j)
+            endif
 #ENDIF
           end select
 
@@ -619,11 +656,15 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
         elseif ( RADAR_ADDITIVE_Y18 ) then
           call obs_da_value_partial_reduce_iter(obsda_return, it, 1, nobs, obsda%val, obsda%qc, pert=obsda%pert)
         else
-#IFDEF RTTOV
-          call obs_da_value_partial_reduce_iter(obsda_return, it, 1, nobs, obsda%val, obsda%qc, lev=obsda%lev, val2=obsda%val2 )
-#ELSE
+#ifdef RTTOV
+          if ( HIM_ADDITIVE_Y18 ) then
+            call obs_da_value_partial_reduce_iter(obsda_return, it, 1, nobs, obsda%val, obsda%qc, lev=obsda%lev, val2=obsda%val2, pert=obsda%pert )
+          else
+            call obs_da_value_partial_reduce_iter(obsda_return, it, 1, nobs, obsda%val, obsda%qc, lev=obsda%lev, val2=obsda%val2 )
+          endif
+#else
           call obs_da_value_partial_reduce_iter(obsda_return, it, 1, nobs, obsda%val, obsda%qc )
-#ENDIF
+#endif
         endif
 
         write (timer_str, '(A30,I4,A2)') 'obsope_cal:partial_reduce  (t=', it, '):'
@@ -633,9 +674,16 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
     end if ! [ (im >= 1 .and. im <= MEMBER) .or. im == mmdetin ]
   end do ! [ it = 1, nitmax ]
 
-  if ( RADAR_ADDITIVE_Y18 ) then
-    deallocate ( mv3dg, mv2dg, mdbz3dg )
-    deallocate ( slope3dg )
+  if ( RADAR_ADDITIVE_Y18 .or. HIM_ADDITIVE_Y18 ) then
+    deallocate ( mv3dg, mv2dg )
+    if ( RADAR_ADDITIVE_Y18 ) then
+      deallocate ( slope3dg )
+      deallocate ( mdbz3dg )
+    elseif( HIM_ADDITIVE_Y18 ) then
+      deallocate( mhim2dg )
+      deallocate( slope1dg_him )
+      deallocate( him_add2d )
+    endif
   endif
 
   deallocate ( v3dg, v2dg )
