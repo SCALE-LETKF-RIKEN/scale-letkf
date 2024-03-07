@@ -581,10 +581,8 @@ if [ "$TOPO_FORMAT" = "GTOPO30" ] || [ "$TOPO_FORMAT" = "DEM50M" ] || [ "$LANDUS
 
   if ((BDY_FORMAT == 1)); then
     if ((DISK_MODE >= 1)); then
-      BDYCATALOGUE=${TMP}/bdytopo/latlon_domain_catalogue.txt
       BDYTOPO=${TMP}/bdytopo/bdytopo
     else
-      BDYCATALOGUE=${DATA_TOPO_BDY_SCALE}/const/log/latlon_domain_catalogue.txt
       BDYTOPO=${DATA_TOPO_BDY_SCALE}/const/topo
     fi
   fi
@@ -636,7 +634,6 @@ if [ "$TOPO_FORMAT" = "GTOPO30" ] || [ "$TOPO_FORMAT" = "DEM50M" ] || [ "$LANDUS
                -e "/!--GLCCv2_IN_DIR--/a GLCCv2_IN_DIR = \"${SRC_LANDUSE_PATH}/GLCCv2/Products\"," \
                -e "/!--LU100M_IN_DIR--/a LU100M_IN_DIR = \"${SRC_LANDUSE_PATH}/LU100M/Products\"," \
                -e "/!--COPYTOPO_IN_BASENAME--/a COPYTOPO_IN_BASENAME = \"${BDYTOPO}\"," \
-               -e "/!--LATLON_CATALOGUE_FNAME--/a LATLON_CATALOGUE_FNAME = \"${BDYCATALOGUE}\"," \
                -e "/!--OFFLINE_PARENT_BASENAME--/a OFFLINE_PARENT_BASENAME = \"${OFFLINE_PARENT_BASENAME}\"," \
                -e "/!--OFFLINE_PARENT_PRC_NUM_X--/a OFFLINE_PARENT_PRC_NUM_X = ${DATA_BDY_SCALE_PRC_NUM_X}," \
                -e "/!--OFFLINE_PARENT_PRC_NUM_Y--/a OFFLINE_PARENT_PRC_NUM_Y = ${DATA_BDY_SCALE_PRC_NUM_Y}," \
@@ -1102,20 +1099,12 @@ echo
 
       if ((BDY_FORMAT == 1)); then
         FILETYPE_ORG='SCALE-RM'
-        if ((DISK_MODE >= 1));then
-          LATLON_CATALOGUE_FNAME="${TMP}/bdytopo/latlon_domain_catalogue.txt"
-        else
-          LATLON_CATALOGUE_FNAME="${DATA_TOPO_BDY_SCALE}/const/log/latlon_domain_catalogue.txt"
-        fi
       elif ((BDY_FORMAT == 2)); then
         FILETYPE_ORG='WRF-ARW'
-        LATLON_CATALOGUE_FNAME=
       elif ((BDY_FORMAT == 4)); then
         FILETYPE_ORG='GrADS'
-        LATLON_CATALOGUE_FNAME=
       elif ((BDY_FORMAT == 5)); then
         FILETYPE_ORG=
-        LATLON_CATALOGUE_FNAME=
       else
         echo "[Error] $0: Unsupport boundary file types." >&2
         exit 1
@@ -1173,8 +1162,7 @@ echo
           conf="$(echo "$conf" | \
               sed -e "/!--OFFLINE_PARENT_BASENAME--/a OFFLINE_PARENT_BASENAME = \"${TMPROOT_BDYDATA}/${mem_bdy}/bdyorg_$(datetime_scale $time_bdy_start_prev)_$(printf %05d 0)\"," \
                   -e "/!--OFFLINE_PARENT_PRC_NUM_X--/a OFFLINE_PARENT_PRC_NUM_X = ${DATA_BDY_SCALE_PRC_NUM_X}," \
-                  -e "/!--OFFLINE_PARENT_PRC_NUM_Y--/a OFFLINE_PARENT_PRC_NUM_Y = ${DATA_BDY_SCALE_PRC_NUM_Y}," \
-                  -e "/!--LATLON_CATALOGUE_FNAME--/a LATLON_CATALOGUE_FNAME = \"${LATLON_CATALOGUE_FNAME}\",")"
+                  -e "/!--OFFLINE_PARENT_PRC_NUM_Y--/a OFFLINE_PARENT_PRC_NUM_Y = ${DATA_BDY_SCALE_PRC_NUM_Y},")" 
         fi
         conf="$(echo "$conf" | \
           sed -e "/!--BASENAME_ORG--/a BASENAME_ORG = \"${BASENAME_ORG}\"," \
@@ -1222,10 +1210,6 @@ config_file_scale_core (){
     else
       mem_bdy='mean'
     fi
-    DOMAIN_CATALOGUE_OUTPUT=".false."
-    if ((m == 1)); then
-      DOMAIN_CATALOGUE_OUTPUT=".true."
-    fi
 
     for d in $(seq $DOMNUM); do
       dfmt=$(printf $DOMAIN_FMT $d)
@@ -1253,10 +1237,6 @@ config_file_scale_core (){
 #      fi
 
       RESTART_OUTPUT_TF=".true."
-      TIME_END_RESTART_OUT_TF=".false."
-      if (( EFSO_RUN > 0 && WINDOW_E < EFSO_FCST_LENGTH )) ; then
-        TIME_END_RESTART_OUT_TF=".true."
-      fi
 
       mkdir -p ${OUTDIR[$d]}/$atime/anal/${name_m[$mlocal]}
       mkdir -p ${OUTDIR[$d]}/$atime/gues/${name_m[$mlocal]}
@@ -1300,7 +1280,6 @@ config_file_scale_core (){
               -e "/!--TIME_DT_OCEAN_RESTART--/a TIME_DT_OCEAN_RESTART = ${LCYCLE}.D0," \
               -e "/!--TIME_DT_LAND_RESTART--/a TIME_DT_LAND_RESTART = ${LCYCLE}.D0," \
               -e "/!--TIME_DT_URBAN_RESTART--/a TIME_DT_URBAN_RESTART = ${LCYCLE}.D0," \
-              -e "/!--TIME_END_RESTART_OUT--/a TIME_END_RESTART_OUT = ${TIME_END_RESTART_OUT_TF}," \
               -e "/!--ONLINE_DOMAIN_NUM--/a ONLINE_DOMAIN_NUM = ${d}," \
               -e "/!--ONLINE_IAM_PARENT--/a ONLINE_IAM_PARENT = ${ONLINE_IAM_PARENT}," \
               -e "/!--ONLINE_IAM_DAUGHTER--/a ONLINE_IAM_DAUGHTER = ${ONLINE_IAM_DAUGHTER}," \
@@ -1316,8 +1295,6 @@ config_file_scale_core (){
               -e "/!--FILE_HISTORY_OUTPUT_WAIT--/a FILE_HISTORY_OUTPUT_WAIT = ${HISTORY_OUT_WAIT}.D0," \
               -e "/!--MONITOR_OUT_BASENAME--/a MONITOR_OUT_BASENAME = \"${OUTDIR[$d]}/$time/log/scale/${name_m[$mlocal]}.d${dfmt}.monitor_${time}\"," \
               -e "/!--LAND_PROPERTY_IN_FILENAME--/a LAND_PROPERTY_IN_FILENAME = \"${CONSTDB_PATH}/land/param.bucket.conf\"," \
-              -e "/!--DOMAIN_CATALOGUE_FNAME--/a DOMAIN_CATALOGUE_FNAME = \"latlon_domain_catalogue.d${dfmt}.txt\"," \
-              -e "/!--DOMAIN_CATALOGUE_OUTPUT--/a DOMAIN_CATALOGUE_OUTPUT = ${DOMAIN_CATALOGUE_OUTPUT}," \
               -e "/!--URBAN_DYN_KUSAKA01_PARAM_IN_FILENAME--/a  URBAN_DYN_KUSAKA01_PARAM_IN_FILENAME = \"${CONSTDB_PATH}/urban/param.kusaka01.dat\"," \
               -e "/!--ATMOS_PHY_RD_MSTRN_GASPARA_IN_FILENAME--/a ATMOS_PHY_RD_MSTRN_GASPARA_IN_FILENAME = \"${CONSTDB_PATH}/rad/PARAG.29\"," \
               -e "/!--ATMOS_PHY_RD_MSTRN_AEROPARA_IN_FILENAME--/a ATMOS_PHY_RD_MSTRN_AEROPARA_IN_FILENAME = \"${CONSTDB_PATH}/rad/PARAPC.29\"," \
