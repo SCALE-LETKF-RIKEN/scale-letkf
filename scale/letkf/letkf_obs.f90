@@ -562,7 +562,7 @@ SUBROUTINE set_letkf_obs
         obsda%qc(n) = iqc_gross_err
       END IF
     case (id_HIMIR_obs)
-      if ( HIM_AOEI .and. HIM_AOEI_QC == 0 ) then
+      if ( ( HIM_AOEI .and. HIM_AOEI_QC == 0 ) .or. HIM_ADDITIVE_Y18 ) then
         ! No Gross-error QC
       elseif ( HIM_AOEI .and. HIM_AOEI_QC == 1 ) then
         if ( abs(obsda%val(n)) > GROSS_ERROR_HIM * OBSERR_HIM(nint(obs(iof)%lev(iidx))) ) then

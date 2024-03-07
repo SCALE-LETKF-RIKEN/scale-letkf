@@ -3371,7 +3371,7 @@ subroutine get_history_ensemble_mean_mpi_him( mv3dg, mv2dg, mhim2dg )
   enddo
 
   mv3dg(:,1:nlevh,1:nlonh,1:nlath,1:nv3dd) = mv3dg(:,1:nlevh,1:nlonh,1:nlath,1:nv3dd) / real( MEMBER, kind=r_size )
-  mv2dg(:,1:nlonh,1:nlath,1:nv2dd) = mv2dg(:,1:nlonh,1:nlath,1:nv2dd)   / real( MEMBER, kind=r_size )
+  mv2dg(:,1:nlonh,1:nlath,1:nv2dd) = mv2dg(:,1:nlonh,1:nlath,1:nv2dd) / real( MEMBER, kind=r_size )
 
   mhim2dg(1:NIRB_HIM_USE,:,1:nlon,1:nlat) = mhim2dg(1:NIRB_HIM_USE,:,1:nlon,1:nlat) / real( MEMBER, kind=r_size )
 

@@ -3893,8 +3893,7 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd,&
   integer :: nps, npe, it
 
   integer :: iv3d
-  real(r_size) :: ri, rj
-  real(r_size), allocatable :: mean1d(:), pert1d(:)
+  real(r_size), allocatable :: pert1d(:)
   
 !  write(6,'(a)') 'Hello from Trans_XtoY_HIM_allg'
 
@@ -4059,30 +4058,22 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd,&
     if ( present( mv3d ) .and. present( slope1d ) .and. present( him_add2d ) ) then
 
       him_add2d(1:NIRB_HIM_USE,1:nlon,1:nlat) = 0.0_r_size
-      allocate( mean1d(1:nlevh) )
       allocate( pert1d(1:nlevh) )
 
       do iv3d = 1, nv3dd
         do j = 1, nlat
-          rj = real(j + JHALO, kind=r_size )
           do i = 1, nlon
-            ri = real(i + IHALO, kind=r_size )
-
-            call itpl_2d_column(mv3d(:,:,:,iv3d), ri, rj, mean1d)
-    
-            call itpl_2d_column( v3d(:,:,:,iv3d), ri, rj, pert1d)
-
-            pert1d = pert1d - mean1d
-            do k = 1, nlev
-              do ch = 1, NIRB_HIM_USE
+            pert1d = v3d(1:nlevh,i+IHALO,j+JHALO,iv3d) - mv3d(1:nlevh,i+IHALO,j+JHALO,iv3d)
+            do ch = 1, NIRB_HIM_USE
+              do k = 1, nlev
                 him_add2d(ch,i,j) = him_add2d(ch,i,j) + pert1d(KHALO+k) * slope1d(ch,KHALO+k,iv3d)
-              enddo ! ch
-            enddo ! k
+              enddo ! k
+            enddo ! ch
           enddo ! i
         enddo ! j
       enddo ! iv3d
 
-      deallocate( mean1d, pert1d )
+      deallocate( pert1d )
 
     endif
   endif
