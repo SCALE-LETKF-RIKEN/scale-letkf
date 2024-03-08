@@ -138,6 +138,7 @@ time=$STIME
 btime=$STIME
 atime=$(datetime $time $LCYCLE s)
 loop=0
+mpiexec_cnt=0
 
 #-------------------------------------------------------------------------------
 while ((time <= ETIME)); do
@@ -197,7 +198,6 @@ while ((time <= ETIME)); do
 
 #-------------------------------------------------------------------------------
 # Call functions to run the job
-
   for s in $(seq $nsteps); do
     if (((s_flag == 0 || s >= ISTEP) && (e_flag == 0 || s <= FSTEP))); then
 
@@ -242,6 +242,7 @@ while ((time <= ETIME)); do
              BDY_LLIO_TMPDIRS=${BDY_LLIO_TMPDIRS}" "$BDY_LLIO_TMPDIR_TOP/${mmmm}
            done
            mpiexec mkdir -p ${BDY_LLIO_TMPDIRS}
+           mpiexec_cnt=$((mpiexec_cnt+1))
         fi
 
       fi
@@ -256,6 +257,7 @@ while ((time <= ETIME)); do
              HIST_LLIO_TMPDIRS=${HIST_LLIO_TMPDIRS}" "$HIST_LLIO_TMPDIR_TOP/${mmmm}
            done
            mpiexec mkdir -p ${HIST_LLIO_TMPDIRS}
+           mpiexec_cnt=$((mpiexec_cnt+1))
         fi
 
         if [ "$PRESET" = 'FUGAKU' ] && (( ANAL_LLIO_TMP == 1 )) ; then
@@ -266,6 +268,7 @@ while ((time <= ETIME)); do
              ANAL_LLIO_TMPDIRS=${ANAL_LLIO_TMPDIRS}" "$ANAL_LLIO_TMPDIR_TOP/${mmmm}
            done
            mpiexec mkdir -p ${ANAL_LLIO_TMPDIRS}
+           mpiexec_cnt=$((mpiexec_cnt+1))
         fi
 
 
@@ -358,12 +361,20 @@ while ((time <= ETIME)); do
         conf_time=$atime
       fi
 
+      logd_org=${logd}
+      if [ "$PRESET" = 'FUGAKU' ] ; then
+        logd=${logd}/%/200r
+      fi
 
 #      logd=/worktmp
       for it in $(seq $nit); do
         echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: start" >&2
 
-           mpirunf ${nodestr} ${stepexecbin[$s]} $TMPROOT/config/${stepexecname[$s]}_${conf_time}.conf ${logd}/NOUT_${conf_time} || exit $?
+        mpirunf ${nodestr} ${stepexecbin[$s]} $TMPROOT/config/${stepexecname[$s]}_${conf_time}.conf ${logd}/NOUT_${conf_time} || exit $?
+        if [ "$PRESET" = 'FUGAKU' ] ; then
+          mpiexec_cnt=$((mpiexec_cnt+1))
+          grep 'finished sucessfully' ${logd_org}/0/NOUT_${conf_time}.${mpiexec_cnt}.0 >/dev/null || exit 1 
+        fi
 
         echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: end" >&2
       done
@@ -371,10 +382,13 @@ while ((time <= ETIME)); do
       if [ "$PRESET" = 'FUGAKU' ] ; then
         if (( s == 5 && HIST_LLIO_TMP == 1)) ; then
           mpiexec rm -rf ${HIST_LLIO_TMPDIR_TOP}
+          mpiexec_cnt=$((mpiexec_cnt+1))
         elif (( s == 5 && ANAL_LLIO_TMP == 1)) ; then
           mpiexec rm -rf ${ANAL_LLIO_TMPDIR_TOP_OLD}
-        elif (( s == 4 && BDY_LLIO_TMP == 1)) ; then
+          mpiexec_cnt=$((mpiexec_cnt+1))
+        elif (( s == 3 && BDY_LLIO_TMP == 1)) ; then
           mpiexec rm -rf ${BDY_LLIO_TMPDIR_TOP}
+          mpiexec_cnt=$((mpiexec_cnt+1))
         fi
       fi
 

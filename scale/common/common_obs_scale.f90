@@ -354,6 +354,12 @@ SUBROUTINE Trans_XtoY(elm,ri,rj,rk,lon,lat,v3d,v2d,yobs,qc,stggrd,typ)
     qc = iqc_otype
   END SELECT
 
+  if ( REJECT_ADPSFC_EXCEPT_PS .and. present( typ ) ) then
+    if ( obtypelist(typ) == 'ADPSFC' .and. elm /= id_ps_obs ) then
+      qc = iqc_otype
+    endif
+  endif
+
   RETURN
 END SUBROUTINE Trans_XtoY
 !-----------------------------------------------------------------------

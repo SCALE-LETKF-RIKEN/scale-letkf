@@ -21,7 +21,7 @@ fi
 #===============================================================================
 # Configuration
 
-. ./config.main.${PRESET} || exit $?
+. ./config.main || exit $?
 . ./config.${job} || exit $?
 
 . src/func_datetime.sh || exit $?

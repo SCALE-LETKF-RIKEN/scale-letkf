@@ -87,10 +87,10 @@ EOF
 # database
 
 cat >> ${STAGING_DIR}/${STGINLIST_CONSTDB} << EOF
-${SCALEDIR}/scale-rm/test/data/rad|dat/rad
-${SCALEDIR}/scale-rm/test/data/land|dat/land
-${SCALEDIR}/scale-rm/test/data/urban|dat/urban
-${SCALEDIR}/scale-rm/test/data/lightning|dat/lightning
+${SCALEDIR}/data/rad|dat/rad
+${SCALEDIR}/data/land|dat/land
+${SCALEDIR}/data/urban|dat/urban
+${SCALEDIR}/data/lightning|dat/lightning
 EOF
 
 if [ "${SOUNDING}" != "" ] ; then
@@ -112,10 +112,10 @@ cp ${ENSMODEL_DIR}/scale-rm_ens ${TMPROOT}/scale-rm_ens
 # database
 
 mkdir -p ${TMPROOT}/dat
-cp -r ${SCALEDIR}/scale-rm/test/data/rad ${TMPROOT}/dat/rad
-cp -r ${SCALEDIR}/scale-rm/test/data/land ${TMPROOT}/dat/land
-cp -r ${SCALEDIR}/scale-rm/test/data/urban ${TMPROOT}/dat/urban
-cp -r ${SCALEDIR}/scale-rm/test/data/lightning ${TMPROOT}/dat/lightning
+cp -r ${SCALEDIR}/data/rad ${TMPROOT}/dat/rad
+cp -r ${SCALEDIR}/data/land ${TMPROOT}/dat/land
+cp -r ${SCALEDIR}/data/urban ${TMPROOT}/dat/urban
+cp -r ${SCALEDIR}/data/lightning ${TMPROOT}/dat/lightning
 
 if [ "${SOUNDING}" != "" ] ; then
   cp ${SOUNDING} ${TMPROOT}/dat/
@@ -503,6 +503,7 @@ if [ "$TOPO_FORMAT" = "GTOPO30" ] || [ "$TOPO_FORMAT" = "DEM50M" ] || [ "$LANDUS
   mkdir -p $OUTDIR/const/landuse
   config_file_scale_launcher fcst fcst_scale-rm_pp_ens "f<member>/pp" 1
   OFFLINE_PARENT_BASENAME=
+  DOMAIN_CATALOGUE_OUTPUT=".true."
 
   if ((BDY_FORMAT == 1)); then
     if ((DISK_MODE >= 1)); then
@@ -563,6 +564,8 @@ if [ "$TOPO_FORMAT" = "GTOPO30" ] || [ "$TOPO_FORMAT" = "DEM50M" ] || [ "$LANDUS
                -e "/!--OFFLINE_PARENT_BASENAME--/a OFFLINE_PARENT_BASENAME = \"${OFFLINE_PARENT_BASENAME}\"," \
                -e "/!--OFFLINE_PARENT_PRC_NUM_X--/a OFFLINE_PARENT_PRC_NUM_X = ${DATA_BDY_SCALE_PRC_NUM_X}," \
                -e "/!--OFFLINE_PARENT_PRC_NUM_Y--/a OFFLINE_PARENT_PRC_NUM_Y = ${DATA_BDY_SCALE_PRC_NUM_Y}," \
+               -e "/!--DOMAIN_CATALOGUE_FNAME--/a DOMAIN_CATALOGUE_FNAME = \"${OUTDIR}/const/log/latlon_domain_catalogue.txt\"," \
+               -e "/!--DOMAIN_CATALOGUE_OUTPUT--/a DOMAIN_CATALOGUE_OUTPUT = ${DOMAIN_CATALOGUE_OUTPUT}," \
           )"
    mkdir -p $TMP/f$(printf $MEMBER_FMT 1)
    conf_file="$TMP/f$(printf $MEMBER_FMT 1)/pp.d01_${STIME}.conf"
@@ -641,7 +644,10 @@ while ((time_s <= ETIME)); do
           LANDUSE_PATH="${DATA_LANDUSE}/const"
           RESTART_IN_PATH[$d]=${INDIR[$d]}/$time/anal
           BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time/bdy
-          CONSTDB_PATH=$SCALEDIR/scale-rm/test/data
+          CONSTDB_PATH=$SCALEDIR/data
+          if [ $PRESET = 'FUGAKU' ] ; then
+            CONSTDB_PATH=$TMPROOT_CONSTDB/dat
+          fi
         fi
 
         if [ $PRESET = 'FUGAKU' ] && (( BDY_LLIO_TMP == 1 )) && (( BDY_ENS == 1 )); then
@@ -701,6 +707,9 @@ while ((time_s <= ETIME)); do
     RESTART_OUT_PATH[$d]=${OUTDIR[$d]}/$time/fcst
     BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time/bdy
     CONSTDB_PATH=$SCALEDIR/scale-rm/test/data
+    if [ $PRESET = 'FUGAKU' ] ; then
+      CONSTDB_PATH=$TMPROOT_CONSTDB/dat
+    fi
   fi
 
   if [ $PRESET = 'FUGAKU' ] && (( BDY_LLIO_TMP == 1 )) && (( BDY_ENS == 1 )); then

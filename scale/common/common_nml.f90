@@ -114,6 +114,8 @@ MODULE common_nml
   character(filelenmax) :: EFSO_FCST_FROM_ANAL_BASENAME = 'anal.@@@@'
   character(filelenmax) :: EFSO_EFCST_FROM_ANAL_BASENAME = 'anal.@@@@'
 
+  logical :: FILL_BY_ZERO_MISSING_VARAIBLES = .false.
+
   logical :: EFSO_USE_MOIST_ENERGY = .true.
 
   real(r_size) :: INFL_MUL = 1.0d0           ! >  0: globally constant covariance inflation
@@ -145,6 +147,7 @@ MODULE common_nml
   real(r_size) :: GROSS_ERROR_TCY = -1.0d0 ! debug ! < 0: same as GROSS_ERROR
   real(r_size) :: GROSS_ERROR_TCP = -1.0d0 ! debug ! < 0: same as GROSS_ERROR
 
+  real(r_size) :: UPDATE_TOP   = 0.0_r_size ! all variables are updated only below this pressure level (Pa)
   real(r_size) :: Q_UPDATE_TOP = 0.0d0     ! water vapor and hydrometeors are updated only below this pressure level (Pa)
   real(r_size) :: Q_SPRD_MAX = -1.0D0      ! maximum q (ensemble spread)/(ensemble mean) (only effective when > 0)
 
@@ -158,6 +161,8 @@ MODULE common_nml
 
   logical :: NOBS_OUT = .false.
   character(filelenmax) :: NOBS_OUT_BASENAME = 'nobs'
+
+  logical :: REJECT_ADPSFC_EXCEPT_PS = .false.
 
   !*** for backward compatibility ***
   real(r_size) :: COV_INFL_MUL = 1.0d0
@@ -619,6 +624,7 @@ subroutine read_nml_letkf
     GROSS_ERROR_TCX, &
     GROSS_ERROR_TCY, &
     GROSS_ERROR_TCP, &
+    UPDATE_TOP,   &
     Q_UPDATE_TOP, &
     Q_SPRD_MAX, &
     BOUNDARY_BUFFER_WIDTH, &
@@ -628,6 +634,8 @@ subroutine read_nml_letkf
     PS_ADJUST_THRES, &
     NOBS_OUT, &
     NOBS_OUT_BASENAME, &
+    FILL_BY_ZERO_MISSING_VARAIBLES, &
+    REJECT_ADPSFC_EXCEPT_PS, &
     !*** for backward compatibility ***
     COV_INFL_MUL, &
     MIN_INFL_MUL, &

@@ -292,6 +292,11 @@ enddo
 !-----------------------------------------------------------------------
 ! Finalize
 !-----------------------------------------------------------------------
+
+  if ( myrank == 0 ) then
+    write(6,'(a)') 'efso finished sucessfully'
+  endif
+
   CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
   CALL finalize_mpi
 
