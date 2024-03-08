@@ -224,7 +224,6 @@
  ATMOS_BOUNDARY_TYPE        = "REAL",
 ! ATMOS_BOUNDARY_TYPE        = "INIT",
 !--ATMOS_BOUNDARY_IN_BASENAME--
-!--ATMOS_BOUNDARY_UPDATE_DT--
  ATMOS_BOUNDARY_USE_DENS    = .true.,
  ATMOS_BOUNDARY_USE_QHYD    = .false.,
 ! ATMOS_BOUNDARY_ALPHAFACT_DENS = 0.25D0,
@@ -370,8 +369,8 @@
 &HISTORY_ITEM name='SFC_PRES'   / ! LETKF (not analyzed)
 &HISTORY_ITEM name='SFC_TEMP'   / ! LETKF (not analyzed)
 
-&HISTORY_ITEM name='U10' / ! LETKF (not analyzed)
-&HISTORY_ITEM name='V10' / ! LETKF (not analyzed)
+&HISTORY_ITEM name='U10m' / ! LETKF (not analyzed)
+&HISTORY_ITEM name='V10m' / ! LETKF (not analyzed)
 &HISTORY_ITEM name='T2'  / ! Nesting/LETKF (not analyzed)
 &HISTORY_ITEM name='Q2'  / ! LETKF (not analyzed)
 &HISTORY_ITEM name="MSLP" / ! Nesting
