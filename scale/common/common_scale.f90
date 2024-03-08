@@ -85,7 +85,7 @@ MODULE common_scale
      (/.true., .true., .true., .true., .true., &
        .true., .true., .true., .true., .true., .true., .false./)
   CHARACTER(vname_max),PARAMETER :: v2dd_name(nv2dd) = &
-     (/'topo      ', 'SFC_PRES  ', 'PREC      ', 'U10       ', 'V10       ', 'T2        ', 'Q2        '/)
+     (/'topo      ', 'SFC_PRES  ', 'PREC      ', 'U10m      ', 'V10m      ', 'T2        ', 'Q2        '/)
   LOGICAL,PARAMETER :: v2dd_hastime(nv2dd) = &
      (/.false., .true., .true., .true., .true., .true., .true./)
 
@@ -368,12 +368,16 @@ SUBROUTINE read_restart(filename,v3dg,v2dg)
 
     istat = nf90_inq_varid(ncid, trim(v3d_name(iv3d)), varid)
     if ( istat == 0 ) then
-    call ncio_check(nf90_get_var(ncid, varid, v3dg(:,:,:,iv3d), &
-                                 start = (/ ks, is, js, 1 /),    &
-                                 count = (/ KMAX, IMAX, JMAX, 1 /)))
+      call ncio_check(nf90_get_var(ncid, varid, v3dg(:,:,:,iv3d), &
+                                   start = (/ ks, is, js, 1 /),    &
+                                   count = (/ KMAX, IMAX, JMAX, 1 /)))
     else
-      write(6,'(A,A15,A)') " 3D var ", trim(v3d_name(iv3d))," not found. skipped."
-      v3dg(:,:,:,iv3d) = 0.0
+      write(6,'(A,A15,A)') " 3D var ", trim(v3d_name(iv3d))," not found."
+      if ( FILL_BY_ZERO_MISSING_VARAIBLES ) then
+        v3dg(:,:,:,iv3d) = 0.0_RP
+      else
+        stop
+      endif
     end if
 !    call ncio_check(nf90_inq_varid(ncid, trim(v3d_name(iv3d)), varid))
 !    call ncio_check(nf90_get_var(ncid, varid, v3dg(:,:,:,iv3d), &
@@ -391,8 +395,12 @@ SUBROUTINE read_restart(filename,v3dg,v2dg)
                                  start = (/ is, js, 1 /),     &
                                  count = (/ IMAX, JMAX, 1 /)))
     else
-      write(6,'(A,A15,A)') " 2D var ", trim(v3d_name(iv3d))," not found. skipped."
-      v2dg(:,:,iv3d) = 0.0
+      write(6,'(A,A15,A)') " 2D var ", trim(v3d_name(iv3d))," not found."
+      if ( FILL_BY_ZERO_MISSING_VARAIBLES ) then
+        v2dg(:,:,iv2d) = 0.0_RP
+      else
+        stop
+      endif
     end if
 !    call ncio_check(nf90_inq_varid(ncid, trim(v2d_name(iv2d)), varid))
 !    call ncio_check(nf90_get_var(ncid, varid, v2dg(:,:,iv2d), &
@@ -636,11 +644,11 @@ SUBROUTINE write_restart(filename,v3dg,v2dg)
 
     istat = nf90_inq_varid(ncid, trim(v3d_name(iv3d)), varid)
     if ( istat == 0 ) then
-    call ncio_check(nf90_put_var(ncid, varid, v3dg(:,:,:,iv3d), &
-                                 start = (/ ks, is, js, 1 /),    &
-                                 count = (/ KMAX, IMAX, JMAX, 1 /)))
+      call ncio_check(nf90_put_var(ncid, varid, v3dg(:,:,:,iv3d), &
+                                   start = (/ ks, is, js, 1 /),    &
+                                   count = (/ KMAX, IMAX, JMAX, 1 /)))
     else
-      write(6,'(A,A15,A)') " 3D var ", trim(v3d_name(iv3d))," not found. skipped."
+      write(6,'(A,A15,A)') " 3D var ", trim(v3d_name(iv3d))," not found. skip!"
     end if
 !    call ncio_check(nf90_inq_varid(ncid, trim(v3d_name(iv3d)), varid))
 !    call ncio_check(nf90_put_var(ncid, varid, v3dg(:,:,:,iv3d), &
@@ -656,11 +664,11 @@ SUBROUTINE write_restart(filename,v3dg,v2dg)
     
     istat = nf90_inq_varid(ncid, trim(v2d_name(iv2d)), varid)
     if ( istat == 0 ) then
-    call ncio_check(nf90_put_var(ncid, varid, v2dg(:,:,iv2d), &
-                                 start = (/ is, js, 1 /),     &
-                                 count = (/ IMAX, JMAX, 1 /)))
+      call ncio_check(nf90_put_var(ncid, varid, v2dg(:,:,iv2d), &
+                                   start = (/ is, js, 1 /),     &
+                                   count = (/ IMAX, JMAX, 1 /)))
     else
-      write(6,'(A,A15,A)') " 2D var ", trim(v3d_name(iv3d))," not found. skipped."
+      write(6,'(A,A15,A)') " 2D var ", trim(v2d_name(iv2d))," not found. skip!"
     end if
 !    call ncio_check(nf90_inq_varid(ncid, trim(v2d_name(iv2d)), varid))
 !    call ncio_check(nf90_put_var(ncid, varid, v2dg(:,:,iv2d), &
@@ -1025,8 +1033,8 @@ subroutine read_history(filename,step,v3dg,v2dg)
                     rankid=PRC_myrank,     & ! [IN]
                     step=step_             ) ! [IN]
     else
-      write(6,'(A,A15,A)') " 3D var ", trim(v3dd_name(iv3d))," not found. skipped."
-      var3D = 0.0
+      write(6,'(A,A15,A)') " 3D var ", trim(v3dd_name(iv3d))," not found. stop!"
+      stop
     end if
 
     forall (i=1:nlon, j=1:nlat, k=1:nlev) v3dg_RP(k+KHALO,i+IHALO,j+JHALO,iv3d) = var3D(i,j,k) ! use FORALL to change order of dimensions
@@ -1057,8 +1065,8 @@ subroutine read_history(filename,step,v3dg,v2dg)
                     rankid=PRC_myrank,     & ! [IN]
                     step=step_             ) ! [IN]
     else
-      write(6,'(A,A15,A)') " 2D var ", trim(v2dd_name(iv2d))," not found. skipped."
-      var2D = 0.0
+      write(6,'(A,A15,A)') " 2D var ", trim(v2dd_name(iv2d))," not found. stop!"
+      stop
     end if
 
 
@@ -1341,8 +1349,8 @@ subroutine read_restart_trans_history(filename, v3dgh, v2dgh)
   real(r_size),intent(out) :: v3dgh(nlevh,nlonh,nlath,nv3dd)
   real(r_size),intent(out) :: v2dgh(nlonh,nlath,nv2dd)
 
-  real(RP) :: v3dg_RP(nlev,nlon,nlat,nv3dd)
-  real(RP) :: v2dg_RP(nlon,nlat,nv2dd)
+  real(RP) :: v3dg_RP(nlev,nlon,nlat,nv3d)
+  real(RP) :: v2dg_RP(nlon,nlat,nv2d)
 
   integer :: i, j, iv3d, iv2d
 
@@ -1959,7 +1967,7 @@ subroutine rij_rank(ig, jg, rank)
 #ifdef LETKF_DEBUG
   use scale_atmos_grid_cartesC_index, only: &
       IHALO, JHALO, &
-      IA, JA, IS, JS
+      IA, JA, IS, JS, IE
   use scale_prc, only: &
       PRC_myrank
   use scale_atmos_grid_cartesC, only: &
@@ -1982,6 +1990,10 @@ subroutine rij_rank(ig, jg, rank)
 
   if (ig < real(IS,r_size) .or. ig > real(nlon*PRC_NUM_X+IHALO,r_size) .or. &
       jg < real(JS,r_size) .or. jg > real(nlat*PRC_NUM_Y+JHALO,r_size)) then
+    if (.not.(IS == IE .and. (ig < real(IS,r_size) .or. ig > real(nlon*PRC_NUM_X+IHALO,r_size) ))) then !!! exception : 2-D ideal case
+      rank = -1
+      return
+    end if
     rank = -1
     return
   end if
@@ -1991,7 +2003,7 @@ subroutine rij_rank(ig, jg, rank)
   call rank_2d_1d(rank_i, rank_j, rank)
 
 #ifdef LETKF_DEBUG
-  if (PRC_myrank == rank) then
+  if (PRC_myrank == rank.and.nlon > 1) then
     if (ig < (GRID_CX(1) - GRID_CXG(1)) / DX + 1.0d0 .or. &
         ig > (GRID_CX(IA) - GRID_CXG(1)) / DX + 1.0d0 .or. &
         jg < (GRID_CY(1) - GRID_CYG(1)) / DY + 1.0d0 .or. &

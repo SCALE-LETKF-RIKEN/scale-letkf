@@ -54,7 +54,7 @@ efso:	efso.o $(COMMON_DIR) $(OBS_DIR)
 efso.o:		efso.f90 $(OBJS) $(COMMON_DIR) $(OBS_DIR)
 	$(FC) $(FOPTS) -c $< -I$(COMMON_DIR) -I$(OBS_DIR) $(INCS)
 
-efso_tools.o:	efso_tools.f90 $(COMMON_DIR)
+efso_tools.o:	efso_tools.f90 letkf_obs.o $(COMMON_DIR)
 	$(FC) $(FOPTS) -c $< -I$(COMMON_DIR) $(INCS)
 
 clean:

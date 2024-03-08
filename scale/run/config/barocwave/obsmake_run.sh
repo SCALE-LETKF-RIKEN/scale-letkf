@@ -157,7 +157,15 @@ if [ "$PRESET" = 'FUGAKU' ]; then
   fi
   TPROC=$((NNODES_USE*PPN))
 
-  VOLUMES="/"$(readlink /data/${GROUP} | cut -d "/" -f 2)
+  CVOLUME=$(realpath $(pwd) | cut -d "/" -f 2) # current volume (e.g., /vol0X0Y or /vol000X)
+  NUM_VOLUME=${CVOLUME:4:1} # get number of current volume 
+
+  if [ "$NUM_VOLUME" = "0" ] ; then
+    VOLUMES="/"${CVOLUME}
+  else
+    VOLUMES="/vol000${NUM_VOLUME}"
+  fi
+
   if [ $VOLUMES != "/vol0004" ] ;then
     VOLUMES="${VOLUMES}:/vol0004" # spack
   fi

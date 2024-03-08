@@ -157,6 +157,10 @@ program scaleles_ens
 ! Finalize
 !-----------------------------------------------------------------------
 
+  if ( myrank == 0 ) then
+    write(6,'(a)') 'scale_rm_ens finished sucessfully'
+  endif
+
 !  call PRC_MPIfinish
 
   call MPI_Finalize(ierr)

@@ -83,6 +83,8 @@ module common_mpi_scale
   real(r_dble), private, parameter :: timer_neglect = 1.0d-3
   real(r_dble), private, save :: timer_save(max_timer_levels) = -9.0d10
 
+  logical, save :: force_use_hist = .false.
+
 contains
 
 !-------------------------------------------------------------------------------
@@ -834,9 +836,11 @@ subroutine set_scalelib(execname)
     call read_nml_obsope
     call read_nml_letkf
     call read_nml_letkf_radar
+    force_use_hist = .true.
   case ('OBSSIM ')
     call read_nml_obssim
     call read_nml_letkf_radar
+    force_use_hist = .true.
   end select
 
   ! Communicator for all processes for single domains
@@ -1180,12 +1184,12 @@ subroutine read_ens_history_iter(iter, step, v3dg, v2dg)
       filename = HISTORY_MDET_IN_BASENAME
     end if
 
-    if (SLOT_START == SLOT_END .and. SLOT_START == SLOT_BASE) then !!! 3D-LETKF without history files 
+    if ( (.not. force_use_hist) .and. (SLOT_START == SLOT_END .and. SLOT_START == SLOT_BASE) ) then !!! 3D-LETKF without history files 
 
       if (im >= 1 .and. im <= nens) then
         if (im <= MEMBER) then
           filename = GUES_IN_BASENAME
-          call filename_replace_mem(filename, im)
+         call filename_replace_mem(filename, im)
         else if (im == mmean) then
           filename = GUES_MEAN_INOUT_BASENAME
         else if (im == mmdet) then

@@ -341,7 +341,8 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
         n2nc = var_local_n2nc(n)
         n2n = var_local_n2n(n)
 
-        if (gues3d(ij,ilev,mmean,iv3d_p) < Q_UPDATE_TOP .and. n >= iv3d_q .and. n <= iv3d_qg) then !GYL - Upper bound of Q update levels
+        if ( (gues3d(ij,ilev,mmean,iv3d_p) < Q_UPDATE_TOP .and. n >= iv3d_q .and. n <= iv3d_qg) .or. & !GYL - Upper bound of Q update levels
+             (gues3d(ij,ilev,mmean,iv3d_p) < UPDATE_TOP ) ) then                                       ! Upper bound for all variables 
           do m = 1, MEMBER                                                             !GYL
             anal3d(ij,ilev,m,n) = gues3d(ij,ilev,mmean,n) + gues3d(ij,ilev,m,n)        !GYL
           end do                                                                       !GYL
@@ -1377,11 +1378,11 @@ subroutine obs_local(ri, rj, rlev, rz, nvar, hdxf, rdiag, rloc, dep, nobsl, depd
   end if
   if (present(cutd_t)) then
     cutd_t(:,:) = 0.0d0
-    if (MAX_NOBS_PER_GRID_CRITERION == 1) then
+!    if (MAX_NOBS_PER_GRID_CRITERION == 1) then
       do ic = 1, nctype
         cutd_t(elm_u_ctype(ic),typ_ctype(ic)) = hori_loc_ctype(ic) * dist_zero_fac
       end do
-    end if
+!    end if
   end if
 
   if ( present( vobsidx_l ) ) then
@@ -1410,12 +1411,12 @@ subroutine obs_local(ri, rj, rlev, rz, nvar, hdxf, rdiag, rloc, dep, nobsl, depd
   !-----------------------------------------------------------------------------
 
   do ic = 1, nctype
-    if (n_merge(ic) == 0) then
-      if (present(cutd_t)) then
-        cutd_t(elm_u_ctype(ic),typ_ctype(ic)) = 0.0d0
-      end if
-      cycle
-    end if
+!    if (n_merge(ic) == 0) then
+!      if (present(cutd_t)) then
+!        cutd_t(elm_u_ctype(ic),typ_ctype(ic)) = 0.0d0
+!      end if
+!      cycle
+!    end if
 
     nobsl_max_master = MAX_NOBS_PER_GRID(typ_ctype(ic)) ! Use the number limit setting of the "master" obs type for all group of obs types
     ielm_u_master = elm_u_ctype(ic)                     ! Count observation numbers    at the "master" obs type for all group of obs types
@@ -1427,18 +1428,17 @@ subroutine obs_local(ri, rj, rlev, rz, nvar, hdxf, rdiag, rloc, dep, nobsl, depd
     ! directly prepare (hdxf, dep, depd, rdiag, rloc) output.
     !---------------------------------------------------------------------------
 
-      nobsl_prev = nobsl
-
       do icm = 1, n_merge(ic)
         ic2 = ic_merge(icm,ic)
         ielm = elm_ctype(ic2)
         ityp = typ_ctype(ic2)
 
+        nobsl_prev = nobsl
+
         if (obsgrd(ic2)%tot_ext > 0) then
           nn = 0
           call obs_local_range(ic2, ri, rj, imin, imax, jmin, jmax)
           call obs_choose_ext(ic2, imin, imax, jmin, jmax, nn, nobs_use)
-
           do n = 1, nn
             iob = nobs_use(n)
 
@@ -1623,14 +1623,14 @@ subroutine obs_local(ri, rj, rlev, rz, nvar, hdxf, rdiag, rloc, dep, nobsl, depd
           vobsidx_l(nobsl) = iob
         endif
 
-        if (LOG_LEVEL >= 3) then
+!        if (LOG_LEVEL >= 3) then
           ic2 = ctype_elmtyp(uid_obs(obs(obsda_sort%set(iob))%elm(obsda_sort%idx(iob))), obs(obsda_sort%set(iob))%typ(obsda_sort%idx(iob)))
           do icm = 1, n_merge(ic)
             if (ic2 == ic_merge(icm,ic)) then
               nobsl_cm(icm) = nobsl_cm(icm) + 1
             end if
           end do
-        end if
+!        end if
       end do
 
       if (LOG_LEVEL >= 3) then
@@ -1643,11 +1643,23 @@ subroutine obs_local(ri, rj, rlev, rz, nvar, hdxf, rdiag, rloc, dep, nobsl, depd
       end if
 
       if (present(nobsl_t)) then
-        nobsl_t(ielm_u_master,ityp_master) = nobsl_incr
+!!!        nobsl_t(ielm_u_master,ityp_master) = nobsl_incr
+        do icm = 1, n_merge(ic)
+          ic2 = ic_merge(icm,ic)
+          ielm = elm_u_ctype(ic2)
+          ityp = typ_ctype(ic2)
+          nobsl_t(ielm,ityp) = nobsl_cm(icm)
+        end do
       end if
       if (present(cutd_t)) then
         if (nobsl_incr == nobsl_max_master) then
-          cutd_t(ielm_u_master,ityp_master) = hori_loc_ctype(ic) * sqrt(dist_tmp(nobs_use2(nobsl_incr)))
+!!!          cutd_t(ielm_u_master,ityp_master) = hori_loc_ctype(ic) * sqrt(dist_tmp(nobs_use2(nobsl_incr)))
+          do icm = 1, n_merge(ic)
+            ic2 = ic_merge(icm,ic)
+            ielm = elm_u_ctype(ic2)
+            ityp = typ_ctype(ic2)
+            cutd_t(ielm,ityp) = hori_loc_ctype(ic) * sqrt(dist_tmp(nobs_use2(nobsl_incr)))
+          end do
         end if
       end if
 
@@ -1758,7 +1770,11 @@ subroutine obs_local_range(ctype, ri, rj, imin, imax, jmin, jmax)
 
   real(r_size) :: dist_zero_i, dist_zero_j
 
-  dist_zero_i = hori_loc_ctype(ctype) * dist_zero_fac / DX
+  if (nlon == 1) then !!! 2-D
+    dist_zero_i = 0.0_r_size
+  else
+    dist_zero_i = hori_loc_ctype(ctype) * dist_zero_fac / DX
+  end if
   dist_zero_j = hori_loc_ctype(ctype) * dist_zero_fac / DY
   call ij_obsgrd_ext(ctype, ri - dist_zero_i, rj - dist_zero_j, imin, jmin)
   call ij_obsgrd_ext(ctype, ri + dist_zero_i, rj + dist_zero_j, imax, jmax)

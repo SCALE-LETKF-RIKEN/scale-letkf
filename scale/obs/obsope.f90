@@ -73,6 +73,10 @@ PROGRAM obsope
 ! Finalize
 !-----------------------------------------------------------------------
 
+  if ( myrank == 0 ) then
+    write(6,'(a)') 'obsope finished sucessfully'
+  endif
+
   call finalize_mpi_scale
 
   STOP

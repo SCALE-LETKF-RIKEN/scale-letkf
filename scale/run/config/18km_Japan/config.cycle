@@ -44,11 +44,11 @@ OUT_OPT=5        # 1:   o         o       o         o       o    o
 OUT_CYCLE_SKIP=6
 
 # Use LLIO temporary directories on Fugaku for history/boundary files
-# When HIST_TMP(BDY_TMP)=1, no history(boundary) files are stored after a job
-HIST_TMP=0 # 1: 
-           # 0: 
-BDY_TMP=0  # 1: 
-           # 0: 
+# When HIST_LLIO_TMP(BDY_LLIO_TMP)=1, no history(boundary) files are stored after a job
+HIST_LLIO_TMP=0 # 1: 
+                # 0: 
+BDY_LLIO_TMP=0  # 1: 
+                # 0: 
 
                  #      topo
 TOPOOUT_OPT=2    # 1:   o

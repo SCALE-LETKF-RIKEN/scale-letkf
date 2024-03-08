@@ -105,6 +105,10 @@ program obssim
 
   call mpi_timer('FINALIZE', 1, barrier=MPI_COMM_WORLD)
 
+  if ( myrank == 0 ) then
+    write(6,'(a)') 'obssim finished sucessfully'
+  endif
+
   call finalize_mpi_scale
 
   stop

@@ -21,7 +21,7 @@ fi
 #===============================================================================
 # Configuration
 
-. ./config.main.${PRESET} || exit $?
+. ./config.main || exit $?
 . ./config.${job} || exit $?
 
 . src/func_datetime.sh || exit $?
@@ -127,7 +127,7 @@ if [ "$PRESET" = 'FUGAKU' ]; then
 
   TPROC=$((NNODES_USE*PPN))
 
-  CVOLUME=$(pwd | cut -d "/" -f 2) # current volume (e.g., /vol0X0Y or /vol000X)
+  CVOLUME=$(realpath $(pwd) | cut -d "/" -f 2) # current volume (e.g., /vol0X0Y or /vol000X)
   NUM_VOLUME=${CVOLUME:4:1} # get number of current volume 
 
   if [ "$NUM_VOLUME" = "0" ] ; then
