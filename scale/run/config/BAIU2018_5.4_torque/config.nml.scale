@@ -74,11 +74,6 @@
 !--LAND_PROPERTY_IN_FILENAME--
 /
 
-&PARAM_DOMAIN_CATALOGUE
-!--DOMAIN_CATALOGUE_FNAME--
-!--DOMAIN_CATALOGUE_OUTPUT--
-/
-
 #################################################
 #
 # model configuration: process
@@ -337,7 +332,6 @@
 !--FILE_HISTORY_DEFAULT_BASENAME--
 !--FILE_HISTORY_DEFAULT_TINTERVAL--
  FILE_HISTORY_DEFAULT_TUNIT     = "SEC",
- FILE_HISTORY_DEFAULT_TAVERAGE  = .false.,
  FILE_HISTORY_DEFAULT_DATATYPE  = "REAL4",
  FILE_HISTORY_DEFAULT_ZCOORD    = "model",
  FILE_HISTORY_OUTPUT_STEP0      = .true.,
@@ -369,9 +363,9 @@
 &HISTORY_ITEM name='Vmet'    / ! LETKF
 &HISTORY_ITEM name='W'    / ! LETKF
 
-&HISTORY_ITEM name='PREC', taverage=.true. /
-&HISTORY_ITEM name='RAIN', taverage=.true. /
-&HISTORY_ITEM name='SNOW', taverage=.true. /
+&HISTORY_ITEM name='PREC', TSTATS_OP='mean' /
+&HISTORY_ITEM name='RAIN', TSTATS_OP='mean' /
+&HISTORY_ITEM name='SNOW', TSTATS_OP='mean' /
 
 &HISTORY_ITEM name='SFC_PRES'   / ! LETKF (not analyzed)
 &HISTORY_ITEM name='SFC_TEMP'   / ! LETKF (not analyzed)
