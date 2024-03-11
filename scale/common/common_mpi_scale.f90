@@ -1895,7 +1895,8 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
   real(r_size) :: v3dgh(nlevh,nlonh,nlath,nv3dd)
   real(r_size) :: v2dgh(nlonh,nlath,nv2dd)
 
-  real(r_size) :: yobs_him(NIRB_HIM_USE,nlon,nlat)
+  real(r_size) :: yobs_him    (NIRB_HIM_USE,nlon,nlat)
+  real(r_size) :: yobs_him_clr(NIRB_HIM_USE,nlon,nlat)
   integer      :: qc_him  (NIRB_HIM_USE,nlon,nlat)
   character(256) :: filename_him 
 #ENDIF
@@ -1910,14 +1911,14 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
 
     call state_to_history(v3dg, v2dg, topo2d, v3dgh, v2dgh)
 
-    call Trans_XtoY_HIM_allg(v3dgh,v2dgh,yobs_him,qc_him)
+    call Trans_XtoY_HIM_allg(v3dgh,v2dgh,yobs_him,qc_him,yobs_clr=yobs_him_clr)
     if ( HIM_MEAN_WRITE ) then 
       if ( monit_step == 1) then
         filename_him = trim(HIM_OUTFILE_BASENAME) // '_gues'
       else
         filename_him = trim(HIM_OUTFILE_BASENAME) // '_anal'
       endif
-      call prep_Him_mpi(yobs_him,write_global=.true.,filename=filename_him)
+      call prep_Him_mpi(yobs_him,write_global=.true.,filename=filename_him,tbb_l_clr=yobs_him_clr)
     endif
 
     call monit_obs(v3dg, v2dg, topo2d, nobs, bias, rmse, monit_type, .true., monit_step, efso=.false.,&
@@ -2901,6 +2902,7 @@ end subroutine copy_restart4mean_and_gues
 subroutine prep_Him8_mpi(tbb_l,tbb_lprep,qc_lprep)
 subroutine prep_Him_mpi(tbb_l,tbb_lprep,qc_lprep)
 subroutine prep_Him_mpi(tbb_l,tbb_lprep,qc_lprep,write_global,filename)
+subroutine prep_Him_mpi(tbb_l,tbb_lprep,qc_lprep,write_global,filename,tbb_l_clr)
   implicit none
 
   real(r_size), intent(in) :: tbb_l(NIRB_HIM_USE,nlon,nlat) ! superobs tbb (local)
@@ -2909,12 +2911,14 @@ subroutine prep_Him_mpi(tbb_l,tbb_lprep,qc_lprep,write_global,filename)
 
   logical,        intent(in), optional :: write_global
   character(256), intent(in), optional :: filename
+  real(r_size),   intent(in), optional :: tbb_l_clr(NIRB_HIM_USE,nlon,nlat) ! superobs clear tbb (local)
 
   logical :: write_global_ = .false.
   integer :: qc_gprep(NIRB_HIM_USE,nlong,nlatg) ! QC flag (local) after preprocess
 
   real(r_size) :: tbb_g(NIRB_HIM_USE,nlong,nlatg) ! superobs tbb (global)
   real(r_size) :: tbb_gprep(NIRB_HIM_USE,nlong,nlatg) ! superobs tbb (global) after preprocess
+  real(r_size) :: tbb_g_clr(NIRB_HIM_USE,nlong,nlatg) ! superobs clear tbb (global)
 
   integer ierr
 
@@ -2940,6 +2944,18 @@ subroutine prep_Him_mpi(tbb_l,tbb_lprep,qc_lprep,write_global,filename)
     tbb_g(ch,1:nlong,1:nlatg) = bufs2d(1:nlong,1:nlatg)
   enddo
 
+  if ( present( tbb_l_clr ) ) then
+    do ch = 1, NIRB_HIM_USE
+      bufs2d(1:nlong,1:nlatg) = 0.0_r_size
+      bufs2d(1+ishift:nlon+ishift, 1+jshift:nlat+jshift) = tbb_l_clr(ch,1:nlon,1:nlat)
+  
+      call MPI_ALLREDUCE(MPI_IN_PLACE, bufs2d, nlong*nlatg, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
+      
+      tbb_g_clr(ch,1:nlong,1:nlatg) = bufs2d(1:nlong,1:nlatg)
+    enddo
+  
+  endif
+
   call allgHim2obs_mpi(tbb_g,tbb_gprep,qc_allg_prep=qc_gprep)
 
   if ( present( tbb_lprep) ) then
@@ -2956,6 +2972,9 @@ subroutine prep_Him_mpi(tbb_l,tbb_lprep,qc_lprep,write_global,filename)
     if ( myrank_d == 0 ) then
       call write_Him_nc(trim(filename)//'.nc',      tbb_g     )
       call write_Him_nc(trim(filename)//'_prep.nc', tbb_gprep )
+      if ( HIM_MEAN_WRITE_CLEAR ) then
+        call write_Him_nc(trim(filename)//'_clr.nc',  tbb_g_clr )
+      endif
     endif
   endif
 

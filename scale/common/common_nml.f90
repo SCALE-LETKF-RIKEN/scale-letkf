@@ -380,7 +380,8 @@ MODULE common_nml
 
   logical :: HIM_VLOCAL_CTOP = .true.
 
-  logical :: HIM_MEAN_WRITE = .true. ! write anal/gues simulated him obs
+  logical :: HIM_MEAN_WRITE = .true.       ! write anal/gues simulated him obs
+  logical :: HIM_MEAN_WRITE_CLEAR = .true. ! write anal/gues simulated clear-sky him obs
 
   logical :: HIM_CLDERR_SIMPLE = .false. ! Simple cloud dependent obs 
   !! Sky condition is diagnosed by CA (Okamoto et al. 2014 for each band)
@@ -1234,6 +1235,7 @@ subroutine read_nml_letkf_him
     HIM_OBS_BUF_GRID,       &
     ! 
     HIM_MEAN_WRITE,         &
+    HIM_MEAN_WRITE_CLEAR,   &
     !
     ! Adaptive obs error
     HIM_CLDERR_SIMPLE,      &
@@ -1316,9 +1318,9 @@ subroutine read_nml_letkf_him
 
   enddo
 
-  !if (LOG_LEVEL >= 2) then
+  if (LOG_LEVEL >= 2 .or. LOG_OUT ) then
     write(6, nml=PARAM_LETKF_HIM)
-  !end if
+  end if
 
   return
 end subroutine read_nml_letkf_him
