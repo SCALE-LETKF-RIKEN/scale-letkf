@@ -2,10 +2,8 @@
 #
 #PJM -g hp150019
 #PJM -x PJM_LLIO_GFSCACHE=/vol0003:/vol0004
-#PJM -L "rscgrp=large"
-#PJM -L "node=385"
-###PJM -L "rscgrp=small"
-###PJM -L "node=12"
+#PJM -L "rscgrp=int"
+#PJM -L "node=12"
 #PJM -L "elapse=00:20:00"
 #PJM --mpi "max-proc-per-node=4"
 #PJM -j

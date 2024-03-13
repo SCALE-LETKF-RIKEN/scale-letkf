@@ -74,10 +74,6 @@ GLCCv2_IN_DIR = "/work/hp150019/share/database/landuse/GLCCv2/Products/"
 /
 
 &PARAM_COMM_CARTESC_NEST
-!--OFFLINE_PARENT_BASENAME--
-!--OFFLINE_PARENT_PRC_NUM_X--
-!--OFFLINE_PARENT_PRC_NUM_Y--
-!--LATLON_CATALOGUE_FNAME--
 /
 
 #################################################

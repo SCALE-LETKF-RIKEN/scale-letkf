@@ -1,7 +1,7 @@
 #!/bin/sh
 #PBS -N test_fcst
 #PBS -q m
-#PBS -l nodes=6:ppn=8
+#PBS -l nodes=12:ppn=4
 #PBS -l walltime=01:30:00
 #
 

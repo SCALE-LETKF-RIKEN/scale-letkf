@@ -507,10 +507,8 @@ if [ "$TOPO_FORMAT" = "GTOPO30" ] || [ "$TOPO_FORMAT" = "DEM50M" ] || [ "$LANDUS
 
   if ((BDY_FORMAT == 1)); then
     if ((DISK_MODE >= 1)); then
-      BDYCATALOGUE=${TMP}/bdytopo/latlon_domain_catalogue.txt
       BDYTOPO=${TMP}/bdytopo/bdytopo
     else
-      BDYCATALOGUE=${DATA_TOPO_BDY_SCALE}/const/log/latlon_domain_catalogue.txt
       BDYTOPO=${DATA_TOPO_BDY_SCALE}/const/topo/topo
       OFFLINE_PARENT_BASENAME=${BDYTOPO}
     fi
@@ -560,7 +558,6 @@ if [ "$TOPO_FORMAT" = "GTOPO30" ] || [ "$TOPO_FORMAT" = "DEM50M" ] || [ "$LANDUS
                -e "/!--GLCCv2_IN_DIR--/a GLCCv2_IN_DIR = \"${DIR_SRC_LANDUSE}/GLCCv2/Products\"," \
                -e "/!--LU100M_IN_DIR--/a LU100M_IN_DIR = \"${DIR_SRC_LANDUSE}/LU100M/Products\"," \
                -e "/!--COPYTOPO_IN_BASENAME--/a COPYTOPO_IN_BASENAME = \"${BDYTOPO}\"," \
-               -e "/!--LATLON_CATALOGUE_FNAME--/a LATLON_CATALOGUE_FNAME = \"${BDYCATALOGUE}\"," \
                -e "/!--OFFLINE_PARENT_BASENAME--/a OFFLINE_PARENT_BASENAME = \"${OFFLINE_PARENT_BASENAME}\"," \
                -e "/!--OFFLINE_PARENT_PRC_NUM_X--/a OFFLINE_PARENT_PRC_NUM_X = ${DATA_BDY_SCALE_PRC_NUM_X}," \
                -e "/!--OFFLINE_PARENT_PRC_NUM_Y--/a OFFLINE_PARENT_PRC_NUM_Y = ${DATA_BDY_SCALE_PRC_NUM_Y}," \
@@ -755,16 +752,12 @@ m=$1
 
           if ((BDY_FORMAT == 1)); then
             FILETYPE_ORG='SCALE-RM'
-            LATLON_CATALOGUE_FNAME="${DATA_TOPO_BDY_SCALE}/const/log/latlon_domain_catalogue.txt"
           elif ((BDY_FORMAT == 2)); then
             FILETYPE_ORG='WRF-ARW'
-            LATLON_CATALOGUE_FNAME=
           elif ((BDY_FORMAT == 4)); then
             FILETYPE_ORG='GrADS'
-            LATLON_CATALOGUE_FNAME=
           elif ((BDY_FORMAT == 5)); then
             FILETYPE_ORG=
-            LATLON_CATALOGUE_FNAME=
           else
             echo "[Error] $0: Unsupport boundary file types." >&2
             exit 1
@@ -822,8 +815,7 @@ m=$1
               conf="$(echo "$conf" | \
                   sed -e "/!--OFFLINE_PARENT_BASENAME--/a OFFLINE_PARENT_BASENAME = \"${TMPROOT_BDYDATA}/${mem_bdy}/bdyorg_$(datetime_scale $time_bdy_start_prev)_$(printf %05d 0)\"," \
                       -e "/!--OFFLINE_PARENT_PRC_NUM_X--/a OFFLINE_PARENT_PRC_NUM_X = ${DATA_BDY_SCALE_PRC_NUM_X}," \
-                      -e "/!--OFFLINE_PARENT_PRC_NUM_Y--/a OFFLINE_PARENT_PRC_NUM_Y = ${DATA_BDY_SCALE_PRC_NUM_Y}," \
-                      -e "/!--LATLON_CATALOGUE_FNAME--/a LATLON_CATALOGUE_FNAME = \"${LATLON_CATALOGUE_FNAME}\",")"
+                      -e "/!--OFFLINE_PARENT_PRC_NUM_Y--/a OFFLINE_PARENT_PRC_NUM_Y = ${DATA_BDY_SCALE_PRC_NUM_Y},")"
             fi
             conf="$(echo "$conf" | \
               sed -e "/!--BASENAME_ORG--/a BASENAME_ORG = \"${BASENAME_ORG}\"," \
@@ -894,11 +886,6 @@ m=$1
         else
           mem_bdy='mean'
         fi
-        DOMAIN_CATALOGUE_OUTPUT=".false."
-        if ((m == 1)); then
-          DOMAIN_CATALOGUE_OUTPUT=".true."
-          mkdir -p ${OUTDIR[$d]}/const/log
-        fi
 
         for d in $(seq $DOMNUM); do
           dfmt=$(printf $DOMAIN_FMT $d)
@@ -947,8 +934,6 @@ m=$1
                   -e "/!--FILE_HISTORY_DEFAULT_TINTERVAL--/a FILE_HISTORY_DEFAULT_TINTERVAL = ${FCSTOUT}.D0," \
                   -e "/!--MONITOR_OUT_BASENAME--/a MONITOR_OUT_BASENAME = \"${OUTDIR[$d]}/$time/log/fcst_scale/${name_m[$m]}_monitor_${time}\"," \
                   -e "/!--LAND_PROPERTY_IN_FILENAME--/a LAND_PROPERTY_IN_FILENAME = \"${CONSTDB_PATH}/land/param.bucket.conf\"," \
-                  -e "/!--DOMAIN_CATALOGUE_FNAME--/a DOMAIN_CATALOGUE_FNAME = \"latlon_domain_catalogue.txt\"," \
-                  -e "/!--DOMAIN_CATALOGUE_OUTPUT--/a DOMAIN_CATALOGUE_OUTPUT = ${DOMAIN_CATALOGUE_OUTPUT}," \
                   -e "/!--URBAN_DYN_KUSAKA01_PARAM_IN_FILENAME--/a  URBAN_DYN_KUSAKA01_PARAM_IN_FILENAME = \"${CONSTDB_PATH}/urban/param.kusaka01.dat\"," \
                   -e "/!--ATMOS_PHY_RD_MSTRN_GASPARA_IN_FILENAME--/a ATMOS_PHY_RD_MSTRN_GASPARA_IN_FILENAME = \"${CONSTDB_PATH}/rad/PARAG.29\"," \
                   -e "/!--ATMOS_PHY_RD_MSTRN_AEROPARA_IN_FILENAME--/a ATMOS_PHY_RD_MSTRN_AEROPARA_IN_FILENAME = \"${CONSTDB_PATH}/rad/PARAPC.29\"," \
@@ -958,8 +943,7 @@ m=$1
                   -e "/!--ATMOS_PHY_LT_LUT_FILENAME--/a ATMOS_PHY_LT_LUT_FILENAME = \"${CONSTDB_PATH}/lightning/LUT_TK1978_v.txt\",")"
           if ((d == 1)); then
         conf="$(echo "$conf" | \
-            sed -e "/!--ATMOS_BOUNDARY_IN_BASENAME--/a ATMOS_BOUNDARY_IN_BASENAME = \"${BOUNDARY_PATH[$d]}/${mem_bdy}/boundary\"," \
-                -e "/!--ATMOS_BOUNDARY_UPDATE_DT--/a ATMOS_BOUNDARY_UPDATE_DT = ${BDYINT}.D0," )"
+            sed -e "/!--ATMOS_BOUNDARY_IN_BASENAME--/a ATMOS_BOUNDARY_IN_BASENAME = \"${BOUNDARY_PATH[$d]}/${mem_bdy}/boundary\"," )"
           fi
           mkdir -p $CONFIG_DIR/f$(printf $MEMBER_FMT $m)
           mkdir -p $TMP/f$(printf $MEMBER_FMT $m)
