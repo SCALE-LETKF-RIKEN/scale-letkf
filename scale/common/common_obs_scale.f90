@@ -1981,11 +1981,10 @@ SUBROUTINE obs_da_value_allocate(obsda,member)
     allocate( obsda%tm (obsda%nobs) )
     allocate( obsda%pm (obsda%nobs) )
     allocate( obsda%qv (obsda%nobs) )
+    obsda%tm = 0.0d0
+    obsda%pm = 0.0d0
+    obsda%qv = 0.0d0
   end if
-
-  obsda%tm = 0.0d0
-  obsda%pm = 0.0d0
-  obsda%qv = 0.0d0
 
   if (member > 0) then
     ALLOCATE( obsda%ensval (member,obsda%nobs) )

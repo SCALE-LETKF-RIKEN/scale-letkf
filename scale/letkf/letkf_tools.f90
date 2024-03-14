@@ -141,7 +141,8 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
   do n = 2, nv3d+nv2d
     var_local_n2n_found = .false.
     do i = 1, var_local_n2nc_max
-      if (maxval(abs(var_local(var_local_n2nc(i),:) - var_local(n,:))) < tiny(var_local)) then
+!!      if (maxval(abs(var_local(var_local_n2nc(i),:) - var_local(n,:))) < tiny(var_local)) then
+      if (all (var_local(var_local_n2nc(i),:) - var_local(n,:) == 0.0d0)) then
         var_local_n2nc(n) = var_local_n2nc(i)
         var_local_n2n(n) = var_local_n2n(var_local_n2nc(n))
         var_local_n2n_found = .true.
@@ -1945,8 +1946,10 @@ subroutine obs_local_cal(ri, rj, rlev, rz, nvar, iob, ic, ndist, nrloc, nrdiag)
   ! Calculate (observation variance / localization)
   !
   nrdiag = obs(obset)%err(obidx) * obs(obset)%err(obidx) / nrloc
-  if ( RADAR_PQV .and. obelm == id_radar_ref_obs .and. obsda_sort%tm(iob) < 0.0d0 ) then
-    nrdiag = OBSERR_PQ**2 / nrloc
+  if ( RADAR_PQV ) then
+    if ( obelm == id_radar_ref_obs .and. obsda_sort%tm(iob) < 0.0d0 ) then
+      nrdiag = OBSERR_PQ**2 / nrloc
+    end if
   endif
 
   return
