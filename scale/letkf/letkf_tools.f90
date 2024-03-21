@@ -305,7 +305,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
   !
   ! MAIN ASSIMILATION LOOP
   !
-!$OMP DO SCHEDULE(DYNAMIC) COLLAPSE(2)
+!$OMP DO SCHEDULE(DYNAMIC)
   DO ilev=1,nlev
 
     DO ij=1,nij1
