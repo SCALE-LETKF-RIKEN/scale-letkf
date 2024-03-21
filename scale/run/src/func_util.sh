@@ -158,7 +158,8 @@ progdir=$(dirname $PROG)
 
 if [ "$SCALE_SYS" == 'Linux64-gnu-ompi' ] ; then
   
-  mpirun --mca btl openib,sm,self --bind-to core $PROG $CONF $STDOUT $ARGS
+#  mpirun --mca btl openib,sm,self --bind-to core $PROG $CONF $STDOUT $ARGS
+  mpirun --mca btl tcp,vader,self --bind-to core $PROG $CONF $STDOUT $ARGS
   if ((res != 0)); then
     echo "[Error] mpirun $PROG $CONF $STDOUT $ARGS" >&2
     echo "        Exit code: $res" >&2

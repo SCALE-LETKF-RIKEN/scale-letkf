@@ -41,7 +41,8 @@ MODULE common_obs_scale
   IMPLICIT NONE
   PUBLIC
 
-  INTEGER,PARAMETER :: nid_obs_varlocal=9 !H08
+  INTEGER,PARAMETER :: nid_obs_varlocal=8
+!  INTEGER,PARAMETER :: nid_obs_varlocal=9 !H08
 !
 ! conventional observations
 !
@@ -81,7 +82,8 @@ MODULE common_obs_scale
        'H08', 'TCX', 'TCY', 'TCP'/)
 
   CHARACTER(3),PARAMETER :: obelmlist_varlocal(nid_obs_varlocal)= &
-     (/'WND', '  T', 'MOI', ' PS', 'PRC', 'TCV', 'REF', ' Vr', 'H08'/)
+     (/'WND', '  T', 'MOI', ' PS', 'PRC', 'TCV', 'REF', ' Vr'/)
+!     (/'WND', '  T', 'MOI', ' PS', 'PRC', 'TCV', 'REF', ' Vr', 'H08'/)
 
   ! Parameter 'nobtype' is set in common_nml.f90
   CHARACTER(6),PARAMETER :: obtypelist(nobtype)= &
@@ -1981,11 +1983,10 @@ SUBROUTINE obs_da_value_allocate(obsda,member)
     allocate( obsda%tm (obsda%nobs) )
     allocate( obsda%pm (obsda%nobs) )
     allocate( obsda%qv (obsda%nobs) )
+    obsda%tm = 0.0d0
+    obsda%pm = 0.0d0
+    obsda%qv = 0.0d0
   end if
-
-  obsda%tm = 0.0d0
-  obsda%pm = 0.0d0
-  obsda%qv = 0.0d0
 
   if (member > 0) then
     ALLOCATE( obsda%ensval (member,obsda%nobs) )

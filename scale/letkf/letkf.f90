@@ -226,7 +226,7 @@ PROGRAM letkf
 !-----------------------------------------------------------------------
 
   if ( myrank == 0 ) then
-    write(6,'(a)') 'letkf finished sucessfully'
+    write(6,'(a)') 'letkf finished successfully'
   endif
 
   call finalize_mpi_scale

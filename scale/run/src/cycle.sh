@@ -373,7 +373,7 @@ while ((time <= ETIME)); do
         mpirunf ${nodestr} ${stepexecbin[$s]} $TMPROOT/config/${stepexecname[$s]}_${conf_time}.conf ${logd}/NOUT_${conf_time} || exit $?
         if [ "$PRESET" = 'FUGAKU' ] ; then
           mpiexec_cnt=$((mpiexec_cnt+1))
-          grep 'finished sucessfully' ${logd_org}/0/NOUT_${conf_time}.${mpiexec_cnt}.0 >/dev/null || exit 1 
+          grep 'finished successfully' ${logd_org}/0/NOUT_${conf_time}.${mpiexec_cnt}.0 >/dev/null || exit 1 
         fi
 
         echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: end" >&2

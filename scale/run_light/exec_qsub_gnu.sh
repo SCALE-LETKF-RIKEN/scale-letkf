@@ -18,12 +18,11 @@ module unload hdf5/1.8.16-intel
 module unload netcdf4/4.3.3.1-intel
 module unload netcdf4/fortran-4.4.2-intel
 module load gcc/5.3.0
-module load openmpi/4.1.5-gcc
-module load hdf5/1.8.16
+module load openmpi/2.1.6-gcc
+module load hdf5/1.10.8
 module load netcdf4/4.6.2
 module load netcdf4/fortran-4.4.5
 module load lapack/3.6.0
-
 
 export OMP_NUM_THREADS=1
 export KMP_AFFINITY=compact

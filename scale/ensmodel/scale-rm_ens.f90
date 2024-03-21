@@ -161,7 +161,7 @@ program scaleles_ens
 !-----------------------------------------------------------------------
 
   if ( myrank == 0 ) then
-    write(6,'(a)') 'scale_rm_ens finished sucessfully'
+    write(6,'(a)') 'scale_rm_ens finished successfully'
   endif
 
 !  call PRC_MPIfinish
