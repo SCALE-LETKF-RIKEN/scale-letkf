@@ -294,7 +294,7 @@ enddo
 !-----------------------------------------------------------------------
 
   if ( myrank == 0 ) then
-    write(6,'(a)') 'efso finished sucessfully'
+    write(6,'(a)') 'efso finished successfully'
   endif
 
   CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)

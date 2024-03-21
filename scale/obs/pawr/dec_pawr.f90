@@ -109,6 +109,10 @@ PROGRAM dec_pawr
 ! Finalize
 !-----------------------------------------------------------------------
 
+  if ( myrank == 0 ) then
+    write(6,'(a)') 'dec_pawr finished successfully'
+  endif
+
   call mpi_timer('FINALIZE', 1, barrier=MPI_COMM_u)
 
   call finalize_mpi_scale
