@@ -240,6 +240,7 @@ MODULE common_nml
   real(r_size) :: VAR_LOCAL_TC(nv3d+nv2d)        = 1.0d0
   real(r_size) :: VAR_LOCAL_RADAR_REF(nv3d+nv2d) = 1.0d0
   real(r_size) :: VAR_LOCAL_RADAR_VR(nv3d+nv2d)  = 1.0d0
+!  real(r_size) :: VAR_LOCAL_H08(nv3d+nv2d)       = 1.0d0
 
   !--- PARAM_LETKF_MONITOR
   logical :: DEPARTURE_STAT = .true.

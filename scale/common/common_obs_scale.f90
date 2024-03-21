@@ -41,7 +41,8 @@ MODULE common_obs_scale
   IMPLICIT NONE
   PUBLIC
 
-  INTEGER,PARAMETER :: nid_obs_varlocal=9 !H08
+  INTEGER,PARAMETER :: nid_obs_varlocal=8
+!  INTEGER,PARAMETER :: nid_obs_varlocal=9 !H08
 !
 ! conventional observations
 !
@@ -81,7 +82,8 @@ MODULE common_obs_scale
        'H08', 'TCX', 'TCY', 'TCP'/)
 
   CHARACTER(3),PARAMETER :: obelmlist_varlocal(nid_obs_varlocal)= &
-     (/'WND', '  T', 'MOI', ' PS', 'PRC', 'TCV', 'REF', ' Vr', 'H08'/)
+     (/'WND', '  T', 'MOI', ' PS', 'PRC', 'TCV', 'REF', ' Vr'/)
+!     (/'WND', '  T', 'MOI', ' PS', 'PRC', 'TCV', 'REF', ' Vr', 'H08'/)
 
   ! Parameter 'nobtype' is set in common_nml.f90
   CHARACTER(6),PARAMETER :: obtypelist(nobtype)= &

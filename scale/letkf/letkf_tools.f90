@@ -78,7 +78,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
   integer :: var_local_n2nc(nv3d+nv2d)
   integer :: var_local_n2n(nv3d+nv2d)
   logical :: var_local_n2n_found
-  integer :: n2n, n2nc
+  integer :: n2n, n2nc, idx_n2nc
 
   real(r_size) :: parm
   real(r_size),allocatable :: trans(:,:,:)
@@ -135,16 +135,19 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
   var_local(:,6) = VAR_LOCAL_TC(:)
   var_local(:,7) = VAR_LOCAL_RADAR_REF(:)
   var_local(:,8) = VAR_LOCAL_RADAR_VR(:)
+!  var_local(:,9) = VAR_LOCAL_H08(:)
+
   var_local_n2nc_max = 1
   var_local_n2nc(1) = 1
   var_local_n2n(1) = 1
   do n = 2, nv3d+nv2d
     var_local_n2n_found = .false.
     do i = 1, var_local_n2nc_max
-!!      if (maxval(abs(var_local(var_local_n2nc(i),:) - var_local(n,:))) < tiny(var_local)) then
-      if (all (var_local(var_local_n2nc(i),:) - var_local(n,:) == 0.0d0)) then
-        var_local_n2nc(n) = var_local_n2nc(i)
-        var_local_n2n(n) = var_local_n2n(var_local_n2nc(n))
+      !idx_n2nc = findloc(var_local_n2nc(1:n-1),i,dim=1)
+      idx_n2nc = maxloc(var_local_n2nc(1:n-1),dim=1,mask=(var_local_n2nc(1:n-1)==i)) !!! alternative to findloc
+      if (maxval(abs(var_local(idx_n2nc,:) - var_local(n,:))) < tiny(var_local(1,1))) then
+        var_local_n2nc(n) = var_local_n2nc(idx_n2nc)
+        var_local_n2n(n) = idx_n2nc
         var_local_n2n_found = .true.
         exit
       end if
