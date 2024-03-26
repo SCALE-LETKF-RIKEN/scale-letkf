@@ -14,7 +14,7 @@ BASETIME='20000101000000' ### nature/hist/history.pe000000.nc
 FCSTOUT=300
 
 
-OBSIN=$SCRP_DIR/make_obsin/test.dat
+OBSIN=$SCRP_DIR/make_obsin/test_obs_3d_radar.dat
 OBS_IN_FORMAT="RADAR"
 
 #===============================================================================

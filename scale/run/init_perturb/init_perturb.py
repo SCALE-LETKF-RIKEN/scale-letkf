@@ -10,9 +10,12 @@ if len(sys.argv) <= 1:
     sys.exit("\nUsage: {:s} BASE_FILE\n".format(sys.argv[0]))
 initialfile = sys.argv[1]
 
-wavel1 =  50000.
-wavel2 = 200000.
-dx = 2000.
+wavel1 =  500000.
+wavel2 = 2000000.
+dx = 200000.
+#wavel1 =  8000.
+#wavel2 = 32000.
+#dx = 2000.
 zheight = 16000.
 taper_width = 10
 taper_mtop = 10
