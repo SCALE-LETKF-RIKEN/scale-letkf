@@ -693,6 +693,7 @@ SUBROUTINE obsmake_cal(obs)
           obs(iof)%err(n) = OBSERR_RADAR_REF
         case(id_radar_vr_obs)
           obs(iof)%err(n) = OBSERR_RADAR_VR
+        case default
           write(6,'(A)') '[Warning] skip assigning observation error (unsupported observation type)'
         end select
 
