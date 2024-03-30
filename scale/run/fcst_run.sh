@@ -90,8 +90,7 @@ safe_init_tmpdir $STAGING_DIR || exit $?
 staging_list_static || exit $?
 config_file_list $TMPS/config || exit $?
 
-#NNODES_USE=$(( fmember * ( SCALE_NP / PPN ) ))
-NNODES_USE=$NNODES
+NNODES_USE=$(( fmember * ( SCALE_NP / PPN ) ))
 echo "NNODES=$NNODES_USE" >> $TMP/config.main
 
 #-------------------------------------------------------------------------------
@@ -100,6 +99,7 @@ echo "NNODES=$NNODES_USE" >> $TMP/config.main
 cp ${SCRP_DIR}/config.rc $TMP/config.rc
 cp ${SCRP_DIR}/config.${job} $TMP/config.${job}
 cp ${SCRP_DIR}/src/${job}.sh $TMP/${job}.sh
+cp ${SCRP_DIR}/src/copy_restart_mpi.sh $TMP/copy_restart_mpi.sh
 cp -r ${SCRP_DIR}/src $TMP/src
 
 #===============================================================================
