@@ -666,11 +666,17 @@ SUBROUTINE obsmake_cal(obs)
 
     call com_randn(nobsall, error) ! generate all random numbers at the same time
     ns = 0
+  else
+    allocate ( bufr(1) )
   end if
 
   do iof = 1, OBS_IN_NUM
 
-    call MPI_REDUCE(obs(iof)%dat,bufr(1:obs(iof)%nobs),obs(iof)%nobs,MPI_r_size,MPI_SUM,0,MPI_COMM_d,ierr)
+    if (myrank_d == 0) then
+      call MPI_REDUCE(obs(iof)%dat,bufr(1:obs(iof)%nobs),obs(iof)%nobs,MPI_r_size,MPI_SUM,0,MPI_COMM_d,ierr)
+    else
+      call MPI_REDUCE(obs(iof)%dat,bufr(1:1),obs(iof)%nobs,MPI_r_size,MPI_SUM,0,MPI_COMM_d,ierr)
+    end if
 
     if (myrank_d == 0) then
       obs(iof)%dat = bufr(1:obs(iof)%nobs)
@@ -723,6 +729,8 @@ SUBROUTINE obsmake_cal(obs)
     deallocate ( error )
 
     call write_obs_all(obs, missing=.false., file_suffix='.out') ! only at the head node
+  else
+    deallocate ( bufr )
   end if
 
 end subroutine obsmake_cal
