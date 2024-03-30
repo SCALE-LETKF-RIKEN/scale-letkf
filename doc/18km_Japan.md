@@ -37,6 +37,14 @@ There is an option to use different boundary conditions for different members, b
 
 ## Run a data assimilation cycle
 
+Copy files in `run/config/18km_Japan` to `run` .  
+```
+cd scale/run
+cp -r config/18km_Japan/* . 
+ln -s config.main.FUGAKU config.main  ### Fugaku
+ln -s config.main.Linux_torque config.main  ### hibuna
+```
+
 The main settings are in `config.cycle`. Make sure that `MAKEINIT=0` as this experiment uses a pre-made initial ensemble. `STIME` is the initial time to start the first cycle, and `ETIME` is for the last cycle. If they are same, only one cycle is performed.
 
 ```

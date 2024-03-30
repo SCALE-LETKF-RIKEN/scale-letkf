@@ -22,8 +22,8 @@ Copy directories and files in `run/config/supercell` to `run` .
 ```
 cd scale/run
 cp -r config/supercell/* . 
-mv config.main.Fugaku config.main  ### Fugaku
-mv config.main.Linux_torque config.main  ### hibuna
+ln -s config.main.FUGAKU config.main  ### Fugaku
+ln -s config.main.Linux_torque config.main  ### hibuna
 ```
 
 Edit `run/config.main` to setup the output path where experiment results are stored. 

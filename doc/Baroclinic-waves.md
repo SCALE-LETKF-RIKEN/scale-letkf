@@ -22,6 +22,8 @@ Copy directories and files in `run/config/barocwave` to `run` .
 ```
 cd scale/run
 cp -r config/barocwave/* . 
+ln -s config.main.FUGAKU config.main  ### Fugaku
+ln -s config.main.Linux_torque config.main  ### hibuna
 ```
 
 Compile scale-rm with the user-defined module `Ullich15_ext/mod_user.F90`. 
@@ -86,6 +88,13 @@ Resultant initial files will be created in the path specified by `$OUTDIR`. Rena
 cd ../../../../result/barocwave ### $OUTDIR
 mkdir refstate
 for pe in `seq -f %06g 0 39` ; do mv 20000101000000/anal/mean/init_20000101-000000.000.pe${pe}.nc refstate/refstate.pe${pe}.nc; done
+```
+
+Set the namelist parameter REFSTATE_IN_BASENAME in `run/config.nml.scale_user` to the path of the refstate files. 
+```
+&PARAM_USER
+...
+ REFSTATE_IN_BASENAME="(your $OUTDIR)/refstate/refstate",
 ```
 
 ### Spinup

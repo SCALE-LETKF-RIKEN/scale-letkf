@@ -64,6 +64,14 @@ Use GNU make with this setting and make a binary `scale/obs/dec_pawr`.
 
 ## Run a data assimilation cycle with formatted PAWR data 
 
+Copy directories and files in `run/config/PAWR_Saitama` to `run` .  
+```
+cd scale/run
+cp -r config/PAWR_Saitama/* . 
+ln -s config.main.FUGAKU config.main  ### Fugaku
+ln -s config.main.Linux_torque config.main  ### hibuna
+```
+
 The common configurations shared between data assimilation and forecast experiments are set in `config.main`. The important settings in this testcase are shown below.   
 Input data directory `$INDIR` and topography, landuse data directories `$DATA_TOPO`, `$DATA_LANDUSE` are all set to `$OUTDIR`, even though `$OUTDIR` does not exist. This means the tasks to create those files are all included in the data assimilation cycle. To ensure this, `TOPO_FORMAT='DEM50M'` and `LANDUSE_FORMAT='LU100M'` are set, instead of 'prep'. The source data for initial and boundary files is in `DATA_BDY_SCALE`. `BDY_FORMAT=1` indicates that it is the output of another SCALE-RM forecast with a wider domain. `BDYINT=600` and `BDYCYCLE_INT=32400` indicates the time interval and total length of that data. Finally, `BDY_ENS=1` indicates that those boundary source data is an ensemble forecast data and each member uses the corresponding member of the source data.   
 
