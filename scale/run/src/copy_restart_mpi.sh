@@ -34,6 +34,6 @@ if [ -f $ifile ]; then
 #  echo "===CHECK=== $GLOBAL_RANK $imem $ipe copy file from $ifile to $ofile" > check.$GLOBAL_RANK
   mkdir -p $(dirname $ofile) 
   cp $ifile $ofile 
-else
+#else
 #  echo "===CHECK=== $GLOBAL_RANK $imem $ipe no file $ifile > check.$GLOBAL_RANK"
 fi
