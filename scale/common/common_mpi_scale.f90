@@ -1016,10 +1016,26 @@ subroutine unset_scalelib
     IO_FID_LOG, &
     IO_L, &
     IO_FID_STDOUT
+  use scale_prc_cartesC, only: &
+       PRC_CARTESC_finalize
+  use scale_comm_cartesC, only: &
+       COMM_finalize
+  use scale_comm_cartesC_nest, only: &
+       COMM_CARTESC_NEST_finalize
+ 
   implicit none
   integer :: ierr
 
   if (myrank_use) then
+
+    call COMM_CARTESC_NEST_finalize
+
+    call COMM_CARTESC_NEST_finalize
+
+    call COMM_finalize
+
+    call PRC_CARTESC_finalize
+
 !    call MONIT_finalize
     call FILE_Close_All
 
