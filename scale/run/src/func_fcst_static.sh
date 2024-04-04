@@ -750,10 +750,8 @@ m=$1
             mem_bdy='mean'
           fi
 
-          if ((BDY_FORMAT == 1)); then
-            FILETYPE_ORG='SCALE-RM'
-          elif ((BDY_FORMAT == 2)); then
-            FILETYPE_ORG='WRF-ARW'
+          if ((BDY_FORMAT == 1 || BDY_FORMAT == 2)); then
+            FILETYPE_ORG='NetCDF'
           elif ((BDY_FORMAT == 4)); then
             FILETYPE_ORG='GrADS'
           elif ((BDY_FORMAT == 5)); then
@@ -811,12 +809,6 @@ m=$1
                     -e "/!--TOPOGRAPHY_IN_BASENAME--/a TOPOGRAPHY_IN_BASENAME = \"${TOPO_PATH}/topo/topo\"," \
                     -e "/!--LANDUSE_IN_BASENAME--/a LANDUSE_IN_BASENAME = \"${LANDUSE_PATH}/landuse/landuse\"," \
                     -e "/!--LAND_PROPERTY_IN_FILENAME--/a LAND_PROPERTY_IN_FILENAME = \"${CONSTDB_PATH}/land/param.bucket.conf\",")"
-            if ((BDY_FORMAT == 1)); then
-              conf="$(echo "$conf" | \
-                  sed -e "/!--OFFLINE_PARENT_BASENAME--/a OFFLINE_PARENT_BASENAME = \"${TMPROOT_BDYDATA}/${mem_bdy}/bdyorg_$(datetime_scale $time_bdy_start_prev)_$(printf %05d 0)\"," \
-                      -e "/!--OFFLINE_PARENT_PRC_NUM_X--/a OFFLINE_PARENT_PRC_NUM_X = ${DATA_BDY_SCALE_PRC_NUM_X}," \
-                      -e "/!--OFFLINE_PARENT_PRC_NUM_Y--/a OFFLINE_PARENT_PRC_NUM_Y = ${DATA_BDY_SCALE_PRC_NUM_Y},")"
-            fi
             conf="$(echo "$conf" | \
               sed -e "/!--BASENAME_ORG--/a BASENAME_ORG = \"${BASENAME_ORG}\"," \
                   -e "/!--FILETYPE_ORG--/a FILETYPE_ORG = \"${FILETYPE_ORG}\"," \

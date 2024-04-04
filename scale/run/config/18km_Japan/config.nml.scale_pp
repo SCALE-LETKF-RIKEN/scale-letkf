@@ -73,9 +73,6 @@ GLCCv2_IN_DIR = "/work/hp150019/share/database/landuse/GLCCv2/Products/"
 !--LU100M_IN_DIR--
 /
 
-&PARAM_COMM_CARTESC_NEST
-/
-
 #################################################
 #
 # model configuration: process

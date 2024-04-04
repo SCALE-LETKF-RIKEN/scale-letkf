@@ -5,15 +5,18 @@ Before compiling the SCALE-LETKF, set the following environmental variables as b
 
 ```bash
 ### hibuna
-export SCALE_SYS="Linux64-intel-impi"
+export SCALE_SYS="Linux64-gnu-ompi"
 export SCALE_DB="/home/amemiya/scale_database" ### or your own directory
 export SCALE_ENABLE_OPENMP=F
-export SCALE_NETCDF_INCLUDE="-I/home/seiya/include -I/ap/HDF5/1.8.16-intel/include"
-export SCALE_NETCDF_LIBS="-L/home/seiya/lib -L/ap/HDF5/1.8.16-intel/lib -lnetcdff -lnetcdf"
+export SCALE_ENABLE_PNETCDF=F
+export SCALE_NETCDF_INCLUDE="-I/home/seiya/include -I/ap/HDF5/1.8.16/include"
+export SCALE_NETCDF_LIBS="-L/home/seiya/lib -L/ap/HDF5/1.8.16/lib -lnetcdff -lnetcdf"
 ### Fugaku
+export GROUP=<your group number> ### not Fugaku but hpXXXXXX or raXXXXXX
 export SCALE_SYS="FUGAKU"
 export SCALE_DB=<path to your directory> ### your own directory
 export SCALE_ENABLE_OPENMP=T
+export SCALE_ENABLE_PNETCDF=F
 ```
 
 The following environmental variables are optional and not nesessary. 
@@ -43,6 +46,7 @@ make -j
 
 For more information, please refer to [SCALE user's guide](https://scale.riken.jp/documents/). 
 
+<!--
 **For fugaku users:**
 If you have errors about loading spack in compilation, change `sysdep/Makedef.FUGAKU` as follows. 
 
@@ -52,7 +56,7 @@ If you have errors about loading spack in compilation, change `sysdep/Makedef.FU
  SCALE_PNETCDF ?= $(shell spack location --install-dir parallel-netcdf%fj@$(SPACK_FJVER))
  SCALE_HDF ?= $(shell spack location --install-dir hdf5%fj@$(SPACK_FJVER)+hl~fortran)
 ```
-
+-->
 ## Compile SCALE-LETKF
 
 ```bash
@@ -65,11 +69,15 @@ Compile options are in `arch/configure.${SCALE_SYS}`.
 ```make:configure.FUGAKU
 # Precision
 LETKF_SINGLE_FP = F
+
 # MP-PAWR decoder
-USE_PAWR_DECODER = T
-ENABLE_SAITAMA_MPW = T
-#ENABLE_SAITAMA_MPW = F
+
+USE_PAWR_DECODER = F
+
+ENABLE_SAITAMA_MPW = F
 ``` 
+
+**Note** The PAWR decoder is usually not used. If you enable it, you need to use it along with the [alternative version of SCALE](https://github.com/scale-met/scale-dev/tree/5.5.x_LETKF), otherwise you get errors in compilation.  
 
 Check if all the binary files are created after the compilation. 
 

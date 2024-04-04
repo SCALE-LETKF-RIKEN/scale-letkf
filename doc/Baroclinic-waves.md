@@ -14,7 +14,7 @@ The figure below shows the snapshot of RHOT at 2500m height level after long int
 
 The model replicates the concept of spatiotemporal chaos in which initial perturbation grows with time, until the limit of predictability is reached. The basic properties of the strange attractor such as Lyapunov exponents can be obtained by integrating the model for sufficiently long period. In this sense, this model is analogous to Lorenz(1996) conceptual model and Held-Suarez(1994) global model.  
 
-The prognostic state variables are MOMX, MOMY, MOMZ, and RHOT. In most cases, we sould analyse horizontal winds and temperature (U, V, T).
+The prognostic state variables are DENS, MOMX, MOMY, MOMZ, and RHOT. In most cases, we analyse horizontal winds and temperature (U, V, T).
 
 ## Setup 
 
@@ -22,6 +22,8 @@ Copy directories and files in `run/config/barocwave` to `run` .
 ```
 cd scale/run
 cp -r config/barocwave/* . 
+ln -s config.main.FUGAKU config.main  ### Fugaku
+ln -s config.main.Linux_torque config.main  ### hibuna
 ```
 
 Compile scale-rm with the user-defined module `Ullich15_ext/mod_user.F90`. 
@@ -86,6 +88,13 @@ Resultant initial files will be created in the path specified by `$OUTDIR`. Rena
 cd ../../../../result/barocwave ### $OUTDIR
 mkdir refstate
 for pe in `seq -f %06g 0 39` ; do mv 20000101000000/anal/mean/init_20000101-000000.000.pe${pe}.nc refstate/refstate.pe${pe}.nc; done
+```
+
+Set the namelist parameter REFSTATE_IN_BASENAME in `run/config.nml.scale_user` to the path of the refstate files. 
+```
+&PARAM_USER
+...
+ REFSTATE_IN_BASENAME="(your $OUTDIR)/refstate/refstate",
 ```
 
 ### Spinup
@@ -206,7 +215,7 @@ gfortran common_ncio.f90 sample_3dgrid_xyp.f90 -lnetcdf -lnetcdff -I (netcdf-for
 ./a.out
 ```
 
-The format of the output file 'test_obs_3d_xyp.dat' is the same as the LETKF observation files, including information such as location, type, error standard deviation of each observation. The data part is filled with dummy values. See also [Observation file format](Observation-file-format).  
+The format of the output file 'test_obs_3d_xyp.dat' is the same as the LETKF observation files, including information such as location, type, error standard deviation of each observation. The data part is filled with dummy values. See also [Observation file format](Observation-file-format.md).  
 
 Edit `config.obsmake`. The observation files will be created every `$FCSTOUT` seconds from `$STIME` to `$ETIME`. Observation of U, V, T are created from the data in `$OUTPUT/nature/hist/` with additive noise which have a standard deviation specified by namelist parameters such as `OBSERR_U` of PARAM_OBS_ERR. 
 ```

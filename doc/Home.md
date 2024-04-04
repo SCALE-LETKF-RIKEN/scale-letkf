@@ -33,9 +33,11 @@ Input data sets to run the testcases are loacated in the following directories.
 
 * [Baroclinic waves](Baroclinic-waves.md)
 
+* [Supercell](Supercell.md)
+
 ### Real experiments
 
-* [PREPBUFR DA for Japan area](18km_Japan)
+* [PREPBUFR DA for Japan area](18km_Japan.md)
 
 * [PAWR DA](PAWR-DA.md)
 

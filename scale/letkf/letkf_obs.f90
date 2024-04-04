@@ -938,15 +938,11 @@ SUBROUTINE set_letkf_obs
     call mpi_timer('set_letkf_obs:mpi_allgatherv:', 2)
   end if ! [ nctype > 0 ]
 
-  write(6,*) "===CHECK=== before obs_da_value_allocate",myrank_e,myrank_d 
-
   ! 3) Copy observation data within the extended (localization) subdomains
   !    from receive buffer (obsbufr) to obsda_sort; rearrange with sorted order
   !-----------------------------------------------------------------------------
   obsda_sort%nobs = nobstotal
   call obs_da_value_allocate(obsda_sort, nensobs)
-
-  write(6,*) "===CHECK=== after obs_da_value_allocate",myrank_e,myrank_d 
 
 !$OMP PARALLEL DO SCHEDULE(STATIC) PRIVATE(ip,ip_i,ip_j,ictype,imin1,imax1,jmin1,jmax1,imin2,imax2,jmin2,jmax2,ishift,jshift,j,ns_ext,ne_ext,ns_bufr,ne_bufr)
   do ip = 0, nprocs_d-1
@@ -996,8 +992,6 @@ SUBROUTINE set_letkf_obs
   end do ! [ ip = 0, nprocs_d-1 ]
 !$OMP END PARALLEL DO
 
-  write(6,*) "===CHECK=== after omp loop",myrank_e,myrank_d 
-
   ! Save the keys of observations within the subdomain (excluding the localization buffer area)
   obsda_sort%nobs_in_key = 0
   do ictype = 1, nctype
@@ -1011,8 +1005,6 @@ SUBROUTINE set_letkf_obs
     deallocate (obsgrd(ictype)%ac)
     deallocate (obsgrd(ictype)%n_ext)
   end do ! [ ictype = 1, nctype ]
-
-  write(6,*) "===CHECK=== after obs_choose_ext",myrank_e,myrank_d 
 
   if (nctype > 0) then
     call obs_da_value_deallocate(obsbufr)

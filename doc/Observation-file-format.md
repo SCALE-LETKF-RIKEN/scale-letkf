@@ -23,13 +23,13 @@ The contents are as follows.
 
 | Record # | Type | Description |
 | --- | --- | --- |
-| 1 | float | Observation variable (integer code defined in [common_obs_scale.f90](https://github.com/SCALE-LETKF-RIKEN/scale-letkf/blob/develop/scale/common/common_obs_scale.f90#L48)) |
+| 1 | float | Observation variable (integer code defined in [common_obs_scale.f90](../scale/common/common_obs_scale.f90#L49)) |
 | 2 | float | Longitude (degree) |
 | 3 | float | Latitude (degree) |
-| 4 | float | Vertical level (hPa) , or surface elevation (m) in the case of surface pressure observation |
+| 4 | float | Vertical level (hPa) , or surface elevation (m) - see [note on vertical coordinate](Note-on-vertical-coordinate.md) |
 | 5 | float | Observed value |
 | 6 | float | Observation error standard deviation |
-| 7 | float | Observation type (integer code defined in [common_obs_scale.f90](https://github.com/SCALE-LETKF-RIKEN/scale-letkf/blob/develop/scale/common/common_obs_scale.f90#L87)) |
+| 7 | float | Observation type (integer code defined in [common_obs_scale.f90](../scale/common/common_obs_scale.f90#L89)) |
 | 8 | float | Difference of observation time from the target time of data assimilation (second) |
 
 

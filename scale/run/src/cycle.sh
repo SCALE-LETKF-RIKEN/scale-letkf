@@ -285,40 +285,44 @@ while ((time <= ETIME)); do
       if ((s == 5)); then
         logd=$OUTDIR/$atime/log/letkf
         BGDIR=$OUTDIR/$atime
-        if ((ANAL_LLIO_TMP==1)) && ((atime <= ETIME)) ;then
+        if ((ANAL_LLIO_TMP == 1)) && ((atime <= ETIME)) ;then
           BGDIR=/local/$atime
           mkdir -p $OUTDIR/$atime/anal/mean
-          cp -r $BGDIR/anal/mean/* $OUTDIR/$atime/anal/mean/
           if ((OUT_OPT <= 4)) ;then
-            for mem in $(seq -f %04g $MEMBER) ; do
-              mkdir -p $OUTDIR/$atime/anal/$mem
-              cp -r $BGDIR/anal/$mem/* $OUTDIR/$atime/anal/$mem/
-            done
+            mpiexec -n $((NNODES*PPN)) ./copy_restart_mpi.sh $BGDIR/anal $OUTDIR/$atime/anal $atime
+            mpiexec_cnt=$((mpiexec_cnt+1))
+#            for mem in $(seq -f %04g $MEMBER) ; do
+#              mkdir -p $OUTDIR/$atime/anal/$mem
+#              cp -r $BGDIR/anal/$mem/* $OUTDIR/$atime/anal/$mem/
+#            done
+          else
+            cp -r $BGDIR/anal/mean/* $OUTDIR/$atime/anal/mean/
           fi
         fi
-        if ((SPRD_OUT==1)); then
+        if ((SPRD_OUT == 1)); then
             mkdir -p $OUTDIR/$atime/anal/sprd
+            mkdir -p $OUTDIR/$atime/gues/sprd
             cp -r $BGDIR/anal/mean/* $OUTDIR/$atime/anal/sprd/ 
-            mnsp="mean sprd"
-        else
-            mnsp="mean"
+            cp -r $BGDIR/anal/mean/* $OUTDIR/$atime/gues/sprd/ 
         fi
         if ((EFSO_RUN == 1)) ;then
-          for mem in $(seq -f %04g $MEMBER) $mnsp ; do
-            mkdir -p $BGDIR/gues/$mem
-            cp -r $BGDIR/anal/$mem/* $BGDIR/gues/$mem/
-          done
+          mpiexec -n $((NNODES*PPN)) ./copy_restart_mpi.sh $BGDIR/anal $BGDIR/gues $atime
+          mpiexec_cnt=$((mpiexec_cnt+1))
+#          for mem in $(seq -f %04g $MEMBER) $mnsp ; do
+#            mkdir -p $BGDIR/gues/$mem
+#            cp -r $BGDIR/anal/$mem/* $BGDIR/gues/$mem/
+#          done
         fi
         if ((OUT_OPT <= 3)) ;then
-          for mem in $(seq -f %04g $MEMBER) $mnsp ; do
-            mkdir -p $OUTDIR/$atime/gues/$mem
-            cp -r $BGDIR/anal/$mem/* $OUTDIR/$atime/gues/$mem/
-          done
+          mpiexec -n $((NNODES*PPN)) ./copy_restart_mpi.sh $BGDIR/anal $OUTDIR/$atime/gues $atime
+          mpiexec_cnt=$((mpiexec_cnt+1))
+#           for mem in $(seq -f %04g $MEMBER) $mnsp ; do
+#            mkdir -p $OUTDIR/$atime/gues/$mem
+#            cp -r $BGDIR/anal/$mem/* $OUTDIR/$atime/gues/$mem/
+#          done
         elif ((OUT_OPT <= 6)) ;then
-          for mem in $mnsp ;do
-            mkdir -p $OUTDIR/$atime/gues/$mem
-            cp -r $BGDIR/anal/$mem/* $OUTDIR/$atime/gues/$mem/ 
-          done       
+            mkdir -p $OUTDIR/$atime/gues/mean
+            cp -r $BGDIR/anal/mean/* $OUTDIR/$atime/gues/mean/ 
         fi
         if ((NOBS_OUT==1)); then
           for pe in $(seq -f %06g 0 $((SCALE_NP-1)) ) ;do

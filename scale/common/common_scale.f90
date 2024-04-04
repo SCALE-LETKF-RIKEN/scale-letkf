@@ -1033,8 +1033,12 @@ subroutine read_history(filename,step,v3dg,v2dg)
                     rankid=PRC_myrank,     & ! [IN]
                     step=step_             ) ! [IN]
     else
-      write(6,'(A,A15,A)') " 3D var ", trim(v3dd_name(iv3d))," not found. stop!"
-      stop
+      write(6,'(A,A15,A)') " 3D var ", trim(v3dd_name(iv3d))," not found."
+      if ( FILL_BY_ZERO_MISSING_VARAIBLES ) then
+        var3D(:,:,:) = 0.0_RP
+      else
+        stop
+      endif
     end if
 
     forall (i=1:nlon, j=1:nlat, k=1:nlev) v3dg_RP(k+KHALO,i+IHALO,j+JHALO,iv3d) = var3D(i,j,k) ! use FORALL to change order of dimensions
@@ -1065,10 +1069,13 @@ subroutine read_history(filename,step,v3dg,v2dg)
                     rankid=PRC_myrank,     & ! [IN]
                     step=step_             ) ! [IN]
     else
-      write(6,'(A,A15,A)') " 2D var ", trim(v2dd_name(iv2d))," not found. stop!"
-      stop
+      write(6,'(A,A15,A)') " 2D var ", trim(v2dd_name(iv2d))," not found."
+      if ( FILL_BY_ZERO_MISSING_VARAIBLES ) then
+        var2D(:,:) = 0.0_RP
+      else
+        stop
+      endif
     end if
-
 
     v2dg_RP(IS:IE,JS:JE,iv2d) = var2D(:,:)
   end do

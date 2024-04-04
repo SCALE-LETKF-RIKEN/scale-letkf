@@ -90,6 +90,7 @@ config_file_list $TMPS/config || exit $?
 # Add shell scripts and node distribution files into the staging list
 
 cp ${SCRP_DIR}/src/${job}.sh ${TMP}/
+cp ${SCRP_DIR}/src/copy_restart_mpi.sh ${TMP}/
 cp -r ${SCRP_DIR}/src ${TMP}/
 
 #===============================================================================
