@@ -463,7 +463,7 @@ SUBROUTINE set_letkf_obs
 
 
       if ( HIM_ADDITIVE_Y18 ) then
-        if ( mem_ref < HIM_ADDITIVE_Y18_MINMEM ) then
+        if ( mem_ref < HIM_ADDITIVE_Y18_MINMEM .and. obs(iof)%dat(iidx) < HIM_CLD_THRS( nint(obs(iof)%lev(iidx)) ) ) then
           ! *Ensemble mean of obsda%epert should be zero
           obsda%ensval(1:MEMBER,n) = obsda%epert(1:MEMBER,n) + HIM_CLD_THRS( nint(obs(iof)%lev(iidx)) )
           obsda%qc(n) = iqc_good
