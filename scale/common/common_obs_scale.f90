@@ -2040,7 +2040,7 @@ SUBROUTINE get_nobs(cfile,nrec,nn)
   INTEGER,INTENT(IN) :: nrec
   INTEGER,INTENT(OUT) :: nn
   REAL(r_sngl),ALLOCATABLE :: wk(:)
-!  INTEGER :: ios
+  INTEGER :: ios
 !  INTEGER :: iu,iv,it,iq,irh,ips,itc
   INTEGER :: iunit
   LOGICAL :: ex
@@ -2088,9 +2088,24 @@ SUBROUTINE get_nobs(cfile,nrec,nn)
 !-----------------------------
     INQUIRE(UNIT=iunit, SIZE=sz)
     IF (MOD(sz, r_sngl * (nrec+2)) /= 0) THEN
-      WRITE(6,'(3A)') '[Warning]',cfile,': Reading error -- skipped'
-      RETURN
+!      WRITE(6,'(3A)') '[Warning]',cfile,': Reading error -- skipped'
+!      RETURN
+      WRITE(6,'(3A)') '[Error]',cfile,': unsupported record length'
+      STOP
     END IF
+
+    READ(iunit,IOSTAT=ios) wk
+    IF(ios /= 0) THEN
+      WRITE(6,'(3A,I)') '[Error]',cfile,': Reading error ', ios
+      STOP
+    ELSE 
+      IF (real(int(wk(1)),r_size) /= wk(1)) THEN
+        WRITE(6,'(3A,E10.4)') '[Error]',cfile,': Invalid observation value wk(1) = ', wk(1)
+        WRITE(6,'(A)')'Check observation data endian'
+        STOP
+      END IF
+    END IF
+  
     nn = sz / (r_sngl * (nrec+2))
 !-----------------------------
 
@@ -2397,8 +2412,14 @@ SUBROUTINE get_nobs_radar(cfile,nn,radarlon,radarlat,radarz)
     OPEN(iunit,FILE=cfile,FORM='unformatted',ACCESS='sequential')
     READ(iunit,IOSTAT=ios)tmp
     IF(ios /= 0) THEN
-      WRITE(6,'(3A)') '[Warning]',cfile,': Reading error -- skipped'
-      RETURN
+!      WRITE(6,'(3A)') '[Warning]',cfile,': Reading error -- skipped'
+!      RETURN
+      WRITE(6,'(3A,I)') '[Error]',cfile,': Reading error', ios
+      STOP
+     ELSEIF ( tmp < 0.0_r_size .or. tmp > 360.0_r_size ) THEN
+        WRITE(6,'(3A,E10.4)') '[Error]',cfile,': Invalid observation value radarlon = ', tmp
+        WRITE(6,'(A)')'Check observation data endian'
+        STOP
     END IF
     radarlon=REAL(tmp,r_size)
     READ(iunit,IOSTAT=ios)tmp
