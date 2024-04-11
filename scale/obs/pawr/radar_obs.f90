@@ -660,7 +660,7 @@ subroutine read_obs_radar_jrc(cfile, obs)
   real(r_sngl) :: sf_vr, sf_zh ! scale factor for vr & Zh
   real(r_sngl) :: fill_vr, fill_zh ! fill values for vr & Zh
   real(r_size) :: radar_lon, radar_lat
-#ifdef SINGLELETKF
+#ifdef SINGLE_LETKF
   real(8) :: radar_lon_r8, radar_lat_r8
 #endif
 
@@ -728,7 +728,7 @@ subroutine read_obs_radar_jrc(cfile, obs)
     fill_zh = -32768.0
   endif
 
-#ifdef SINGLELETKF
+#ifdef SINGLE_LETKF
   call ncio_read_gattr_r8(ncid, "site_positions_center_latitude",  radar_lon_r8)
   call ncio_read_gattr_r8(ncid, "site_positions_center_longitude", radar_lat_r8)
  radar_lon=real(radar_lon_r8)

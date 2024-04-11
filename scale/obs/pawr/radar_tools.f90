@@ -32,7 +32,7 @@ MODULE radar_tools
 
   integer,save :: MPI_COMM_o, nprocs_o, myrank_o  
 
-#ifdef SINGLELETKF
+#ifdef SINGLE_LETKF
   integer, parameter :: r_size = kind(0.0e0)
 #else
   integer, parameter :: r_size = kind(0.0d0)

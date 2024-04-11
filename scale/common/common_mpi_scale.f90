@@ -557,8 +557,22 @@ END SUBROUTINE
 ! Start using SCALE library
 !-------------------------------------------------------------------------------
 subroutine set_scalelib(execname)
+  use scale_io, only: &
+    IO_setup, &
+    IO_LOG_setup, &
+    H_LONG
   use scale_prc, only: &
-    PRC_mpi_alive
+!    PRC_MPIstart, &
+!    PRC_UNIVERSAL_setup, &
+!    PRC_MPIsplit_letkf, &
+    PRC_mpi_alive, &
+    PRC_MPIsplit_nest, &
+    PRC_GLOBAL_setup, &
+    PRC_LOCAL_setup, &
+    PRC_UNIVERSAL_IsMaster, &
+    PRC_nprocs, &
+    PRC_myrank, &
+    PRC_DOMAIN_nlim
   use scale_prc_cartesC, only: &
     PRC_CARTESC_setup
   use scale_const, only: &
@@ -675,22 +689,6 @@ subroutine set_scalelib(execname)
   use mod_user, only: &
     USER_tracer_setup,  &
     USER_setup
-  use scale_io, only: &
-    IO_setup, &
-    IO_LOG_setup, &
-    H_LONG
-  use scale_prc, only: &
-!    PRC_MPIstart, &
-!    PRC_UNIVERSAL_setup, &
-!    PRC_MPIsplit_letkf, &
-    PRC_MPIsplit_nest, &
-    PRC_GLOBAL_setup, &
-    PRC_LOCAL_setup, &
-    PRC_UNIVERSAL_IsMaster, &
-    PRC_nprocs, &
-    PRC_myrank, &
-    PRC_masterrank, &
-    PRC_DOMAIN_nlim
 
   implicit none
 
