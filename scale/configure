@@ -3,9 +3,9 @@ include $(TOPDIR)/sysdep/Makedef.$(SCALE_SYS)
 include $(TOPDIR)/Mkinclude
 
 SCALE_INC = -I$(TOPDIR)/include$(POSTFIX)
-SCALE_LIB = -L$(TOPDIR)/lib -lscale$(POSTFIX)
+SCALE_LIB = -L$(TOPDIR)/lib -lscale$(POSTFIX) $(CONTRIB_LIBS)
 SCALE_RM_OBJDIR = $(TOPDIR)/scale-rm/src/.libs$(POSTFIX)
-
+#SCALE_RM_OBJDIR = $(TOPDIR)/scale-letkf-dev/scale/run/Ullrich15_ext/.libs$(POSTFIX)
 SCALE_RM_OBJS = $(shell ls $(SCALE_RM_OBJDIR)/*.o | grep -v "scale-rm.o\|scale-rm_pp.o\|scale-rm_init.o")
 
 #------
