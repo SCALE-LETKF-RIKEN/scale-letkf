@@ -101,7 +101,7 @@ subroutine ncio_read_gattr_r4(ncid, attrname, attr)
 
   call ncio_check(nf90_get_att(ncid, nf90_global, attrname, attr))
 end subroutine ncio_read_gattr_r4
-! Read netcdf single-precision global attribute
+! Read netcdf double-precision global attribute
 !-----------------------------------------------------------------------
 subroutine ncio_read_gattr_r8(ncid, attrname, attr)
   implicit none

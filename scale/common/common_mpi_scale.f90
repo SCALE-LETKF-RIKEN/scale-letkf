@@ -1028,8 +1028,6 @@ subroutine unset_scalelib
 
     call COMM_CARTESC_NEST_finalize
 
-    call COMM_CARTESC_NEST_finalize
-
     call COMM_finalize
 
     call PRC_CARTESC_finalize

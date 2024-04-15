@@ -114,7 +114,7 @@ MODULE common_nml
   character(filelenmax) :: EFSO_FCST_FROM_ANAL_BASENAME = 'anal.@@@@'
   character(filelenmax) :: EFSO_EFCST_FROM_ANAL_BASENAME = 'anal.@@@@'
 
-  logical :: FILL_BY_ZERO_MISSING_VARAIBLES = .false.
+  logical :: FILL_BY_ZERO_MISSING_VARIABLES = .false.
 
   logical :: EFSO_USE_MOIST_ENERGY = .true.
 
@@ -635,7 +635,7 @@ subroutine read_nml_letkf
     PS_ADJUST_THRES, &
     NOBS_OUT, &
     NOBS_OUT_BASENAME, &
-    FILL_BY_ZERO_MISSING_VARAIBLES, &
+    FILL_BY_ZERO_MISSING_VARIABLES, &
     REJECT_ADPSFC_EXCEPT_PS, &
     !*** for backward compatibility ***
     COV_INFL_MUL, &
@@ -982,7 +982,10 @@ subroutine read_nml_obs_error
     OBSERR_PS, &
     OBSERR_RADAR_REF, &
     OBSERR_RADAR_VR, &
-    OBSERR_Q
+    OBSERR_TCX, &
+    OBSERR_TCY, &
+    OBSERR_TCP, &
+    OBSERR_PQ
 
   rewind(IO_FID_CONF)
   read(IO_FID_CONF,nml=PARAM_OBS_ERROR,iostat=ierr)

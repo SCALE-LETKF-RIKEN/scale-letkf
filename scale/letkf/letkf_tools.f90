@@ -113,7 +113,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
     WRITE(6,'(A,F15.2)') '  INFL_MUL = ',INFL_MUL
   
     WRITE(6,'(A,I8)') 'Target observation numbers (global) : NOBS=',nobstotalg
-    WRITE(6,'(A,I8)') 'Target observation numbers processed in this subdomian : NOBS=',nobstotal
+    WRITE(6,'(A,I8)') 'Target observation numbers processed in this subdomain : NOBS=',nobstotal
   end if
 !!  !
 !!  ! In case of no obs
