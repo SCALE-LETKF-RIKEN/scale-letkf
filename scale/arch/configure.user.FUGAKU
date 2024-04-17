@@ -1,8 +1,11 @@
 # Version flags
 SCALE_USER_VER = T
 
-# Precision
+# Precision of LETKF
 LETKF_SINGLE_FP = F
+
+# Precision of eigenvalue decomposition
+SINGLE_EVP = F
 
 # MP-PAWR decoder
 
@@ -17,7 +20,6 @@ ENABLE_SAITAMA_MPW = F
 LAPACK_LIB = -SSL2 -SCALAPACK
 
 USE_MTX_KEVD = F
-SINGLE_EVP = F
 KEVD_LIB = -L/share/hp150019/honda/kevd200710 -lkevd -lstdc++
 
 #BUFR_LIB   = -L/data/opt/bufrlib/10.1.0_intel/lib -lbufrlib
