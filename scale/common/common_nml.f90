@@ -402,6 +402,7 @@ MODULE common_nml
   real(r_size) :: HIM_ADDITIVE_Y18_ZMAX  = 2000000.0_r_size ! Additive inflation is applied with the perturbations below this height (m)
   real(r_size) :: HIM_ADDITIVE_Y18_ZMIN  =       0.0_r_size ! Additive inflation is applied with the perturbations above this height (m)
   character(filelenmax) :: HIM_ADDITIVE_Y18_COV_BASENAME = 'cov'
+  logical :: HIM_ADDITIVE_Y18_COV_SUBDOMAIN = .false. ! calculate covariance (slope) in each SCALE subdomain
 
 
   logical :: HIM_OUT_TBB_NC = .true.
@@ -1253,7 +1254,8 @@ subroutine read_nml_letkf_him
     HIM_ADDITIVE_Y18_MINMEM4COR,   &
     HIM_ADDITIVE_Y18_ZMAX,  &
     HIM_ADDITIVE_Y18_ZMIN,  &
-    HIM_ADDITIVE_Y18_COV_BASENAME, &
+    HIM_ADDITIVE_Y18_COV_BASENAME,  &
+    HIM_ADDITIVE_Y18_COV_SUBDOMAIN, &
     !
     HIM_OUT_TBB_NC, &
     HIM_OUT_ETBB_NC, &

@@ -3448,6 +3448,7 @@ subroutine get_regression_slope_him_mpi( mv3dg, mv2dg, mhim2dg, cloudy_mem2dg, s
 
   character(2) :: cslot
   character(5) :: cmem
+  character(6) :: MYRANK_D6
 
   integer :: cnt
 
@@ -3510,13 +3511,15 @@ subroutine get_regression_slope_him_mpi( mv3dg, mv2dg, mhim2dg, cloudy_mem2dg, s
         enddo ! j
       enddo ! iv3d
     enddo ! it
+ 
+    if ( .not. HIM_ADDITIVE_Y18_COV_SUBDOMAIN ) then 
+      ! domain (member) accumulation
+      call MPI_ALLREDUCE( MPI_IN_PLACE, cov1dg (1:NIRB_HIM_USE,islot2,1:nlev,1:nv3dd), NIRB_HIM_USE*nlev*nv3dd,  MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
+      call MPI_ALLREDUCE( MPI_IN_PLACE, vhim0dg(1:NIRB_HIM_USE,islot2),                NIRB_HIM_USE,             MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
+      call MPI_ALLREDUCE( MPI_IN_PLACE, vv1dg  (islot2,1:nlev,1:nv3dd),                nlev*nv3dd,               MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
 
-    ! domain (member) accumulation 
-    call MPI_ALLREDUCE( MPI_IN_PLACE, cov1dg (1:NIRB_HIM_USE,islot2,1:nlev,1:nv3dd), NIRB_HIM_USE*nlev*nv3dd,  MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
-    call MPI_ALLREDUCE( MPI_IN_PLACE, vhim0dg(1:NIRB_HIM_USE,islot2),                NIRB_HIM_USE,             MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
-    call MPI_ALLREDUCE( MPI_IN_PLACE, vv1dg  (islot2,1:nlev,1:nv3dd),                nlev*nv3dd,               MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
-
-    call MPI_ALLREDUCE( MPI_IN_PLACE, cnt, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_d, ierr)
+      call MPI_ALLREDUCE( MPI_IN_PLACE, cnt, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_d, ierr)
+    endif
 
     ! ensemble accumulation 
     !  zero for mean and mdet
@@ -3542,14 +3545,24 @@ subroutine get_regression_slope_him_mpi( mv3dg, mv2dg, mhim2dg, cloudy_mem2dg, s
       enddo ! k
     enddo
 
-    if ( myrank_a == 0 ) then
+    if ( myrank_e == mmean_rank_e ) then
       write(cslot,'(I2.2)') islot2
-      call write_cov_nc( trim( HIM_ADDITIVE_Y18_COV_BASENAME ) // '_slot'// cslot // '_mem' // cmem //'.nc', &
-                         real( cov1dg (1:NIRB_HIM_USE,islot2,1:nlev,1:nv3dd), kind=r_sngl ), &
-                         real( vv1dg  (               islot2,1:nlev,1:nv3dd), kind=r_sngl ), &
-                         real( vhim0dg(1:NIRB_HIM_USE,islot2               ), kind=r_sngl ), &
-                         cnt )
-      
+
+      if ( .not. HIM_ADDITIVE_Y18_COV_SUBDOMAIN .and. myrank_d == 0 ) then 
+        call write_cov_nc( trim( HIM_ADDITIVE_Y18_COV_BASENAME ) // '_slot'// cslot // '_mem' // cmem //'.nc', &
+                           real( cov1dg (1:NIRB_HIM_USE,islot2,1:nlev,1:nv3dd), kind=r_sngl ), &
+                           real( vv1dg  (               islot2,1:nlev,1:nv3dd), kind=r_sngl ), &
+                           real( vhim0dg(1:NIRB_HIM_USE,islot2               ), kind=r_sngl ), &
+                           cnt )
+      else
+        write ( MYRANK_D6,'(I6.6)') myrank_d
+        call write_cov_nc( trim( HIM_ADDITIVE_Y18_COV_BASENAME ) // '_slot'// cslot // '_mem' // cmem //'_rank'//MYRANK_D6//'.nc', &
+                           real( cov1dg (1:NIRB_HIM_USE,islot2,1:nlev,1:nv3dd), kind=r_sngl ), &
+                           real( vv1dg  (               islot2,1:nlev,1:nv3dd), kind=r_sngl ), &
+                           real( vhim0dg(1:NIRB_HIM_USE,islot2               ), kind=r_sngl ), &
+                           cnt )
+
+      endif      
     endif
   enddo
 

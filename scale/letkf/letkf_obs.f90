@@ -456,7 +456,8 @@ SUBROUTINE set_letkf_obs
 
       mem_ref = 0
       do i = 1, MEMBER
-        if ( HIM_CLD_THRS( nint(obs(iof)%lev(iidx)) ) > obsda%ensval(i,n) ) then
+        ! count the number of cloudy members having BT < threshold
+        if ( obsda%ensval(i,n) < HIM_CLD_THRS( nint(obs(iof)%lev(iidx)) ) ) then
           mem_ref = mem_ref + 1
         endif
       enddo
