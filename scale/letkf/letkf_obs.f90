@@ -426,7 +426,7 @@ SUBROUTINE set_letkf_obs
 !!!###### end RADAR assimilation ######
 
 !!!###### Himawari-8 assimilation ###### ! HIM
-#IFDEF RTTOV
+#ifdef RTTOV
     if (obs(iof)%elm(iidx) == id_HIMIR_obs) then
       
       ! This tentative assignment is valid only within this subroutine
@@ -464,15 +464,20 @@ SUBROUTINE set_letkf_obs
 
       if ( HIM_ADDITIVE_Y18 ) then
         if ( mem_ref < HIM_ADDITIVE_Y18_MINMEM .and. obs(iof)%dat(iidx) < HIM_CLD_THRS( nint(obs(iof)%lev(iidx)) ) ) then
+          obsda%val(n) = obsda%ensval(1,n)
+          do i=2,MEMBER
+            obsda%val(n) = obsda%val(n) + obsda%ensval(i,n)
+          enddo
+          obsda%val(n) = obsda%val(n) / real(MEMBER,r_size)
+      
           ! *Ensemble mean of obsda%epert should be zero
-          obsda%ensval(1:MEMBER,n) = obsda%epert(1:MEMBER,n) + HIM_CLD_THRS( nint(obs(iof)%lev(iidx)) )
+          obsda%ensval(1:MEMBER,n) = obsda%epert(1:MEMBER,n) + obsda%val(n)
           obsda%qc(n) = iqc_good
         endif
       endif
 
-
     endif
-#ENDIF
+#endif
 !!!###### end Himawari-8 assimilation ###### ! HIM
 
 

@@ -396,9 +396,12 @@ MODULE common_nml
                                           3.0d0, 3.0d0, 3.0d0, 3.0d0, 3.0d0/) ! Constant obs err for cloudy sky conditions
 
   !Yokota et al.(2018JGRA, Y18) additive inflation method for Him radiance obs
-  logical :: HIM_ADDITIVE_Y18 = .false.    ! switch of additive inflation for Him radiance obs 
-  integer :: HIM_ADDITIVE_Y18_MINMEM = 0 ! If the number of cloudy members is smaller than this threshold, use Y18 method
-
+  logical :: HIM_ADDITIVE_Y18 = .false.      ! switch of additive inflation for Him radiance obs 
+  integer :: HIM_ADDITIVE_Y18_MINMEM = 0     ! If the number of cloudy members is smaller than this threshold, use Y18 method
+  integer :: HIM_ADDITIVE_Y18_MINMEM4COR = 0 ! Use the grid point with the number of cloudy members >= this threshold for calculating correlations in Y18
+  real(r_size) :: HIM_ADDITIVE_Y18_ZMAX  = 2000000.0_r_size ! Additive inflation is applied with the perturbations below this height (m)
+  real(r_size) :: HIM_ADDITIVE_Y18_ZMIN  =       0.0_r_size ! Additive inflation is applied with the perturbations above this height (m)
+  character(filelenmax) :: HIM_ADDITIVE_Y18_COV_BASENAME = 'cov'
 
 
   logical :: HIM_OUT_TBB_NC = .true.
@@ -1247,6 +1250,10 @@ subroutine read_nml_letkf_him
     !
     HIM_ADDITIVE_Y18,       &
     HIM_ADDITIVE_Y18_MINMEM,&
+    HIM_ADDITIVE_Y18_MINMEM4COR,   &
+    HIM_ADDITIVE_Y18_ZMAX,  &
+    HIM_ADDITIVE_Y18_ZMIN,  &
+    HIM_ADDITIVE_Y18_COV_BASENAME, &
     !
     HIM_OUT_TBB_NC, &
     HIM_OUT_ETBB_NC, &

@@ -98,6 +98,8 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
   real(r_size), allocatable :: slope1dg_him(:,:,:,:)
   real(r_size), allocatable :: him_add2d(:,:,:)
 
+  integer,      allocatable :: cloudy_mem2dg(:,:,:,:)
+
 !-------------------------------------------------------------------------------
 
   call mpi_timer('', 2)
@@ -394,8 +396,10 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
       allocate( slope1dg_him (NIRB_HIM_USE,SLOT_END-SLOT_START+1,nlevh,nv3dd) )
       allocate( him_add2d(NIRB_HIM_USE,nlon,nlat))
 
+      allocate( cloudy_mem2dg(NIRB_HIM_USE,SLOT_END-SLOT_START+1,nlon,nlat) )
+
 #ifdef RTTOV
-      call get_history_ensemble_mean_mpi_him( mv3dg, mv2dg, mhim2dg )
+      call get_history_ensemble_mean_mpi_him( mv3dg, mv2dg, mhim2dg, cloudy_mem2dg )
 #endif
     endif
     call mpi_timer('obsope_cal:get_mean_Y18:', 2)
@@ -404,7 +408,7 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
       call get_regression_slope_dbz_mpi( mv3dg, mv2dg, mdbz3dg, slope3dg )
     elseif(HIM_ADDITIVE_Y18 ) then
 #ifdef RTTOV
-      call get_regression_slope_him_mpi( mv3dg, mv2dg, mhim2dg, slope1dg_him )
+      call get_regression_slope_him_mpi( mv3dg, mv2dg, mhim2dg, cloudy_mem2dg, slope1dg_him )
 #endif
     endif
     call mpi_timer('obsope_cal:get_slope_Y18:', 2)
@@ -683,6 +687,7 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
       deallocate( mhim2dg )
       deallocate( slope1dg_him )
       deallocate( him_add2d )
+      deallocate( cloudy_mem2dg )
     endif
   endif
 

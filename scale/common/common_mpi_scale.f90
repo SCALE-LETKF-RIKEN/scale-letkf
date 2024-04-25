@@ -3342,12 +3342,13 @@ subroutine allgHim2obs_mpi(tbb_allg,tbb_allg_prep,qc_allg_prep,nobs,obsdat,obslo
 end subroutine allgHim2obs_mpi
 
 #ifdef RTTOV
-subroutine get_history_ensemble_mean_mpi_him( mv3dg, mv2dg, mhim2dg )
+subroutine get_history_ensemble_mean_mpi_him( mv3dg, mv2dg, mhim2dg, cloudy_mem2dg )
   implicit none
 
   real(r_size), intent(out) :: mv3dg(SLOT_END-SLOT_START+1,nlevh,nlonh,nlath,nv3dd)
   real(r_size), intent(out) :: mv2dg(SLOT_END-SLOT_START+1,nlonh,nlath,nv2dd)
   real(r_size), intent(out) :: mhim2dg(NIRB_HIM_USE,SLOT_END-SLOT_START+1,nlon,nlat)
+  integer,      intent(out) :: cloudy_mem2dg(NIRB_HIM_USE,SLOT_END-SLOT_START+1,nlon,nlat)
 
   real(r_size) :: v3dg(nlevh,nlonh,nlath,nv3dd)
   real(r_size) :: v2dg(nlonh,nlath,nv2dd)
@@ -3357,7 +3358,7 @@ subroutine get_history_ensemble_mean_mpi_him( mv3dg, mv2dg, mhim2dg )
   integer :: it, im
   integer :: islot, islot2
 
-  integer :: iv3d, k
+  integer :: iv3d, k, i, j, ch
 
   integer :: ierr
   integer :: iqc2d(NIRB_HIM_USE,1:nlon,1:nlat)
@@ -3365,6 +3366,8 @@ subroutine get_history_ensemble_mean_mpi_him( mv3dg, mv2dg, mhim2dg )
   mv3dg(:,:,:,:,:) = 0.0_r_size
   mv2dg(:,:,:,:)   = 0.0_r_size
   mhim2dg(:,:,:,:) = 0.0_r_size
+
+  cloudy_mem2dg(:,:,:,:) = 0
 
   do islot = SLOT_START, SLOT_END
     islot2 = islot - SLOT_START + 1
@@ -3381,12 +3384,25 @@ subroutine get_history_ensemble_mean_mpi_him( mv3dg, mv2dg, mhim2dg )
       call Trans_XtoY_HIM_allg(v3dg,v2dg,him2dg,iqc2d)
       mhim2dg(1:NIRB_HIM_USE,islot2,:,:) = mhim2dg(1:NIRB_HIM_USE,islot2,:,:) + him2dg(1:NIRB_HIM_USE,:,:)
 
+      do j = 1, nlat
+        do i = 1, nlon
+          do ch = 1, NIRB_HIM_USE
+            if ( him2dg(ch,i,j) < HIM_CLD_THRS(ch) ) then
+              cloudy_mem2dg(ch,islot2,i,j) = cloudy_mem2dg(ch,islot2,i,j) + 1
+            endif
+          enddo
+        enddo
+      enddo
+
     enddo
 
     call MPI_ALLREDUCE(MPI_IN_PLACE, mv3dg(islot2,:,:,:,:), nlevh*nlonh*nlath*nv3dd, MPI_r_size, MPI_SUM, MPI_COMM_e, ierr)
     call MPI_ALLREDUCE(MPI_IN_PLACE, mv2dg(islot2,:,:,:),   nlonh*nlath*nv2dd,       MPI_r_size, MPI_SUM, MPI_COMM_e, ierr)
 
     call MPI_ALLREDUCE(MPI_IN_PLACE, mhim2dg(1:NIRB_HIM_USE,islot2,1:nlon,1:nlat), NIRB_HIM_USE*nlon*nlat, MPI_r_size, MPI_SUM, MPI_COMM_e, ierr)
+
+    call MPI_ALLREDUCE(MPI_IN_PLACE, cloudy_mem2dg(1:NIRB_HIM_USE,islot2,1:nlon,1:nlat), NIRB_HIM_USE*nlon*nlat, MPI_INTEGER, MPI_SUM, MPI_COMM_e, ierr)
+  
   enddo
 
   mv3dg(:,1:nlevh,1:nlonh,1:nlath,1:nv3dd) = mv3dg(:,1:nlevh,1:nlonh,1:nlath,1:nv3dd) / real( MEMBER, kind=r_size )
@@ -3397,7 +3413,7 @@ subroutine get_history_ensemble_mean_mpi_him( mv3dg, mv2dg, mhim2dg )
   return
 end subroutine get_history_ensemble_mean_mpi_him
 
-subroutine get_regression_slope_him_mpi( mv3dg, mv2dg, mhim2dg, slope1dg )
+subroutine get_regression_slope_him_mpi( mv3dg, mv2dg, mhim2dg, cloudy_mem2dg, slope1dg )
   use scale_atmos_grid_cartesC_index, only: &
     IHALO, JHALO, KHALO
   implicit none
@@ -3405,6 +3421,8 @@ subroutine get_regression_slope_him_mpi( mv3dg, mv2dg, mhim2dg, slope1dg )
   real(r_size), intent(in) :: mv3dg  (SLOT_END-SLOT_START+1,nlevh,nlonh,nlath,nv3dd)
   real(r_size), intent(in) :: mv2dg  (SLOT_END-SLOT_START+1,nlonh,nlath,nv2dd)
   real(r_size), intent(in) :: mhim2dg(NIRB_HIM_USE,SLOT_END-SLOT_START+1,nlon,nlat)
+
+  integer,      intent(in) :: cloudy_mem2dg(NIRB_HIM_USE,SLOT_END-SLOT_START+1,nlon,nlat)
 
   real(r_size), intent(out) :: slope1dg (NIRB_HIM_USE,SLOT_END-SLOT_START+1,nlevh,nv3dd)
 
@@ -3426,12 +3444,37 @@ subroutine get_regression_slope_him_mpi( mv3dg, mv2dg, mhim2dg, slope1dg )
   real(r_size) :: him2d(NIRB_HIM_USE,nlon,nlat)
   integer      :: iqc2d(NIRB_HIM_USE,nlon,nlat)
 
+  real(r_size) :: fac2d(NIRB_HIM_USE,nlon,nlat)
+
+  character(2) :: cslot
+  character(5) :: cmem
+
+  integer :: cnt
+
+  if ( myrank_a == 0 ) then
+    write(cmem, '(I5.5)') HIM_ADDITIVE_Y18_MINMEM4COR 
+  endif
+
   do islot = SLOT_START, SLOT_END
     islot2 = islot - SLOT_START + 1
 
     cov1dg (1:NIRB_HIM_USE,islot2,1:nlev,1:nv3dd) = 0.0_r_size
     vhim0dg(1:NIRB_HIM_USE,islot2) = 0.0_r_size
     vv1dg  (islot2,1:nlev,1:nv3dd) = 0.0_r_size
+
+    fac2d(1:NIRB_HIM_USE,1:nlon,1:nlat) = 0.0_r_size
+    cnt = 0
+
+    do j = 1, nlat
+      do i = 1, nlon
+        do ch = 1, NIRB_HIM_USE
+          if ( cloudy_mem2dg(islot2,ch,i,j) >= HIM_ADDITIVE_Y18_MINMEM4COR ) then
+            fac2d(ch,i,j) = 1.0_r_size
+          endif
+        enddo
+        cnt = cnt + maxval(fac2d(1:NIRB_HIM_USE,i,j))
+      enddo
+    enddo
 
     do it = 1, nitmax
       im = myrank_to_mem(it)
@@ -3444,7 +3487,7 @@ subroutine get_regression_slope_him_mpi( mv3dg, mv2dg, mhim2dg, slope1dg )
       do j = 1, nlat
         do i = 1, nlon
           do ch = 1, NIRB_HIM_USE
-            vhim0dg(ch,islot2) = vhim0dg(ch,islot2) + ( him2d(ch,i,j) - mhim2dg(ch,islot2,i,j) )**2  
+            vhim0dg(ch,islot2) = vhim0dg(ch,islot2) + fac2d(ch,i,j)*( him2d(ch,i,j) - mhim2dg(ch,islot2,i,j) )**2  
           enddo
         enddo
       enddo
@@ -3455,10 +3498,11 @@ subroutine get_regression_slope_him_mpi( mv3dg, mv2dg, mhim2dg, slope1dg )
           do i = 1, nlon
             do k = 1, nlev
               vv1dg  (islot2,k,iv3d) = vv1dg(islot2,k,iv3d) + &
-                                     ( v3dg(k+KHALO,i+IHALO,j+JHALO,iv3d) - mv3dg(islot2,k+KHALO,i+IHALO,j+JHALO,iv3d) )**2
+                                       maxval(fac2d(1:NIRB_HIM_USE,i,j))&
+                                       *( v3dg(k+KHALO,i+IHALO,j+JHALO,iv3d) - mv3dg(islot2,k+KHALO,i+IHALO,j+JHALO,iv3d) )**2
               do ch = 1, NIRB_HIM_USE
                 cov1dg(ch,islot2,k,iv3d) = cov1dg(ch,islot2,k,iv3d) + &
-                                          ( v3dg(k+KHALO,i+IHALO,j+JHALO,iv3d) - mv3dg(islot2,k+KHALO,i+IHALO,j+JHALO,iv3d) ) &
+                                          fac2d(ch,i,j)*( v3dg(k+KHALO,i+IHALO,j+JHALO,iv3d) - mv3dg(islot2,k+KHALO,i+IHALO,j+JHALO,iv3d) ) &
                                           * ( him2d(ch,i,j) - mhim2dg(ch,islot2,i,j) )  
               enddo ! ch                          
             enddo ! k
@@ -3472,34 +3516,41 @@ subroutine get_regression_slope_him_mpi( mv3dg, mv2dg, mhim2dg, slope1dg )
     call MPI_ALLREDUCE( MPI_IN_PLACE, vhim0dg(1:NIRB_HIM_USE,islot2),                NIRB_HIM_USE,             MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
     call MPI_ALLREDUCE( MPI_IN_PLACE, vv1dg  (islot2,1:nlev,1:nv3dd),                nlev*nv3dd,               MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
 
+    call MPI_ALLREDUCE( MPI_IN_PLACE, cnt, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_d, ierr)
+
     ! ensemble accumulation 
     !  zero for mean and mdet
     call MPI_ALLREDUCE( MPI_IN_PLACE, cov1dg (1:NIRB_HIM_USE,islot2,1:nlev,1:nv3dd), NIRB_HIM_USE*nlev*nv3dd, MPI_r_size, MPI_SUM, MPI_COMM_e, ierr)
     call MPI_ALLREDUCE( MPI_IN_PLACE, vhim0dg(1:NIRB_HIM_USE,islot2),                NIRB_HIM_USE,            MPI_r_size, MPI_SUM, MPI_COMM_e, ierr)
     call MPI_ALLREDUCE( MPI_IN_PLACE, vv1dg  (islot2,1:nlev,1:nv3dd),                nlev*nv3dd,              MPI_r_size, MPI_SUM, MPI_COMM_e, ierr)
 
-    cov1dg (1:NIRB_HIM_USE,islot2,1:nlev,1:nv3dd) = cov1dg (1:NIRB_HIM_USE,islot2,1:nlev,1:nv3dd) / ( nlong*nlatg*MEMBER )
-    vhim0dg(1:NIRB_HIM_USE,islot2) = vhim0dg(1:NIRB_HIM_USE,islot2) / ( nlong*nlatg*MEMBER )
-    vv1dg  (islot2,1:nlev,1:nv3dd) = vv1dg  (islot2,1:nlev,1:nv3dd) / ( nlong*nlatg*MEMBER )
+    cov1dg (1:NIRB_HIM_USE,islot2,1:nlev,1:nv3dd) = cov1dg (1:NIRB_HIM_USE,islot2,1:nlev,1:nv3dd) / ( cnt*MEMBER )
+    vhim0dg(1:NIRB_HIM_USE,islot2) = vhim0dg(1:NIRB_HIM_USE,islot2) / ( cnt*MEMBER )
+    vv1dg  (islot2,1:nlev,1:nv3dd) = vv1dg  (islot2,1:nlev,1:nv3dd) / ( cnt*MEMBER )
 
     do iv3d = 1, nv3dd
       slope1dg(1:NIRB_HIM_USE,islot2,1:nlevh,iv3d) = 0.0_r_size
 
-      select case ( iv3d )
-      case( iv3dd_u, iv3dd_v, iv3dd_w, iv3dd_t, iv3dd_q )
-        do k = 1, nlev
-          do ch = 1, NIRB_HIM_USE
-            if ( vv1dg(islot2,k,iv3d) > 0.0_r_size ) then
-              slope1dg(ch,islot2,k+KHALO,iv3d) = cov1dg(ch,islot2,k,iv3d) / vv1dg(islot2,k,iv3d)
-            else
-              slope1dg(ch,islot2,k+KHALO,iv3d) = 0.0_r_size
-            endif
-          enddo ! ch
-        enddo ! k
-      end select
-
+      do k = 1, nlev
+        do ch = 1, NIRB_HIM_USE
+          if ( vv1dg(islot2,k,iv3d) > 0.0_r_size ) then
+            slope1dg(ch,islot2,k+KHALO,iv3d) = cov1dg(ch,islot2,k,iv3d) / vv1dg(islot2,k,iv3d)
+          else
+            slope1dg(ch,islot2,k+KHALO,iv3d) = 0.0_r_size
+          endif
+        enddo ! ch
+      enddo ! k
     enddo
 
+    if ( myrank_a == 0 ) then
+      write(cslot,'(I2.2)') islot2
+      call write_cov_nc( trim( HIM_ADDITIVE_Y18_COV_BASENAME ) // '_slot'// cslot // '_mem' // cmem //'.nc', &
+                         real( cov1dg (1:NIRB_HIM_USE,islot2,1:nlev,1:nv3dd), kind=r_sngl ), &
+                         real( vv1dg  (               islot2,1:nlev,1:nv3dd), kind=r_sngl ), &
+                         real( vhim0dg(1:NIRB_HIM_USE,islot2               ), kind=r_sngl ), &
+                         cnt )
+      
+    endif
   enddo
 
   return

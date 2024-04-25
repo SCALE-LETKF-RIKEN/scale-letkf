@@ -1082,6 +1082,7 @@ while ((time <= ETIME)); do
             -e "/!--HIM_OUTFILE_BASENAME--/a HIM_OUTFILE_BASENAME =  \"${OUTDIR[$d]}/$atime/obs/Him_${atime}\"," \
             -e "/!--HIM_RTTOV_THREADS--/a HIM_RTTOV_THREADS = ${THREADS}," \
             -e "/!--HIM_NOWDATE--/a HIM_NOWDATE = ${atime:0:4}, ${atime:4:2}, ${atime:6:2}, ${atime:8:2}, ${atime:10:2}, ${atime:12:2}," \
+            -e "/!--HIM_ADDITIVE_Y18_COV_BASENAME--/a HIM_ADDITIVE_Y18_COV_BASENAME =  \"${OUTDIR[$d]}/$atime/obs/cov_Y18_him_${atime}\"," \
             -e "/!--RTTOV_COEF_PATH--/a RTTOV_COEF_PATH = \"${TMPROOT}/dat/rttov\"," \
             -e "/!--RTTOV_COEF_FILE--/a RTTOV_COEF_FILE = \"${RTTOV_COEF_FILE##*/}\"," \
             -e "/!--RTTOV_COEF_FILE_CLD--/a RTTOV_COEF_FILE_CLD = \"${RTTOV_COEF_FILE_CLD##*/}\"," \

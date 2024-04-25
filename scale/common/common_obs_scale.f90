@@ -3824,10 +3824,6 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd,&
       DX, DY
   use scale_const, only: &
       CONST_D2R
-  use scale_atmos_hydrometeor, only: &
-      N_HYD
-  use scale_atmos_aerosol, only: &
-      N_AE
 
   implicit none
   integer :: np, ch
@@ -3894,6 +3890,7 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd,&
 
   integer :: iv3d
   real(r_size), allocatable :: pert1d(:)
+  integer :: kmin_y18, kmax_y18
   
 !  write(6,'(a)') 'Hello from Trans_XtoY_HIM_allg'
 
@@ -4055,22 +4052,35 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd,&
   endif  ! present(mwgt_plev2d)
 
   if ( HIM_ADDITIVE_Y18 ) then
-    if ( present( mv3d ) .and. present( slope1d ) .and. present( him_add2d ) ) then
-
+    if ( present(him_add2d) ) then
       him_add2d(1:NIRB_HIM_USE,1:nlon,1:nlat) = 0.0_r_size
       allocate( pert1d(1:nlevh) )
 
+      kmin_y18 = 1
+      kmax_y18 = nlev
+      do k = 2, nlev - 1
+        if ( kmin_y18 == 1    .and. CZ(k+KHALO) > HIM_ADDITIVE_Y18_ZMIN ) then
+          kmin_y18 = k - 1
+        endif
+        if ( kmax_y18 == nlev .and. CZ(k+KHALO) > HIM_ADDITIVE_Y18_ZMAX ) then
+          kmax_y18 = k - 1
+        endif
+      enddo
+
       do iv3d = 1, nv3dd
-        do j = 1, nlat
-          do i = 1, nlon
-            pert1d = v3d(1:nlevh,i+IHALO,j+JHALO,iv3d) - mv3d(1:nlevh,i+IHALO,j+JHALO,iv3d)
-            do ch = 1, NIRB_HIM_USE
-              do k = 1, nlev
-                him_add2d(ch,i,j) = him_add2d(ch,i,j) + pert1d(KHALO+k) * slope1d(ch,KHALO+k,iv3d)
-              enddo ! k
-            enddo ! ch
-          enddo ! i
-        enddo ! j
+        select case( iv3d )
+        case( iv3dd_u, iv3dd_v, iv3dd_w, iv3dd_t, iv3dd_q ) 
+          do j = 1, nlat
+            do i = 1, nlon
+              pert1d = v3d(1:nlevh,i+IHALO,j+JHALO,iv3d) - mv3d(1:nlevh,i+IHALO,j+JHALO,iv3d)
+              do ch = 1, NIRB_HIM_USE
+                do k = kmin_y18, kmax_y18
+                  him_add2d(ch,i,j) = him_add2d(ch,i,j) + pert1d(KHALO+k) * slope1d(ch,KHALO+k,iv3d)
+                enddo ! k
+              enddo ! ch
+            enddo ! i
+          enddo ! j
+        end select
       enddo ! iv3d
 
       deallocate( pert1d )

@@ -2353,5 +2353,117 @@ subroutine write_Him_nc(filename, tbb )
   return
 end subroutine write_Him_nc
 
+!-------------------------------------------------------------------------------
+subroutine write_cov_nc( filename, cov2d, var2d, var, cnt )
+  use netcdf
+  use common_ncio
+  use scale_atmos_grid_cartesC, only: &
+     CZ => ATMOS_GRID_CARTESC_CZ
+  use scale_atmos_grid_cartesC_index, only: &
+     KS, KE, KHALO
+  implicit none
+
+  character(len=*), intent(in) :: filename
+  real, intent(in) :: cov2d(NIRB_HIM_USE,nlev,nv3dd)
+  real, intent(in) :: var2d(             nlev,nv3dd)
+  real, intent(in) :: var  (NIRB_HIM_USE)
+  integer, intent(in) :: cnt
+
+  integer :: n, k, ch
+  character(2) :: cband2
+
+  integer :: ncid
+  character(len=*), parameter :: HGT_NAME  = "height"
+
+  integer :: hgt_dimid
+  integer :: hgt_varid
+
+  integer :: cov_varid(NIRB_HIM_USE,nv3dd)
+  integer :: var_varid(nv3dd)
+
+  integer :: start(1), count(1)
+  integer :: dimids(1)
+
+  ! Create the file. 
+  call ncio_check( nf90_create(trim(filename), nf90_clobber, ncid) )
+
+  ! Define the dimensions. 
+  call ncio_check( nf90_def_dim(ncid, HGT_NAME, nlev, hgt_dimid) ) 
+ 
+  ! Define the coordinate variables. 
+  call ncio_check( nf90_def_var(ncid, HGT_NAME, NF90_REAL, hgt_dimid, hgt_varid) )
+ 
+  ! Assign units attributes to coordinate variables.
+  call ncio_check( nf90_put_att(ncid, hgt_varid, "units", "m") )
+ 
+  dimids = (/ hgt_dimid /)
+
+  ! Define the netCDF variables
+
+  do n = 1, nv3dd
+
+    call ncio_check( nf90_def_var( ncid, "VAR_"//trim( v3dd_name(n) ), &
+                     NF90_REAL, dimids, var_varid(n) ) )
+    call ncio_check( nf90_put_att( ncid, var_varid(n), "long_name", &
+                     "variance of " // trim( v3dd_name(n) )) )
+
+    do ch = 1, NIRB_HIM_USE
+      write(cband2,'(I2.2)') HIM_IR_BAND_RTTOV_LIST(ch)
+      call ncio_check( nf90_def_var( ncid, "COV_"//trim( v3dd_name(n) )//"_B"//cband2, &
+                       NF90_REAL, dimids, cov_varid(ch,n) ) )
+      call ncio_check( nf90_put_att( ncid, cov_varid(ch,n), "long_name", &
+                       "covariance btw Himawari B"//cband2//" & " // trim( v3dd_name(n) )) )
+    enddo
+  enddo
+
+  ! Add attribute
+  do ch = 1, NIRB_HIM_USE
+    write(cband2,'(I2.2)') HIM_IR_BAND_RTTOV_LIST(ch)
+    call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'variance_B'//cband2,        var(ch)          ) )
+    call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'cloud_threshold_B'//cband2, HIM_CLD_THRS(ch) ) )
+  enddo
+  
+  call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'total_number_of_sample', cnt            ) )
+  call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'slot_interval_sec',      SLOT_TINTERVAL ) )
+!  call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'lightning_max_distance_meters', LT_MAX_CORR_DIST ) )
+  
+  call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'ensemble_size',          MEMBER         ) )
+  call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'cloudy_mem_threshold',   HIM_ADDITIVE_Y18_MINMEM4COR ) )
+  call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'max_height_meters',      HIM_ADDITIVE_Y18_ZMAX ) )
+  call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'min_height_meters',      HIM_ADDITIVE_Y18_ZMIN ) )
+!  call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'max_height',        LT_CORR_MAXHGT ) )
+!  call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'b_conv_ng',         LT_B_CONV_NG ) )
+
+!  do n = 1, nv3dd
+!    call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'std_min_'//trim( v3dd_name_a(n) ), LT_CORR_3DVARS_MINSTD(n)  ) )
+!  enddo
+
+  ! End define mode.
+  call ncio_check( nf90_enddef(ncid) )
+
+  ! Write the coordinate variable data. 
+  call ncio_check( nf90_put_var(ncid, hgt_varid, real( CZ(KS:KE), kind=r_sngl) ) )
+
+  count = (/ nlev /)
+  start = (/ 1 /)
+
+  ! Write the data.
+  do n = 1, nv3dd
+    call ncio_check( nf90_put_var( ncid, var_varid(n), var2d(1:nlev,n), start=start, &
+                     count=count) )
+
+    do ch = 1, NIRB_HIM_USE
+      call ncio_check( nf90_put_var( ncid, cov_varid(ch,n), cov2d(ch,1:nlev,n), start=start, &
+                      count=count) )
+    enddo
+
+  enddo
+  
+  ! Close the file. 
+  call ncio_check( nf90_close(ncid) )
+  
+  return
+end subroutine write_cov_nc
+
 !===============================================================================
 END MODULE common_scale
