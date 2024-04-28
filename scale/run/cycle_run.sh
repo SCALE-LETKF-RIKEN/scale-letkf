@@ -143,7 +143,7 @@ cat > $jobscrp << EOF
 #PJM -s
 EOF
 
-  if (( HIST_LLIO_TMP == 1 )) || (( BDY_TMP == 1 )) || (( ANAL_TMP == 1 )); then
+  if (( HIST_LLIO_TMP == 1 )) || (( BDY_LLIO_TMP == 1 )) || (( ANAL_LLIO_TMP == 1 )); then
     echo "#PJM --llio localtmp-size=${LLIO_TMP_SIZE}Gi" >> $jobscrp
   fi
 

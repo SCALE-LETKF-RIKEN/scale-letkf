@@ -648,7 +648,7 @@ SUBROUTINE set_letkf_obs
     call mpi_timer('set_letkf_obs:obs_setting_print:', 2)
   end if
 
-  ! First scan: count the observation numbers in each mesh (in each subdomian)
+  ! First scan: count the observation numbers in each mesh (in each subdomain)
   !-----------------------------------------------------------------------------
 
   do n = 1, obsda%nobs
@@ -769,7 +769,7 @@ SUBROUTINE set_letkf_obs
   if ( LOG_LEVEL >= 2 .and. LOG_OUT ) then
     write (nstr, '(I4)') nid_obs
     write (6, *)
-    write (6, '(A)') 'OBSERVATION COUNTS BEFORE QC (GLOABL):'
+    write (6, '(A)') 'OBSERVATION COUNTS BEFORE QC (GLOBAL):'
     write (6, '(A7,'//nstr//"('========'),A)") '=======', '=========='
     write (6, '(A6,1x,'//nstr//'A8,A10)') 'TYPE  ', obelmlist(:), '     TOTAL'
     write (6, '(A7,'//nstr//"('--------'),A)") '-------', '----------'
@@ -789,7 +789,7 @@ SUBROUTINE set_letkf_obs
     write (6, '(A7,'//nstr//"('========'),A)") '=======', '=========='
 
     write (6, *)
-    write (6, '(A)') 'OBSERVATION COUNTS AFTER QC (GLOABL):'
+    write (6, '(A)') 'OBSERVATION COUNTS AFTER QC (GLOBAL):'
     write (6, '(A7,'//nstr//"('========'),A)") '=======', '=========='
     write (6, '(A6,1x,'//nstr//'A8,A10)') 'TYPE  ', obelmlist(:), '     TOTAL'
     write (6, '(A7,'//nstr//"('--------'),A)") '-------', '----------'
@@ -1044,7 +1044,7 @@ SUBROUTINE set_letkf_obs
 
   if ( LOG_LEVEL >= 1 .and. LOG_OUT ) then
     write (6, *)
-    write (6, '(A,I6,A)') 'OBSERVATION COUNTS (GLOABL AND IN THIS SUBDOMAIN #', myrank_d, '):'
+    write (6, '(A,I6,A)') 'OBSERVATION COUNTS (GLOBAL AND IN THIS SUBDOMAIN #', myrank_d, '):'
     write (6, '(A)') '====================================================================='
     write (6, '(A)') 'TYPE   VAR      GLOBAL     GLOBAL  SUBDOMAIN  SUBDOMAIN EXT_SUBDOMAIN'
     write (6, '(A)') '             before QC   after QC  before QC   after QC      after QC'
@@ -1606,7 +1606,7 @@ subroutine set_efso_obs
 
   call mpi_timer('set_efso_obs:bucket_sort_prepare:', 2)
 
-  ! First scan: count the observation numbers in each mesh (in each subdomian)
+  ! First scan: count the observation numbers in each mesh (in each subdomain)
   !-----------------------------------------------------------------------------
 
   do n = 1, obsda%nobs

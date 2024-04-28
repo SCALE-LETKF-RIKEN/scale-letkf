@@ -1954,6 +1954,9 @@ SUBROUTINE obs_info_deallocate(obs)
   IF(ALLOCATED(obs%err)) DEALLOCATE(obs%err)
   IF(ALLOCATED(obs%typ)) DEALLOCATE(obs%typ)
   IF(ALLOCATED(obs%dif)) DEALLOCATE(obs%dif)
+  IF(ALLOCATED(obs%ri)) DEALLOCATE(obs%ri)
+  IF(ALLOCATED(obs%rj)) DEALLOCATE(obs%rj)
+  IF(ALLOCATED(obs%rank)) DEALLOCATE(obs%rank)
 
   RETURN
 END SUBROUTINE obs_info_deallocate
@@ -2024,10 +2027,12 @@ SUBROUTINE obs_da_value_deallocate(obsda)
   IF(ALLOCATED(obsda%val   )) DEALLOCATE(obsda%val   )
   IF(ALLOCATED(obsda%ensval)) DEALLOCATE(obsda%ensval)
   IF(ALLOCATED(obsda%qc    )) DEALLOCATE(obsda%qc    )
-
-  if ( allocated(obsda%eqv ) ) deallocate( obsda%eqv )
-  if ( allocated(obsda%pert ) ) deallocate( obsda%pert )
-  if ( allocated(obsda%epert ) ) deallocate( obsda%epert )
+  IF(ALLOCATED(obsda%tm    )) DEALLOCATE(obsda%tm    )
+  IF(ALLOCATED(obsda%pm    )) DEALLOCATE(obsda%pm    )
+  IF(ALLOCATED(obsda%eqv   )) DEALLOCATE(obsda%eqv   )
+  IF(ALLOCATED(obsda%qv    )) DEALLOCATE(obsda%qv    )
+  IF(ALLOCATED(obsda%pert  )) DEALLOCATE(obsda%pert  )
+  IF(ALLOCATED(obsda%epert )) DEALLOCATE(obsda%epert )
 
   RETURN
 END SUBROUTINE obs_da_value_deallocate

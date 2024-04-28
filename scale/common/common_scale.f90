@@ -373,7 +373,7 @@ SUBROUTINE read_restart(filename,v3dg,v2dg)
                                    count = (/ KMAX, IMAX, JMAX, 1 /)))
     else
       write(6,'(A,A15,A)') " 3D var ", trim(v3d_name(iv3d))," not found."
-      if ( FILL_BY_ZERO_MISSING_VARAIBLES ) then
+      if ( FILL_BY_ZERO_MISSING_VARIABLES ) then
         v3dg(:,:,:,iv3d) = 0.0_RP
       else
         stop
@@ -396,7 +396,7 @@ SUBROUTINE read_restart(filename,v3dg,v2dg)
                                  count = (/ IMAX, JMAX, 1 /)))
     else
       write(6,'(A,A15,A)') " 2D var ", trim(v3d_name(iv3d))," not found."
-      if ( FILL_BY_ZERO_MISSING_VARAIBLES ) then
+      if ( FILL_BY_ZERO_MISSING_VARIABLES ) then
         v2dg(:,:,iv2d) = 0.0_RP
       else
         stop
@@ -1034,7 +1034,7 @@ subroutine read_history(filename,step,v3dg,v2dg)
                     step=step_             ) ! [IN]
     else
       write(6,'(A,A15,A)') " 3D var ", trim(v3dd_name(iv3d))," not found."
-      if ( FILL_BY_ZERO_MISSING_VARAIBLES ) then
+      if ( FILL_BY_ZERO_MISSING_VARIABLES ) then
         var3D(:,:,:) = 0.0_RP
       else
         stop
@@ -1070,7 +1070,7 @@ subroutine read_history(filename,step,v3dg,v2dg)
                     step=step_             ) ! [IN]
     else
       write(6,'(A,A15,A)') " 2D var ", trim(v2dd_name(iv2d))," not found."
-      if ( FILL_BY_ZERO_MISSING_VARAIBLES ) then
+      if ( FILL_BY_ZERO_MISSING_VARIABLES ) then
         var2D(:,:) = 0.0_RP
       else
         stop

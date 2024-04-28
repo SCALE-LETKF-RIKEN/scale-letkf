@@ -93,6 +93,12 @@ contains
     real(RP_EVP) :: work (lwork)
     integer      :: iwork(liwork)
 
+#ifdef SINGLE_EVP
+    real(r_dble) :: db    (lda,n)
+    real(r_dble) :: dw    (lda)
+    real(r_dble) :: dwork (lwork)
+#endif
+ 
     real(RP_EVP) :: eival_inc
 
     integer, parameter :: simdlen = 64
@@ -126,19 +132,13 @@ contains
     call dsyevdt("V","U",n,b,lda,w,work,lwork,iwork,liwork,ierr)
 #endif
 
-    if ( ierr /= 0 ) then
-       write(*,*) 'xxx [mtx_eigen/Kevd] Kevd/DSYEVDT error code is ', ierr, '! STOP.'
-       write(*,*) 'input a'
-       do j = 1, n
-          write(*,*) j ,a(:,j)
-       enddo
-       write(*,*) 'output eival'
-       write(*,*) w(:)
-       write(*,*) 'output eivec'
-       do j = 1, n
-          write(*,*) j, b(:,j)
-       enddo
+    ! check zero
+    if ( eival(n) <= 0.0_r_size ) then
+       ierr = 1
+    endif
 
+    if ( ierr /= 0 ) then
+       write(*,*) 'xxx [mtx_eigen/Kevd] Kevd/DSYEVDT error code is ', ierr, '! continue.'
        ! Temporary treatment because of the instability of SYEVD
        do jblk = 1, n, simdlen
           jmax = min( n-jblk+1, simdlen )
@@ -157,13 +157,26 @@ contains
        enddo
 
 #ifdef SINGLE_EVP
-       call ssyev ("V","L",n,b,lda,w,work,lwork,ierr)
+       db=real(b,r_dble) 
+       call dsyev ("V","L",n,db,lda,dw,dwork,lwork,ierr)
+       b=real(db,r_sngl)
+       w=real(dw,r_sngl)
 #else
        call dsyev ("V","L",n,b,lda,w,work,lwork,ierr)
 #endif
 
        if ( ierr /= 0 ) then
           write(*,*) 'xxx [mtx_eigen/LAPACK] LAPACK/SYEV error code is ', ierr, '! STOP.'
+          write(*,*) 'input a'
+          do j = 1, n
+             write(*,*) j ,a(:,j)
+          enddo
+          write(*,*) 'output eival'
+          write(*,*) w(:)
+          write(*,*) 'output eivec'
+          do j = 1, n
+             write(*,*) j, b(:,j)
+          enddo
           stop
        endif
 
@@ -195,6 +208,16 @@ contains
     ! check zero
     if ( eival(n) <= 0.0_RP_EVP ) then
        write(*,*) 'xxx [mtx_eigen/Kevd] All eigenvalues are below 0! STOP.'
+       write(*,*) 'input a'
+       do j = 1, n
+          write(*,*) j ,a(:,j)
+       enddo
+       write(*,*) 'output eival'
+       write(*,*) w(:)
+       write(*,*) 'output eivec'
+       do j = 1, n
+          write(*,*) j, b(:,j)
+       enddo
        stop
     endif
 
