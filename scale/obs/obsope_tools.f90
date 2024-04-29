@@ -390,16 +390,24 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
 
       call get_history_ensemble_mean_mpi( mv3dg, mv2dg, mdbz3dg )
 
-    elseif( HIM_ADDITIVE_Y18 ) then
+#ifdef RTTOV
+    elseif( HIM_ADDITIVE_Y18 .or. HIM_OUT_CLOUDYMEM ) then
 
       allocate( mhim2dg      (NIRB_HIM_USE,SLOT_END-SLOT_START+1,nlon,nlat) )
       allocate( slope1dg_him (NIRB_HIM_USE,SLOT_END-SLOT_START+1,nlevh,nv3dd) )
-      allocate( him_add2d(NIRB_HIM_USE,nlon,nlat))
+      if ( HIM_ADDITIVE_Y18 ) then
+        allocate( him_add2d(NIRB_HIM_USE,nlon,nlat))
+      endif
 
       allocate( cloudy_mem2dg(NIRB_HIM_USE,SLOT_END-SLOT_START+1,nlon,nlat) )
 
-#ifdef RTTOV
       call get_history_ensemble_mean_mpi_him( mv3dg, mv2dg, mhim2dg, cloudy_mem2dg )
+
+      if ( HIM_OUT_CLOUDYMEM ) then
+        do islot = SLOT_START, SLOT_END
+          call write_Him_cloudy_mem_mpi( cloudy_mem2dg(1:NIRB_HIM_USE,islot-SLOT_START+1,1:nlon,1:nlat), islot )
+        enddo
+      endif
 #endif
     endif
     call mpi_timer('obsope_cal:get_mean_Y18:', 2)
@@ -681,13 +689,20 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
   if ( RADAR_ADDITIVE_Y18 .or. HIM_ADDITIVE_Y18 ) then
     deallocate ( mv3dg, mv2dg )
     if ( RADAR_ADDITIVE_Y18 ) then
+
       deallocate ( slope3dg )
       deallocate ( mdbz3dg )
-    elseif( HIM_ADDITIVE_Y18 ) then
+
+    elseif( HIM_ADDITIVE_Y18 .or. HIM_OUT_CLOUDYMEM ) then
+
       deallocate( mhim2dg )
-      deallocate( slope1dg_him )
-      deallocate( him_add2d )
       deallocate( cloudy_mem2dg )
+
+      if ( HIM_ADDITIVE_Y18 ) then
+        deallocate( slope1dg_him )
+        deallocate( him_add2d )
+      endif
+
     endif
   endif
 

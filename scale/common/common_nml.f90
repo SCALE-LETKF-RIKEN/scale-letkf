@@ -403,6 +403,7 @@ MODULE common_nml
   real(r_size) :: HIM_ADDITIVE_Y18_ZMIN  =       0.0_r_size ! Additive inflation is applied with the perturbations above this height (m)
   character(filelenmax) :: HIM_ADDITIVE_Y18_COV_BASENAME = 'cov'
   logical :: HIM_ADDITIVE_Y18_COV_SUBDOMAIN = .false. ! calculate covariance (slope) in each SCALE subdomain
+  logical :: HIM_OUT_CLOUDYMEM = .false.              ! output the number of cloudy members
 
 
   logical :: HIM_OUT_TBB_NC = .true.
@@ -1256,6 +1257,7 @@ subroutine read_nml_letkf_him
     HIM_ADDITIVE_Y18_ZMIN,  &
     HIM_ADDITIVE_Y18_COV_BASENAME,  &
     HIM_ADDITIVE_Y18_COV_SUBDOMAIN, &
+    HIM_OUT_CLOUDYMEM, &
     !
     HIM_OUT_TBB_NC, &
     HIM_OUT_ETBB_NC, &

@@ -3402,7 +3402,7 @@ subroutine get_history_ensemble_mean_mpi_him( mv3dg, mv2dg, mhim2dg, cloudy_mem2
     call MPI_ALLREDUCE(MPI_IN_PLACE, mhim2dg(1:NIRB_HIM_USE,islot2,1:nlon,1:nlat), NIRB_HIM_USE*nlon*nlat, MPI_r_size, MPI_SUM, MPI_COMM_e, ierr)
 
     call MPI_ALLREDUCE(MPI_IN_PLACE, cloudy_mem2dg(1:NIRB_HIM_USE,islot2,1:nlon,1:nlat), NIRB_HIM_USE*nlon*nlat, MPI_INTEGER, MPI_SUM, MPI_COMM_e, ierr)
-  
+
   enddo
 
   mv3dg(:,1:nlevh,1:nlonh,1:nlath,1:nv3dd) = mv3dg(:,1:nlevh,1:nlonh,1:nlath,1:nv3dd) / real( MEMBER, kind=r_size )
@@ -3451,10 +3451,6 @@ subroutine get_regression_slope_him_mpi( mv3dg, mv2dg, mhim2dg, cloudy_mem2dg, s
   character(6) :: MYRANK_D6
 
   integer :: cnt
-
-  if ( myrank_a == 0 ) then
-    write(cmem, '(I5.5)') HIM_ADDITIVE_Y18_MINMEM4COR 
-  endif
 
   do islot = SLOT_START, SLOT_END
     islot2 = islot - SLOT_START + 1
@@ -3547,14 +3543,9 @@ subroutine get_regression_slope_him_mpi( mv3dg, mv2dg, mhim2dg, cloudy_mem2dg, s
 
     if ( myrank_e == mmean_rank_e ) then
       write(cslot,'(I2.2)') islot2
+      write(cmem, '(I5.5)') HIM_ADDITIVE_Y18_MINMEM4COR 
 
-      if ( .not. HIM_ADDITIVE_Y18_COV_SUBDOMAIN .and. myrank_d == 0 ) then 
-        call write_cov_nc( trim( HIM_ADDITIVE_Y18_COV_BASENAME ) // '_slot'// cslot // '_mem' // cmem //'.nc', &
-                           real( cov1dg (1:NIRB_HIM_USE,islot2,1:nlev,1:nv3dd), kind=r_sngl ), &
-                           real( vv1dg  (               islot2,1:nlev,1:nv3dd), kind=r_sngl ), &
-                           real( vhim0dg(1:NIRB_HIM_USE,islot2               ), kind=r_sngl ), &
-                           cnt )
-      else
+      if ( HIM_ADDITIVE_Y18_COV_SUBDOMAIN ) then
         write ( MYRANK_D6,'(I6.6)') myrank_d
         call write_cov_nc( trim( HIM_ADDITIVE_Y18_COV_BASENAME ) // '_slot'// cslot // '_mem' // cmem //'_rank'//MYRANK_D6//'.nc', &
                            real( cov1dg (1:NIRB_HIM_USE,islot2,1:nlev,1:nv3dd), kind=r_sngl ), &
@@ -3562,12 +3553,59 @@ subroutine get_regression_slope_him_mpi( mv3dg, mv2dg, mhim2dg, cloudy_mem2dg, s
                            real( vhim0dg(1:NIRB_HIM_USE,islot2               ), kind=r_sngl ), &
                            cnt )
 
+      else
+        if ( myrank_d == 0 ) then 
+          call write_cov_nc( trim( HIM_ADDITIVE_Y18_COV_BASENAME ) // '_slot'// cslot // '_mem' // cmem //'.nc', &
+                            real( cov1dg (1:NIRB_HIM_USE,islot2,1:nlev,1:nv3dd), kind=r_sngl ), &
+                            real( vv1dg  (               islot2,1:nlev,1:nv3dd), kind=r_sngl ), &
+                            real( vhim0dg(1:NIRB_HIM_USE,islot2               ), kind=r_sngl ), &
+                            cnt )
+        endif
       endif      
+      
     endif
   enddo
 
   return
 end subroutine get_regression_slope_him_mpi
+
+subroutine write_Him_cloudy_mem_mpi( cmem, slot )
+  implicit none
+
+  integer, intent(in) :: cmem(NIRB_HIM_USE,nlon,nlat)
+  integer, intent(in) :: slot
+
+  character(filelenmax) :: filename
+  character(2) :: cslot
+
+  integer :: cmem_g(NIRB_HIM_USE,nlong,nlatg)
+  integer :: bufs2d(nlong,nlatg)
+
+  integer :: proc_i, proc_j
+  integer :: ishift, jshift
+  integer :: ierr
+
+  integer :: ch
+ 
+  call rank_1d_2d(myrank_d, proc_i, proc_j)
+  ishift = proc_i * nlon
+  jshift = proc_j * nlat
+
+  do ch = 1, NIRB_HIM_USE
+    bufs2d(1:nlong,1:nlatg) = 0
+    bufs2d(1+ishift:nlon+ishift, 1+jshift:nlat+jshift) = cmem(ch,1:nlon,1:nlat)
+    call MPI_ALLREDUCE( MPI_IN_PLACE, bufs2d, nlong*nlatg, MPI_INTEGER, MPI_SUM, MPI_COMM_d, ierr)
+    cmem_g(ch,1:nlong,1:nlatg) = bufs2d(1:nlong,1:nlatg)
+  enddo
+
+  if (myrank_d == 0) then
+    write(cslot,'(I2.2)') slot
+    filename = trim(HIM_OUTFILE_BASENAME)//"_cmem_slot"//cslot//'.nc'
+    call write_Him_cloudy_mem( trim(filename), cmem_g )
+  endif
+
+  return
+end subroutine write_Him_cloudy_mem_mpi
 
 #endif
 
