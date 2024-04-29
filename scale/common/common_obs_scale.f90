@@ -4068,8 +4068,12 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd,&
       enddo
 
       do iv3d = 1, nv3dd
-        select case( iv3d )
-        case( iv3dd_u, iv3dd_v, iv3dd_w, iv3dd_t, iv3dd_q ) 
+        if ( ( iv3d == iv3dd_u .and. HIM_ADDITIVE_Y18_USE_U ) .or. &
+             ( iv3d == iv3dd_v .and. HIM_ADDITIVE_Y18_USE_V ) .or. & 
+             ( iv3d == iv3dd_w .and. HIM_ADDITIVE_Y18_USE_W ) .or. & 
+             ( iv3d == iv3dd_t .and. HIM_ADDITIVE_Y18_USE_t ) .or. & 
+             ( iv3d == iv3dd_p .and. HIM_ADDITIVE_Y18_USE_P ) .or. & 
+             ( iv3d == iv3dd_q .and. HIM_ADDITIVE_Y18_USE_Q ) ) then
           do j = 1, nlat
             do i = 1, nlon
               pert1d = v3d(1:nlevh,i+IHALO,j+JHALO,iv3d) - mv3d(1:nlevh,i+IHALO,j+JHALO,iv3d)
@@ -4080,7 +4084,7 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd,&
               enddo ! ch
             enddo ! i
           enddo ! j
-        end select
+        endif
       enddo ! iv3d
 
       deallocate( pert1d )

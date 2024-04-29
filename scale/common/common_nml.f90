@@ -404,6 +404,12 @@ MODULE common_nml
   character(filelenmax) :: HIM_ADDITIVE_Y18_COV_BASENAME = 'cov'
   logical :: HIM_ADDITIVE_Y18_COV_SUBDOMAIN = .false. ! calculate covariance (slope) in each SCALE subdomain
   logical :: HIM_OUT_CLOUDYMEM = .false.              ! output the number of cloudy members
+  logical :: HIM_ADDITIVE_Y18_USE_U = .true. ! Use U-wind for Y18's additive inflation  
+  logical :: HIM_ADDITIVE_Y18_USE_V = .true. ! Use V-wind for Y18's additive inflation  
+  logical :: HIM_ADDITIVE_Y18_USE_W = .true. ! Use W-wind for Y18's additive inflation  
+  logical :: HIM_ADDITIVE_Y18_USE_T = .true. ! Use the temperature for Y18's additive inflation  
+  logical :: HIM_ADDITIVE_Y18_USE_P = .true. ! Use the pressure    for Y18's additive inflation  
+  logical :: HIM_ADDITIVE_Y18_USE_Q = .true. ! Use Q (water vapor) for Y18's additive inflation  
 
 
   logical :: HIM_OUT_TBB_NC = .true.
@@ -1257,6 +1263,12 @@ subroutine read_nml_letkf_him
     HIM_ADDITIVE_Y18_ZMIN,  &
     HIM_ADDITIVE_Y18_COV_BASENAME,  &
     HIM_ADDITIVE_Y18_COV_SUBDOMAIN, &
+    HIM_ADDITIVE_Y18_USE_U, &
+    HIM_ADDITIVE_Y18_USE_V, &
+    HIM_ADDITIVE_Y18_USE_W, &
+    HIM_ADDITIVE_Y18_USE_T, &
+    HIM_ADDITIVE_Y18_USE_P, &
+    HIM_ADDITIVE_Y18_USE_Q, &
     HIM_OUT_CLOUDYMEM, &
     !
     HIM_OUT_TBB_NC, &
