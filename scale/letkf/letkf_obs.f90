@@ -474,6 +474,12 @@ SUBROUTINE set_letkf_obs
           ! *Ensemble mean of obsda%epert should be zero
           obsda%ensval(1:MEMBER,n) = obsda%epert(1:MEMBER,n) + obsda%val(n)
           obsda%qc(n) = iqc_good
+
+          if ( HIM_ADDITIVE_Y18_VLOC_PLEV >= 0.0_r_size ) then
+            ! set the center of the vertical localization function
+            obsda%lev(n) = HIM_ADDITIVE_Y18_VLOC_PLEV
+          endif
+
         endif
       endif
 
