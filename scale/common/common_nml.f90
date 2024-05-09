@@ -413,6 +413,8 @@ MODULE common_nml
   real(r_size) :: HIM_ADDITIVE_Y18_VLOC_PLEV = -1.0_r_size ! Pressure level (Pa) for vertical localization
                                                            ! > 0.0: Use namelist value instead of the peak of the weighting function
                                                            ! <=0.0: Do not use namelist value
+  logical :: HIM_ADDITIVE_Y18_NORMALIZE_SPRD            = .false.    ! Normalize the ensemble spread calculated by Y18
+  real(r_size) :: HIM_ADDITIVE_Y18_NORMALIZE_SPRD_VALUE = 0.1_r_size ! Normalized value of the ensemble spread 
 
 
   logical :: HIM_OUT_TBB_NC = .true.
@@ -1273,6 +1275,8 @@ subroutine read_nml_letkf_him
     HIM_ADDITIVE_Y18_USE_P, &
     HIM_ADDITIVE_Y18_USE_Q, &
     HIM_ADDITIVE_Y18_VLOC_PLEV, &
+    HIM_ADDITIVE_Y18_NORMALIZE_SPRD, &
+    HIM_ADDITIVE_Y18_NORMALIZE_SPRD_VALUE, &
     HIM_OUT_CLOUDYMEM, &
     !
     HIM_OUT_TBB_NC, &

@@ -470,6 +470,22 @@ SUBROUTINE set_letkf_obs
             obsda%val(n) = obsda%val(n) + obsda%ensval(i,n)
           enddo
           obsda%val(n) = obsda%val(n) / real(MEMBER,r_size)
+
+          if ( HIM_ADDITIVE_Y18_NORMALIZE_SPRD ) then
+            ! Calculate the ensemble spread from Y18
+            !! By design, the ensemble mean of obsda%pert should be zero
+            obsda%sprd(n) = 0.0_r_size
+            do i = 1, MEMBER
+              obsda%sprd(n) = obsda%sprd(n) + obsda%epert(i,n)**2
+            enddo
+            obsda%sprd(n) = dsqrt( obsda%sprd(n) / real(MEMBER - 1, r_size ) )
+
+            !! Normalize the projected ensemble perturbations (epert) with HIM_ADDITIVE_Y18_NORMALIZE_SPRD_VALUE
+            do i = 1, MEMBER
+              obsda%epert(i,n) = obsda%epert(i,n) / obsda%sprd(n) * HIM_ADDITIVE_Y18_NORMALIZE_SPRD_VALUE
+            enddo
+
+          endif
       
           ! *Ensemble mean of obsda%epert should be zero
           obsda%ensval(1:MEMBER,n) = obsda%epert(1:MEMBER,n) + obsda%val(n)
