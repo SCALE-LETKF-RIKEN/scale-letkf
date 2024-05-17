@@ -408,6 +408,13 @@ while ((time <= ETIME)); do
     fi
   fi
 
+  if (( OUT_OPT >= 5 )); then
+    if (( time > STIME )) && (( loop % OUT_CYCLE_SKIP != 0 )); then
+      rm -rf $OUTDIR/$time/anal/*[0-9]
+      rm -rf $OUTDIR/$time/gues/*[0-9]
+    fi
+  fi
+
 #-------------------------------------------------------------------------------
 # Write the footer of the log file
 
