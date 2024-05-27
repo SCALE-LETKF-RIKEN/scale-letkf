@@ -410,6 +410,8 @@ MODULE common_nml
   logical :: HIM_ADDITIVE_Y18_USE_T = .true. ! Use the temperature for Y18's additive inflation  
   logical :: HIM_ADDITIVE_Y18_USE_P = .true. ! Use the pressure    for Y18's additive inflation  
   logical :: HIM_ADDITIVE_Y18_USE_Q = .true. ! Use Q (water vapor) for Y18's additive inflation  
+  logical :: HIM_ADDITIVE_Y18_USE_SFC_PRES = .false. ! Use SFC_PRES (surface pressure) for Y18's additive inflation  
+  logical :: HIM_ADDITIVE_Y18_USE_PW = .false.       ! Use PW (precipitabe water) for Y18's additive inflation  
   real(r_size) :: HIM_ADDITIVE_Y18_VLOC_PLEV = -1.0_r_size ! Pressure level (Pa) for vertical localization
                                                            ! > 0.0: Use namelist value instead of the peak of the weighting function
                                                            ! <=0.0: Do not use namelist value
@@ -1274,6 +1276,8 @@ subroutine read_nml_letkf_him
     HIM_ADDITIVE_Y18_USE_T, &
     HIM_ADDITIVE_Y18_USE_P, &
     HIM_ADDITIVE_Y18_USE_Q, &
+    HIM_ADDITIVE_Y18_USE_SFC_PRES, &
+    HIM_ADDITIVE_Y18_USE_PW, &
     HIM_ADDITIVE_Y18_VLOC_PLEV, &
     HIM_ADDITIVE_Y18_NORMALIZE_SPRD, &
     HIM_ADDITIVE_Y18_NORMALIZE_SPRD_VALUE, &

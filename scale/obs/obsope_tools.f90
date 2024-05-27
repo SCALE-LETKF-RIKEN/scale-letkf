@@ -95,7 +95,8 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
   logical :: use_him = .false.
 
   real(r_size), allocatable :: mhim2dg     (:,:,:,:)
-  real(r_size), allocatable :: slope1dg_him(:,:,:,:)
+  real(r_size), allocatable :: slope3dg_him(:,:,:,:)
+  real(r_size), allocatable :: slope2dg_him(:,:,:)
   real(r_size), allocatable :: him_add2d(:,:,:)
 
   integer,      allocatable :: cloudy_mem2dg(:,:,:,:)
@@ -394,7 +395,8 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
     elseif( HIM_ADDITIVE_Y18 .or. HIM_OUT_CLOUDYMEM ) then
 
       allocate( mhim2dg      (NIRB_HIM_USE,SLOT_END-SLOT_START+1,nlon,nlat) )
-      allocate( slope1dg_him (NIRB_HIM_USE,SLOT_END-SLOT_START+1,nlevh,nv3dd) )
+      allocate( slope3dg_him (NIRB_HIM_USE,SLOT_END-SLOT_START+1,nlevh,nv3dd) )
+      allocate( slope2dg_him (NIRB_HIM_USE,SLOT_END-SLOT_START+1,      nv2dd) )
       if ( HIM_ADDITIVE_Y18 ) then
         allocate( him_add2d(NIRB_HIM_USE,nlon,nlat))
       endif
@@ -416,7 +418,7 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
       call get_regression_slope_dbz_mpi( mv3dg, mv2dg, mdbz3dg, slope3dg )
     elseif(HIM_ADDITIVE_Y18 ) then
 #ifdef RTTOV
-      call get_regression_slope_him_mpi( mv3dg, mv2dg, mhim2dg, cloudy_mem2dg, slope1dg_him )
+      call get_regression_slope_him_mpi( mv3dg, mv2dg, mhim2dg, cloudy_mem2dg, slope3dg_him, slope2dg_him )
 #endif
     endif
     call mpi_timer('obsope_cal:get_slope_Y18:', 2)
@@ -483,7 +485,9 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
                                      yobs_clr=yobs_him_clr,     &
                                      mwgt_plev2d=plev_obs_him,  &
                                      mv3d=mv3dg(islot-SLOT_START+1,1:nlevh,1:nlonh,1:nlath,1:nv3dd), &
-                                     slope1d=slope1dg_him(1:NIRB_HIM_USE,islot-SLOT_START+1,1:nlevh,1:nv3dd), &
+                                     mv2d=mv2dg(islot-SLOT_START+1,        1:nlonh,1:nlath,1:nv2dd), &
+                                     slope3d=slope3dg_him(1:NIRB_HIM_USE,islot-SLOT_START+1,1:nlevh,1:nv3dd), &
+                                     slope2d=slope2dg_him(1:NIRB_HIM_USE,islot-SLOT_START+1,        1:nv2dd), &
                                      him_add2d=him_add2d)
           else
             call Trans_XtoY_HIM_allg(v3dg,v2dg,yobs_him,qc_him, &
@@ -699,7 +703,8 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
       deallocate( cloudy_mem2dg )
 
       if ( HIM_ADDITIVE_Y18 ) then
-        deallocate( slope1dg_him )
+        deallocate( slope3dg_him )
+        deallocate( slope2dg_him )
         deallocate( him_add2d )
       endif
 

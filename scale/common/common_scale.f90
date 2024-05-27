@@ -60,7 +60,7 @@ MODULE common_scale
   !--- 3D, 2D diagnostic variables (in SCALE history files)
   ! 
   INTEGER,PARAMETER :: nv3dd=12
-  INTEGER,PARAMETER :: nv2dd = 9
+  INTEGER,PARAMETER :: nv2dd = 10
   INTEGER,PARAMETER :: iv3dd_u=1
   INTEGER,PARAMETER :: iv3dd_v=2
   INTEGER,PARAMETER :: iv3dd_w=3
@@ -82,6 +82,7 @@ MODULE common_scale
   INTEGER,PARAMETER :: iv2dd_q2m=7
   INTEGER,PARAMETER :: iv2dd_lsmask = 8
   INTEGER,PARAMETER :: iv2dd_skint  = 9
+  integer, parameter :: iv2dd_pw  = 10
   CHARACTER(vname_max),PARAMETER :: v3dd_name(nv3dd) = &
      (/'Umet      ', 'Vmet      ', 'W         ', 'T         ', 'PRES      ', &
        'QV        ', 'QC        ', 'QR        ', 'QI        ', 'QS        ', 'QG        ', 'height    '/)
@@ -89,9 +90,9 @@ MODULE common_scale
      (/.true., .true., .true., .true., .true., &
        .true., .true., .true., .true., .true., .true., .false./)
   CHARACTER(vname_max),PARAMETER :: v2dd_name(nv2dd) = &
-     (/'topo      ', 'SFC_PRES  ', 'PREC      ', 'U10       ', 'V10       ', 'T2        ', 'Q2        ', 'lsmask    ', 'SFC_TEMP  '/)
+     (/'topo      ', 'SFC_PRES  ', 'PREC      ', 'U10m      ', 'V10m      ', 'T2        ', 'Q2        ', 'lsmask    ', 'SFC_TEMP  ', 'PW        '/)
   LOGICAL,PARAMETER :: v2dd_hastime(nv2dd) = &
-     (/.false., .true., .true., .true., .true., .true., .true., .false., .true./)
+     (/.false., .true., .true., .true., .true., .true., .true., .false., .true., .true./)
 
   INTEGER,SAVE :: nv2dd_use = 9
 
@@ -2354,7 +2355,7 @@ subroutine write_Him_nc(filename, tbb )
 end subroutine write_Him_nc
 
 !-------------------------------------------------------------------------------
-subroutine write_cov_nc( filename, cov2d, var2d, var, cnt )
+subroutine write_cov_nc( filename, cov3d, cov2d, var3d, var2d, var, cnt )
   use netcdf
   use common_ncio
   use scale_atmos_grid_cartesC, only: &
@@ -2364,8 +2365,10 @@ subroutine write_cov_nc( filename, cov2d, var2d, var, cnt )
   implicit none
 
   character(len=*), intent(in) :: filename
-  real, intent(in) :: cov2d(NIRB_HIM_USE,nlev,nv3dd)
-  real, intent(in) :: var2d(             nlev,nv3dd)
+  real, intent(in) :: cov3d(NIRB_HIM_USE,nlev,nv3dd)
+  real, intent(in) :: cov2d(NIRB_HIM_USE,     nv2dd)
+  real, intent(in) :: var3d(             nlev,nv3dd)
+  real, intent(in) :: var2d(                  nv2dd)
   real, intent(in) :: var  (NIRB_HIM_USE)
   integer, intent(in) :: cnt
 
@@ -2378,8 +2381,8 @@ subroutine write_cov_nc( filename, cov2d, var2d, var, cnt )
   integer :: hgt_dimid
   integer :: hgt_varid
 
-  integer :: cov_varid(NIRB_HIM_USE,nv3dd)
-  integer :: var_varid(nv3dd)
+  integer :: cov3d_varid(NIRB_HIM_USE,nv3dd)
+  integer :: var3d_varid(nv3dd)
 
   integer :: start(1), count(1)
   integer :: dimids(1)
@@ -2403,15 +2406,15 @@ subroutine write_cov_nc( filename, cov2d, var2d, var, cnt )
   do n = 1, nv3dd
 
     call ncio_check( nf90_def_var( ncid, "VAR_"//trim( v3dd_name(n) ), &
-                     NF90_REAL, dimids, var_varid(n) ) )
-    call ncio_check( nf90_put_att( ncid, var_varid(n), "long_name", &
+                     NF90_REAL, dimids, var3d_varid(n) ) )
+    call ncio_check( nf90_put_att( ncid, var3d_varid(n), "long_name", &
                      "variance of " // trim( v3dd_name(n) )) )
 
     do ch = 1, NIRB_HIM_USE
       write(cband2,'(I2.2)') HIM_IR_BAND_RTTOV_LIST(ch)
       call ncio_check( nf90_def_var( ncid, "COV_"//trim( v3dd_name(n) )//"_B"//cband2, &
-                       NF90_REAL, dimids, cov_varid(ch,n) ) )
-      call ncio_check( nf90_put_att( ncid, cov_varid(ch,n), "long_name", &
+                       NF90_REAL, dimids, cov3d_varid(ch,n) ) )
+      call ncio_check( nf90_put_att( ncid, cov3d_varid(ch,n), "long_name", &
                        "covariance btw Himawari B"//cband2//" & " // trim( v3dd_name(n) )) )
     enddo
   enddo
@@ -2431,12 +2434,16 @@ subroutine write_cov_nc( filename, cov2d, var2d, var, cnt )
   call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'cloudy_mem_threshold',   HIM_ADDITIVE_Y18_MINMEM4COR ) )
   call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'max_height_meters',      HIM_ADDITIVE_Y18_ZMAX ) )
   call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'min_height_meters',      HIM_ADDITIVE_Y18_ZMIN ) )
-!  call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'max_height',        LT_CORR_MAXHGT ) )
-!  call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'b_conv_ng',         LT_B_CONV_NG ) )
 
-!  do n = 1, nv3dd
-!    call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'std_min_'//trim( v3dd_name_a(n) ), LT_CORR_3DVARS_MINSTD(n)  ) )
-!  enddo
+  do n = 1, nv2dd
+    call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, "VAR_"//trim( v2dd_name(n) ),  var2d(n) ) )
+
+    do ch = 1, NIRB_HIM_USE
+      write(cband2,'(I2.2)') HIM_IR_BAND_RTTOV_LIST(ch)
+      call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, "COV_"//trim( v2dd_name(n) )//"_B"//cband2,  cov2d(ch,n) ) )
+
+    enddo
+  enddo
 
   ! End define mode.
   call ncio_check( nf90_enddef(ncid) )
@@ -2449,11 +2456,11 @@ subroutine write_cov_nc( filename, cov2d, var2d, var, cnt )
 
   ! Write the data.
   do n = 1, nv3dd
-    call ncio_check( nf90_put_var( ncid, var_varid(n), var2d(1:nlev,n), start=start, &
+    call ncio_check( nf90_put_var( ncid, var3d_varid(n), var3d(1:nlev,n), start=start, &
                      count=count) )
 
     do ch = 1, NIRB_HIM_USE
-      call ncio_check( nf90_put_var( ncid, cov_varid(ch,n), cov2d(ch,1:nlev,n), start=start, &
+      call ncio_check( nf90_put_var( ncid, cov3d_varid(ch,n), cov3d(ch,1:nlev,n), start=start, &
                       count=count) )
     enddo
 

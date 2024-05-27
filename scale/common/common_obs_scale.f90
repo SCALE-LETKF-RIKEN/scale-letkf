@@ -3808,7 +3808,7 @@ end subroutine get_nobs_allgHim
 
 #IFDEF RTTOV
 SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd,&
-                               mv3d,slope1d,him_add2d)
+                               mv3d,mv2d,slope3d,slope2d,him_add2d)
   use scale_mapprojection, only: &
       MAPPROJECTION_xy2lonlat
   use common_scale_rttov13, only: &
@@ -3838,7 +3838,11 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd,&
   integer, intent(in), optional :: stggrd
 
   real(r_size), intent(in),  optional :: mv3d(nlevh,nlonh,nlath,nv3dd)
-  real(r_size), intent(in),  optional :: slope1d(NIRB_HIM_USE,nlevh,nv3dd)
+  real(r_size), intent(in),  optional :: mv2d(      nlonh,nlath,nv2dd)
+
+  real(r_size), intent(in),  optional :: slope3d(NIRB_HIM_USE,nlevh,nv3dd)
+  real(r_size), intent(in),  optional :: slope2d(NIRB_HIM_USE,      nv2dd)
+
   real(r_size), intent(out), optional :: him_add2d(NIRB_HIM_USE,nlon,nlat)
 
   REAL(r_size) :: rotc(1,1,2)
@@ -3888,8 +3892,10 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd,&
 
   integer :: nps, npe, it
 
-  integer :: iv3d
+  integer :: iv3d, iv2d
   real(r_size), allocatable :: pert1d(:)
+  real(r_size) :: pert
+
   integer :: kmin_y18, kmax_y18
   
 !  write(6,'(a)') 'Hello from Trans_XtoY_HIM_allg'
@@ -4079,13 +4085,27 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd,&
               pert1d = v3d(1:nlevh,i+IHALO,j+JHALO,iv3d) - mv3d(1:nlevh,i+IHALO,j+JHALO,iv3d)
               do ch = 1, NIRB_HIM_USE
                 do k = kmin_y18, kmax_y18
-                  him_add2d(ch,i,j) = him_add2d(ch,i,j) + pert1d(KHALO+k) * slope1d(ch,KHALO+k,iv3d)
+                  him_add2d(ch,i,j) = him_add2d(ch,i,j) + pert1d(KHALO+k) * slope3d(ch,KHALO+k,iv3d)
                 enddo ! k
               enddo ! ch
             enddo ! i
           enddo ! j
         endif
       enddo ! iv3d
+
+      do iv2d = 1, nv2dd
+        if ( ( iv2d == iv2dd_ps .and. HIM_ADDITIVE_Y18_USE_SFC_PRES ) .or. &
+             ( iv2d == iv2dd_pw .and. HIM_ADDITIVE_Y18_USE_PW       ) ) then
+          do j = 1, nlat
+            do i = 1, nlon
+              pert = v2d(i+IHALO,j+JHALO,iv2d) - mv2d(i+IHALO,j+JHALO,iv2d)
+              do ch = 1, NIRB_HIM_USE
+                him_add2d(ch,i,j) = him_add2d(ch,i,j) + pert * slope2d(ch,iv2d)
+              enddo ! ch
+            enddo ! i
+          enddo ! j
+        endif
+      enddo ! iv2d
 
       deallocate( pert1d )
 
