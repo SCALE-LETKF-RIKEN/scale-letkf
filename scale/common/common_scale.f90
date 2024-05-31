@@ -2434,6 +2434,7 @@ subroutine write_cov_nc( filename, cov3d, cov2d, var3d, var2d, var, cnt )
   call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'cloudy_mem_threshold',   HIM_ADDITIVE_Y18_MINMEM4COR ) )
   call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'max_height_meters',      HIM_ADDITIVE_Y18_ZMAX ) )
   call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'min_height_meters',      HIM_ADDITIVE_Y18_ZMIN ) )
+  call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'min_correlation_abs',    HIM_ADDITIVE_Y18_CORR_MIN ) )
 
   do n = 1, nv2dd
     call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, "VAR_"//trim( v2dd_name(n) ),  var2d(n) ) )

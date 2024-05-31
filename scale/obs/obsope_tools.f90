@@ -697,6 +697,7 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
       deallocate ( slope3dg )
       deallocate ( mdbz3dg )
 
+#ifdef RTTOV
     elseif( HIM_ADDITIVE_Y18 .or. HIM_OUT_CLOUDYMEM ) then
 
       deallocate( mhim2dg )
@@ -707,6 +708,7 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
         deallocate( slope2dg_him )
         deallocate( him_add2d )
       endif
+#endif
 
     endif
   endif

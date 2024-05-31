@@ -417,7 +417,7 @@ MODULE common_nml
                                                            ! <=0.0: Do not use namelist value
   logical :: HIM_ADDITIVE_Y18_NORMALIZE_SPRD            = .false.    ! Normalize the ensemble spread calculated by Y18
   real(r_size) :: HIM_ADDITIVE_Y18_NORMALIZE_SPRD_VALUE = 0.1_r_size ! Normalized value of the ensemble spread 
-
+  real(r_size) :: HIM_ADDITIVE_Y18_CORR_MIN = -1.0_r_size
 
   logical :: HIM_OUT_TBB_NC = .true.
   logical :: HIM_OUT_ETBB_NC = .false.
@@ -1281,6 +1281,7 @@ subroutine read_nml_letkf_him
     HIM_ADDITIVE_Y18_VLOC_PLEV, &
     HIM_ADDITIVE_Y18_NORMALIZE_SPRD, &
     HIM_ADDITIVE_Y18_NORMALIZE_SPRD_VALUE, &
+    HIM_ADDITIVE_Y18_CORR_MIN, &
     HIM_OUT_CLOUDYMEM, &
     !
     HIM_OUT_TBB_NC, &

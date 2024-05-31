@@ -3454,6 +3454,7 @@ subroutine get_regression_slope_him_mpi( mv3dg, mv2dg, mhim2dg, cloudy_mem2dg, s
   character(6) :: MYRANK_D6
 
   integer :: cnt
+  real(r_size) :: corr
 
   do islot = SLOT_START, SLOT_END
     islot2 = islot - SLOT_START + 1
@@ -3568,7 +3569,12 @@ subroutine get_regression_slope_him_mpi( mv3dg, mv2dg, mhim2dg, cloudy_mem2dg, s
       do k = 1, nlev
         do ch = 1, NIRB_HIM_USE
           if ( vv3dg(islot2,k,iv3d) > 0.0_r_size ) then
-            slope3dg(ch,islot2,k+KHALO,iv3d) = cov3dg(ch,islot2,k,iv3d) / vv3dg(islot2,k,iv3d)
+            corr = cov3dg(ch,islot2,k,iv3d) / ( sqrt( vv3dg(islot2,k,iv3d) ) * sqrt( vhim0dg(ch,islot2) ) )
+            if ( abs( corr ) >= HIM_ADDITIVE_Y18_CORR_MIN ) then  
+              slope3dg(ch,islot2,k+KHALO,iv3d) = cov3dg(ch,islot2,k,iv3d) / vv3dg(islot2,k,iv3d)
+            else
+              slope3dg(ch,islot2,k+KHALO,iv3d) = 0.0_r_size
+            endif
           else
             slope3dg(ch,islot2,k+KHALO,iv3d) = 0.0_r_size
           endif
@@ -3581,7 +3587,12 @@ subroutine get_regression_slope_him_mpi( mv3dg, mv2dg, mhim2dg, cloudy_mem2dg, s
 
       do ch = 1, NIRB_HIM_USE
         if ( vv2dg(islot2,iv2d) > 0.0_r_size ) then
-          slope2dg(ch,islot2,iv2d) = cov2dg(ch,islot2,iv2d) / vv2dg(islot2,iv2d)
+          corr = cov2dg(ch,islot2,iv2d) / ( sqrt( vv2dg(islot2,iv2d) ) * sqrt( vhim0dg(ch,islot2) ) )
+          if ( abs( corr ) >= HIM_ADDITIVE_Y18_CORR_MIN ) then  
+            slope2dg(ch,islot2,iv2d) = cov2dg(ch,islot2,iv2d) / vv2dg(islot2,iv2d)
+          else
+            slope2dg(ch,islot2,iv2d) = 0.0_r_size
+          endif
         else
           slope2dg(ch,islot2,iv2d) = 0.0_r_size
         endif
