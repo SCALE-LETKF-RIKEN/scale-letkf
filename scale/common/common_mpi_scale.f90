@@ -3161,6 +3161,44 @@ subroutine write_Him_mpi( tbb_l, tbb_clr_l, step )
   return
 end subroutine write_Him_mpi
 
+subroutine gather_him_mpi(tbb_l,tbb_g,output,filename)
+  implicit none
+
+  real(r_size), intent(in)  :: tbb_l(NIRB_HIM_USE,nlon,nlat)
+  real(r_size), intent(out) :: tbb_g(NIRB_HIM_USE,nlong,nlatg)
+  logical, intent(in), optional :: output
+  character(*), intent(in), optional :: filename
+
+  logical :: output_ = .false.
+  integer :: proc_i, proc_j
+  integer :: ishift, jshift
+  integer :: ierr
+
+  real(r_size) :: bufs2d(nlong,nlatg)
+  integer :: ch
+
+  if ( present(output) ) output_ = output
+
+  call rank_1d_2d(myrank_d, proc_i, proc_j)
+  ishift = proc_i * nlon
+  jshift = proc_j * nlat
+
+  do ch = 1, NIRB_HIM_USE
+    bufs2d(1:nlong,1:nlatg) = 0.0_r_size
+    bufs2d(1+ishift:nlon+ishift, 1+jshift:nlat+jshift) = tbb_l(ch,1:nlon,1:nlat)
+    call MPI_ALLREDUCE( MPI_IN_PLACE, bufs2d, nlong*nlatg, MPI_REAL, MPI_SUM, MPI_COMM_d, ierr)
+    tbb_g(ch,1:nlong,1:nlatg) = bufs2d(1:nlong,1:nlatg)
+  enddo
+
+  if ( output_ ) then
+    if ( myrank_d == 0 ) then
+      call write_Him_nc(trim(filename), tbb_g)
+    endif
+  endif
+
+  return
+end subroutine gather_him_mpi
+
 subroutine allgHim2obs_mpi(tbb_allg,tbb_allg_prep,qc_allg_prep,nobs,obsdat,obslon,obslat,obslev,obserr)
   use scale_atmos_grid_cartesC, only: &
       CXG => ATMOS_GRID_CARTESC_CXG, &

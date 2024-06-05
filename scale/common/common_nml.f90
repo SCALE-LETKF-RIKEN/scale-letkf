@@ -488,7 +488,8 @@ MODULE common_nml
   character(filelenmax) :: OBSSIM_TOPOGRAPHY_IN_BASENAME = 'topo'
   integer               :: OBSSIM_TIME_START = 1
   integer               :: OBSSIM_TIME_END = 1
-  character(filelenmax) :: OBSSIM_GRADS_OUT_NAME = ''
+  character(filelenmax) :: OBSSIM_GRADS_OUT_NAME  = ''
+  character(filelenmax) :: OBSSIM_NC_OUT_BASENAME = ''
   integer               :: OBSSIM_NUM_3D_VARS = 0
   integer               :: OBSSIM_3D_VARS_LIST(nid_obs) = 0
   integer               :: OBSSIM_NUM_2D_VARS = 0
@@ -496,6 +497,7 @@ MODULE common_nml
   real(r_size)          :: OBSSIM_RADAR_LON = 0.0d0
   real(r_size)          :: OBSSIM_RADAR_LAT = 0.0d0
   real(r_size)          :: OBSSIM_RADAR_Z = 0.0d0
+  logical               :: OBSSIM_HIM = .false.
 
   interface filename_replace_mem
     module procedure filename_replace_mem_int
@@ -1186,13 +1188,15 @@ subroutine read_nml_obssim
     OBSSIM_TIME_START, &
     OBSSIM_TIME_END, &
     OBSSIM_GRADS_OUT_NAME, &
+    OBSSIM_NC_OUT_BASENAME,&
     OBSSIM_NUM_3D_VARS, &
     OBSSIM_3D_VARS_LIST, &
     OBSSIM_NUM_2D_VARS, &
     OBSSIM_2D_VARS_LIST, &
     OBSSIM_RADAR_LON, &
     OBSSIM_RADAR_LAT, &
-    OBSSIM_RADAR_Z
+    OBSSIM_RADAR_Z, &
+    OBSSIM_HIM
 
   rewind(IO_FID_CONF)
   read(IO_FID_CONF,nml=PARAM_OBSSIM,iostat=ierr)

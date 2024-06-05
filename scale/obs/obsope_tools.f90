@@ -926,7 +926,7 @@ end subroutine obsmake_cal
 !-------------------------------------------------------------------------------
 ! Model-to-observation simulator calculation
 !-------------------------------------------------------------------------------
-subroutine obssim_cal(v3dgh, v2dgh, v3dgsim, v2dgsim, stggrd)
+subroutine obssim_cal(v3dgh, v2dgh, v3dgsim, v2dgsim, it, stggrd)
   use scale_atmos_grid_cartesC, only: &
       CX => ATMOS_GRID_CARTESC_CX, &
       CY => ATMOS_GRID_CARTESC_CY, &
@@ -942,6 +942,7 @@ subroutine obssim_cal(v3dgh, v2dgh, v3dgsim, v2dgsim, stggrd)
   real(r_size), intent(in) :: v2dgh(nlonh,nlath,nv2dd)
   real(r_size), intent(out) :: v3dgsim(nlev,nlon,nlat,OBSSIM_NUM_3D_VARS)
   real(r_size), intent(out) :: v2dgsim(nlon,nlat,OBSSIM_NUM_2D_VARS)
+  integer, intent(in), optional :: it
   integer, intent(in), optional :: stggrd
 
   integer :: i, j, k, iv3dsim, iv2dsim
@@ -951,6 +952,12 @@ subroutine obssim_cal(v3dgh, v2dgh, v3dgsim, v2dgsim, stggrd)
   real(RP) :: lon_RP, lat_RP
   integer :: tmpqc
 
+#ifdef RTTOV
+  real(r_size) :: tbb_l(NIRB_HIM_USE,nlon,nlat)
+  real(r_size) :: tbb_g(NIRB_HIM_USE,nlong,nlatg)
+  integer      :: qc_l (NIRB_HIM_USE,nlon,nlat)
+  character(4) :: it4
+#endif
 !-------------------------------------------------------------------------------
 
   write (6,'(A,I6.6,A,I6.6)') 'MYRANK ', myrank, ' is processing subdomain id #', myrank_d
@@ -1010,6 +1017,14 @@ subroutine obssim_cal(v3dgh, v2dgh, v3dgsim, v2dgsim, stggrd)
     end do ! [ i = 1, nlon ]
 
   end do ! [ j = 1, nlat ]
+
+#ifdef RTTOV
+  if ( OBSSIM_HIM ) then
+    call Trans_XtoY_HIM_allg(v3dgh,v2dgh,tbb_l,qc_l)
+    write(it4,'(i4.4)') it
+    call gather_him_mpi(tbb_l,tbb_g,output=.true.,filename=trim(OBSSIM_NC_OUT_BASENAME)//'_'//it4//'.nc')
+  endif
+#endif
 
 !-------------------------------------------------------------------------------
 
