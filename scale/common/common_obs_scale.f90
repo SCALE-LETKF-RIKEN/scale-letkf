@@ -3916,7 +3916,11 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd,&
     lon1d(np) = real( lon_tmp_RP(1,1), kind=r_size ) * rad2deg
     lat1d(np) = real( lat_tmp_RP(1,1), kind=r_size ) * rad2deg
 
-    call zenith_geosat( HIM_LON, lon1d(np), lat1d(np), zenith1d(np), azm )
+    if ( HIM_RTTOV_SZ_IDEAL ) then
+      zenith1d(np) = 0.0_r_size
+    else
+      call zenith_geosat( HIM_LON, lon1d(np), lat1d(np), zenith1d(np), azm )
+    endif
     tsfc1d(np) = v2d(i+IHALO,j+JHALO,iv2dd_skint)
     qsfc1d(np) = v2d(i+IHALO,j+JHALO,iv2dd_q2m)
     topo1d(np) = v2d(i+IHALO,j+JHALO,iv2dd_topo)

@@ -956,7 +956,7 @@ subroutine obssim_cal(v3dgh, v2dgh, v3dgsim, v2dgsim, it, stggrd)
   real(r_size) :: tbb_l(NIRB_HIM_USE,nlon,nlat)
   real(r_size) :: tbb_g(NIRB_HIM_USE,nlong,nlatg)
   integer      :: qc_l (NIRB_HIM_USE,nlon,nlat)
-  character(4) :: it4
+  character(len=4) :: it4
 #endif
 !-------------------------------------------------------------------------------
 

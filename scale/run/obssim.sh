@@ -1,6 +1,9 @@
 #!/bin/bash 
 # This script launchs obssim
-
+#===============================================================================
+# Setting
+TSTART=1
+TEND=3
 
 #===============================================================================
 # Configuration
@@ -67,8 +70,8 @@ cat << EOF > $config
 &PARAM_OBSSIM
   OBSSIM_IN_TYPE = 'history',
   OBSSIM_HISTORY_IN_BASENAME = '${OUTDIR}/${STIME}/fcst/mean/history',
-  OBSSIM_TIME_START = 1,
-  OBSSIM_TIME_END   = 1,
+  OBSSIM_TIME_START = ${TSTART},
+  OBSSIM_TIME_END   = ${TEND},
   OBSSIM_HIM = T,
   OBSSIM_NC_OUT_BASENAME = '${OUTDIR}/${STIME}/fcst/mean/him',
 /

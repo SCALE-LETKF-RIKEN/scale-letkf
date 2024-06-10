@@ -859,6 +859,7 @@ subroutine set_scalelib(execname)
     call read_nml_letkf_radar
     force_use_hist = .true.
   case ('OBSSIM ')
+    call read_nml_letkf
     call read_nml_obssim
     call read_nml_letkf_radar
     call read_nml_letkf_him

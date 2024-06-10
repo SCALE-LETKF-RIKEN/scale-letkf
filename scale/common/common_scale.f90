@@ -216,7 +216,7 @@ SUBROUTINE set_common_scale
   ngpv  = nij0 * nlevall
   ngpvd = nij0 * nlevalld
 
-  if (ATMOS_sw_phy_sf) then
+  if ( ATMOS_sw_phy_sf .or. USE_HISTORY_WO_SFC_IDEAL ) then
     nv2dd_use=nv2dd
   else
     nv2dd_use=1 !!! read TOPO only 
@@ -1073,6 +1073,11 @@ subroutine read_history(filename,step,v3dg,v2dg)
                     var2D,                 & ! [OUT]
                     rankid=PRC_myrank,     & ! [IN]
                     step=step_             ) ! [IN]
+        v2dg_RP(IS:IE,JS:JE,iv2d) = var2D(:,:)
+
+    elseif ( USE_HISTORY_WO_SFC_IDEAL ) then
+      call used_history3d_to_history2d_ideal(v3dg_RP,iv2d,v2dg_RP(:,:,iv2d))
+
     else
       write(6,'(A,A15,A)') " 2D var ", trim(v2dd_name(iv2d))," not found."
       if ( FILL_BY_ZERO_MISSING_VARIABLES ) then
@@ -2592,5 +2597,35 @@ subroutine write_Him_cloudy_mem(filename, cloudymem )
   return
 end subroutine write_Him_cloudy_mem
 
+subroutine used_history3d_to_history2d_ideal(v3dg_RP,iv2d,v2dg_RP)
+  use scale_atmos_grid_cartesC_index, only: &
+    KS
+  implicit none
+
+  real(RP), intent(in)  :: v3dg_RP(nlevh,nlonh,nlath,nv3dd)
+  integer,  intent(in)  :: iv2d
+  real(RP), intent(out) :: v2dg_RP(nlonh,nlath)
+
+   select case(iv2d)
+   case( iv2dd_ps )
+     v2dg_RP(1:nlonh,1:nlath) = v3dg_RP(KS,1:nlonh,1:nlath,iv3dd_p)
+   case( iv2dd_u10m )
+     v2dg_RP(1:nlonh,1:nlath) = v3dg_RP(KS,1:nlonh,1:nlath,iv3dd_u)
+   case( iv2dd_v10m )
+     v2dg_RP(1:nlonh,1:nlath) = v3dg_RP(KS,1:nlonh,1:nlath,iv3dd_v)
+   case( iv2dd_t2m )
+     v2dg_RP(1:nlonh,1:nlath) = v3dg_RP(KS,1:nlonh,1:nlath,iv3dd_t)
+   case( iv2dd_q2m )
+     v2dg_RP(1:nlonh,1:nlath) = v3dg_RP(KS,1:nlonh,1:nlath,iv3dd_q)
+   case( iv2dd_lsmask )
+     v2dg_RP(1:nlonh,1:nlath) = 0.0_RP ! ocean
+   case( iv2dd_skint )
+     v2dg_RP(1:nlonh,1:nlath) = v3dg_RP(KS,1:nlonh,1:nlath,iv3dd_t) 
+   case default
+   end select
+
+  return
+end subroutine used_history3d_to_history2d_ideal
+  
 !===============================================================================
 END MODULE common_scale

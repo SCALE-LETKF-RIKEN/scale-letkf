@@ -185,6 +185,9 @@ MODULE common_nml
 
   logical :: REJECT_ADPSFC_EXCEPT_PS = .false.
 
+  logical :: USE_HISTORY_WO_SFC_IDEAL = .false. ! Use history files without surface variables (ideal cases)
+                                                !  (some history variables at the surface are approximated by the lowest model variables)
+
   !*** for backward compatibility ***
   real(r_size) :: COV_INFL_MUL = 1.0d0
   real(r_size) :: MIN_INFL_MUL = 0.0d0
@@ -367,6 +370,7 @@ MODULE common_nml
   ! 3: Tompkins and Janiskova (2004QJRMS) method (as in Okamoto 2017QJRMS)
   real(r_size) :: HIM_RTTOV_CFRAC_CNST = 0.10d0 ! Denominator constant for diagnosing SEQUENTIAL(0-1) cloud fraction (g m-3)
   real(r_size) :: HIM_RTTOV_MINQ_CTOP = 0.10d0 ! Threshold of water/ice contents for diagnosing the cloud top (g m-3)
+  logical :: HIM_RTTOV_SZ_IDEAL = .false. ! true: set satellite zenith angle to 0.0 for idealized cases
 
   ! How to prepare Himawari-8 obs using that "superobs"ed into the model grid
   character(10) :: HIM_OBS_METHOD = 'SIMPLE' 
@@ -800,6 +804,7 @@ subroutine read_nml_letkf
     NOBS_OUT_BASENAME, &
     FILL_BY_ZERO_MISSING_VARIABLES, &
     REJECT_ADPSFC_EXCEPT_PS, &
+    USE_HISTORY_WO_SFC_IDEAL, &
     !*** for backward compatibility ***
     COV_INFL_MUL, &
     MIN_INFL_MUL, &
@@ -1249,6 +1254,7 @@ subroutine read_nml_letkf_him
     HIM_RTTOV_CFRAC_CNST,   &
     HIM_RTTOV_MINQ_CTOP,    &
     HIM_RTTOV_CFRAC,        &
+    HIM_RTTOV_SZ_IDEAL,     &
     !
     ! Superob & thinning parameters 
     HIM_OBS_METHOD,         &
