@@ -4094,8 +4094,9 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd,&
       enddo ! iv3d
 
       do iv2d = 1, nv2dd
-        if ( ( iv2d == iv2dd_ps .and. HIM_ADDITIVE_Y18_USE_SFC_PRES ) .or. &
-             ( iv2d == iv2dd_pw .and. HIM_ADDITIVE_Y18_USE_PW       ) ) then
+        if ( ( iv2d == iv2dd_ps   .and. HIM_ADDITIVE_Y18_USE_SFC_PRES ) .or. &
+             ( iv2d == iv2dd_pw   .and. HIM_ADDITIVE_Y18_USE_PW       ) .or. &
+             ( iv2d == iv2dd_rain .and. HIM_ADDITIVE_Y18_USE_PREC     ) ) then
           do j = 1, nlat
             do i = 1, nlon
               pert = v2d(i+IHALO,j+JHALO,iv2d) - mv2d(i+IHALO,j+JHALO,iv2d)
