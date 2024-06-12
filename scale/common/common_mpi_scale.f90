@@ -3282,6 +3282,9 @@ subroutine allgHim2obs_mpi(tbb_allg,tbb_allg_prep,qc_allg_prep,nobs,obsdat,obslo
 
         if ( is < 1 .or. js < 1 .or. ie > nlong .or. je > nlatg ) then
           tbb_allg_prep(ch,i,j) = -1.0_r_size
+          if (present(qc_allg_prep)) then
+            qc_allg_prep(ch,i,j) = iqc_obs_bad
+          endif
           cycle
         endif
 
