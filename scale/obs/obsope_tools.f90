@@ -956,7 +956,7 @@ subroutine obssim_cal(v3dgh, v2dgh, v3dgsim, v2dgsim, it, stggrd)
   real(r_size) :: tbb_l(NIRB_HIM_USE,nlon,nlat)
   real(r_size) :: tbb_g(NIRB_HIM_USE,nlong,nlatg)
   integer      :: qc_l (NIRB_HIM_USE,nlon,nlat)
-  character(len=4) :: it4
+  character(len=6) :: it6
 #endif
 !-------------------------------------------------------------------------------
 
@@ -1021,8 +1021,8 @@ subroutine obssim_cal(v3dgh, v2dgh, v3dgsim, v2dgsim, it, stggrd)
 #ifdef RTTOV
   if ( OBSSIM_HIM ) then
     call Trans_XtoY_HIM_allg(v3dgh,v2dgh,tbb_l,qc_l)
-    write(it4,'(i4.4)') it
-    call gather_him_mpi(tbb_l,tbb_g,output=.true.,filename=trim(OBSSIM_NC_OUT_BASENAME)//'_'//it4//'.nc')
+    write(it6,'(i6.6)') (it-1)*OBSSIM_TIME_INTERVAL_SEC
+    call gather_him_mpi(tbb_l,tbb_g,output=.true.,filename=trim(OBSSIM_NC_OUT_BASENAME)//'_ftsec'//it6//'.nc')
   endif
 #endif
 

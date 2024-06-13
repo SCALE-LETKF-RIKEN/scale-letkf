@@ -3620,8 +3620,13 @@ subroutine get_dim_Him_nc(filename_org,imax_him,jmax_him)
 
   call ncio_open(trim(filename), NF90_NOWRITE, ncid)
 
-  call ncio_read_dim(ncid,'longitude',imax_him)
-  call ncio_read_dim(ncid,'latitude',jmax_him)
+  if ( HIM_OBS_IDEAL ) then
+    call ncio_read_dim(ncid,'x',imax_him)
+    call ncio_read_dim(ncid,'y',jmax_him)
+  else
+    call ncio_read_dim(ncid,'longitude',imax_him)
+    call ncio_read_dim(ncid,'latitude',jmax_him)
+  endif
 
   call ncio_close(ncid)
 
@@ -3646,27 +3651,54 @@ subroutine read_Him_nc(filename_org,imax_him,jmax_him,lon_him,lat_him,tbb3d)
   integer :: pos
   character(2) :: band2
 
+  real(r_sngl), allocatable :: random2d(:,:)
+  integer :: i, j
+
+  if ( HIM_OBS_IDEAL ) then
+    allocate( random2d(imax_him,jmax_him) )
+  endif 
+
   do ch = 1, NIRB_HIM_USE
     filename = trim(filename_org)
     write(band2,'(I2.2)') HIM_IR_BAND_RTTOV_LIST(ch)
     call str_replace(filename, '<band>', band2, pos)
 
     call ncio_open(trim(filename), NF90_NOWRITE, ncid)
- 
-    if ( ch == 1 ) then 
-      call ncio_check(nf90_inq_varid(ncid, 'longitude', varid))
-      call ncio_check(nf90_get_var(ncid, varid, lon_him, &
-                                   start = (/ 1 /), count = (/ imax_him /)))
-     
-      call ncio_check(nf90_inq_varid(ncid, 'latitude', varid))
-      call ncio_check(nf90_get_var(ncid, varid, lat_him, &
-                                   start = (/ 1 /), count = (/ jmax_him /)))
 
+    if ( ch == 1 ) then
+      ! Read lon/lat
+
+      if ( HIM_OBS_IDEAL ) then 
+        lon_him(:) = 0.0_r_sngl ! dummy
+        lat_him(:) = 0.0_r_sngl ! dummy
+      else
+        call ncio_check(nf90_inq_varid(ncid, 'longitude', varid))
+        call ncio_check(nf90_get_var(ncid, varid, lon_him, &
+                                    start = (/ 1 /), count = (/ imax_him /)))
+      
+        call ncio_check(nf90_inq_varid(ncid, 'latitude', varid))
+        call ncio_check(nf90_get_var(ncid, varid, lat_him, &
+                                    start = (/ 1 /), count = (/ jmax_him /)))
+      endif
     endif
   
     call ncio_check(nf90_inq_varid(ncid, 'tbb', varid))
     call ncio_check(nf90_get_var(ncid, varid, tbb2d, &
                                  start = (/ 1, 1/), count = (/ imax_him, jmax_him/)))
+
+    if ( HIM_OBS_IDEAL ) then
+      call ncio_check(nf90_inq_varid(ncid, 'random', varid))
+      call ncio_check(nf90_get_var(ncid, varid, random2d, &
+                                   start = (/ 1, 1/), count = (/ imax_him, jmax_him/)))
+      !$omp parallel do private(i,j)
+      do j = 1, jmax_him
+        do i = 1, imax_him
+          tbb2d(i,j) = tbb2d(i,j) + random2d(i,j)*HIM_OBS_IDEAL_STD
+        enddo
+      enddo
+      !$omp end parallel do
+
+    endif
    
     call ncio_close(ncid)
     tbb3d(ch,:,:) = tbb2d(:,:)

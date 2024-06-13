@@ -1,11 +1,6 @@
 #!/bin/bash 
 # This script launchs obssim
 #===============================================================================
-# Setting
-TSTART=1
-TEND=3
-
-#===============================================================================
 # Configuration
 
 . ./config.main || exit $?
@@ -17,6 +12,14 @@ TEND=3
 
 . src/func_common_static.sh || exit $?
 #. src/func_${job}_static.sh || exit $?
+
+echo "[$(datetime_now)] Start obssim $@"
+
+#===============================================================================
+# Setting
+TSTART=6
+TEND=7
+TINTERVAL=${FCSTOUT}
 
 #-------------------------------------------------------------------------------
 # Create and clean up the temporary directory
@@ -72,8 +75,9 @@ cat << EOF > $config
   OBSSIM_HISTORY_IN_BASENAME = '${OUTDIR}/${STIME}/fcst/mean/history',
   OBSSIM_TIME_START = ${TSTART},
   OBSSIM_TIME_END   = ${TEND},
+  OBSSIM_TIME_INTERVAL_SEC = ${TINTERVAL},
   OBSSIM_HIM = T,
-  OBSSIM_NC_OUT_BASENAME = '${OUTDIR}/${STIME}/fcst/mean/him',
+  OBSSIM_NC_OUT_BASENAME = '${OUTDIR}/${STIME}/fcst/mean/himawari',
 /
 EOF
 
@@ -227,3 +231,5 @@ EOF
 fi
 
 #-------------------------------------------------------------------------------
+
+echo "[$(datetime_now)] Finish obssim $@"

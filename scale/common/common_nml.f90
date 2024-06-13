@@ -381,6 +381,8 @@ MODULE common_nml
   integer :: HIM_OBS_AVE_NG = 0 ! # of grids for averaging adjacent grids (HIM_OBS_METHOD=2)
   logical :: HIM_OBS_AVE_OVERLAP = .false.
   integer :: HIM_OBS_THIN_LEV = 1 ! thinning level (1: no thinning)
+  logical :: HIM_OBS_IDEAL = .false. ! true: use him obs in idealized exps (w/o map projection)
+  real(r_size) :: HIM_OBS_IDEAL_STD = 1.0_r_size ! standard deviation of the observatin errors of him obs in idealized exps
 
   logical :: HIM_VLOCAL_CTOP = .true.
 
@@ -493,6 +495,7 @@ MODULE common_nml
   character(filelenmax) :: OBSSIM_TOPOGRAPHY_IN_BASENAME = 'topo'
   integer               :: OBSSIM_TIME_START = 1
   integer               :: OBSSIM_TIME_END = 1
+  integer               :: OBSSIM_TIME_INTERVAL_SEC = 1
   character(filelenmax) :: OBSSIM_GRADS_OUT_NAME  = ''
   character(filelenmax) :: OBSSIM_NC_OUT_BASENAME = ''
   integer               :: OBSSIM_NUM_3D_VARS = 0
@@ -1193,6 +1196,7 @@ subroutine read_nml_obssim
     OBSSIM_TOPOGRAPHY_IN_BASENAME, &
     OBSSIM_TIME_START, &
     OBSSIM_TIME_END, &
+    OBSSIM_TIME_INTERVAL_SEC, &
     OBSSIM_GRADS_OUT_NAME, &
     OBSSIM_NC_OUT_BASENAME,&
     OBSSIM_NUM_3D_VARS, &
@@ -1262,6 +1266,8 @@ subroutine read_nml_letkf_him
     HIM_OBS_AVE_NG,         &
     HIM_OBS_AVE_OVERLAP,    &
     HIM_OBS_BUF_GRID,       &
+    HIM_OBS_IDEAL,          &
+    HIM_OBS_IDEAL_STD,      &
     ! 
     HIM_MEAN_WRITE,         &
     HIM_MEAN_WRITE_CLEAR,   &

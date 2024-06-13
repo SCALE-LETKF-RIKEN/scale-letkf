@@ -3030,21 +3030,25 @@ subroutine read_Him_mpi(filename,obs)
   call MPI_BCAST(lat_him, jmax_him, MPI_REAL, 0, MPI_COMM_d, ierr)
 
 
-  ! Superobing
-  call sobs_Him(imax_him,jmax_him,lon_him,lat_him,tbb_org,tbb_sobs_l)
+  if ( HIM_OBS_IDEAL ) then
+    tbb_sobs = tbb_org
+  else
+    ! Superobing
+    call sobs_Him(imax_him,jmax_him,lon_him,lat_him,tbb_org,tbb_sobs_l)
+ 
+    call rank_1d_2d(myrank_d, proc_i, proc_j)
+    ishift = proc_i * nlon
+    jshift = proc_j * nlat
 
-  call rank_1d_2d(myrank_d, proc_i, proc_j)
-  ishift = proc_i * nlon
-  jshift = proc_j * nlat
+    do ch = 1, NIRB_HIM_USE
+      bufs2d(1:nlong,1:nlatg) = 0.0_r_size
+      bufs2d(1+ishift:nlon+ishift, 1+jshift:nlat+jshift) = tbb_sobs_l(ch,1:nlon,1:nlat)
 
-  do ch = 1, NIRB_HIM_USE
-    bufs2d(1:nlong,1:nlatg) = 0.0_r_size
-    bufs2d(1+ishift:nlon+ishift, 1+jshift:nlat+jshift) = tbb_sobs_l(ch,1:nlon,1:nlat)
+      call MPI_ALLREDUCE(MPI_IN_PLACE, bufs2d, nlong*nlatg, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
 
-    call MPI_ALLREDUCE(MPI_IN_PLACE, bufs2d, nlong*nlatg, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
-
-    tbb_sobs(ch,1:nlong,1:nlatg) = bufs2d(1:nlong,1:nlatg)
-  enddo
+      tbb_sobs(ch,1:nlong,1:nlatg) = bufs2d(1:nlong,1:nlatg)
+    enddo
+  endif
 
   if (myrank_d == 0) then
     ! it would be better to enable multiple processes in the following subroutine
@@ -3342,11 +3346,13 @@ subroutine allgHim2obs_mpi(tbb_allg,tbb_allg_prep,qc_allg_prep,nobs,obsdat,obslo
 
     !omp parallel do private(i,j,ch,ii,jj,ril_RP,rjl_RP,lon_RP,lat_RP,n)
     do j = 1+jshift, nlat+jshift
+      if ( mod(j, HIM_OBS_THIN_LEV) /= 0 ) cycle
+
       jj = int(j / HIM_OBS_THIN_LEV)
       do i = 1+ishift, nlon+ishift
         ii = int(i / HIM_OBS_THIN_LEV)
      
-        if ( ( mod(i, HIM_OBS_THIN_LEV) /= 0 ) .or. ( mod(j, HIM_OBS_THIN_LEV) /= 0 ) ) cycle
+        if ( mod(i, HIM_OBS_THIN_LEV) /= 0 ) cycle
 
         ril_RP = real( i+IHALO, kind=RP )
         rjl_RP = real( j+JHALO, kind=RP )
