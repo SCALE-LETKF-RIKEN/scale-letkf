@@ -1375,7 +1375,8 @@ subroutine read_nml_letkf_him
   if (LOG_LEVEL >= 2 .or. LOG_OUT ) then
     write(6, nml=PARAM_LETKF_HIM)
   end if
-
+  write(6, nml=PARAM_LETKF_HIM)
+  
   return
 end subroutine read_nml_letkf_him
 

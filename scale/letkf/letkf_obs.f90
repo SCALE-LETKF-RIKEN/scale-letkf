@@ -214,12 +214,18 @@ SUBROUTINE set_letkf_obs
 
         if ( RADAR_PQV ) then
           call obs_da_value_partial_reduce_iter(obsda, it, n1, n2, obsda_ext%val, obsda_ext%qc, qv=obsda_ext%qv, tm=obsda_ext%tm, pm=obsda_ext%pm )
-        elseif ( RADAR_ADDITIVE_Y18 .or. HIM_ADDITIVE_Y18 ) then
+        elseif ( RADAR_ADDITIVE_Y18 ) then
           call obs_da_value_partial_reduce_iter(obsda, it, n1, n2, obsda_ext%val, obsda_ext%qc, pert=obsda_ext%pert)
+#ifdef RTTOV
+        elseif (HIM_ADDITIVE_Y18) then
+          call obs_da_value_partial_reduce_iter(obsda, it, n1, n2, obsda_ext%val, obsda_ext%qc, lev=obsda_ext%lev, val2=obsda_ext%val2, pert=obsda_ext%pert)
+        else
+          call obs_da_value_partial_reduce_iter(obsda, it, n1, n2, obsda_ext%val, obsda_ext%qc, lev=obsda_ext%lev, val2=obsda_ext%val2)
+#else
         else
           call obs_da_value_partial_reduce_iter(obsda, it, n1, n2, obsda_ext%val, obsda_ext%qc )
+#endif
         endif
-
       end if ! [ (im >= 1 .and. im <= MEMBER) .or. im == mmdetin ]
     end do ! [ it = 1, nitmax ]
 
@@ -428,7 +434,6 @@ SUBROUTINE set_letkf_obs
 !!!###### Himawari-8 assimilation ###### ! HIM
 #ifdef RTTOV
     if (obs(iof)%elm(iidx) == id_HIMIR_obs) then
-      
       ! This tentative assignment is valid only within this subroutine
       obs(iof)%err(iidx) = OBSERR_HIM(nint(obs(iof)%lev(iidx)))
 
@@ -1755,6 +1760,7 @@ subroutine setup_obsda_sort(nobs_sub,nobs_g,obsda_sort,efso_flag)
 #IFDEF RTTOV
     call MPI_ALLGATHERV(obsbufs%lev,  cnts, MPI_r_size, obsbufr%lev,  cntr, dspr, MPI_r_size, MPI_COMM_d, ierr)
     call MPI_ALLGATHERV(obsbufs%val2, cnts, MPI_r_size, obsbufr%val2, cntr, dspr, MPI_r_size, MPI_COMM_d, ierr)
+    call MPI_ALLGATHERV(obsbufs%sprd, cnts, MPI_r_size, obsbufr%sprd, cntr, dspr, MPI_r_size, MPI_COMM_d, ierr)
 #ENDIF
 
     if ( efso_flag_ ) then

@@ -2000,6 +2000,10 @@ subroutine obs_local_cal(ri, rj, rlev, rz, nvar, iob, ic, ndist, nrloc, nrdiag)
   integer :: di, dj, dk
   integer :: ch_num
 
+#ifdef RTTOV
+  real(r_size) :: ca ! cloud parameter
+#endif
+
   nrloc = 1.0_r_size
   nrdiag = -1.0_r_size
   ndist = -1.0_r_size
@@ -2143,6 +2147,7 @@ subroutine obs_local_cal(ri, rj, rlev, rz, nvar, iob, ic, ndist, nrloc, nrdiag)
   endif
 
 #IFDEF RTTOV
+  ca = obsda_sort%val2(iob)
   if (obtyp == 23) then ! obtypelist(obtyp) == 'HIMIRB'
     ch_num = nint(obs(obset)%lev(obidx))
     if ( HIM_AOEI .and. INFL_ADD == 0.0d0 ) then 
@@ -2153,12 +2158,14 @@ subroutine obs_local_cal(ri, rj, rlev, rz, nvar, iob, ic, ndist, nrloc, nrdiag)
       nrdiag = obsda_sort%val2(iob)**2 / nrloc 
 
     elseif ( HIM_CLDERR_SIMPLE ) then ! simple cloud-dependent obs err (Honda et al. 2017MWR)
-      if( obsda_sort%val2(iob) > HIM_CA_THRES )then
+      if( ca > HIM_CA_THRES )then
         nrdiag = HIM_CLDERR_CLOUD(ch_num) * HIM_CLDERR_CLOUD(ch_num) / nrloc
       else
         nrdiag = HIM_CLDERR_CLEAR(ch_num) * HIM_CLDERR_CLEAR(ch_num) / nrloc
       endif
-
+      !if (LOG_LEVEL > 3) then
+      !  write(6,'(a,2f6.1,i3)')'Debug, HIMIRB obs error for HIM_CLDERR_SIMPLE: ', obsda_sort%val2(iob), HIM_CLDERR_CLOUD(ch_num), ch_num
+      !endif
     else
       nrdiag = OBSERR_HIM(ch_num) * OBSERR_HIM(ch_num) / nrloc ! constant everywhere
     endif

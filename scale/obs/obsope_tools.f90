@@ -578,12 +578,12 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
             obsda%lev(nn) = plev_obs_him (ch,i,j)
             obsda%qc (nn) = qc_him_prep  (ch,i,j)
  
-            if ( obs(iof)%dat(n) == undef) then
+            if ( obs(iof)%dat(n) == undef .or. obs(iof)%dat(n) < 0.0_r_size ) then
               obsda%qc(nn) = iqc_obs_bad
             endif
 
-            obsda%val2(nn) = (abs(yobs_him_prep(ch,i,j) - yobs_him_clr_prep(ch,i,j) )  &
-                              + abs(obs(iof)%dat(n) - yobs_him_clr_prep(ch,i,j)) ) * 0.5_r_size
+            obsda%val2(nn) = ( abs(yobs_him_prep(ch,i,j) - yobs_him_clr_prep(ch,i,j) )  &
+                             + abs(obs(iof)%dat(n)       - yobs_him_clr_prep(ch,i,j) ) ) * 0.5_r_size
 
             if ( HIM_ADDITIVE_Y18 ) then
               obsda%pert(nn) = him_add2d(ch,i,j)
