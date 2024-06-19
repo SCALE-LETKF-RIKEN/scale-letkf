@@ -2311,14 +2311,14 @@ subroutine obs_da_value_partial_reduce_iter(obsda, iter, nstart, nobs, ensval, q
   if (im <= MEMBER) then
     if ( present( tm ) ) obsda%tm(nstart:nend) = obsda%tm(nstart:nend) + tm
     if ( present( pm ) ) obsda%pm(nstart:nend) = obsda%pm(nstart:nend) + pm
+#ifdef RTTOV
+    if ( present( lev  ) ) obsda%lev (nstart:nend) = obsda%lev (nstart:nend) + lev 
+    if ( present( val2 ) ) obsda%val2(nstart:nend) = obsda%val2(nstart:nend) + val2
+#endif
   end if
  
   ! variables without an ensemble dimension
   obsda%qc(nstart:nend) = max(obsda%qc(nstart:nend), qc)
-#IFDEF RTTOV
-  if ( present( lev  ) ) obsda%lev (nstart:nend) = max(lev, obsda%lev (nstart:nend))
-  if ( present( val2 ) ) obsda%val2(nstart:nend) = max(val2,obsda%val2(nstart:nend))
-#ENDIF
 
   return
 end subroutine obs_da_value_partial_reduce_iter
