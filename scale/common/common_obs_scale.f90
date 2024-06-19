@@ -1611,17 +1611,10 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
   integer :: m
   real(r_size) :: obsdep_mean
 
-<<<<<<< HEAD
   logical :: efso_ = .false.
 
   if (present(efso)) efso_ = efso
-#IFDEF RTTOV
-  real(r_size), allocatable :: yobs_him(:,:,:)
-  integer, allocatable :: qc_him(:,:,:)
-#ENDIF
 
-=======
->>>>>>> 149926d1 (Enalbe HIM_MEAN_WRITE from monit_obs_mpi)
   call state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
 
   if (use_key) then

@@ -2410,7 +2410,7 @@ subroutine obs_da_value_allreduce(obsda)
 
     if ( RADAR_PQV ) then
       deallocate (obsda%eqv)
-      allocate (obsda%eqv   (nensobs, obsda%nobs))
+      allocate (obsda%eqv(nensobs, obsda%nobs))
     endif
 
     if ( RADAR_PQV ) then
