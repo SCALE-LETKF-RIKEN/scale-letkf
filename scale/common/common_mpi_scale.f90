@@ -2155,8 +2155,10 @@ subroutine obs_da_value_allreduce(obsda)
   allocate (ensval_bufs(obsda%nobs, cntr(myrank_e+1)))
   allocate (ensval_bufr(obsda%nobs, nensobs))
 
-  allocate (eqv_bufs(obsda%nobs, cntr(myrank_e+1)))
-  allocate (eqv_bufr(obsda%nobs, nensobs))
+  if ( RADAR_PQV ) then
+    allocate (eqv_bufs(obsda%nobs, cntr(myrank_e+1)))
+    allocate (eqv_bufr(obsda%nobs, nensobs))
+  endif
 
   if ( RADAR_ADDITIVE_Y18 ) then
     allocate (epert_bufs(obsda%nobs, cntr(myrank_e+1)))
@@ -2165,7 +2167,7 @@ subroutine obs_da_value_allreduce(obsda)
 
   do im = 1, cntr(myrank_e+1)
     ensval_bufs(:,im) = obsda%ensval(im,:)
-    eqv_bufs(:,im)    = obsda%eqv   (im,:)
+    if ( RADAR_PQV ) eqv_bufs(:,im)    = obsda%eqv   (im,:)
     if ( RADAR_ADDITIVE_Y18 ) epert_bufs(:,im) = obsda%epert(im,:)
   end do
 
@@ -2179,7 +2181,9 @@ subroutine obs_da_value_allreduce(obsda)
   call mpi_timer('obs_da_value_allreduce:copy_bufs:', 3, barrier=MPI_COMM_e)
 
   call MPI_ALLGATHERV(ensval_bufs, cnts, MPI_r_size, ensval_bufr, cntr, dspr, MPI_r_size, MPI_COMM_e, ierr)
-  call MPI_ALLGATHERV(eqv_bufs,    cnts, MPI_r_size, eqv_bufr,    cntr, dspr, MPI_r_size, MPI_COMM_e, ierr)
+  if ( RADAR_PQV ) then
+    call MPI_ALLGATHERV(eqv_bufs, cnts, MPI_r_size, eqv_bufr, cntr, dspr, MPI_r_size, MPI_COMM_e, ierr)
+  endif
   if ( RADAR_ADDITIVE_Y18 ) then
     call MPI_ALLGATHERV(epert_bufs, cnts, MPI_r_size, epert_bufr, cntr, dspr, MPI_r_size, MPI_COMM_e, ierr)
   endif
@@ -2189,10 +2193,12 @@ subroutine obs_da_value_allreduce(obsda)
   current_shape = shape(obsda%ensval)
   if (current_shape(1) < nensobs) then
     deallocate (obsda%ensval)
-    deallocate (obsda%eqv)
-
     allocate (obsda%ensval(nensobs, obsda%nobs))
-    allocate (obsda%eqv   (nensobs, obsda%nobs))
+
+    if ( RADAR_PQV ) then
+      deallocate (obsda%eqv)
+      allocate (obsda%eqv   (nensobs, obsda%nobs))
+    endif
 
     if ( RADAR_ADDITIVE_Y18 ) then
       deallocate (obsda%epert)
@@ -2208,18 +2214,20 @@ subroutine obs_da_value_allreduce(obsda)
         imb = imb + 1
         if (im == mmdetin) then
           obsda%ensval(mmdetobs,:) = ensval_bufr(:,imb)
-          obsda%eqv   (mmdetobs,:) = eqv_bufr   (:,imb)
+          if ( RADAR_PQV ) obsda%eqv(mmdetobs,:) = eqv_bufr(:,imb)
           if ( RADAR_ADDITIVE_Y18 ) obsda%epert(mmdetobs,:) = epert_bufr(:,imb)
         else
           obsda%ensval(im,:) = ensval_bufr(:,imb)
-          obsda%eqv   (im,:) = eqv_bufr   (:,imb)
+          if ( RADAR_PQV ) obsda%eqv(im,:) = eqv_bufr(:,imb)
           if ( RADAR_ADDITIVE_Y18 ) obsda%epert(im,:) = epert_bufr(:,imb)
         end if
       end if
     end do
   end do
   deallocate(ensval_bufs, ensval_bufr)
-  deallocate(eqv_bufs, eqv_bufr)
+  if ( RADAR_PQV ) then
+    deallocate(eqv_bufs, eqv_bufr)
+  endif
 
   if ( RADAR_ADDITIVE_Y18 ) then
     deallocate( epert_bufs, epert_bufr)
