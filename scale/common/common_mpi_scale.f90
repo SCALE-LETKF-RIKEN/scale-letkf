@@ -2406,10 +2406,12 @@ subroutine obs_da_value_allreduce(obsda)
   current_shape = shape(obsda%ensval)
   if (current_shape(1) < nensobs) then
     deallocate (obsda%ensval)
-    deallocate (obsda%eqv)
-
     allocate (obsda%ensval(nensobs, obsda%nobs))
-    allocate (obsda%eqv   (nensobs, obsda%nobs))
+
+    if ( RADAR_PQV ) then
+      deallocate (obsda%eqv)
+      allocate (obsda%eqv   (nensobs, obsda%nobs))
+    endif
 
     if ( RADAR_PQV ) then
       deallocate (obsda%eqv)
@@ -2430,12 +2432,17 @@ subroutine obs_da_value_allreduce(obsda)
         imb = imb + 1
         if (im == mmdetin) then
           obsda%ensval(mmdetobs,:) = ensval_bufr(:,imb)
+<<<<<<< HEAD
           if ( RADAR_PQV ) then
             obsda%eqv(mmdetobs,:) = eqv_bufr(:,imb)
           endif
           if ( RADAR_ADDITIVE_Y18 ) then
             obsda%epert(mmdetobs,:) = epert_bufr(:,imb)
           endif
+=======
+          if ( RADAR_PQV ) obsda%eqv(mmdetobs,:) = eqv_bufr(:,imb)
+          if ( RADAR_ADDITIVE_Y18 .or. HIM_ADDITIVE_Y18 ) obsda%epert(mmdetobs,:) = epert_bufr(:,imb)
+>>>>>>> de3089f3 (Fix previous commit (5826e5a))
         else
           obsda%ensval(im,:) = ensval_bufr(:,imb)
           if ( RADAR_PQV ) then
