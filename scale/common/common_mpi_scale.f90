@@ -2367,8 +2367,8 @@ subroutine obs_da_value_allreduce(obsda)
   endif
 
   if ( RADAR_ADDITIVE_Y18 .or. HIM_ADDITIVE_Y18 ) then
-    allocate (epert_bufs(obsda%nobs, cntr(myrank_e+1)))
-    allocate (epert_bufr(obsda%nobs, nensobs))
+    allocate (eqv_bufs(obsda%nobs, cntr(myrank_e+1)))
+    allocate (eqv_bufr(obsda%nobs, nensobs))
   endif
 
   do im = 1, cntr(myrank_e+1)
@@ -2406,7 +2406,10 @@ subroutine obs_da_value_allreduce(obsda)
   current_shape = shape(obsda%ensval)
   if (current_shape(1) < nensobs) then
     deallocate (obsda%ensval)
+    deallocate (obsda%eqv)
+
     allocate (obsda%ensval(nensobs, obsda%nobs))
+    allocate (obsda%eqv   (nensobs, obsda%nobs))
 
     if ( RADAR_PQV ) then
       deallocate (obsda%eqv)
@@ -2472,7 +2475,7 @@ subroutine obs_da_value_allreduce(obsda)
       obsda%pm(:) = obsda%pm(:) / real(MEMBER, r_size) ! use if RADAR_PQV=T
     endif
 
-    if ( RADAR_ADDITIVE_Y18 ) then
+    if ( RADAR_ADDITIVE_Y18 .or. HIM_ADDITIVE_Y18 ) then
       call MPI_ALLREDUCE(MPI_IN_PLACE, obsda%pert(:), obsda%nobs, MPI_r_size,  MPI_SUM, MPI_COMM_e, ierr)
       obsda%pert(:) = obsda%pert(:) / real(MEMBER, r_size) ! not used
     end if
