@@ -2197,7 +2197,7 @@ subroutine obs_da_value_allreduce(obsda)
 
     if ( RADAR_PQV ) then
       deallocate (obsda%eqv)
-      allocate (obsda%eqv   (nensobs, obsda%nobs))
+      allocate (obsda%eqv(nensobs, obsda%nobs))
     endif
 
     if ( RADAR_ADDITIVE_Y18 ) then
@@ -2239,12 +2239,14 @@ subroutine obs_da_value_allreduce(obsda)
   if (nprocs_e > 1) then
     call MPI_ALLREDUCE(MPI_IN_PLACE, obsda%qc(:), obsda%nobs, MPI_INTEGER, MPI_MAX, MPI_COMM_e, ierr)
 
-    call MPI_ALLREDUCE(MPI_IN_PLACE, obsda%qv(:), obsda%nobs, MPI_r_size,  MPI_SUM, MPI_COMM_e, ierr)
-    call MPI_ALLREDUCE(MPI_IN_PLACE, obsda%tm(:), obsda%nobs, MPI_r_size,  MPI_SUM, MPI_COMM_e, ierr)
-    call MPI_ALLREDUCE(MPI_IN_PLACE, obsda%pm(:), obsda%nobs, MPI_r_size,  MPI_SUM, MPI_COMM_e, ierr)
-    obsda%qv(:) = obsda%qv(:) / real(MEMBER, r_size) ! not used
-    obsda%tm(:) = obsda%tm(:) / real(MEMBER, r_size) ! use if RADAR_PQV=T
-    obsda%pm(:) = obsda%pm(:) / real(MEMBER, r_size) ! use if RADAR_PQV=T
+    if ( RADAR_PQV ) then
+      call MPI_ALLREDUCE(MPI_IN_PLACE, obsda%qv(:), obsda%nobs, MPI_r_size,  MPI_SUM, MPI_COMM_e, ierr)
+      call MPI_ALLREDUCE(MPI_IN_PLACE, obsda%tm(:), obsda%nobs, MPI_r_size,  MPI_SUM, MPI_COMM_e, ierr)
+      call MPI_ALLREDUCE(MPI_IN_PLACE, obsda%pm(:), obsda%nobs, MPI_r_size,  MPI_SUM, MPI_COMM_e, ierr)
+      obsda%qv(:) = obsda%qv(:) / real(MEMBER, r_size) ! not used
+      obsda%tm(:) = obsda%tm(:) / real(MEMBER, r_size) ! use if RADAR_PQV=T
+      obsda%pm(:) = obsda%pm(:) / real(MEMBER, r_size) ! use if RADAR_PQV=T
+    endif
 
     if ( RADAR_ADDITIVE_Y18 ) then
       call MPI_ALLREDUCE(MPI_IN_PLACE, obsda%pert(:), obsda%nobs, MPI_r_size,  MPI_SUM, MPI_COMM_e, ierr)
