@@ -668,6 +668,17 @@ while ((time_s <= ETIME)); do
 
 
       fi # [ ((time <= ETIME)) ]
+
+      if (( MAKEINIT_RANDOM_BBL == 1 )) && (( BDY_ENS==1 )); then
+        echo "Make initial condition for random BBL" >&2
+        if [[ "${MEMBERS}" == *mean* ]]; then
+          echo "[Error] MAKEINIT_RANDOM_BBL cannot be run with mean" >&2
+          exit 1
+        fi
+
+        python3 ${SCRP_DIR}/init_perturb/locate_bubble_random.py -e ${MEMBER} -cx ${BBL_CX} -cy ${BBL_CY} -stdx ${STD_X} -stdy ${STD_Y} -nml ${TMPROOT}/fxxxx/init.d01_${time}.conf -npz ${OUTDIR}/npz
+      fi
+
     done # [ c in $(seq $CYCLE) ]
 
   fi # [ BDY_FORMAT != 0 ]
