@@ -1986,9 +1986,9 @@ SUBROUTINE obs_da_value_allocate(obsda,member)
     allocate( obsda%tm (obsda%nobs) )
     allocate( obsda%pm (obsda%nobs) )
     allocate( obsda%qv (obsda%nobs) )
-    obsda%tm = 0.0d0
-    obsda%pm = 0.0d0
-    obsda%qv = 0.0d0
+    obsda%tm = 0.0_r_size
+    obsda%pm = 0.0_r_size
+    obsda%qv = 0.0_r_size
   end if
 
   if (member > 0) then
@@ -1997,7 +1997,7 @@ SUBROUTINE obs_da_value_allocate(obsda,member)
 
     if (RADAR_PQV) then
       allocate( obsda%eqv (member,obsda%nobs) )
-      obsda%eqv = 0.0d0
+      obsda%eqv = 0.0_r_size
     end if
   end if
 
