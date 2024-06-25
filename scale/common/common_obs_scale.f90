@@ -3647,6 +3647,8 @@ subroutine read_Him_nc(filename_org,imax_him,jmax_him,lon_him,lat_him,tbb3d)
   real(r_sngl), allocatable :: random2d(:,:)
   integer :: i, j
 
+  logical :: lat_reverse = .false.
+
   if ( HIM_OBS_IDEAL ) then
     allocate( random2d(imax_him,jmax_him) )
   endif 
@@ -3672,6 +3674,13 @@ subroutine read_Him_nc(filename_org,imax_him,jmax_him,lon_him,lat_him,tbb3d)
         call ncio_check(nf90_inq_varid(ncid, 'latitude', varid))
         call ncio_check(nf90_get_var(ncid, varid, lat_him, &
                                     start = (/ 1 /), count = (/ jmax_him /)))
+
+        if ( lat_him(1) > lat_him(jmax_him) ) then
+          ! reverse lat
+          lat_him = lat_him(jmax_him:1:-1)
+          lat_reverse = .true.
+        endif
+
       endif
     endif
   
@@ -3679,10 +3688,19 @@ subroutine read_Him_nc(filename_org,imax_him,jmax_him,lon_him,lat_him,tbb3d)
     call ncio_check(nf90_get_var(ncid, varid, tbb2d, &
                                  start = (/ 1, 1/), count = (/ imax_him, jmax_him/)))
 
+    if ( lat_reverse ) then
+      tbb2d(1:imax_him,1:jmax_him) = tbb2d(1:imax_him,jmax_him:1:-1)
+    endif
+
     if ( HIM_OBS_IDEAL ) then
       call ncio_check(nf90_inq_varid(ncid, 'random', varid))
       call ncio_check(nf90_get_var(ncid, varid, random2d, &
                                    start = (/ 1, 1/), count = (/ imax_him, jmax_him/)))
+
+      if ( lat_reverse ) then
+        random2d(1:imax_him,1:jmax_him) = random2d(1:imax_him,jmax_him:1:-1)
+      endif
+
       !$omp parallel do private(i,j)
       do j = 1, jmax_him
         do i = 1, imax_him
