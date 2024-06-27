@@ -17,8 +17,8 @@ echo "[$(datetime_now)] Start obssim $@"
 
 #===============================================================================
 # Setting
-TSTART=6
-TEND=7
+TSTART=8
+TEND=13
 TINTERVAL=${FCSTOUT}
 
 #-------------------------------------------------------------------------------
@@ -54,7 +54,12 @@ mkdir -p $logd
 # prepare config file
 config=$TMP/config/obssim.conf
 cat << EOF > $config
+&PARAM_LOG
+ LOG_LEVEL = 3,
+/
+
 &PARAM_ENSEMBLE
+  MEMBER = ${MEMBER},
   MEMBER_RUN = 1,
   DET_RUN = .false.,
   EFSO_RUN = .false.,
@@ -63,11 +68,11 @@ cat << EOF > $config
 &PARAM_PROCESS
   PPN = ${PPN},
   !--MEM_NODES--
-  MEM_NODES = $((SCALE_NP_X*SCALE_NP_Y)),
+  MEM_NODES = $((SCALE_NP_X*SCALE_NP_Y/PPN)),
   !--NUM_DOMAIN--
   NUM_DOMAIN = 1,
   !--PRC_DOMAINS--
-  PRC_DOMAINS = 400, 
+  PRC_DOMAINS = $((SCALE_NP_X*SCALE_NP_Y)), 
 /
 
 &PARAM_OBSSIM
@@ -206,7 +211,7 @@ EOF
   fi
 
 cat << EOF >>  $jobscrp 
-mpiexec -std-proc ${logd}/%/200r/NOUT -n $((NNODES*PPN)) $TMP/obssim ${config} || exit $?
+mpiexec -std-proc ${logd}/%/200r/NOUT -n $((NNODES_USE*PPN)) $TMP/obssim ${config} || exit $?
 EOF
 
   if (( USE_LLIO_BIN == 1 )); then
