@@ -2687,7 +2687,7 @@ subroutine read_obs_all(obs)
     case (obsfmt_radar_nc)
       call get_nobs_radar_nc(trim(OBS_IN_NAME(iof)), obs(iof)%nobs, obs(iof)%meta(1), obs(iof)%meta(2), obs(iof)%meta(3))
     case (obsfmt_HIM)
-      call get_nobs_allgHim(obs(iof)%nobs) 
+      call get_nobs_allgHim(trim(OBS_IN_NAME(iof)), obs(iof)%nobs) 
     case default
       write(6,*) '[Error] Unsupported observation file format!'
       stop
@@ -3838,13 +3838,29 @@ subroutine phys2ij_Him(imax_him,jmax_him,lon_him,lat_him,rlon,rlat,ig,jg)
   return
 end subroutine phys2ij_Him
 
-subroutine get_nobs_allgHim(nobs)
+subroutine get_nobs_allgHim(filename_org, nobs)
   implicit none
 
+  character(*),intent(in) :: filename_org
   integer, intent(out) :: nobs
   integer :: i, j
 
-  nobs = int( nlong / HIM_OBS_THIN_LEV ) * int( nlatg / HIM_OBS_THIN_LEV ) * NIRB_HIM_USE
+  integer :: pos
+  character(len=2) :: band2
+  character(len=255) :: filename
+  logical :: stat
+
+  ! check if the file exists
+  filename = trim(filename_org)
+  write(band2,'(I2.2)') HIM_IR_BAND_RTTOV_LIST(1)
+  call str_replace(filename, '<band>', band2, pos)
+
+  inquire(file=trim(filename),exist=stat)
+  if ( .not. stat ) then
+    nobs = 0
+  else
+    nobs = int( nlong / HIM_OBS_THIN_LEV ) * int( nlatg / HIM_OBS_THIN_LEV ) * NIRB_HIM_USE
+  endif
 
   return
 end subroutine get_nobs_allgHim
