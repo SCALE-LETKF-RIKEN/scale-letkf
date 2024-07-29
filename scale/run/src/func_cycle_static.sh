@@ -948,7 +948,7 @@ while ((time <= ETIME)); do
       OBSDEP_OUT_TF=".true."
       OBSDEP_OUT_BASENAME="${OUTDIR[$d]}/obsdep/obsdep_${atime}"
     fi
-    OBSDEP_IN_BASENAME="${OUTDIR[$d]}/obsdep/obs/obsdep_${time}" # EFSO
+    OBSDEP_IN_BASENAME="${OUTDIR[$d]}/obsdep/obsdep_${time}" # EFSO
     DEPARTURE_STAT_OUT_BASENAME="${OUTDIR[$d]}/score/score_${atime}"
     OBSNUM_OUT_NC_BASENAME="${OUTDIR[$d]}/score/obsnum_${atime}"
     OBSANAL_IN_BASENAME="${OUTDIR[$d]}/${time}/obs"
