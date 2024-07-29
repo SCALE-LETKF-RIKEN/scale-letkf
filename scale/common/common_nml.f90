@@ -1353,7 +1353,7 @@ subroutine read_nml_letkf_him
 
   if ( (.not. HIM_OBS_AVE_OVERLAP) .and. ( trim(HIM_OBS_METHOD) /= 'SIMPLE' ) ) then
     write(6,'(a)') 'HIM_OBS_THIN_LEV is overwritten because HIM_OBS_AVE_OVERLAP=T'
-    HIM_OBS_THIN_LEV = max(HIM_OBS_THIN_LEV, 2*HIM_OBS_AVE_NG)
+    HIM_OBS_THIN_LEV = max(HIM_OBS_THIN_LEV, 2*HIM_OBS_AVE_NG+1)
   endif
 
   NIRB_HIM_USE = 0
