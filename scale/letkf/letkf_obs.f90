@@ -1439,6 +1439,16 @@ subroutine set_efso_obs
 
   call get_nobs_efso_mpi( nobstotalg, nobstotal, nobs0 )
   if ( LOG_OUT ) write(6,'(I10,A)') nobstotalg,' TOTAL OBSERVATIONS INPUT'
+  if ( nobstotalg == 0 ) then
+    if ( myrank_a == 0 ) then
+      write(6,'(a)') 'No observations for EFSO'
+      write(6,'(a)') 'efso finished successfully'
+    endif  
+
+    call finalize_mpi_scale
+    stop
+    
+  endif
 !
 ! INITIALIZE GLOBAL VARIABLES
 !

@@ -3400,9 +3400,15 @@ subroutine get_nobs_efso( cfile, nrank, cnt_rank )
 
   integer :: varid_rank
   integer :: ncid
+  integer :: status
 
-  ! Open the file. 
-  call ncio_check( nf90_open( trim( cfile ), nf90_nowrite, ncid ) )
+  ! Open the file 
+  status = nf90_open( trim( cfile ), nf90_nowrite, ncid ) 
+  if ( status /= nf90_noerr ) then
+    write(6,*) 'Warning: Cannot open ', trim( cfile )
+    cnt_rank(1:nrank) = 0
+    return
+  endif
 
   ! Get obs num
   call ncio_check( nf90_inq_varid( ncid, "nobs_rank", varid_rank ) )
