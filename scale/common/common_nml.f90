@@ -113,6 +113,7 @@ MODULE common_nml
   character(filelenmax) :: EFSO_FCST_FROM_GUES_BASENAME = 'anal.@@@@'
   character(filelenmax) :: EFSO_FCST_FROM_ANAL_BASENAME = 'anal.@@@@'
   character(filelenmax) :: EFSO_EFCST_FROM_ANAL_BASENAME = 'anal.@@@@'
+  character(filelenmax) :: EFSO_PREVIOUS_GUES_BASENAME   = 'anal.@@@@'
 
   logical :: FILL_BY_ZERO_MISSING_VARIABLES = .false.
 
@@ -601,6 +602,7 @@ subroutine read_nml_letkf
     EFSO_FCST_FROM_GUES_BASENAME, &
     EFSO_FCST_FROM_ANAL_BASENAME, &
     EFSO_EFCST_FROM_ANAL_BASENAME, &
+    EFSO_PREVIOUS_GUES_BASENAME,   &
     EFSO_USE_MOIST_ENERGY, &
     INFL_MUL, &
     INFL_MUL_MIN, &

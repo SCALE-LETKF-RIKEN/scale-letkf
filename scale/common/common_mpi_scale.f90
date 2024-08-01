@@ -1473,8 +1473,8 @@ subroutine write_ens_mpi(v3d, v2d, monit_step)
 
       if ( myrank_e == mmean_rank_e ) then
         write ( MYRANK_D6,'(I6.6)') myrank_d
-        call write_obs_anal_rank_nc( trim( OBSANAL_OUT_BASENAME ) // '/obsanal_rank' // &
-                                     MYRANK_D6 // '.nc', ya_local )
+        call write_obs_anal_rank_nc( trim( OBSANAL_OUT_BASENAME ) // MYRANK_D6 // '.nc', &
+                                     ya_local )
       endif
 
       deallocate( ya_local )
@@ -2598,10 +2598,12 @@ subroutine get_obsdep_efso_mpi( nobs_local, nobs0, obsset, obsidx, obselm, obsty
 
   integer :: ierr
 
+  if ( LOG_OUT ) write(6,'(a)') 'Hello from get_obsdep_efso_mpi'
+
   if ( myrank_e == 0 ) then
     write ( MYRANK_D6,'(I6.6)') myrank_d
-    call get_obsdep_efso( trim( OBSANAL_IN_BASENAME ) // '/obsanal_rank' // &
-                          MYRANK_D6 // '.nc', nobs_local, nobs0, &
+    call get_obsdep_efso( trim( OBSANAL_IN_BASENAME ) // MYRANK_D6 // '.nc', &
+                          nobs_local, nobs0, &
                           obsset, obsidx, obselm, obstyp, obslon, obslat, obslev,  &
                           obsdat, obserr, obsdif, obsdep, obsqc, obshdxf )
   endif

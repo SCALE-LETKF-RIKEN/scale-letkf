@@ -141,13 +141,15 @@ enddo
       call state_trans(work3dg)
     endif
     call scatter_grd_mpi(mmean_rank_e,real(work3dg,RP),real(work2dg,RP),work3d,work2d)
-    deallocate( work3dg, work2dg )
 
-    if ( myrank_a == 0 ) then
-do n = 1, nv3d
-  write(6,'(a,i7,2f10.1)')"DEBUG3 ", n, maxval( work3d(:,:,n) ), minval( work3d(:,:,n) )
-enddo
+    ! guess mean for full-level pressure computation
+    if ( myrank_e == mmean_rank_e ) then  
+      call read_restart( trim(EFSO_PREVIOUS_GUES_BASENAME), work3dg, work2dg)
+      call state_trans(work3dg)
     endif
+    call scatter_grd_mpi(mmean_rank_e,real(work3dg,RP),real(work2dg,RP),gues3d,gues2d)
+
+    deallocate( work3dg, work2dg )
 
     !!! fcer3d,fcer2d: [1/2(K-1)](e^f_t+e^g_t) [Eq.(6), Ota et al. 2013]
     fcer3d(:,:,:) = ( fcer3d(:,:,:) - work3d(:,:,:) ) / real( MEMBER-1, r_size )
@@ -240,7 +242,6 @@ enddo
   END IF
   CALL scatter_grd_mpi(0,real(work3dg,RP),real(work2dg,RP),gues3d,gues2d)
 !
-  CALL CPU_TIME(rtimer)
   WRITE(6,'(A,2F10.2)') '### TIMER(READ_FORECAST):',rtimer,rtimer-rtimer00
   rtimer00=rtimer
 !-----------------------------------------------------------------------
@@ -277,7 +278,6 @@ enddo
   !CALL das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d)
   DEALLOCATE(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d)
 !
-  CALL CPU_TIME(rtimer)
   WRITE(6,'(A,2F10.2)') '### TIMER(DAS_EFSO):',rtimer,rtimer-rtimer00
   rtimer00=rtimer
 !-----------------------------------------------------------------------
@@ -286,7 +286,6 @@ enddo
 !  IF(myrank == 0) CALL print_obsense()
 !  CALL destroy_obsense()
 !
-  CALL CPU_TIME(rtimer)
   WRITE(6,'(A,2F10.2)') '### TIMER(EFSO_OUTPUT):',rtimer,rtimer-rtimer00
   rtimer00=rtimer
 !-----------------------------------------------------------------------

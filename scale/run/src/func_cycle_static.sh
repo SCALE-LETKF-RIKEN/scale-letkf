@@ -790,12 +790,12 @@ while ((time <= ETIME)); do
       TOPO_PATH="${DATA_TOPO}/const"
       LANDUSE_PATH="${DATA_LANDUSE}/const"
       HISTORY_PATH[$d]=${OUTDIR[$d]}/$time/hist
-      HISTORY_ESFO_PATH=${OUTDIR[$d]}/$atime/anal
+      HISTORY_EFSO_PATH=${OUTDIR[$d]}/$atime/anal
       if [ $PRESET == 'FUGAKU' ] && (( HIST_LLIO_TMP == 1)) ; then
         HISTORY_PATH[$d]=/local/$time/hist
-        if (( atime <= ETIME ));then
-          HISTORY_EFSO_PATH=/local/${atime}/gues
-        fi
+        #if (( atime <= ETIME ));then
+        #  HISTORY_EFSO_PATH=/local/${atime}/gues
+        #fi
       fi
 
       loop_prev=$((loop-1))
@@ -951,8 +951,12 @@ while ((time <= ETIME)); do
     OBSDEP_IN_BASENAME="${OUTDIR[$d]}/obsdep/obsdep_${time}" # EFSO
     DEPARTURE_STAT_OUT_BASENAME="${OUTDIR[$d]}/score/score_${atime}"
     OBSNUM_OUT_NC_BASENAME="${OUTDIR[$d]}/score/obsnum_${atime}"
-    OBSANAL_IN_BASENAME="${OUTDIR[$d]}/${time}/obs"
-    OBSANAL_OUT_BASENAME="${OUTDIR[$d]}/${atime}/obs"
+    OBSANAL_IN_BASENAME="${OUTDIR[$d]}/${time}/aobs/obsanal_rank"
+    OBSANAL_OUT_BASENAME="${OUTDIR[$d]}/${atime}/aobs/obsanal_rank"
+
+    mkdir -p ${OUTDIR[$d]}/${time}/aobs 
+    mkdir -p ${OUTDIR[$d]}/${atime}/aobs
+
     if ((EFSO_RUN==1));then
       OBSDEP_OUT_NC_TF=".true."
       OBSANAL_OUT_TF=".true."
@@ -964,6 +968,8 @@ while ((time <= ETIME)); do
       GUES_SPRD_OUT_BASENAME="${RESTART_OUT_PATH[$d]}/sprd/gues_$(datetime_scale $atime)"
       ANAL_OUT_BASENAME="${RESTART_OUT_PATH[$d]}/<member>/anal_$(datetime_scale $atime)"
       EFSO_ANAL_IN_BASENAME="${RESTART_OUT_PATH[$d]}/mean/anal_$(datetime_scale $atime)"
+      EFSO_PREVIOUS_GUES_BASENAME="${RESTART_OUT_PATH[$d]}/mean/anal_$(datetime_scale $time)"
+
       RESTART_IN_BASENAME_SCALE="${RESTART_OUT_PATH[$d]}/<member>/gues"
 #      EFSO_FCST_FROM_GUES_BASENAME="${HISTORY_EFSO_PATH}/mgue/init_$(datetime_scale $atime)"
 #      EFSO_FCST_FROM_ANAL_BASENAME="${HISTORY_EFSO_PATH}/mean/init_$(datetime_scale $atime)"
@@ -977,6 +983,7 @@ while ((time <= ETIME)); do
       EFSO_FCST_FROM_GUES_BASENAME="${HISTORY_EFSO_PATH}/mgue/init_$(datetime_scale $atime)"
       EFSO_FCST_FROM_ANAL_BASENAME="${HISTORY_EFSO_PATH}/mean/init_$(datetime_scale $atime)"
       EFSO_EFCST_FROM_ANAL_BASENAME="${HISTORY_EFSO_PATH}/<member>/init_$(datetime_scale $atime)"
+      EFSO_PREVIOUS_GUES_BASENAME="${RESTART_OUT_PATH[$d]}/../../${time}/gues/mean/init_$(datetime_scale $time)"
       RESTART_IN_BASENAME_SCALE="${RESTART_OUT_PATH[$d]}/../gues/<member>/init"
     fi
 
@@ -1014,6 +1021,7 @@ while ((time <= ETIME)); do
             -e "/!--EFSO_FCST_FROM_GUES_BASENAME--/a EFSO_FCST_FROM_GUES_BASENAME = \"${EFSO_FCST_FROM_GUES_BASENAME}\"," \
             -e "/!--EFSO_FCST_FROM_ANAL_BASENAME--/a EFSO_FCST_FROM_ANAL_BASENAME = \"${EFSO_FCST_FROM_ANAL_BASENAME}\"," \
             -e "/!--EFSO_EFCST_FROM_ANAL_BASENAME--/a EFSO_EFCST_FROM_ANAL_BASENAME = \"${EFSO_EFCST_FROM_ANAL_BASENAME}\"," \
+            -e "/!--EFSO_PREVIOUS_GUES_BASENAME--/a EFSO_PREVIOUS_GUES_BASENAME = \"${EFSO_PREVIOUS_GUES_BASENAME}\"," \
             -e "/!--INFL_ADD--/a INFL_ADD = ${INFL_ADD}," \
             -e "/!--INFL_ADD_IN_BASENAME--/a INFL_ADD_IN_BASENAME = \"${DATA_ADDINFL[$d]}/<member>${CONNECTOR}init${sfx}\"," \
             -e "/!--INFL_MUL_ADAPTIVE--/a INFL_MUL_ADAPTIVE = ${INFL_MUL_ADAPTIVE}," \

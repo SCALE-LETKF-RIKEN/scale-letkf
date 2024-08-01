@@ -1116,7 +1116,7 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d)
   integer :: iob
 
   if ( LOG_OUT ) write(6,'(A)') 'Hello from das_efso'
-  nobstotal = obsda_sort%nobs !nobs_local !+ ntvs
+  nobstotal = obsda_sort%nobs 
   if ( LOG_OUT ) write(6,'(A,I8)') 'Target observation numbers (global)    : NOBS=', nobstotalg
   if ( LOG_OUT ) write(6,'(A,I8)') 'Target observation numbers (subdomain) : NOBS=', nobstotal
   !
@@ -1179,17 +1179,16 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d)
 !--- For ILEV = 1 - NLEV
 !!$omp parallel private(ij,ilev,iv3d,iv2d,hdxf,rdiag,rloc,dep,nobsl,work1,m,nob,iob)
 !!$omp do schedule(dynamic)
+
+  if ( LOG_OUT ) write(6,'(a)') 'Start dj/dy computation'
+
   do ilev = 1, nlev
+    if ( LOG_OUT ) write(6,'(a,i6)') 'Level:', ilev
     do ij = 1, nij1
-!      IF(ABS(locadv_rate) > TINY(locadv_rate)) THEN
-!        CALL obs_local(lon2(ij,ilev),lat2(ij,ilev),pfull(ij,ilev),0,hdxf,rdiag,rloc,dep,nobsl,oindex)
-!      ELSE
-!        CALL obs_local(lon1(ij),lat1(ij),pfull(ij,ilev),0,hdxf,rdiag,rloc,dep,nobsl,oindex)
       call obs_local( rig1(ij), rjg1(ij), gues3d(ij,ilev,iv3d_p), hgt1(ij,ilev), &
                       0, hdxf, rdiag, rloc, dep, nobsl, &
                       vobsidx_l=vobsidx_l ) 
-!      END IF
-!write(6,'(a)') 'CHECK-NPBSL-is-zero', rig1(ij), rjg1(ij)
+
       if ( nobsl /= 0 ) then
         ! Forecast error
         work1 = 0.0_r_size
@@ -1210,15 +1209,15 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d)
             enddo
           endif
         enddo ! nv3d
-        !if( ilev == 1) then
-        !  do iv2d = 1, nv2d
-        !    if ( iv2d == iv2d_ps ) then
-        !      do m = 1, MEMBER
-        !        work1(2,m) = work1(2,m) + fcst2d(ij,m,iv2d) * fcer2d(ij,iv2d)
-        !      enddo
-        !    endif
-        !  enddo
-        !endif
+        ! if( ilev == 1) then
+        !   do iv2d = 1, nv2d
+        !     if ( iv2d == iv2d_ps ) then
+        !       do m = 1, MEMBER
+        !         work1(2,m) = work1(2,m) + fcst2d(ij,m,iv2d) * fcer2d(ij,iv2d)
+        !       enddo
+        !     endif
+        !   enddo
+        ! endif
         !!! work1: [1/2(K-1)](X^f_t)^T*C*(e^f_t+e^g_t)  [J/kg]
         ! Hdxa Rinv
         allocate( hdxa_rinv(nobsl,MEMBER) )
@@ -1246,6 +1245,9 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d)
   deallocate( rdiag )
   deallocate( rloc )
   deallocate( dep )
+
+  if ( LOG_OUT ) write(6,'(a)') 'Finish dj/dy computation'
+
   !
   ! Calculate observation sensitivity
   !
@@ -1271,22 +1273,10 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d)
     do nob = 1, nobstotal
       n = obsda_sort%qc(nob)
       obsense_global(:,n) = obsense(:,nob)
-!      write(6,'(a,i7,2f20.1,2i8)') 'CHECK', nob, maxval( obsense(:,nob) ), minval( obsense(:,nob) ), &
-      write(6,'(a,i7,3f20.1,2i8)') 'CHECK', nob, maxval( obsense(:,nob) ), djdy(1,nob), obsda_sort%val(nob), &
-!      write(6,'(a,i7,3f20.1,2i8)') 'CHECK', nob, djdy(1,nob), maxval( work1(1,:) ), maxval( hdxa_rinv(nob,:) ), &
-                                obsda_sort%set(nob), obsda_sort%idx(nob)
     enddo
 
     call MPI_ALLREDUCE( MPI_IN_PLACE, obsense_global, nterm*nobstotalg, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr )
 
-    do n = 1, nobstotalg
-      write(6,'(a,f20.6,i10)') 'OBSENSE ', obsense_global(1,n), n
-    enddo
-
-    if ( nobstotal > 0 ) then
-      write(6,'(a,2f20.1)') 'CHECK djdy', maxval( djdy(:,:) ), minval( djdy(:,:))
-      write(6,'(a,2f20.1)') 'CHECK obsense', maxval( obsense(:,:) ), minval( obsense(:,:))
-    endif
   endif
 !  ! Gather observation sensitivity informations to the root
 !  ALLOCATE(recbuf(nterm,nobstotal))
