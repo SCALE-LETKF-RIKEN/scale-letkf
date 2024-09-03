@@ -114,6 +114,7 @@ MODULE common_nml
   character(filelenmax) :: EFSO_FCST_FROM_ANAL_BASENAME = 'anal.@@@@'
   character(filelenmax) :: EFSO_EFCST_FROM_ANAL_BASENAME = 'anal.@@@@'
   character(filelenmax) :: EFSO_PREVIOUS_GUES_BASENAME   = 'anal.@@@@'
+  character(filelenmax) :: EFSO_OUTPUT_NC_BASENAME       = 'efso.nc'
 
   logical :: FILL_BY_ZERO_MISSING_VARIABLES = .false.
 
@@ -265,6 +266,7 @@ MODULE common_nml
   LOGICAL               :: OBSANAL_OUT = .false.
   character(filelenmax) :: OBSANAL_IN_BASENAME = 'obsanal.@@@@'
   character(filelenmax) :: OBSANAL_OUT_BASENAME = 'obsanal.@@@@'
+
 
   !--- PARAM_LETKF_RADAR
   logical :: USE_RADAR_REF       = .true.
@@ -603,7 +605,8 @@ subroutine read_nml_letkf
     EFSO_FCST_FROM_ANAL_BASENAME, &
     EFSO_EFCST_FROM_ANAL_BASENAME, &
     EFSO_PREVIOUS_GUES_BASENAME,   &
-    EFSO_USE_MOIST_ENERGY, &
+    EFSO_USE_MOIST_ENERGY,   &
+    EFSO_OUTPUT_NC_BASENAME, &
     INFL_MUL, &
     INFL_MUL_MIN, &
     INFL_MUL_ADAPTIVE, &

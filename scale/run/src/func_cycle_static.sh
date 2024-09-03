@@ -960,6 +960,7 @@ while ((time <= ETIME)); do
     if ((EFSO_RUN==1));then
       OBSDEP_OUT_NC_TF=".true."
       OBSANAL_OUT_TF=".true."
+      EFSO_OUTPUT_NC_BASENAME="${OUTDIR[$d]}/obsdep/efso_${time}" # EFSO
     fi
     if ((DISK_MODE >= 1)) ;then
 #      GUES_IN_BASENAME="${RESTART_OUT_PATH[$d]}/<member>/gues_$(datetime_scale $atime)"
@@ -1022,6 +1023,7 @@ while ((time <= ETIME)); do
             -e "/!--EFSO_FCST_FROM_ANAL_BASENAME--/a EFSO_FCST_FROM_ANAL_BASENAME = \"${EFSO_FCST_FROM_ANAL_BASENAME}\"," \
             -e "/!--EFSO_EFCST_FROM_ANAL_BASENAME--/a EFSO_EFCST_FROM_ANAL_BASENAME = \"${EFSO_EFCST_FROM_ANAL_BASENAME}\"," \
             -e "/!--EFSO_PREVIOUS_GUES_BASENAME--/a EFSO_PREVIOUS_GUES_BASENAME = \"${EFSO_PREVIOUS_GUES_BASENAME}\"," \
+            -e "/!--EFSO_OUTPUT_NC_BASENAME--/a EFSO_OUTPUT_NC_BASENAME = \"${EFSO_OUTPUT_NC_BASENAME}\"," \
             -e "/!--INFL_ADD--/a INFL_ADD = ${INFL_ADD}," \
             -e "/!--INFL_ADD_IN_BASENAME--/a INFL_ADD_IN_BASENAME = \"${DATA_ADDINFL[$d]}/<member>${CONNECTOR}init${sfx}\"," \
             -e "/!--INFL_MUL_ADAPTIVE--/a INFL_MUL_ADAPTIVE = ${INFL_MUL_ADAPTIVE}," \

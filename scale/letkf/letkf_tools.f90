@@ -1115,8 +1115,16 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d)
   integer :: ic, ic2
   integer :: iob
 
+  integer :: cnts
+  integer :: cntr(nprocs_d)
+  integer :: dspr(nprocs_d)
+  integer :: i, ip
+
+  integer, allocatable :: obs_g_set(:)
+  integer, allocatable :: obs_g_idx(:)
+
   if ( LOG_OUT ) write(6,'(A)') 'Hello from das_efso'
-  nobstotal = obsda_sort%nobs 
+!  nobstotal = obsda_sort%nobs 
   if ( LOG_OUT ) write(6,'(A,I8)') 'Target observation numbers (global)    : NOBS=', nobstotalg
   if ( LOG_OUT ) write(6,'(A,I8)') 'Target observation numbers (subdomain) : NOBS=', nobstotal
   !
@@ -1183,7 +1191,6 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d)
   if ( LOG_OUT ) write(6,'(a)') 'Start dj/dy computation'
 
   do ilev = 1, nlev
-    if ( LOG_OUT ) write(6,'(a,i6)') 'Level:', ilev
     do ij = 1, nij1
       call obs_local( rig1(ij), rjg1(ij), gues3d(ij,ilev,iv3d_p), hgt1(ij,ilev), &
                       0, hdxf, rdiag, rloc, dep, nobsl, &
@@ -1255,38 +1262,65 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d)
 !!$omp do
   do nob = 1, nobstotal
     obsense(:,nob) = djdy(:,nob) * obsda_sort%val(nob)
+    if ( LOG_OUT) write(6,'(a,i6,3f10.4)') 'Check obsense:', nob, maxval(abs(obsense(:,nob))), maxval(abs(djdy(:,nob))), obsda_sort%val(nob)
   enddo
+  if ( LOG_OUT ) write(6,'(a)') 'Finish obsense computation'
   !!! obsense: delta e^{f-g}_t = [1/2(K-1)][y_o-H(xmean^b_0)]^T*rho*R^(-1)*Y^a_0*(X^f_t)^T*C*(e^f_t+e^g_t)
 !!$omp end do
 !!$omp end parallel
 
+  deallocate( djdy )
+  deallocate( vobsidx_l )
 
   if ( nprocs_e > 1 ) then
     call MPI_ALLREDUCE( MPI_IN_PLACE, obsense, nterm*nobstotal, MPI_r_size, MPI_SUM, MPI_COMM_e, ierr )
   endif
+  if ( LOG_OUT ) write(6,'(a)') 'Finish MPI comm'
 
-  !if ( myrank_e == mmean_rank_e ) then
   if ( myrank_e == 0 ) then
+
+    allocate( obs_g_idx(nobstotalg) )
+    allocate( obs_g_set(nobstotalg) )
+
+    obs_g_idx = 0
+    obs_g_set = 0
+
     call init_obsense( use_global=.true. )
     obsense_global(:,:) = 0.0_r_size
+    if ( LOG_OUT ) write(6,'(a)') 'Finish init_obsense'
 
-    do nob = 1, nobstotal
-      n = obsda_sort%qc(nob)
-      obsense_global(:,n) = obsense(:,nob)
-    enddo
+    if ( nobstotal > 0 ) then
+      do nob = 1, nobstotal
+        iob = nint(obsda_sort%qv(nob)) ! global index for obsevations
+        obsense_global(:,iob) = obsense(:,nob)
+        obs_g_set(iob) = obsda_sort%set(nob)
+        obs_g_idx(iob) = obsda_sort%idx(nob)
+      end do
+    endif
 
+    if ( LOG_OUT ) write(6,'(a)') 'Finish calc obsense_global'
     call MPI_ALLREDUCE( MPI_IN_PLACE, obsense_global, nterm*nobstotalg, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr )
 
-  endif
-!  ! Gather observation sensitivity informations to the root
-!  ALLOCATE(recbuf(nterm,nobstotal))
-!  CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
-!  CALL MPI_REDUCE(obsense(:,1:nobstotal),recbuf,nterm*nobstotal,MPI_r_size,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-!  IF(myrank == 0) obsense(:,1:nobstotal) = recbuf(:,:)
-!  DEALLOCATE(recbuf)
-!  DEALLOCATE(pfull)
-  deallocate( djdy )
-  deallocate( vobsidx_l )
+    call MPI_ALLREDUCE( MPI_IN_PLACE, obs_g_set, nobstotalg, MPI_INTEGER, MPI_MAX, MPI_COMM_d, ierr )
+    call MPI_ALLREDUCE( MPI_IN_PLACE, obs_g_idx, nobstotalg, MPI_INTEGER, MPI_MAX, MPI_COMM_d, ierr )
+    if ( LOG_OUT ) write(6,'(a)') 'Finish MPI comm for obsense_global'
+
+
+    ! write out observation sensitivity
+    if ( myrank_d == 0 ) then
+      if ( LOG_OUT ) write(6,'(a)') 'Write obsense_global'
+      do nob = 1, nobstotalg
+        write(6,'(a,3f8.2,i15)') 'Check obsense_global:', obsense_global(1,nob), obsense_global(2,nob), obsense_global(3,nob), nob
+      end do
+
+      call write_efso_nc(trim( EFSO_OUTPUT_NC_BASENAME ) // '.nc', obs_g_set, obs_g_idx, obsense_global )
+      call print_obsense(obs_g_set, obs_g_idx, obsense_global )
+    endif
+
+    deallocate( obs_g_set )
+    deallocate( obs_g_idx )
+
+  endif ! [ myrank_e == 0 ]
 
   return
 end subroutine das_efso

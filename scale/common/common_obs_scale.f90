@@ -1991,6 +1991,12 @@ SUBROUTINE obs_da_value_allocate(obsda,member)
     obsda%qv = 0.0_r_size
   end if
 
+  if ( EFSO_RUN .and. .not. allocated(obsda%qv) ) then
+    allocate( obsda%qv (obsda%nobs) )
+    ! In EFSO, obsda%qv stores the global id of observations 
+    obsda%qv = 0.0_r_size
+  endif
+
   if (member > 0) then
     ALLOCATE( obsda%ensval (member,obsda%nobs) )
     obsda%ensval = 0.0d0
@@ -2981,24 +2987,32 @@ subroutine write_obsnum_nc( filename, nctype, typ_ctype, elm_u_ctype, num_bqc, n
 
   integer :: ncid
   integer :: dimid
+  integer :: dimid_nctype
 
   integer :: dim_varid
+  integer :: nctype_varid
 
   character(len=*), parameter :: DIM_NAME = "type" ! 0: before QC
                                                    ! 1: after QC
+  character(len=*), parameter :: DIM_NAME_NCTYPE = "nctype" 
+
   integer :: ictype
   integer :: ityp, ielm_u
   integer :: varids(nctype), tvarid
+
+  integer, allocatable :: dimvar(:)
 
   ! Create the file. 
   call ncio_check( nf90_create(trim(filename), nf90_clobber, ncid) )
 
   ! Define the dimensions. 
   call ncio_check( nf90_def_dim(ncid, DIM_NAME, 2, dimid) ) 
+  call ncio_check( nf90_def_dim(ncid, DIM_NAME_NCTYPE, nctype, dimid_nctype) ) 
 
   ! Define the coordinate variables. 
   call ncio_check( nf90_def_var(ncid, DIM_NAME, NF90_INT, dimid, dim_varid) )
   call ncio_check( nf90_put_att(ncid, dim_varid, "long_name", "type (1: before QC, 2: after QC)" ) )
+  call ncio_check( nf90_def_var(ncid, DIM_NAME_NCTYPE, NF90_INT, dimid_nctype, nctype_varid) )
 
   ! Define the netCDF variables
   do ictype = 1, nctype
@@ -3015,11 +3029,21 @@ subroutine write_obsnum_nc( filename, nctype, typ_ctype, elm_u_ctype, num_bqc, n
   ! Add global attribute
   call ncio_check( nf90_put_att(ncid, NF90_GLOBAL, "title", "Number of observations in the computational domain" ) )
 
+!  call ncio_check( nf90_put_att(ncid, NF90_GLOBAL, "nctype", nctype   ) )
+!  call ncio_check( nf90_put_att(ncid, NF90_GLOBAL, "rank",   nprocs_d ) )
+
   ! End define mode.
   call ncio_check( nf90_enddef(ncid) )
 
   ! Write the coordinate variable data. 
   call ncio_check( nf90_put_var(ncid, dim_varid, (/1, 2/) ) )
+
+  allocate( dimvar(nctype) )
+  do ictype = 1, nctype
+    dimvar(ictype) = ictype
+  end do
+  call ncio_check( nf90_put_var(ncid, nctype_varid, dimvar ) )
+  deallocate( dimvar )
 
   ! Write the data.
   do ictype = 1, nctype
@@ -3422,8 +3446,7 @@ subroutine get_nobs_efso( cfile, nrank, cnt_rank )
   return
 end subroutine get_nobs_efso
 !---------------------------
-subroutine get_obsdep_efso( cfile, nobs_local, nobs0, set, idx, elm, typ, lon, lat, lev, &
-                            dat, err, dif, dep, qc, ya )
+subroutine get_obsdep_efso( cfile, nobs_local, nobs0, set, idx, dep, ya )
   use netcdf
   use common_ncio
   implicit none
@@ -3434,24 +3457,12 @@ subroutine get_obsdep_efso( cfile, nobs_local, nobs0, set, idx, elm, typ, lon, l
 
   integer, intent(out) :: set(nobs_local)
   integer, intent(out) :: idx(nobs_local)
-  integer, intent(out) :: elm(nobs_local)
-  integer, intent(out) :: typ(nobs_local)
-  real(r_size), intent(out) :: lon(nobs_local)
-  real(r_size), intent(out) :: lat(nobs_local)
-  real(r_size), intent(out) :: lev(nobs_local)
-  real(r_size), intent(out) :: dat(nobs_local)
-  real(r_size), intent(out) :: err(nobs_local)
-  real(r_size), intent(out) :: dif(nobs_local)
   real(r_size), intent(out) :: dep(nobs_local)
-  integer, intent(out) :: qc(nobs_local)
   real(r_size), intent(out) :: ya(nobs_local,MEMBER)
   integer :: ncid
 
-  integer :: varid_elm, varid_typ
   integer :: varid_set, varid_idx
-  integer :: varid_lon, varid_lat, varid_lev
-  integer :: varid_dat, varid_err, varid_dif
-  integer :: varid_dep, varid_qc
+  integer :: varid_dep
   integer :: varid_ya
 
   integer :: n
@@ -3460,55 +3471,19 @@ subroutine get_obsdep_efso( cfile, nobs_local, nobs0, set, idx, elm, typ, lon, l
   call ncio_check( nf90_open( trim( cfile ), nf90_nowrite, ncid ) )
 
   ! Get variable id
-  call ncio_check( nf90_inq_varid( ncid, "elm", varid_elm ) )
   call ncio_check( nf90_inq_varid( ncid, "set", varid_set ) )
   call ncio_check( nf90_inq_varid( ncid, "idx", varid_idx ) )
-  call ncio_check( nf90_inq_varid( ncid, "typ", varid_typ ) )
-  call ncio_check( nf90_inq_varid( ncid, "lon", varid_lon ) )
-  call ncio_check( nf90_inq_varid( ncid, "lat", varid_lat ) )
-  call ncio_check( nf90_inq_varid( ncid, "lev", varid_lev ) )
-  call ncio_check( nf90_inq_varid( ncid, "dat", varid_dat ) )
-  call ncio_check( nf90_inq_varid( ncid, "err", varid_err ) )
-  call ncio_check( nf90_inq_varid( ncid, "dif", varid_dif ) )
   call ncio_check( nf90_inq_varid( ncid, "omb", varid_dep ) )
-  call ncio_check( nf90_inq_varid( ncid, "qc",  varid_qc  ) )
   call ncio_check( nf90_inq_varid( ncid, "ya", varid_ya ) )
 
   ! Read variables
-  call ncio_check( nf90_get_var( ncid, varid_elm, elm, &
-                   start=(/1/), count=(/nobs_local/) ) )
-
   call ncio_check( nf90_get_var( ncid, varid_set, set, &
                    start=(/1/), count=(/nobs_local/) ) )
 
   call ncio_check( nf90_get_var( ncid, varid_idx, idx, &
                    start=(/1/), count=(/nobs_local/) ) )
 
-  call ncio_check( nf90_get_var( ncid, varid_typ, typ, &
-                   start=(/1/), count=(/nobs_local/) ) )
-
-  call ncio_check( nf90_get_var( ncid, varid_lon, lon, &
-                   start=(/1/), count=(/nobs_local/) ) )
-
-  call ncio_check( nf90_get_var( ncid, varid_lat, lat, &
-                   start=(/1/), count=(/nobs_local/) ) )
-
-  call ncio_check( nf90_get_var( ncid, varid_lev, lev, &
-                   start=(/1/), count=(/nobs_local/) ) )
-
-  call ncio_check( nf90_get_var( ncid, varid_dat, dat, &
-                   start=(/1/), count=(/nobs_local/) ) )
-
-  call ncio_check( nf90_get_var( ncid, varid_err, err, &
-                   start=(/1/), count=(/nobs_local/) ) )
-
-  call ncio_check( nf90_get_var( ncid, varid_dif, dif, &
-                   start=(/1/), count=(/nobs_local/) ) )
-
   call ncio_check( nf90_get_var( ncid, varid_dep, dep, &
-                   start=(/1/), count=(/nobs_local/) ) )
-
-  call ncio_check( nf90_get_var( ncid, varid_qc, qc, &
                    start=(/1/), count=(/nobs_local/) ) )
 
   call ncio_check( nf90_get_var( ncid, varid_ya, ya, &
@@ -3516,12 +3491,6 @@ subroutine get_obsdep_efso( cfile, nobs_local, nobs0, set, idx, elm, typ, lon, l
 
   ! Close the file. 
   call ncio_check( nf90_close(ncid) )
-
-  ! QC should always be good.
-  ! qc array stores indices of obs
-  do n = 1, nobs_local
-    qc(n) = n + nobs0
-  enddo
 
   return
 end subroutine get_obsdep_efso

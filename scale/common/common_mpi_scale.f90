@@ -2573,25 +2573,14 @@ subroutine get_nobs_efso_mpi( nobs, nobs_local, nobs0 )
   return
 end subroutine get_nobs_efso_mpi
 !---------------------------------
-subroutine get_obsdep_efso_mpi( nobs_local, nobs0, obsset, obsidx, obselm, obstyp, &
-                                obslon, obslat, obslev, &
-                                obsdat, obserr, obsdif, obsdep, obsqc, obshdxf )
+subroutine get_obsdep_efso_mpi( nobs_local, nobs0, obsset, obsidx, obsdep, obshdxf )
   implicit none
 
   integer, intent(in) :: nobs_local
   integer, intent(in) :: nobs0
   integer, intent(out) :: obsset(nobs_local)
   integer, intent(out) :: obsidx(nobs_local)
-  integer, intent(out) :: obselm(nobs_local)
-  integer, intent(out) :: obstyp(nobs_local)
-  real(r_size), intent(out) :: obslon(nobs_local)
-  real(r_size), intent(out) :: obslat(nobs_local)
-  real(r_size), intent(out) :: obslev(nobs_local)
-  real(r_size), intent(out) :: obsdat(nobs_local)
-  real(r_size), intent(out) :: obserr(nobs_local)
-  real(r_size), intent(out) :: obsdif(nobs_local)
   real(r_size), intent(out) :: obsdep(nobs_local)
-  integer, intent(out) :: obsqc(nobs_local)
   real(r_size), intent(out) :: obshdxf(nobs_local,MEMBER)
 
   character(6) :: MYRANK_D6
@@ -2600,25 +2589,17 @@ subroutine get_obsdep_efso_mpi( nobs_local, nobs0, obsset, obsidx, obselm, obsty
 
   if ( LOG_OUT ) write(6,'(a)') 'Hello from get_obsdep_efso_mpi'
 
+  if ( nobs_local == 0 ) return
+
   if ( myrank_e == 0 ) then
     write ( MYRANK_D6,'(I6.6)') myrank_d
+    if ( LOG_OUT ) print *, trim( OBSANAL_IN_BASENAME ) // MYRANK_D6 // '.nc'
     call get_obsdep_efso( trim( OBSANAL_IN_BASENAME ) // MYRANK_D6 // '.nc', &
-                          nobs_local, nobs0, &
-                          obsset, obsidx, obselm, obstyp, obslon, obslat, obslev,  &
-                          obsdat, obserr, obsdif, obsdep, obsqc, obshdxf )
+                          nobs_local, nobs0, obsset, obsidx, obsdep, obshdxf )
   endif
   call MPI_BCAST( obsset, nobs_local, MPI_INTEGER, 0, MPI_COMM_e, ierr )
   call MPI_BCAST( obsidx, nobs_local, MPI_INTEGER, 0, MPI_COMM_e, ierr )
-  call MPI_BCAST( obselm, nobs_local, MPI_INTEGER, 0, MPI_COMM_e, ierr )
-  call MPI_BCAST( obstyp, nobs_local, MPI_INTEGER, 0, MPI_COMM_e, ierr )
-  call MPI_BCAST( obslon, nobs_local, MPI_r_size, 0, MPI_COMM_e, ierr )
-  call MPI_BCAST( obslat, nobs_local, MPI_r_size, 0, MPI_COMM_e, ierr )
-  call MPI_BCAST( obslev, nobs_local, MPI_r_size, 0, MPI_COMM_e, ierr )
-  call MPI_BCAST( obsdat, nobs_local, MPI_r_size, 0, MPI_COMM_e, ierr )
-  call MPI_BCAST( obserr, nobs_local, MPI_r_size, 0, MPI_COMM_e, ierr )
-  call MPI_BCAST( obsdif, nobs_local, MPI_r_size, 0, MPI_COMM_e, ierr )
   call MPI_BCAST( obsdep, nobs_local, MPI_r_size, 0, MPI_COMM_e, ierr )
-  call MPI_BCAST( obsqc,  nobs_local, MPI_INTEGER, 0, MPI_COMM_e, ierr )
   call MPI_BCAST( obshdxf, nobs_local*MEMBER, MPI_r_size, 0, MPI_COMM_e, ierr )
 
   return

@@ -77,14 +77,8 @@ MODULE letkf_obs
   integer, allocatable :: obselm(:)
   integer, allocatable :: obstyp(:)
   real(r_size), allocatable :: obshdxf(:,:)
-  real(r_size), allocatable :: obslon(:)
-  real(r_size), allocatable :: obslat(:)
-  real(r_size), allocatable :: obslev(:)
-  real(r_size), allocatable :: obsdat(:)
-  real(r_size), allocatable :: obserr(:)
-  real(r_size), allocatable :: obsdif(:)
   real(r_size), allocatable :: obsdep(:)
-  integer, allocatable :: obsqc(:)
+
 
 CONTAINS
 !-----------------------------------------------------------------------
@@ -1062,10 +1056,13 @@ SUBROUTINE set_letkf_obs
     call mpi_timer('set_letkf_obs:obs_count_print_qc_extdomain:', 2)
   end if
 
-  if ( OBSNUM_OUT_NC .and. myrank_e == mmean_rank_e .and. myrank_d == 0 ) then
-    call write_obsnum_nc( trim( OBSNUM_OUT_NC_BASENAME )//'.nc', nctype, typ_ctype, elm_u_ctype, &
-                         obsgrd(1:nctype)%tot_g(i_before_qc), obsgrd(1:nctype)%tot_g(i_after_qc), &
-                         nobs_g(i_before_qc), nobs_g(i_after_qc)  )
+  if ( OBSNUM_OUT_NC .and. myrank_e == mmean_rank_e ) then
+    if ( myrank_d == 0 ) then
+      call write_obsnum_nc( trim( OBSNUM_OUT_NC_BASENAME )//'.nc', nctype, typ_ctype, elm_u_ctype, &
+                          obsgrd(1:nctype)%tot_g(i_before_qc), obsgrd(1:nctype)%tot_g(i_after_qc), &
+                          nobs_g(i_before_qc), nobs_g(i_after_qc) )
+    endif
+      
   endif
   call mpi_timer('set_letkf_obs:write_obs_count_nc:', 2)
 
@@ -1398,33 +1395,13 @@ subroutine set_efso_obs
     DY
   implicit none
 
-  real(r_size), allocatable :: tmpdep(:)
-  integer, allocatable :: tmpqc0(:,:)
-  integer, allocatable :: tmpqc(:)
-  integer :: nj(0:nlat-1)
-  integer :: njs(1:nlat-1)
-  integer :: l,im,i,j,n,nn,ierr
-  character(14) :: obsguesfile='obsguesNNN.dat'
+  integer :: n
 
   integer :: m
-  integer :: ityp, ielm, ielm_u, ictype
-  real(r_size) :: target_grdspc
-  integer :: iof, iidx
+  integer :: ityp, ielm_u, ictype
+  integer :: iof
 
   integer :: nobs_sub(n_qc_steps), nobs_g(n_qc_steps)
-  integer :: myp_i, myp_j
-  integer :: imin1, imax1, jmin1, jmax1, imin2, imax2, jmin2, jmax2
-  integer :: ip_i, ip_j, ip
-  integer :: ishift, jshift
-
-  integer :: cnts
-  integer :: cntr(nprocs_d)
-  integer :: dspr(nprocs_d)
-  integer :: nensobs_div, nensobs_mod
-
-  integer :: im_obs_1, im_obs_2, nensobs_part
-  type(obs_da_value) :: obsbufs, obsbufr
-  integer :: ns_ext, ne_ext, ns_bufr, ne_bufr
 
   logical :: ctype_use(nid_obs,nobtype)
 
@@ -1432,66 +1409,8 @@ subroutine set_efso_obs
 
   if ( LOG_OUT ) write(6,'(A)') 'Hello from set_efso_obs'
 
-!  dist_zero = SIGMA_OBS * SQRT(10.0d0/3.0d0) * 2.0d0
-!  dist_zero_rain = SIGMA_OBS_RAIN * SQRT(10.0d0/3.0d0) * 2.0d0
-!  dist_zerov = SIGMA_OBSV * SQRT(10.0d0/3.0d0) * 2.0d0
-!  dist_zerov_rain = SIGMA_OBSV_RAIN * SQRT(10.0d0/3.0d0) * 2.0d0
 
-  call get_nobs_efso_mpi( nobstotalg, nobstotal, nobs0 )
-  if ( LOG_OUT ) write(6,'(I10,A)') nobstotalg,' TOTAL OBSERVATIONS INPUT'
-  if ( nobstotalg == 0 ) then
-    if ( myrank_a == 0 ) then
-      write(6,'(a)') 'No observations for EFSO'
-      write(6,'(a)') 'efso finished successfully'
-    endif  
-
-    call finalize_mpi_scale
-    stop
-    
-  endif
-!
-! INITIALIZE GLOBAL VARIABLES
-!
-  if ( nobstotal > 0 ) then
-    allocate( obsset(nobstotal) )
-    allocate( obsidx(nobstotal) )
-    allocate( obselm(nobstotal) )
-    allocate( obstyp(nobstotal) )
-    allocate( obslon(nobstotal) )
-    allocate( obslat(nobstotal) )
-    allocate( obslev(nobstotal) )
-    allocate( obsdat(nobstotal) )
-    allocate( obserr(nobstotal) )
-    allocate( obsdif(nobstotal) )
-    allocate( obsdep(nobstotal) )
-    allocate( obsqc(nobstotal) )
-    allocate( obshdxf(nobstotal,MEMBER) )
-  !  allocate( tmpdep(nobstotal) )
-  !  allocate( tmpqc0(nobstotal,MEMBER) )
-  
-!
-! Reading background observation data and analysis ensemble observations
-!
-  
-    call get_obsdep_efso_mpi( nobstotal, nobs0, obsset, obsidx, obselm, obstyp, obslon, obslat, obslev, &
-                              obsdat, obserr, obsdif, obsdep, obsqc, obshdxf )
-  endif
-  
-  obsda%nobs = nobstotal
-  call obs_da_value_allocate( obsda, MEMBER )
-
-  if ( nobstotal > 0 ) then
-    obsda%set(:) = obsset
-    obsda%idx(:) = obsidx
-    obsda%val(:) = obsdep
-    obsda%qc(:) = obsqc ! qc should always be good because QC has been applied in a previous cycle
-                        ! obsda%qc array stores indices of each obs
-  
-    do m = 1, MEMBER
-      obsda%ensval(m,:) = obshdxf(:,m)
-    enddo
-  endif
-
+  ! (1) set up ctype_use and nctype
   ctype_use(:,:) = .false.
 !#$OMP PARALLEL PRIVATE(iof,n) REDUCTION(.or.:ctype_use)
   do iof = 1, OBS_IN_NUM
@@ -1530,8 +1449,7 @@ subroutine set_efso_obs
   end do ! [ iof = 1, OBS_IN_NUM ]
 !#$OMP END PARALLEL
 
-
-  ! do this outside of the above obs loop, so these (ctype) arrays can be in ascending order
+  ! (2) set up localization
   nctype = count(ctype_use)
   allocate (elm_ctype     (nctype))
   allocate (elm_u_ctype   (nctype))
@@ -1568,11 +1486,88 @@ subroutine set_efso_obs
     end do ! [ ielm_u = 1, nid_obs ]
   end do ! [ ityp = 1, nobtype ]
 
-!-------------------------------------------------------------------------------
-! "Bucket sort" of observations of each combined type (with different sorting meshes)
-!-------------------------------------------------------------------------------
+  ! (3) read obs (analysis) data
+  call get_nobs_efso_mpi( nobstotalg, nobstotal, nobs0 )
+  if ( LOG_OUT ) then
+    write(6,'(a,i10)') 'Total number of observations (global): ', nobstotalg
+    write(6,'(a,i10,i8)') 'Total number of observations (local): ', nobstotal, myrank_d
+  endif
 
+  if ( nobstotalg == 0 ) then
+    if ( myrank_a == 0 ) then
+      write(6,'(a)') 'No observations for EFSO'
+      write(6,'(a)') 'efso finished successfully'
+    endif  
+
+    call finalize_mpi_scale
+    stop
+    
+  endif
+
+  if ( nobstotal > 0 ) then
+    allocate( obsset(nobstotal) )
+    allocate( obsidx(nobstotal) )
+    allocate( obsdep(nobstotal) )
+    allocate( obshdxf(nobstotal,MEMBER) )
+  
+!
+! Reading background observation data and analysis ensemble observations
+!
+  
+    call get_obsdep_efso_mpi( nobstotal, nobs0, obsset, obsidx, obsdep, obshdxf )
+  endif
+
+  obsda%nobs = nobstotal
+  if ( nobstotal > 0 ) then
+
+    call obs_da_value_allocate( obsda, MEMBER )
+  
+    obsda%set(:) = obsset
+    obsda%idx(:) = obsidx
+    obsda%val(:) = obsdep
+    obsda%qc(:)  = iqc_good !obsqc ! qc should always be good because QC has been applied in a previous cycle
+                        ! obsda%qc array stores indices of each obs
+  
+    do m = 1, MEMBER
+      obsda%ensval(m,:) = obshdxf(:,m)
+    enddo
+
+    deallocate( obsset )
+    deallocate( obsidx )
+    deallocate( obsdep )
+    deallocate( obshdxf)
+
+  endif
+
+
+  ! Set up obsgrd
   allocate (obsgrd(nctype))
+
+  call initiate_obsgrd
+  call count_obsgrd(obsda,nobs_sub,nobs_g,efso_flag=.true.)
+  call count_obsgrd_ext
+
+  ! update nobstotal (subdomain) to nobstotal (including extended domain) by using obsgrd
+  if (nctype > 0) then
+    nobstotal = obsgrd(nctype)%ac_ext(obsgrd(nctype)%ngrdext_i,obsgrd(nctype)%ngrdext_j) 
+  else
+    nobstotal = 0
+  endif
+  obsda_sort%nobs = nobstotal
+  call obs_da_value_allocate(obsda_sort, nensobs)
+
+  call setup_obsda_sort(nobs_sub,nobs_g,obsda_sort,efso_flag=.true.)
+  
+  return
+end subroutine set_efso_obs
+
+subroutine initiate_obsgrd
+  use scale_atmos_grid_cartesC, only: &
+    DX, DY
+  implicit none
+
+  integer :: ityp, ictype
+  real(r_size) :: target_grdspc
 
   ! Determine mesh size for bucket sort
   !-----------------------------------------------------------------------------
@@ -1614,7 +1609,32 @@ subroutine set_efso_obs
     allocate (obsgrd(ictype)%next(obsgrd(ictype)%ngrd_i, obsgrd(ictype)%ngrd_j))
   end do
 
-  call mpi_timer('set_efso_obs:bucket_sort_prepare:', 2)
+  call mpi_timer('set_letkf_obs:bucket_sort_prepare:', 2)
+
+  return
+end subroutine initiate_obsgrd
+
+subroutine count_obsgrd(obsda,nobs_sub,nobs_g,efso_flag)
+  implicit none
+
+  type(obs_da_value), intent(inout) :: obsda
+  integer, intent(out) :: nobs_sub(n_qc_steps)
+  integer, intent(out) :: nobs_g(n_qc_steps)
+
+  logical, optional :: efso_flag ! true: EFSO, false: LETKF
+
+  logical :: efso_flag_ = .false.
+  real(r_size) :: ri, rj
+
+  integer :: n
+  integer :: iof, iidx, ictype
+  integer :: i, j
+
+  integer :: ierr
+
+  if (present(efso_flag)) then
+    efso_flag_ = efso_flag
+  endif
 
   ! First scan: count the observation numbers in each mesh (in each subdomain)
   !-----------------------------------------------------------------------------
@@ -1622,11 +1642,17 @@ subroutine set_efso_obs
   do n = 1, obsda%nobs
     iof = obsda%set(n)
     iidx = obsda%idx(n)
-    ictype = ctype_elmtyp(uid_obs(obs(iof)%elm(iidx)), obs(iof)%typ(iidx))
+    ictype = ctype_elmtyp(uid_obs(obs(iof)%elm(iidx)), obs(iof)%typ(iidx))  
 
-    !if (obsda%qc(n) == iqc_good) then
-      call phys2ij( obs(iof)%lon(iidx), obs(iof)%lat(iidx), obs(iof)%ri(iidx), obs(iof)%rj(iidx) )
-      call ij_obsgrd(ictype, obs(iof)%ri(iidx), obs(iof)%rj(iidx), i, j)
+    if ( efso_flag_ ) then
+      call phys2ij(obs(iof)%lon(iidx), obs(iof)%lat(iidx), ri, rj)
+    else
+      ri = obs(iof)%ri(iidx)
+      rj = obs(iof)%rj(iidx)
+    endif
+
+    if (obsda%qc(n) == iqc_good) then
+      call ij_obsgrd(ictype, ri, rj, i, j)
       if (i < 1) i = 1                                          ! Assume the process assignment was correct,
       if (i > obsgrd(ictype)%ngrd_i) i = obsgrd(ictype)%ngrd_i  ! so this correction is only to remedy the round-off problem.
       if (j < 1) j = 1                                          !
@@ -1634,12 +1660,12 @@ subroutine set_efso_obs
 
       obsgrd(ictype)%n(i,j,myrank_d) = obsgrd(ictype)%n(i,j,myrank_d) + 1
       obsgrd(ictype)%tot_sub(i_after_qc) = obsgrd(ictype)%tot_sub(i_after_qc) + 1 ! only used for diagnostic print (obs number after qc)
-    !end if
+    end if
 
     obsgrd(ictype)%tot_sub(i_before_qc) = obsgrd(ictype)%tot_sub(i_before_qc) + 1 ! only used for diagnostic print (obs number before qc)
   end do
 
-  ! Compute the accumulated numbers in each mesh
+   ! Compute the accumulated numbers in each mesh
   !-----------------------------------------------------------------------------
 
   do ictype = 1, nctype
@@ -1658,18 +1684,25 @@ subroutine set_efso_obs
     obsgrd(ictype)%next(1:obsgrd(ictype)%ngrd_i,:) = obsgrd(ictype)%ac(0:obsgrd(ictype)%ngrd_i-1,:,myrank_d)
   end do
 
-  call mpi_timer('set_efso_obs:bucket_sort_first_scan:', 2)
+  call mpi_timer('set_letkf_obs:bucket_sort_first_scan:', 2)
 
   ! Second scan: save the indices of bucket-sorted observations in obsda%keys(:)
   !-----------------------------------------------------------------------------
 
   do n = 1, obsda%nobs
-    !if (obsda%qc(n) == iqc_good) then
+    if (obsda%qc(n) == iqc_good) then
       iof = obsda%set(n)
       iidx = obsda%idx(n)
       ictype = ctype_elmtyp(uid_obs(obs(iof)%elm(iidx)), obs(iof)%typ(iidx))
 
-      call ij_obsgrd(ictype, obs(iof)%ri(iidx), obs(iof)%rj(iidx), i, j)
+      if ( efso_flag_ ) then
+        call phys2ij(obs(iof)%lon(iidx), obs(iof)%lat(iidx), ri, rj)
+      else
+        ri = obs(iof)%ri(iidx)
+        rj = obs(iof)%rj(iidx)
+      endif  
+
+      call ij_obsgrd(ictype, ri, rj, i, j)
       if (i < 1) i = 1                                         ! Assume the process assignment was correct,
       if (i > obsgrd(ictype)%ngrd_i) i = obsgrd(ictype)%ngrd_i ! so this correction is only to remedy the round-off problem.
       if (j < 1) j = 1                                         !
@@ -1677,11 +1710,10 @@ subroutine set_efso_obs
 
       obsgrd(ictype)%next(i,j) = obsgrd(ictype)%next(i,j) + 1
       obsda%key(obsgrd(ictype)%next(i,j)) = n
-    !end if
+    end if
   end do
 
-
-  call mpi_timer('set_efso_obs:bucket_sort_second_scan:', 2, barrier=MPI_COMM_d)
+  call mpi_timer('set_letkf_obs:bucket_sort_second_scan:', 2, barrier=MPI_COMM_d)
 
   ! ALLREDUCE observation number information from subdomains, and compute total numbers
   !-----------------------------------------------------------------------------
@@ -1703,12 +1735,12 @@ subroutine set_efso_obs
       obsgrd(ictype)%tot(:) = obsgrd(ictype)%ac(obsgrd(ictype)%ngrd_i,obsgrd(ictype)%ngrd_j,:) &
                             - obsgrd(ictype-1)%ac(obsgrd(ictype-1)%ngrd_i,obsgrd(ictype-1)%ngrd_j,:)
     end if
-#ifdef LETKF_DEBUG
-    if (obsgrd(ictype)%tot(myrank_d) /= obsgrd(ictype)%tot_sub(i_after_qc)) then
-      write (6, '(A)') '[Error] Observation counts are inconsistent !!!'
-      stop 99
-    end if
-#endif
+! #ifdef LETKF_DEBUG
+     if (obsgrd(ictype)%tot(myrank_d) /= obsgrd(ictype)%tot_sub(i_after_qc)) then
+       write (6, '(A)') '[Error] Observation counts are inconsistent !!!'
+       stop 99
+     end if
+! #endif
 
     nobs_sub(:) = nobs_sub(:) + obsgrd(ictype)%tot_sub(:)
     nobs_g(:) = nobs_g(:) + obsgrd(ictype)%tot_g(:)
@@ -1716,9 +1748,35 @@ subroutine set_efso_obs
     deallocate (obsgrd(ictype)%next)
   end do
 
-  call mpi_timer('set_efso_obs:bucket_sort_info_allreduce:', 2)
+  call mpi_timer('set_letkf_obs:bucket_sort_info_allreduce:', 2)
 
+! #ifdef LETKF_DEBUG
+   if (nctype > 0) then
+     if (obsgrd(nctype)%ac(obsgrd(nctype)%ngrd_i,obsgrd(nctype)%ngrd_j,myrank_d) /= nobs_sub(i_after_qc)) then
+       write (6, '(A)') '[Error] Observation counts are inconsistent !!!'
+       stop 99
+     end if
+     if (sum(obsgrd(nctype)%ac(obsgrd(nctype)%ngrd_i,obsgrd(nctype)%ngrd_j,:)) /= nobs_g(i_after_qc)) then
+       write (6, '(A)') '[Error] Observation counts are inconsistent !!!'
+       stop 99
+     end if
+   end if
+! #endif
   nobstotalg = nobs_g(i_after_qc) ! total obs number in the global domain (all types)
+
+  return
+end subroutine count_obsgrd
+
+subroutine count_obsgrd_ext
+  implicit none
+
+  integer :: ictype
+  integer :: i, j
+  integer :: myp_i, myp_j
+  integer :: imin1, imax1, jmin1, jmax1, imin2, imax2, jmin2, jmax2
+  integer :: ip_i, ip_j, ip
+  integer :: ishift, jshift
+
 
   ! Calculate observation numbers in the extended (localization) subdomain,
   ! in preparation for communicating obsetvations in the extended subdomain
@@ -1756,6 +1814,7 @@ subroutine set_efso_obs
         obsgrd(ictype)%ac_ext(i,j) = obsgrd(ictype)%ac_ext(i-1,j) + obsgrd(ictype)%n_ext(i,j)
       end do
     end do
+
     if (ictype == 1) then
       obsgrd(ictype)%tot_ext = obsgrd(ictype)%ac_ext(obsgrd(ictype)%ngrdext_i,obsgrd(ictype)%ngrdext_j)
     else
@@ -1779,10 +1838,45 @@ subroutine set_efso_obs
     maxnobs_per_ctype = 0
   end if
 
-  call mpi_timer('set_efso_obs:extdomain_obs_count_cal:', 2)
+  call mpi_timer('set_letkf_obs:extdomain_obs_count_cal:', 2)
 
-  ! Construct sorted obsda_sort: 
-  !-----------------------------------------------------------------------------
+  return
+end subroutine count_obsgrd_ext
+
+subroutine setup_obsda_sort(nobs_sub,nobs_g,obsda_sort,efso_flag)
+  implicit none
+
+  integer, intent(in) :: nobs_sub(n_qc_steps)
+  integer, intent(in) :: nobs_g(n_qc_steps) 
+  type(obs_da_value), intent(inout) :: obsda_sort
+  logical, optional :: efso_flag ! true: EFSO, false: LETKF
+
+  integer :: myp_i, myp_j
+  integer :: imin1, imax1, jmin1, jmax1, imin2, imax2, jmin2, jmax2
+  integer :: ip_i, ip_j, ip
+  integer :: ishift, jshift
+
+  integer :: cnts
+  integer :: cntr(nprocs_d)
+  integer :: dspr(nprocs_d)
+  integer :: nensobs_div, nensobs_mod
+
+  integer :: im_obs_1, im_obs_2, nensobs_part
+  type(obs_da_value) :: obsbufs, obsbufr
+  integer :: ns_ext, ne_ext, ns_bufr, ne_bufr
+
+  integer :: n, ictype, j
+  integer :: ierr
+
+  logical :: efso_flag_ = .false.
+  integer :: iof, iidx
+  integer :: nobs_ac ! accumulated number of observations in sub domains of < myrank_d
+
+  if ( present(efso_flag) ) then
+    efso_flag_ = efso_flag
+  endif
+
+  call rank_1d_2d(myrank_d, myp_i, myp_j)
 
   ! 1) Copy the observation data in own subdomains to send buffer (obsbufs) with
   ! sorted order
@@ -1820,8 +1914,17 @@ subroutine set_efso_obs
       obsbufs%qc(n) = obsda%qc(obsda%key(n))
     end do ! [ n = 1, nobs_sub(i_after_qc) ]
 
-    call mpi_timer('set_efso_obs:copy_bufs:', 2, barrier=MPI_COMM_d)
+    if ( efso_flag_) then
+      nobs_ac = dspr(myrank_d+1)
+      
+      ! obsda%qv is used to store the global id of observations 
+      do n = 1, nobs_sub(i_after_qc)
+        obsbufs%qv(n) = nobs_ac + n
+      enddo
 
+    endif
+
+    call mpi_timer('set_letkf_obs:copy_bufs:', 2, barrier=MPI_COMM_d)
   end if ! [ nctype > 0 ]
 
   call obs_da_value_deallocate(obsda)
@@ -1842,16 +1945,18 @@ subroutine set_efso_obs
     end if
     call MPI_ALLGATHERV(obsbufs%qc, cnts, MPI_INTEGER, obsbufr%qc, cntr, dspr, MPI_INTEGER, MPI_COMM_d, ierr)
 
+    if ( efso_flag_ ) then
+      call MPI_ALLGATHERV(obsbufs%qv, cnts, MPI_r_size, obsbufr%qv, cntr, dspr, MPI_r_size, MPI_COMM_d, ierr)
+    endif
+
     call obs_da_value_deallocate(obsbufs)
 
-    call mpi_timer('set_efso_obs:mpi_allgatherv:', 2)
+    call mpi_timer('set_letkf_obs:mpi_allgatherv:', 2)
   end if ! [ nctype > 0 ]
 
   ! 3) Copy observation data within the extended (localization) subdomains
   !    from receive buffer (obsbufr) to obsda_sort; rearrange with sorted order
   !-----------------------------------------------------------------------------
-  obsda_sort%nobs = nobstotal
-  call obs_da_value_allocate(obsda_sort, nensobs)
 
 !$OMP PARALLEL DO SCHEDULE(STATIC) PRIVATE(ip,ip_i,ip_j,ictype,imin1,imax1,jmin1,jmax1,imin2,imax2,jmin2,jmax2,ishift,jshift,j,ns_ext,ne_ext,ns_bufr,ne_bufr)
   do ip = 0, nprocs_d-1
@@ -1867,6 +1972,7 @@ subroutine set_efso_obs
       imax2 = min(obsgrd(ictype)%ngrd_i, imax1 - ip_i*obsgrd(ictype)%ngrd_i)
       jmin2 = max(1, jmin1 - ip_j*obsgrd(ictype)%ngrd_j)
       jmax2 = min(obsgrd(ictype)%ngrd_j, jmax1 - ip_j*obsgrd(ictype)%ngrd_j)
+
       if (imin2 > imax2 .or. jmin2 > jmax2) cycle
 
       ishift = (ip_i - myp_i) * obsgrd(ictype)%ngrd_i + obsgrd(ictype)%ngrdsch_i
@@ -1880,6 +1986,15 @@ subroutine set_efso_obs
         ns_bufr = dspr(ip+1) + obsgrd(ictype)%ac(imin2-1,j,ip) + 1
         ne_bufr = dspr(ip+1) + obsgrd(ictype)%ac(imax2  ,j,ip)
 
+#ifdef LETKF_DEBUG
+        if (ne_ext - ns_ext /= ne_bufr - ns_bufr) then
+          write (6, '(A)') '[Error] observation grid indices have errors !!!'
+          write (6, *) ictype, ip, j, imin1, imax1, jmin1, jmax1, imin2, imax2, jmin2, jmax2, ishift, jshift, &
+                       obsgrd(ictype)%ngrd_i, obsgrd(ictype)%ngrd_j, obsgrd(ictype)%ngrdsch_i, obsgrd(ictype)%ngrdsch_j, ns_ext, ne_ext, ns_bufr, ne_bufr
+          stop 99
+        end if
+#endif
+        
         obsda_sort%set(ns_ext:ne_ext) = obsbufr%set(ns_bufr:ne_bufr)
         obsda_sort%idx(ns_ext:ne_ext) = obsbufr%idx(ns_bufr:ne_bufr)
         obsda_sort%val(ns_ext:ne_ext) = obsbufr%val(ns_bufr:ne_bufr)
@@ -1887,6 +2002,10 @@ subroutine set_efso_obs
           obsda_sort%ensval(im_obs_1:im_obs_2,ns_ext:ne_ext) = obsbufr%ensval(1:nensobs_part,ns_bufr:ne_bufr)
         end if
         obsda_sort%qc(ns_ext:ne_ext) = obsbufr%qc(ns_bufr:ne_bufr)
+
+        if ( efso_flag_ ) then
+          obsda_sort%qv(ns_ext:ne_ext) = obsbufr%qv(ns_bufr:ne_bufr)
+        endif
       end do
     end do ! [ ictype = 1, nctype ]
   end do ! [ ip = 0, nprocs_d-1 ]
@@ -1900,7 +2019,19 @@ subroutine set_efso_obs
     jmin1 = obsgrd(ictype)%ngrdsch_j + 1
     jmax1 = obsgrd(ictype)%ngrdsch_j + obsgrd(ictype)%ngrd_j
 
-    call obs_choose_ext(ictype, imin1, imax1, jmin1, jmax1, obsda_sort%nobs_in_key, obsda_sort%key)
+    if ( efso_flag_ ) then
+      imin2 = max(1, imin1 - ip_i*obsgrd(ictype)%ngrd_i)
+      imax2 = min(obsgrd(ictype)%ngrd_i, imax1 - ip_i*obsgrd(ictype)%ngrd_i)
+      jmin2 = max(1, jmin1 - ip_j*obsgrd(ictype)%ngrd_j)
+      jmax2 = min(obsgrd(ictype)%ngrd_j, jmax1 - ip_j*obsgrd(ictype)%ngrd_j)
+    else
+      imin2 = imin1
+      imax2 = imax1
+      jmin2 = jmin1
+      jmax2 = jmax1
+    end if
+    
+    call obs_choose_ext(ictype, imin2, imax2, jmin2, jmax2, obsda_sort%nobs_in_key, obsda_sort%key)
 
     deallocate (obsgrd(ictype)%n)
     deallocate (obsgrd(ictype)%ac)
@@ -1910,7 +2041,7 @@ subroutine set_efso_obs
   if (nctype > 0) then
     call obs_da_value_deallocate(obsbufr)
 
-    call mpi_timer('set_efso_obs:extdomain_copy_bufr:', 2, barrier=MPI_COMM_e)
+    call mpi_timer('set_letkf_obs:extdomain_copy_bufr:', 2, barrier=MPI_COMM_e)
   end if ! [ nctype > 0 ]
 
   ! 4) For variables with an ensemble dimension (ensval),
@@ -1919,69 +2050,22 @@ subroutine set_efso_obs
   if (nprocs_e > 1) then
     call MPI_ALLREDUCE(MPI_IN_PLACE, obsda_sort%ensval, nensobs*nobstotal, MPI_r_size, MPI_SUM, MPI_COMM_e, ierr)
 
-    call mpi_timer('set_efso_obs:extdomain_allreduce:', 2)
+    call mpi_timer('set_letkf_obs:extdomain_allreduce:', 2)
   end if
 
+  if ( efso_flag_ ) then 
 
+    !#omp parallel do private(n,iof,iidx)
+    do n = 1, obsda_sort%nobs
+      iof = obsda_sort%set(n)
+      iidx = obsda_sort%idx(n)
+      call phys2ij(obs(iof)%lon(iidx), obs(iof)%lat(iidx), obs(iof)%ri(iidx), obs(iof)%rj(iidx))
+    end do
+    !#omp end parallel do
 
-!!
-!! Create observation box
-!!
-!  nobsgrd = 0
-!  nj = 0
-!!$OMP PARALLEL PRIVATE(i,j,n,nn)
-!!$OMP DO SCHEDULE(DYNAMIC)
-!  DO j=1,nlat-1
-!    DO n=1,nobs
-!      IF(obslat(n) < lat(j) .OR. lat(j+1) <= obslat(n)) CYCLE
-!      nj(j) = nj(j) + 1
-!    END DO
-!  END DO
-!!$OMP END DO
-!!$OMP DO SCHEDULE(DYNAMIC)
-!  DO j=1,nlat-1
-!    njs(j) = SUM(nj(0:j-1))
-!  END DO
-!!$OMP END DO
-!!$OMP DO SCHEDULE(DYNAMIC)
-!  DO j=1,nlat-1
-!    nn = 0
-!    DO n=1,nobs
-!      IF(obslat(n) < lat(j) .OR. lat(j+1) <= obslat(n)) CYCLE
-!      nn = nn + 1
-!    END DO
-!  END DO
-!!$OMP END DO
-!!$OMP DO SCHEDULE(DYNAMIC)
-!  DO j=1,nlat-1
-!    IF(nj(j) == 0) THEN
-!      nobsgrd(:,j) = njs(j)
-!      CYCLE
-!    END IF
-!    nn = 0
-!    DO i=1,nlon
-!      DO n=njs(j)+1,njs(j)+nj(j)
-!        IF(i < nlon) THEN
-!          IF(obslon(n) < lon(i) .OR. lon(i+1) <= obslon(n)) CYCLE
-!        ELSE
-!          IF(obslon(n) < lon(nlon) .OR. 360.0d0 <= obslon(n)) CYCLE
-!        END IF
-!        nn = nn + 1
-!      END DO
-!      nobsgrd(i,j) = njs(j) + nn
-!    END DO
-!    IF(nn /= nj(j)) THEN
-!!$OMP CRITICAL
-!      WRITE(6,'(A,2I10)') 'OBS DATA SORT ERROR: ',nn,nj(j)
-!      WRITE(6,'(F6.2,A,F6.2)') lat(j),'< LAT <',lat(j+1)
-!      WRITE(6,'(F6.2,A,F6.2)') MINVAL(obslat(njs(j)+1:njs(j)+nj(j))),'< OBSLAT <',MAXVAL(obslat(njs(j)+1:njs(j)+nj(j)))
-!!$OMP END CRITICAL
-!    END IF
-!  END DO
-!!$OMP END DO
-!!$OMP END PARALLEL
+  endif
 
   return
-end subroutine set_efso_obs
+end subroutine setup_obsda_sort
 
 end module letkf_obs
