@@ -1309,9 +1309,9 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d)
     ! write out observation sensitivity
     if ( myrank_d == 0 ) then
       if ( LOG_OUT ) write(6,'(a)') 'Write obsense_global'
-      do nob = 1, nobstotalg
-        write(6,'(a,3f8.2,i15)') 'Check obsense_global:', obsense_global(1,nob), obsense_global(2,nob), obsense_global(3,nob), nob
-      end do
+      ! do nob = 1, nobstotalg
+      !   write(6,'(a,3f8.2,i15)') 'Check obsense_global:', obsense_global(1,nob), obsense_global(2,nob), obsense_global(3,nob), nob
+      ! end do
 
       call write_efso_nc(trim( EFSO_OUTPUT_NC_BASENAME ) // '.nc', obs_g_set, obs_g_idx, obsense_global )
       call print_obsense(obs_g_set, obs_g_idx, obsense_global )

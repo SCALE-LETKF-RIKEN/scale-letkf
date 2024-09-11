@@ -54,6 +54,8 @@ MODULE common_scale
        'QV        ', 'QC        ', 'QR        ', 'QI        ', 'QS        ', 'QG        '/)
   CHARACTER(vname_max) :: v2d_name(nv2d)
 
+  integer, parameter :: iv2d_ps_diag = 1
+
   ! 
   !--- 3D, 2D diagnostic variables (in SCALE history files)
   ! 
@@ -1383,19 +1385,35 @@ end subroutine read_restart_trans_history
 !-------------------------------------------------------------------------------
 ! Transform the SCALE restart variables to the LETKF state variables
 !-------------------------------------------------------------------------------
-subroutine state_trans(v3dg)
+subroutine state_trans(v3dg,ps)
   use scale_tracer, only: TRACER_CV
   use scale_const, only: &
      Rdry   => CONST_Rdry, &
      Rvap   => CONST_Rvap, &
      CVdry  => CONST_CVdry, &
      PRE00 => CONST_PRE00
+  use scale_atmos_bottom, only: &
+     ATMOS_BOTTOM_estimate
+  use scale_atmos_grid_cartesc_real, only: &
+     FZ => ATMOS_GRID_CARTESC_real_FZ
+  use scale_atmos_grid_cartesC_index, only: &
+     IS, IE, JS, JE, KS, KE
+
   implicit none
 
   real(RP), intent(inout) :: v3dg(nlev,nlon,nlat,nv3d)
+  real(RP), intent(out), optional :: ps(nlon,nlat)
   real(RP) :: rho,pres,temp
   real(RP) :: qdry,CVtot,Rtot,CPovCV
   integer :: i,j,k,iv3d
+
+  real(RP), allocatable :: rho_tmp(:,:,:)
+  real(RP), allocatable :: dummy2d(:,:)
+
+  if ( present(ps) ) then
+    allocate(rho_tmp(nlev,nlon,nlat))
+    allocate(dummy2d(nlon,nlat))
+  endif
 
 !$OMP PARALLEL DO PRIVATE(i,j,k,iv3d,qdry,CVtot,Rtot,CPovCV,rho,pres,temp) COLLAPSE(2)
   do j = 1, nlat
@@ -1412,6 +1430,10 @@ subroutine state_trans(v3dg)
        CPovCV = ( CVtot + Rtot ) / CVtot
 
        rho = v3dg(k,i,j,iv3d_rho)
+       if ( present(ps) ) then
+         rho_tmp(k,i,j) = rho
+       end if
+
        pres = PRE00 * ( v3dg(k,i,j,iv3d_rhot) * Rtot / PRE00 )**CPovCV
        temp = pres / ( rho * Rtot )
 
@@ -1424,6 +1446,16 @@ subroutine state_trans(v3dg)
     enddo
   enddo
 !$OMP END PARALLEL DO
+
+  if ( present(ps) ) then
+    call ATMOS_BOTTOM_estimate(nlev,1,nlev,nlon,1,nlon,nlat,1,nlat,          &
+                               rho_tmp,v3dg(:,:,:,iv3d_p),v3dg(:,:,:,iv3d_q),&
+                               ! dummy !surface temperature is not used to calculate surface pressure 
+                               v3dg(1,:,:,iv3d_t),                           & 
+                               FZ(KS:KE,IS:IE,JS:JE),dummy2d,ps )
+                               
+
+  endif
 
   return
 end subroutine state_trans

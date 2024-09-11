@@ -833,6 +833,16 @@ while ((time <= ETIME)); do
       fi
 
     fi
+
+
+    if (( loop == 1 && MAKEINIT != 1 )); then
+      if (( EFSO_RUN == 1 )); then
+        # check RESTART_IN_PATH[$d]/mgue exits or not
+        if [ ! -s "${RESTART_IN_PATH[$d]}/mgue/init_$(datetime_scale $time).pe000000.nc" ]; then
+          ln -s ${RESTART_IN_PATH[$d]}/mean/init_*.nc ${RESTART_IN_PATH[$d]}/mgue/
+        fi
+      fi
+    fi
  
     ith=0
     for m in $(seq $mtot); do

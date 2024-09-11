@@ -1231,15 +1231,17 @@ end subroutine read_ens_history_iter
 !-------------------------------------------------------------------------------
 ! Read ensemble first guess data and distribute to processes
 !-------------------------------------------------------------------------------
-subroutine read_ens_mpi(v3d, v2d, EFSO )
+subroutine read_ens_mpi(v3d, v2d, v2d_diag, EFSO )
   implicit none
 
   real(r_size), intent(out) :: v3d(nij1,nlev,nens,nv3d)
   real(r_size), intent(out) :: v2d(nij1,nens,nv2d)
+  real(r_size), intent(out), optional :: v2d_diag(nij1,nens,nv2d_diag)
   logical, intent(in), optional :: EFSO
  
   real(RP) :: v3dg(nlev,nlon,nlat,nv3d)
   real(RP) :: v2dg(nlon,nlat,nv2d)
+  real(RP) :: v2dg_diag(nlon,nlat,nv2d_diag)
   character(len=filelenmax) :: filename
   integer :: it, im, mstart, mend
 
@@ -1279,7 +1281,11 @@ subroutine read_ens_mpi(v3d, v2d, EFSO )
 
       call mpi_timer('read_ens_mpi:read_restart:', 2)
 
-      call state_trans(v3dg)
+      if ( EFSO ) then
+        call state_trans(v3dg, ps=v2dg_diag(:,:,iv2d_ps_diag))
+      else
+        call state_trans(v3dg)
+      endif
 
       call mpi_timer('read_ens_mpi:state_trans:', 2)
     else if (im <= nens) then ! This is to avoid the undefined value problem;

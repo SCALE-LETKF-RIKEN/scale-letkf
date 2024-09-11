@@ -72,16 +72,15 @@ subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d)
      PRE00  => CONST_PRE00
   use scale_tracer, only: TRACER_CV
   use scale_atmos_grid_cartesC, only: &
-     CDZ => ATMOS_GRID_CARTESC_CDZ, &
-     DX, DY
+     CDZ => ATMOS_GRID_CARTESC_CDZ
   use scale_atmos_grid_cartesC_index, only: &
      KHALO
   implicit none
 
   real(r_size), intent(inout) :: fcst3d(nij1,nlev,nens,nv3d)
-  real(r_size), intent(inout) :: fcst2d(nij1,nens,nv2d)
+  real(r_size), intent(inout) :: fcst2d(nij1,nens,nv2d_diag)
   real(r_size), intent(inout) :: fcer3d(nij1,nlev,nv3d)
-  real(r_size), intent(inout) :: fcer2d(nij1,nv2d)
+  real(r_size), intent(inout) :: fcer2d(nij1,nv2d_diag)
 
   real(r_size), parameter :: tref = 280.0_r_size
   real(r_size), parameter :: pref = 1000.0e+2_r_size
@@ -125,7 +124,7 @@ subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d)
 !  rdtrpr = sqrt(rd*tref)/pref
 !  ! For surface variables
 !  IF(tar_minlev <= 1) THEN
-  do iv2d = 1, nv2d
+  do iv2d = 1, nv2d_diag
 !      IF(i == iv2d_ps) THEN
 !        !!! [(Rd*Tr)(dS/4pi)]^(1/2) * (ps'/Pr)
 !        fcer2d(:,i) = rdtrpr * wg1(:) * fcer2d(:,i)
@@ -152,24 +151,24 @@ subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d)
 !    END IF
     do ij = 1, nij1
 
-       qdry  = 1.0_r_size
-       CVtot = 0.0_r_size
-       do iv3d = iv3d_q, nv3d ! loop over all moisture variables
-         qdry  = qdry - fcst3d(ij,k,mmean,iv3d)
-         CVtot = CVtot + fcst3d(ij,k,mmean,iv3d) * real( TRACER_CV(iv3d-iv3d_q+1), kind=r_size )
-       enddo
-       CVtot = CVdry * qdry + CVtot
-       Rtot  = real( Rdry, kind=r_size ) * qdry + real( Rvap, kind=r_size ) * fcst3d(ij,k,mmean,iv3d_q)
-       CPovCV = ( CVtot + Rtot ) / CVtot
+      qdry  = 1.0_r_size
+      CVtot = 0.0_r_size
+      do iv3d = iv3d_q, nv3d ! loop over all moisture variables
+        qdry  = qdry - fcst3d(ij,k,mmean,iv3d)
+        CVtot = CVtot + fcst3d(ij,k,mmean,iv3d) * real( TRACER_CV(iv3d-iv3d_q+1), kind=r_size )
+      enddo
+      CVtot = CVdry * qdry + CVtot
+      Rtot  = real( Rdry, kind=r_size ) * qdry + real( Rvap, kind=r_size ) * fcst3d(ij,k,mmean,iv3d_q)
+      CPovCV = ( CVtot + Rtot ) / CVtot
 
-       ! Compute weight
-       ! rho * g * dz / p_s
-       rho = fcst3d(ij,k,mmean,iv3d_p) / ( fcst3d(ij,k,mmean,iv3d_t)  * Rtot )
-       weight = sqrt( rho * real( GRAV, kind=r_size ) * real( CDZ(k+KHALO), kind=r_size ) * ps_inv(ij) * area_factor )
+      ! Compute weight
+      ! rho * g * dz / p_s
+      rho = fcst3d(ij,k,mmean,iv3d_p) / ( fcst3d(ij,k,mmean,iv3d_t)  * Rtot )
+      weight = sqrt( rho * real( GRAV, kind=r_size ) * real( CDZ(k+KHALO), kind=r_size ) * ps_inv(ij) * area_factor )
 
-       ! Constants
-       cptr = sqrt( CPovCV / tref )
-       qweight = sqrt( wmoist/( CPovCV*tref ) ) * LHV
+      ! Constants
+      cptr = sqrt( CPovCV / tref )
+      qweight = sqrt( wmoist/( CPovCV*tref ) ) * LHV
 
       do iv3d = 1, nv3d
         if ( iv3d == iv3d_u .or. iv3d == iv3d_v ) then
@@ -470,7 +469,7 @@ subroutine write_efso_nc( filename, set, idx, obsense_global )
   call ncio_check( nf90_put_var(ncid, typ_varid, typ_l, start=(/1/), &
                    count=(/nobstotalg/) ) )
 
-  call ncio_check( nf90_put_var(ncid, efso_varid, obsense_global, start=(/1,1/), &
+  call ncio_check( nf90_put_var(ncid, efso_varid, real(obsense_global,kind=r_sngl), start=(/1,1/), &
                    count=(/nterm,nobstotalg/) ) )
 
   ! Close the file. 
