@@ -260,7 +260,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
 
     call mpi_timer('', 2, barrier=MPI_COMM_e)
 
-    CALL scatter_grd_mpi(mmean_rank_e,work3dg,work2dg,work3d,work2d)
+    CALL scatter_grd_mpi(mmean_rank_e,nv3d,nv2d,work3dg,work2dg,work3d,work2d)
 
     call mpi_timer('das_letkf:adaptive_infl_scatter:', 2)
   END IF
@@ -630,7 +630,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
 
     if (.not. allocated(work3dg)) allocate (work3dg(nlon,nlat,nlev,nv3d))
     if (.not. allocated(work2dg)) allocate (work2dg(nlon,nlat,nv2d))
-    CALL gather_grd_mpi(mmean_rank_e,work3d,work2d,work3dg,work2dg)
+    CALL gather_grd_mpi(mmean_rank_e,nv3d,nv2d,work3d,work2d,work3dg,work2dg)
 
     call mpi_timer('das_letkf:adaptive_infl_gather:', 2)
 
@@ -657,7 +657,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
 
     if (.not. allocated(work3dg)) allocate (work3dg(nlon,nlat,nlev,nv3d))
     if (.not. allocated(work2dg)) allocate (work2dg(nlon,nlat,nv2d))
-    CALL gather_grd_mpi(mmean_rank_e,work3da,work2da,work3dg,work2dg)
+    CALL gather_grd_mpi(mmean_rank_e,nv3d,nv2d,work3da,work2da,work3dg,work2dg)
 
     call mpi_timer('das_letkf:relax_spread_out_gather:', 2)
 
@@ -696,7 +696,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
     work3d(:,:,9) = work3dn(nobtype+4,:,:,iv3d_t)
     work3d(:,:,10) = work3dn(nobtype+5,:,:,iv3d_t)
     work3d(:,:,11) = work3dn(nobtype+6,:,:,iv3d_t)
-    CALL gather_grd_mpi(mmean_rank_e,work3d,work2d,work3dg,work2dg)
+    CALL gather_grd_mpi(mmean_rank_e,nv3d,nv2d,work3d,work2d,work3dg,work2dg)
 
     call mpi_timer('das_letkf:nobs_out_gather:', 2)
 

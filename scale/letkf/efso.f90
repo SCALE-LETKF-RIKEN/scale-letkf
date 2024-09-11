@@ -114,7 +114,7 @@ program efso
       call read_restart( trim(EFSO_FCST_FROM_GUES_BASENAME), work3dg, work2dg)
       call state_trans(work3dg,ps=work2dg_diag)
     endif
-    call scatter_grd_mpi(mmean_rank_e,real(work3dg,RP),real(work2dg,RP),&
+    call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d,real(work3dg,RP),real(work2dg,RP),&
                          fcer3d,&
                          work2d) ! dummy
                          !fcer2d)
@@ -125,7 +125,7 @@ program efso
       call read_restart( trim(EFSO_FCST_FROM_ANAL_BASENAME), work3dg, work2dg)
       call state_trans(work3dg,ps=work2dg_diag)
     endif
-    call scatter_grd_mpi(mmean_rank_e,real(work3dg,RP),real(work2dg,RP),&
+    call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d,real(work3dg,RP),real(work2dg,RP),&
                          work3d,&
                          work2d) ! dummy
 !    call scatter_grd2d_mpi(mmean_rank_e,nv2d_efso,real(work2dg_diag,RP),work2d_diag)
@@ -137,7 +137,7 @@ program efso
       call read_restart( trim(EFSO_ANAL_IN_BASENAME), work3dg, work2dg)
       call state_trans(work3dg,ps=work2dg_diag)
     endif
-    call scatter_grd_mpi(mmean_rank_e,real(work3dg,RP),real(work2dg,RP),&
+    call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d,real(work3dg,RP),real(work2dg,RP),&
                          work3d,&
                          work2d) ! dummy
 !    call scatter_grd2d_mpi(mmean_rank_e,nv2d_efso,real(work2dg_diag,RP),work2d_diag)
@@ -151,7 +151,7 @@ program efso
       call read_restart( trim(EFSO_PREVIOUS_GUES_BASENAME), work3dg, work2dg)
       call state_trans(work3dg)
     endif
-    call scatter_grd_mpi(mmean_rank_e,real(work3dg,RP),real(work2dg,RP),gues3d,gues2d)
+    call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d,real(work3dg,RP),real(work2dg,RP),gues3d,gues2d)
 
     deallocate( work3dg, work2dg )
     deallocate( work3d, work2d )
