@@ -96,6 +96,7 @@ subroutine initialize_mpi_scale
      PRC_UNIVERSAL_setup, &
      PRC_UNIVERSAL_myrank
   implicit none
+
   integer :: universal_comm   ! dummy
   integer :: universal_nprocs ! dummy
   integer :: universal_myrank ! dummy
@@ -131,6 +132,7 @@ end subroutine initialize_mpi_scale
 subroutine finalize_mpi_scale
 !  use scale_prc, only: PRC_MPIfinish
   implicit none
+
   integer :: ierr
 
 !  call PRC_MPIfinish
@@ -152,6 +154,7 @@ subroutine set_common_mpi_scale
   use scale_mapprojection, only: &
       MAPPROJECTION_xy2lonlat
   implicit none
+
   integer :: color, key
   integer :: ierr
   character(len=filelenmax) :: filename
@@ -257,6 +260,7 @@ end subroutine set_common_mpi_scale
 !-------------------------------------------------------------------------------
 subroutine unset_common_mpi_scale
   implicit none
+
   integer:: ierr
 
   call MPI_COMM_FREE(MPI_COMM_e, ierr)
@@ -275,11 +279,12 @@ subroutine set_common_mpi_grid
     PRC_myrank
 
   implicit none
-  REAL(RP) :: v3dg(nlev,nlon,nlat,nv3d)
-  REAL(RP) :: v2dg(nlon,nlat,nv2d)
-  REAL(r_size),ALLOCATABLE :: v3d(:,:,:)
-  REAL(r_size),ALLOCATABLE :: v2d(:,:)
-  INTEGER :: i, j, n
+
+  real(RP) :: v3dg(nlev,nlon,nlat,nv3d)
+  real(RP) :: v2dg(nlon,nlat,nv2d)
+  real(r_size), allocatable :: v3d(:,:,:)
+  real(r_size), allocatable :: v2d(:,:)
+  integer :: i, j, n
   integer :: iproc, jproc
 #ifdef LETKF_DEBUG
   real(r_size) :: topo2dtmp(nlon,nlat)
@@ -390,15 +395,17 @@ end subroutine set_common_mpi_grid
 !-------------------------------------------------------------------------------
 ! set_mem_node_proc
 !-------------------------------------------------------------------------------
-SUBROUTINE set_mem_node_proc(mem)
-  IMPLICIT NONE
-  INTEGER,INTENT(IN) :: mem
-  INTEGER :: tppn,tppnt,tmod
-  INTEGER :: n,nn,m,q,qs,i,j,it,ip,ie
+subroutine set_mem_node_proc(mem)
+  implicit none
+
+  integer, intent(in) :: mem
+  integer :: tppn, tppnt, tmod
+  integer :: n, nn, m, q, qs
+  integer :: i, j, it, ip, ie
 
   call mpi_timer('', 2)
 
-  if (mod(nprocs, PPN) /= 0) then
+  if ( mod(nprocs, PPN) /= 0 ) then
     write(6,'(A,I10)') '[Info] Total number of MPI processes      = ', nprocs
     write(6,'(A,I10)') '[Info] Number of processes per node (PPN) = ', PPN
     write(6,'(A)') '[Error] Total number of MPI processes should be an exact multiple of PPN.'
@@ -418,44 +425,44 @@ SUBROUTINE set_mem_node_proc(mem)
   if (MEM_NODES == 0) then
     MEM_NODES = (nprocs_m-1) / PPN + 1
   end if
-  IF(MEM_NODES > 1) THEN
+  if (MEM_NODES > 1) then
     n_mem = nnodes / MEM_NODES
     n_mempn = 1
-  ELSE
+  else
     n_mem = nnodes
     n_mempn = PPN / nprocs_m
-  END IF
+  end if
   nitmax = (mem - 1) / (n_mem * n_mempn) + 1
   tppn = nprocs_m / MEM_NODES
   tmod = MOD(nprocs_m, MEM_NODES)
 
-  ALLOCATE(mempe_to_node(nprocs_m,mem))
-  ALLOCATE(mempe_to_rank(nprocs_m,mem))
-  ALLOCATE(rank_to_mem(nitmax,nprocs))
-  ALLOCATE(rank_to_pe(nprocs))
-  ALLOCATE(rank_to_mempe(2,nitmax,nprocs))
-  ALLOCATE(ranke_to_mem(nitmax,n_mem*n_mempn))
-  ALLOCATE(myrank_to_mem(nitmax))
+  allocate(mempe_to_node(nprocs_m,mem))
+  allocate(mempe_to_rank(nprocs_m,mem))
+  allocate(rank_to_mem(nitmax,nprocs))
+  allocate(rank_to_pe(nprocs))
+  allocate(rank_to_mempe(2,nitmax,nprocs))
+  allocate(ranke_to_mem(nitmax,n_mem*n_mempn))
+  allocate(myrank_to_mem(nitmax))
 
   rank_to_mem = -1
   rank_to_pe = -1
   rank_to_mempe = -1
   ranke_to_mem = -1
   m = 1
-mem_loop: DO it = 1, nitmax
+mem_loop: do it = 1, nitmax
     ie = 1
-    DO i = 0, n_mempn-1
+    do i = 0, n_mempn-1
       n = 0
-      DO j = 0, n_mem-1
-        IF(m > mem .and. it > 1) EXIT mem_loop
+      do j = 0, n_mem-1
+        if(m > mem .and. it > 1) exit mem_loop
         qs = 0
-        DO nn = 0, MEM_NODES-1
-          IF(nn < tmod) THEN
+        do nn = 0, MEM_NODES-1
+          if(nn < tmod) then
             tppnt = tppn + 1
-          ELSE
+          else
             tppnt = tppn
-          END IF
-          DO q = 0, tppnt-1
+          end if
+          do q = 0, tppnt-1
             ip = (n+nn)*PPN + i*nprocs_m + q
             if (m <= mem) then
               mempe_to_node(qs+1,m) = n+nn
@@ -468,24 +475,24 @@ mem_loop: DO it = 1, nitmax
             rank_to_mempe(1,it,ip+1) = m  ! 
             rank_to_mempe(2,it,ip+1) = qs ! 
             qs = qs + 1
-          END DO
-        END DO
+          end do
+        end do
         if (m <= mem) then
           ranke_to_mem(it,ie) = m
         end if
         ie = ie + 1
         m = m + 1
         n = n + MEM_NODES
-      END DO
-    END DO
-  END DO mem_loop
+      end do
+    end do
+  end do mem_loop
 
-  DO it = 1, nitmax
+  do it = 1, nitmax
     myrank_to_mem(it) = rank_to_mem(it,myrank+1)
-  END DO
+  end do
   myrank_to_pe = rank_to_pe(myrank+1)
 
-  if (myrank_to_mem(1) >= 1) then
+  if (myrank_to_mem(1) >= 1 ) then
     myrank_use = .true.
   end if
 
@@ -550,8 +557,8 @@ mem_loop: DO it = 1, nitmax
 
   call mpi_timer('set_mem_node_proc:', 2)
 
-  RETURN
-END SUBROUTINE
+  return
+end subroutine
 
 !-------------------------------------------------------------------------------
 ! Start using SCALE library
@@ -1022,6 +1029,7 @@ subroutine unset_scalelib
        COMM_CARTESC_NEST_finalize
  
   implicit none
+  
   integer :: ierr
 
   if (myrank_use) then
@@ -1052,138 +1060,139 @@ end subroutine unset_scalelib
 !-------------------------------------------------------------------------------
 ! Scatter gridded data to processes (nrank -> all)
 !-------------------------------------------------------------------------------
-SUBROUTINE scatter_grd_mpi(nrank,nv3d,nv2d,v3dg,v2dg,v3d,v2d)
+subroutine scatter_grd_mpi(nrank,nv3d,nv2d,v3dg,v2dg,v3d,v2d)
   implicit none
   
-  INTEGER,INTENT(IN) :: nrank
+  integer, intent(in) :: nrank
   integer, intent(in) :: nv3d, nv2d
-  REAL(RP),INTENT(IN) :: v3dg(nlev,nlon,nlat,nv3d)
-  REAL(RP),INTENT(IN) :: v2dg(nlon,nlat,nv2d)
-  REAL(r_size),INTENT(OUT) :: v3d(nij1,nlev,nv3d)
-  REAL(r_size),INTENT(OUT) :: v2d(nij1,nv2d)
-  REAL(RP) :: bufs(nij1max,nlev*nv3d+nv2d,nprocs_e)
-  REAL(RP) :: bufr(nij1max,nlev*nv3d+nv2d)
-  INTEGER :: j,k,n,ierr,ns,nr
+  real(RP), intent(in) :: v3dg(nlev,nlon,nlat,nv3d)
+  real(RP), intent(in) :: v2dg(nlon,nlat,nv2d)
+  real(r_size), intent(out) :: v3d(nij1,nlev,nv3d)
+  real(r_size), intent(out) :: v2d(nij1,nv2d)
+  real(RP) :: bufs(nij1max,nlev*nv3d+nv2d,nprocs_e)
+  real(RP) :: bufr(nij1max,nlev*nv3d+nv2d)
+  integer :: j, k, n, ierr, ns, nr
 
   ns = nij1max * ( nlev*nv3d + nv2d )
   nr = ns
-  IF(myrank_e == nrank) THEN
+  if ( myrank_e == nrank ) then
     !omp parallel
     !omp do private(n,k,j)
-    DO n=1,nv3d
-      DO k=1,nlev
+    do n = 1, nv3d
+      do k = 1, nlev
         j = ( n - 1 ) * nlev + k
-        CALL grd_to_buf(nprocs_e,v3dg(k,:,:,n),bufs(:,j,:))
-      END DO
-    END DO
+        call grd_to_buf(nprocs_e,v3dg(k,:,:,n),bufs(:,j,:))
+      end do
+    end do
     !omp end do
 
     !omp do private(n,j)
-    DO n=1,nv2d
+    do n = 1, nv2d
       j = nv3d * nlev + n
-      CALL grd_to_buf(nprocs_e,v2dg(:,:,n),bufs(:,j,:))
-    END DO
+      call grd_to_buf(nprocs_e,v2dg(:,:,n),bufs(:,j,:))
+    end do
     !omp end do
     !omp end parallel
-  END IF
+  end if
 
 !  CALL MPI_BARRIER(MPI_COMM_e,ierr)
-  CALL MPI_SCATTER(bufs,ns,COMM_datatype,&
+  call MPI_SCATTER(bufs,ns,COMM_datatype,&
                  & bufr,nr,COMM_datatype,nrank,MPI_COMM_e,ierr)
 
   !omp parallel
   !omp do private(n,k,j)
-  DO n=1,nv3d
-    DO k=1,nlev
+  do n = 1, nv3d
+    do k = 1, nlev
       j = ( n - 1 ) * nlev + k
-      v3d(:,k,n) = REAL(bufr(1:nij1,j),r_size)
-    END DO
-  END DO
+      v3d(:,k,n) = real(bufr(1:nij1,j),r_size)
+    end do
+  end do
   !omp end do
 
   !omp do private(n,j)
-  DO n=1,nv2d
+  do n = 1, nv2d
     j = nv3d * nlev + n
-    v2d(:,n) = REAL(bufr(1:nij1,j),r_size)
-  END DO
+    v2d(:,n) = real(bufr(1:nij1,j),r_size)
+  end do
   !omp end do
   !omp end parallel
 
 !  CALL MPI_BARRIER(MPI_COMM_e,ierr)
 
-  RETURN
-END SUBROUTINE scatter_grd_mpi
+  return
+end subroutine scatter_grd_mpi
 
 !-------------------------------------------------------------------------------
 ! Gather gridded data (all -> nrank)
 !-------------------------------------------------------------------------------
-SUBROUTINE gather_grd_mpi(nrank,nv3d,nv2d,v3d,v2d,v3dg,v2dg)
+subroutine gather_grd_mpi(nrank,nv3d,nv2d,v3d,v2d,v3dg,v2dg)
   implicit none
 
-  INTEGER,INTENT(IN) :: nrank
+  integer, intent(in) :: nrank
   integer, intent(in) :: nv3d, nv2d
-  REAL(r_size),INTENT(IN) :: v3d(nij1,nlev,nv3d)
-  REAL(r_size),INTENT(IN) :: v2d(nij1,nv2d)
-  REAL(RP),INTENT(OUT) :: v3dg(nlev,nlon,nlat,nv3d)
-  REAL(RP),INTENT(OUT) :: v2dg(nlon,nlat,nv2d)
-  REAL(RP) :: bufs(nij1max,nlev*nv3d+nv2d)
-  REAL(RP) :: bufr(nij1max,nlev*nv3d+nv2d,nprocs_e)
-  INTEGER :: j,k,n,ierr,ns,nr
+  real(r_size), intent(in) :: v3d(nij1,nlev,nv3d)
+  real(r_size), intent(in) :: v2d(nij1,nv2d)
+  real(RP), intent(out) :: v3dg(nlev,nlon,nlat,nv3d)
+  real(RP), intent(out) :: v2dg(nlon,nlat,nv2d)
+  real(RP) :: bufs(nij1max,nlev*nv3d+nv2d)
+  real(RP) :: bufr(nij1max,nlev*nv3d+nv2d,nprocs_e)
+  integer :: j, k, n, ierr, ns, nr
 
   ns = nij1max * ( nlev*nv3d + nv2d )
   nr = ns
   !omp parallel
   !omp do private(n,k,j)
-  DO n=1,nv3d
-    DO k=1,nlev
+  do n = 1, nv3d
+    do k = 1, nlev
       j = ( n - 1 ) * nlev + k
-      bufs(1:nij1,j) = REAL(v3d(:,k,n),RP)
-    END DO
-  END DO
+      bufs(1:nij1,j) = real(v3d(:,k,n),rp)
+    end do
+  end do
   !omp end do
 
   !omp do private(n,j)
-  DO n=1,nv2d
+  do n = 1, nv2d
     j = nv3d * nlev + n
-    bufs(1:nij1,j) = REAL(v2d(:,n),RP)
-  END DO
+    bufs(1:nij1,j) = real(v2d(:,n),rp)
+  end do
   !omp end do
   !omp end parallel
 
 !  CALL MPI_BARRIER(MPI_COMM_e,ierr)
-  CALL MPI_GATHER(bufs,ns,COMM_datatype,&
+  call MPI_GATHER(bufs,ns,COMM_datatype,&
                 & bufr,nr,COMM_datatype,nrank,MPI_COMM_e,ierr)
 
-  IF(myrank_e == nrank) THEN
+  if ( myrank_e == nrank ) then
     !omp parallel
     !omp do private(n,k,j)
-    DO n=1,nv3d
-      DO k=1,nlev
+    do n = 1, nv3d
+      do k = 1, nlev
         j = ( n - 1 ) * nlev + k
-        CALL buf_to_grd(nprocs_e,bufr(:,j,:),v3dg(k,:,:,n))
-      END DO
-    END DO
+        call buf_to_grd(nprocs_e,bufr(:,j,:),v3dg(k,:,:,n))
+      end do
+    end do
     !omp end do
 
     !omp do private(n,j)
-    DO n=1,nv2d
+    do n = 1, nv2d
       j = nv3d * nlev + n
-      CALL buf_to_grd(nprocs_e,bufr(:,j,:),v2dg(:,:,n))
-    END DO
+      call buf_to_grd(nprocs_e,bufr(:,j,:),v2dg(:,:,n))
+    end do
     !omp end do
     !omp end parallel
-  END IF
+  end if
 
 !  CALL MPI_BARRIER(MPI_COMM_e,ierr)
 
-  RETURN
-END SUBROUTINE gather_grd_mpi
+  return
+end subroutine gather_grd_mpi
 
 !-------------------------------------------------------------------------------
 ! Read ensemble SCALE history files, one file per time (iter)
 !-------------------------------------------------------------------------------
 subroutine read_ens_history_iter(iter, step, v3dg, v2dg)
   implicit none
+
   integer, intent(in) :: iter
   integer, intent(in) :: step
   real(r_size), intent(out) :: v3dg(nlevh,nlonh,nlath,nv3dd)
@@ -1318,6 +1327,7 @@ end subroutine read_ens_mpi
 !-------------------------------------------------------------------------------
 subroutine read_ens_mpi_addiinfl(v3d, v2d)
   implicit none
+
   real(r_size), intent(out) :: v3d(nij1,nlev,nens,nv3d)
   real(r_size), intent(out) :: v2d(nij1,nens,nv2d)
   real(RP) :: v3dg(nlev,nlon,nlat,nv3d)
@@ -1500,187 +1510,191 @@ end subroutine write_ens_mpi
 !-------------------------------------------------------------------------------
 ! Scatter gridded data using MPI_ALLTOALL(V) (mstart~mend -> all)
 !-------------------------------------------------------------------------------
-SUBROUTINE scatter_grd_mpi_alltoall(mstart,mend,nv3d,nv2d,v3dg,v2dg,v3d,v2d)
+subroutine scatter_grd_mpi_alltoall(mstart,mend,nv3d,nv2d,v3dg,v2dg,v3d,v2d)
   implicit none
 
-  INTEGER,INTENT(IN) :: mstart,mend
+  integer, intent(in) :: mstart, mend
   integer, intent(in) :: nv3d, nv2d
-  REAL(RP),INTENT(IN) :: v3dg(nlev,nlon,nlat,nv3d)
-  REAL(RP),INTENT(IN) :: v2dg(nlon,nlat,nv2d)
-  REAL(r_size),INTENT(INOUT) :: v3d(nij1,nlev,nens,nv3d)
-  REAL(r_size),INTENT(INOUT) :: v2d(nij1,nens,nv2d)
-  REAL(RP) :: bufs(nij1max,nlev*nv3d+nv2d,nprocs_e)
-  REAL(RP) :: bufr(nij1max,nlev*nv3d+nv2d,nprocs_e)
-  INTEGER :: k,n,j,m,mcount,ierr
-  INTEGER :: ns(nprocs_e),nst(nprocs_e),nr(nprocs_e),nrt(nprocs_e)
+  real(RP), intent(in) :: v3dg(nlev,nlon,nlat,nv3d)
+  real(RP), intent(in) :: v2dg(nlon,nlat,nv2d)
+  real(r_size), intent(inout) :: v3d(nij1,nlev,nens,nv3d)
+  real(r_size), intent(inout) :: v2d(nij1,nens,nv2d)
+  real(RP) :: bufs(nij1max,nlev*nv3d+nv2d,nprocs_e)
+  real(RP) :: bufr(nij1max,nlev*nv3d+nv2d,nprocs_e)
+  integer :: k, n, j, m, mcount, ierr
+  integer :: ns(nprocs_e), nst(nprocs_e), nr(nprocs_e), nrt(nprocs_e)
 
   mcount = mend - mstart + 1
 #ifdef LETKF_DEBUG
-  IF(mcount > nprocs_e .OR. mcount <= 0) STOP
+  if ( mcount > nprocs_e .or. mcount <= 0 ) stop
 #endif
 
-  IF(myrank_e < mcount) THEN
+  if ( myrank_e < mcount ) then
     !omp parallel
     !omp do private(n,k,j)
-    DO n=1,nv3d
-      DO k=1,nlev
+    do n = 1, nv3d
+      do k = 1, nlev
         j = ( n - 1 ) * nlev + k
-        CALL grd_to_buf(nprocs_e,v3dg(k,:,:,n),bufs(:,j,:))
-      END DO
-    END DO
+        call grd_to_buf(nprocs_e,v3dg(k,:,:,n),bufs(:,j,:))
+      end do
+    end do
     !omp end do
     !omp do private(n,j)
-    DO n=1,nv2d
+    do n = 1, nv2d
       j = nv3d * nlev + n
-      CALL grd_to_buf(nprocs_e,v2dg(:,:,n),bufs(:,j,:))
-    END DO
+      call grd_to_buf(nprocs_e,v2dg(:,:,n),bufs(:,j,:))
+    end do
     !omp end do
     !omp end parallel
-  END IF
+  end if
 
 !  CALL MPI_BARRIER(MPI_COMM_e,ierr)
-  IF(mcount == nprocs_e) THEN
-    CALL MPI_ALLTOALL(bufs, nij1max*(nlev*nv3d+nv2d), COMM_datatype, &
+  if(mcount == nprocs_e) then
+    call MPI_ALLTOALL(bufs, nij1max*(nlev*nv3d+nv2d), COMM_datatype, &
                       bufr, nij1max*(nlev*nv3d+nv2d), COMM_datatype, MPI_COMM_e, ierr)
-  ELSE
-    CALL set_alltoallv_counts(mcount,nij1max*(nlev*nv3d+nv2d),nprocs_e,nr,nrt,ns,nst)
-    CALL MPI_ALLTOALLV(bufs, ns, nst, COMM_datatype, &
+  else
+    call set_alltoallv_counts(mcount,nij1max*(nlev*nv3d+nv2d),nprocs_e,nr,nrt,ns,nst)
+    call MPI_ALLTOALLV(bufs, ns, nst, COMM_datatype, &
                        bufr, nr, nrt, COMM_datatype, MPI_COMM_e, ierr)
-  END IF
+  end if
 
   !omp parallel
   !omp do private(m,n,k,j)
-  DO m = mstart,mend
-    DO n=1,nv3d
-      DO k=1,nlev
+  do m = mstart, mend
+    do n = 1, nv3d
+      do k = 1, nlev
         j = ( n - 1 ) * nlev + k
-        v3d(:,k,m,n) = REAL(bufr(1:nij1,j,m-mstart+1),r_size)
-      END DO
-    END DO
-    DO n=1,nv2d
+        v3d(:,k,m,n) = real(bufr(1:nij1,j,m-mstart+1),r_size)
+      end do
+    end do
+    do n = 1, nv2d
       j = nv3d * nlev + n
-      v2d(:,m,n) = REAL(bufr(1:nij1,j,m-mstart+1),r_size)
-    END DO
-  END DO
+      v2d(:,m,n) = real(bufr(1:nij1,j,m-mstart+1),r_size)
+    end do
+  end do
   !omp end do
   !omp end parallel
 
 !  CALL MPI_BARRIER(MPI_COMM_e,ierr)
-  RETURN
-END SUBROUTINE scatter_grd_mpi_alltoall
+  return
+end subroutine scatter_grd_mpi_alltoall
 
 !-------------------------------------------------------------------------------
 ! Gather gridded data using MPI_ALLTOALL(V) (all -> mstart~mend)
 !-------------------------------------------------------------------------------
-SUBROUTINE gather_grd_mpi_alltoall(mstart,mend,nv3d,nv2d,v3d,v2d,v3dg,v2dg)
+subroutine gather_grd_mpi_alltoall(mstart,mend,nv3d,nv2d,v3d,v2d,v3dg,v2dg)
   implicit none
 
-  INTEGER,INTENT(IN) :: mstart,mend
+  integer, intent(in) :: mstart, mend
   integer, intent(in) :: nv3d, nv2d
-  REAL(r_size),INTENT(IN) :: v3d(nij1,nlev,nens,nv3d)
-  REAL(r_size),INTENT(IN) :: v2d(nij1,nens,nv2d)
-  REAL(RP),INTENT(OUT) :: v3dg(nlev,nlon,nlat,nv3d)
-  REAL(RP),INTENT(OUT) :: v2dg(nlon,nlat,nv2d)
-  REAL(RP) :: bufs(nij1max,nlev*nv3d+nv2d,nprocs_e)
-  REAL(RP) :: bufr(nij1max,nlev*nv3d+nv2d,nprocs_e)
-  INTEGER :: k,n,j,m,mcount,ierr
-  INTEGER :: ns(nprocs_e),nst(nprocs_e),nr(nprocs_e),nrt(nprocs_e)
+  real(r_size), intent(in) :: v3d(nij1,nlev,nens,nv3d)
+  real(r_size), intent(in) :: v2d(nij1,nens,nv2d)
+  real(RP), intent(out) :: v3dg(nlev,nlon,nlat,nv3d)
+  real(RP), intent(out) :: v2dg(nlon,nlat,nv2d)
+  real(RP) :: bufs(nij1max,nlev*nv3d+nv2d,nprocs_e)
+  real(RP) :: bufr(nij1max,nlev*nv3d+nv2d,nprocs_e)
+  integer :: k, n, j, m, mcount, ierr
+  integer :: ns(nprocs_e),nst(nprocs_e),nr(nprocs_e),nrt(nprocs_e)
 
   mcount = mend - mstart + 1
 #ifdef LETKF_DEBUG
-  IF(mcount > nprocs_e .OR. mcount <= 0) STOP
+  if ( mcount > nprocs_e .or. mcount <= 0 ) stop
 #endif
 
   !omp parallel
   !omp do private(m,n,k,j)
-  DO m = mstart,mend
-    DO n=1,nv3d
-      DO k=1,nlev
+  do m = mstart, mend
+    do n = 1, nv3d
+      do k = 1, nlev
         j = ( n - 1 ) * nlev + k
-        bufs(1:nij1,j,m-mstart+1) = REAL(v3d(:,k,m,n),RP)
-      END DO
-    END DO
-    DO n=1,nv2d
+        bufs(1:nij1,j,m-mstart+1) = real(v3d(:,k,m,n),rp)
+      end do
+    end do
+    do n = 1, nv2d
       j = nv3d * nlev + n
-      bufs(1:nij1,j,m-mstart+1) = REAL(v2d(:,m,n),RP)
-    END DO
-  END DO
+      bufs(1:nij1,j,m-mstart+1) = real(v2d(:,m,n),rp)
+    end do
+  end do
   !omp end do
   !omp end parallel
 
 !  CALL MPI_BARRIER(MPI_COMM_e,ierr)
-  IF(mcount == nprocs_e) THEN
-    CALL MPI_ALLTOALL(bufs, nij1max*(nlev*nv3d+nv2d), COMM_datatype, &
+  if ( mcount == nprocs_e ) then
+    call MPI_ALLTOALL(bufs, nij1max*(nlev*nv3d+nv2d), COMM_datatype, &
                       bufr, nij1max*(nlev*nv3d+nv2d), COMM_datatype, MPI_COMM_e, ierr)
-  ELSE
-    CALL set_alltoallv_counts(mcount,nij1max*(nlev*nv3d+nv2d),nprocs_e,ns,nst,nr,nrt)
-    CALL MPI_ALLTOALLV(bufs, ns, nst, COMM_datatype, &
+  else
+    call set_alltoallv_counts(mcount,nij1max*(nlev*nv3d+nv2d),nprocs_e,ns,nst,nr,nrt)
+    call MPI_ALLTOALLV(bufs, ns, nst, COMM_datatype, &
                        bufr, nr, nrt, COMM_datatype, MPI_COMM_e, ierr)
-  END IF
+  end if
 
-  IF(myrank_e < mcount) THEN
+  if ( myrank_e < mcount ) then
     !omp parallel 
     !omp do private(n,k,j)
-    DO n=1,nv3d
-      DO k=1,nlev
+    do n = 1, nv3d
+      do k = 1, nlev
         j = ( n - 1 ) * nlev + k
-        CALL buf_to_grd(nprocs_e,bufr(:,j,:),v3dg(k,:,:,n))
-      END DO
-    END DO
+        call buf_to_grd(nprocs_e,bufr(:,j,:),v3dg(k,:,:,n))
+      end do
+    end do
     !omp end do
     !omp do private(n,j)
-    DO n=1,nv2d
+    do n = 1, nv2d
       j = nv3d * nlev + n
-      CALL buf_to_grd(nprocs_e,bufr(:,j,:),v2dg(:,:,n))
-    END DO
+      call buf_to_grd(nprocs_e,bufr(:,j,:),v2dg(:,:,n))
+    end do
     !omp end do
     !omp end parallel 
-  END IF
+  end if
 
 !  CALL MPI_BARRIER(MPI_COMM_e,ierr)
-  RETURN
-END SUBROUTINE gather_grd_mpi_alltoall
+  return
+end subroutine gather_grd_mpi_alltoall
 
 !-------------------------------------------------------------------------------
 ! Set the send/recieve counts of MPI_ALLTOALLV
 !-------------------------------------------------------------------------------
-SUBROUTINE set_alltoallv_counts(mcount,ngpblock,np,n_ens,nt_ens,n_mem,nt_mem)
-  INTEGER,INTENT(IN) :: mcount,ngpblock
-  INTEGER,INTENT(IN) :: np
-  INTEGER,INTENT(OUT) :: n_ens(np),nt_ens(np),n_mem(np),nt_mem(np)
-  INTEGER :: p
+subroutine set_alltoallv_counts(mcount,ngpblock,np,n_ens,nt_ens,n_mem,nt_mem)
+  implicit none
+
+  integer, intent(in) :: mcount, ngpblock
+  integer, intent(in) :: np
+  integer, intent(out) :: n_ens(np),nt_ens(np),n_mem(np),nt_mem(np)
+  integer :: p
 
   n_ens = 0
   nt_ens = 0
   n_mem = 0
   nt_mem = 0
-  DO p=1,mcount
+  do p = 1, mcount
     n_ens(p) = ngpblock
-    IF(myrank_e+1 == p) THEN
+    if ( myrank_e+1 == p ) then
       n_mem(:) = ngpblock
-    END IF
-  END DO
-  DO p=2,np
+    end if
+  end do
+  do p = 2, np
     nt_ens(p) = nt_ens(p-1) + n_ens(p-1)
     nt_mem(p) = nt_mem(p-1) + n_mem(p-1)
-  END DO
+  end do
 
-  RETURN
-END SUBROUTINE set_alltoallv_counts
+  return
+end subroutine set_alltoallv_counts
 
 !-------------------------------------------------------------------------------
 ! gridded data -> buffer
 !-------------------------------------------------------------------------------
-SUBROUTINE grd_to_buf(np,grd,buf)
-  INTEGER,INTENT(IN) :: np
-  REAL(RP),INTENT(IN) :: grd(nlon,nlat)
-  REAL(RP),INTENT(OUT) :: buf(nij1max,np)
-  INTEGER :: i,j,m,ilon,ilat
+subroutine grd_to_buf(np,grd,buf)
+  implicit none
 
-  DO m=1,np
-    DO i=1,nij1node(m)
+  integer, intent(in) :: np
+  real(RP), intent(in) :: grd(nlon,nlat)
+  real(RP), intent(out) :: buf(nij1max,np)
+  integer :: i, j, m, ilon, ilat
+
+  do m = 1, np
+    do i = 1, nij1node(m)
       j = m-1 + np * (i-1)
-      ilon = MOD(j,nlon) + 1
+      ilon = mod(j,nlon) + 1
       ilat = (j-ilon+1) / nlon + 1
 #ifdef LETKF_DEBUG
 if (i < 1 .or. i > nij1max .or. m < 1 .or. m > np .or. ilon < 1 .or. ilon > nlon .or. ilat < 1 .or. ilat > nlat) then
@@ -1690,42 +1704,45 @@ if (i < 1 .or. i > nij1max .or. m < 1 .or. m > np .or. ilon < 1 .or. ilon > nlon
 end if
 #endif
       buf(i,m) = grd(ilon,ilat)
-    END DO
-  END DO
+    end do
+  end do
 
-  DO m=1,np
-    IF(nij1node(m) < nij1max) buf(nij1max,m) = undef
-  END DO
+  do m = 1, np
+    if (nij1node(m) < nij1max ) buf(nij1max,m) = undef
+  end do
 
-  RETURN
-END SUBROUTINE grd_to_buf
+  return
+end subroutine grd_to_buf
 
 !-------------------------------------------------------------------------------
 ! buffer -> gridded data
 !-------------------------------------------------------------------------------
-SUBROUTINE buf_to_grd(np,buf,grd)
-  INTEGER,INTENT(IN) :: np
-  REAL(RP),INTENT(IN) :: buf(nij1max,np)
-  REAL(RP),INTENT(OUT) :: grd(nlon,nlat)
-  INTEGER :: i,j,m,ilon,ilat
+subroutine buf_to_grd(np,buf,grd)
+  implicit none
 
-  DO m=1,np
-    DO i=1,nij1node(m)
+  integer, intent(in) :: np
+  real(RP), intent(in) :: buf(nij1max,np)
+  real(RP), intent(out) :: grd(nlon,nlat)
+  integer :: i, j, m, ilon, ilat
+
+  do m = 1, np
+    do i = 1, nij1node(m)
       j = m-1 + np * (i-1)
-      ilon = MOD(j,nlon) + 1
+      ilon = mod(j,nlon) + 1
       ilat = (j-ilon+1) / nlon + 1
       grd(ilon,ilat) = buf(i,m)
-    END DO
-  END DO
+    end do
+  end do
 
-  RETURN
-END SUBROUTINE buf_to_grd
+  return
+end subroutine buf_to_grd
 
 !-------------------------------------------------------------------------------
 ! MPI driver for monitoring observation departure statistics
 !-------------------------------------------------------------------------------
 subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
   implicit none
+
   real(RP), intent(in) :: v3dg(nlev,nlon,nlat,nv3d)
   real(RP), intent(in) :: v2dg(nlon,nlat,nv2d)
   integer, intent(in) :: monit_step
@@ -1764,8 +1781,8 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
       if (monit_type(i)) then
         nobs_g(i) = nobs(i)
         if (nobs(i) == 0) then
-          bias_g(i) = 0.0d0
-          rmse_g(i) = 0.0d0
+          bias_g(i) = 0.0_r_size
+          rmse_g(i) = 0.0_r_size
         else
           bias_g(i) = bias(i) * real(nobs(i), r_size)
           rmse_g(i) = rmse(i) * rmse(i) * real(nobs(i), r_size)
@@ -1910,6 +1927,7 @@ end subroutine monit_obs_mpi
 !-------------------------------------------------------------------------------
 subroutine write_ensmean(filename, v3d, v2d, calced, monit_step)
   implicit none
+
   character(len=*), intent(in) :: filename
   real(r_size), intent(inout) :: v3d(nij1,nlev,nens,nv3d)
   real(r_size), intent(inout) :: v2d(nij1,nens,nv2d)
@@ -1976,6 +1994,7 @@ end subroutine write_ensmean
 !-------------------------------------------------------------------------------
 subroutine write_enssprd(filename, v3d, v2d)
   implicit none
+
   character(len=*), intent(in) :: filename
   real(r_size), intent(in) :: v3d(nij1,nlev,nens,nv3d)
   real(r_size), intent(in) :: v2d(nij1,nens,nv2d)
@@ -2017,6 +2036,7 @@ end subroutine write_enssprd
 !-------------------------------------------------------------------------------
 subroutine read_obs_all_mpi(obs)
   implicit none
+
   type(obs_info), intent(out) :: obs(OBS_IN_NUM)
   integer :: iof, ierr
 
@@ -2057,6 +2077,7 @@ end subroutine read_obs_all_mpi
 !-------------------------------------------------------------------------------
 subroutine get_nobs_da_mpi(nobs)
   implicit none
+
   integer, intent(out) :: nobs
   character(filelenmax) :: obsdafile
   character(11) :: obsda_suffix = '.000000.dat'
@@ -2097,6 +2118,7 @@ end subroutine get_nobs_da_mpi
 !-------------------------------------------------------------------------------
 subroutine obs_da_value_partial_reduce_iter(obsda, iter, nstart, nobs, ensval, qc, qv, tm, pm, pert)
   implicit none
+
   type(obs_da_value), intent(inout) :: obsda
   integer, intent(in)      :: iter
   integer, intent(in)      :: nstart
@@ -2141,6 +2163,7 @@ end subroutine obs_da_value_partial_reduce_iter
 !-------------------------------------------------------------------------------
 subroutine obs_da_value_allreduce(obsda)
   implicit none
+
   type(obs_da_value), intent(inout) :: obsda
   real(r_size), allocatable :: ensval_bufs(:,:)
   real(r_size), allocatable :: ensval_bufr(:,:)
@@ -2282,6 +2305,7 @@ end subroutine obs_da_value_allreduce
 !-------------------------------------------------------------------------------
 subroutine mpi_timer(sect_name, level, barrier)
   implicit none
+
   character(len=*), intent(in) :: sect_name
   integer, intent(in) :: level
   integer, intent(in), optional :: barrier
@@ -2624,4 +2648,4 @@ subroutine get_obsdep_efso_mpi( nobs_local, nobs0, obsset, obsidx, obsdep, obshd
 end subroutine get_obsdep_efso_mpi
 
 !===============================================================================
-END MODULE common_mpi_scale
+end module common_mpi_scale
