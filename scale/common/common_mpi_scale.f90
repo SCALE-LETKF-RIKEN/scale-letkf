@@ -1287,7 +1287,7 @@ subroutine read_ens_mpi(v3d, v2d, v2d_diag, EFSO )
 
       call mpi_timer('read_ens_mpi:read_restart:', 2)
 
-      if ( EFSO ) then
+      if ( EFSO_ ) then
         call state_trans(v3dg, ps=v2dg_diag(:,:,iv2d_ps_diag))
       else
         call state_trans(v3dg)
