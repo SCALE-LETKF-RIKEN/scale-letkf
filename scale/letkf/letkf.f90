@@ -183,7 +183,7 @@ PROGRAM letkf
     !
     ! COMPUTE ENS MEAN and SPRD
     !
-    call ensmean_grd(MEMBER, nens, nij1, anal3d, anal2d)
+    call ensmean_grd(MEMBER, nens, nij1, nv3d, nv2d, anal3d, anal2d)
     ! write analysis mean later in write_ens_mpi
 
     if (ANAL_SPRD_OUT) then

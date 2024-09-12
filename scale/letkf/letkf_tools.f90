@@ -763,7 +763,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
 
     call mpi_timer('das_letkf:additive_infl_read_ens_mpi:', 2)
 
-    CALL ensmean_grd(MEMBER,nens,nij1,gues3d,gues2d)
+    CALL ensmean_grd(MEMBER,nens,nij1,nv3d,nv2d,gues3d,gues2d)
 
     call mpi_timer('das_letkf:additive_infl_ensmean_grd:', 2)
 

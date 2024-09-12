@@ -100,7 +100,7 @@ subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d)
   real(r_size) :: wmoist
 
   ! Calculate ensemble mean of forecast
-  call ensmean_grd(MEMBER, nens, nij1, fcst3d, fcst2d)
+  call ensmean_grd(MEMBER, nens, nij1, nv3d, nv2d_diag, fcst3d, fcst2d)
 
   ! Calculate ensemble forecast perturbations
   do i = 1, MEMBER

@@ -1976,7 +1976,7 @@ subroutine write_ensmean(filename, v3d, v2d, calced, monit_step)
   end if
 
   if (.not. calced) then
-    call ensmean_grd(MEMBER, nens, nij1, v3d, v2d)
+    call ensmean_grd(MEMBER, nens, nij1, nv3d, nv2d, v3d, v2d)
 
     call mpi_timer('write_ensmean:ensmean_grd:', 2)
   end if

@@ -1782,22 +1782,24 @@ end subroutine scale_calc_z_grd
 ! [OUTPUT]
 !   v3d(nij,nlev,nens,nv3d) : ensemble mean of 3D state variables (on scattered grids)
 !                             outputted by (:,:,mem+1,:)
-!   v2d(nij,     nens,nv3d) : ensemble mean of 2D state variables (on scattered grids)
+!   v2d(nij,     nens,nv2d) : ensemble mean of 2D state variables (on scattered grids)
 !                             outputted by (:  ,mem+1,:)
 !-------------------------------------------------------------------------------
-subroutine ensmean_grd(mem, nens, nij, v3d, v2d)
+subroutine ensmean_grd(mem, nens, nij, nv3d, nv2d, v3d, v2d)
   implicit none
+
   integer, intent(in) :: mem
   integer, intent(in) :: nens
   integer, intent(in) :: nij
+  integer, intent(in) :: nv3d, nv2d
   real(r_size), intent(inout) :: v3d(nij,nlev,nens,nv3d)
   real(r_size), intent(inout) :: v2d(nij,nens,nv2d)
   integer :: i, k, m, n, mmean
 
   mmean = mem + 1
 
-!$OMP PARALLEL PRIVATE(i,k,m,n)
-!$OMP DO SCHEDULE(STATIC) COLLAPSE(2)
+!$omp parallel private(i,k,m,n)
+!$omp do schedule(static) collapse(2)
   do n = 1, nv3d
     do k = 1, nlev
       do i = 1, nij
@@ -1809,8 +1811,8 @@ subroutine ensmean_grd(mem, nens, nij, v3d, v2d)
       end do
     end do
   end do
-!$OMP END DO 
-!$OMP DO SCHEDULE(STATIC) 
+!$omp end do 
+!$omp do schedule(static) 
   do n = 1, nv2d
     do i = 1, nij
       v2d(i,mmean,n) = v2d(i,1,n)
@@ -1820,8 +1822,8 @@ subroutine ensmean_grd(mem, nens, nij, v3d, v2d)
       v2d(i,mmean,n) = v2d(i,mmean,n) / real(mem, r_size)
     end do
   end do
-!$OMP END DO
-!$OMP END PARALLEL
+!$omp end do
+!$omp end parallel
 
   return
 end subroutine ensmean_grd
