@@ -112,13 +112,13 @@ program efso
     ! forecast from the ensemble mean of first guess
     if ( myrank_e == mmean_rank_e ) then  
       call read_restart( trim(EFSO_FCST_FROM_GUES_BASENAME), work3dg, work2dg)
-      call state_trans(work3dg,ps=work2dg_diag)
+      call state_trans(work3dg,ps=work2dg_diag(:,:,iv2d_diag_ps))
     endif
     call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d,real(work3dg,RP),real(work2dg,RP),&
                          fcer3d,&
                          work2d) ! dummy
                          !fcer2d)
-!    call scatter_grd2d_mpi(mmean_rank_e,nv2d_efso,real(work2dg_diag,RP),fcer2d)
+    call scatter_grd_mpi(mmean_rank_e,0,nv2d_diag,v2dg=real(work2dg_diag,RP),v2d=fcer2d)
 
     ! forecast from the analysis ensemble mean
     if ( myrank_e == mmean_rank_e ) then  
@@ -128,9 +128,9 @@ program efso
     call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d,real(work3dg,RP),real(work2dg,RP),&
                          work3d,&
                          work2d) ! dummy
-!    call scatter_grd2d_mpi(mmean_rank_e,nv2d_efso,real(work2dg_diag,RP),work2d_diag)
+    call scatter_grd_mpi(mmean_rank_e,0,nv2d_diag,v2dg=real(work2dg_diag,RP),v2d=work2d_diag)
     fcer3d(:,:,:) = 0.5_r_size * ( fcer3d(:,:,:) + work3d(:,:,:) )
-    fcer2d(:,:)   = 0.5_r_size * ( fcer2d(:,:)   + work2d_diag(:,:)   )
+    fcer2d(:,:)   = 0.5_r_size * ( fcer2d(:,:)   + work2d_diag(:,:) )
 
     ! reference analysis ensemble mean
     if ( myrank_e == mmean_rank_e ) then  
@@ -140,18 +140,18 @@ program efso
     call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d,real(work3dg,RP),real(work2dg,RP),&
                          work3d,&
                          work2d) ! dummy
-!    call scatter_grd2d_mpi(mmean_rank_e,nv2d_efso,real(work2dg_diag,RP),work2d_diag)
+    call scatter_grd_mpi(mmean_rank_e,0,nv2d_diag,v2dg=real(work2dg_diag,RP),v2d=work2d_diag)
 
     !!! fcer3d,fcer2d: [1/2(K-1)](e^f_t+e^g_t) [Eq.(6), Ota et al. 2013]
-    fcer3d(:,:,:) = ( fcer3d(:,:,:) - work3d(:,:,:) ) / real( MEMBER-1, r_size )
-    fcer2d(:,:) = ( fcer2d(:,:) - work2d_diag(:,:) ) / real( MEMBER-1, r_size )
+    fcer3d(:,:,:) = ( fcer3d(:,:,:) - work3d(:,:,:) )  / real( MEMBER-1, r_size )
+    fcer2d(:,:)   = ( fcer2d(:,:) - work2d_diag(:,:) ) / real( MEMBER-1, r_size )
 
     ! guess mean for full-level pressure computation
     if ( myrank_e == mmean_rank_e ) then  
       call read_restart( trim(EFSO_PREVIOUS_GUES_BASENAME), work3dg, work2dg)
       call state_trans(work3dg)
     endif
-    call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d,real(work3dg,RP),real(work2dg,RP),gues3d,gues2d)
+    call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d,v3dg=real(work3dg,RP),v2dg=real(work2dg,RP),v3d=gues3d,v2d=gues2d)
 
     deallocate( work3dg, work2dg )
     deallocate( work3d, work2d )

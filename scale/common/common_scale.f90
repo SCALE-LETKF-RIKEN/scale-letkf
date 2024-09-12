@@ -54,7 +54,7 @@ MODULE common_scale
        'QV        ', 'QC        ', 'QR        ', 'QI        ', 'QS        ', 'QG        '/)
   CHARACTER(vname_max) :: v2d_name(nv2d)
 
-  integer, parameter :: iv2d_ps_diag = 1
+  integer, parameter :: iv2d_diag_ps = 1
 
   ! 
   !--- 3D, 2D diagnostic variables (in SCALE history files)
