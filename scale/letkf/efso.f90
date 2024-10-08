@@ -77,7 +77,7 @@ program efso
     call mpi_timer('SET_GRID', 1, barrier=MPI_COMM_a)
 
     allocate( gues3d(nij1,nlev,nv3d) )
-    allocate( gues2d(nij1,nv2d) )
+    allocate( gues2d(nij1,nv2d_diag) )
     allocate( fcst3d(nij1,nlev,nens,nv3d) )
     allocate( fcst2d(nij1,nens,nv2d_diag) )
     allocate( fcer3d(nij1,nlev,nv3d) )
@@ -103,7 +103,7 @@ program efso
     !
     ! Forecast ensemble
     !
-    call read_ens_mpi(fcst3d, fcst2d, EFSO=.true.)
+    call read_ens_mpi(fcst3d, v2d_diag=fcst2d, EFSO=.true.)
     !!! fcst3d,fcst2d: (xmean+X)^f_t [Eq.(6), Ota et al. 2013]
 
     !
@@ -114,44 +114,38 @@ program efso
       call read_restart( trim(EFSO_FCST_FROM_GUES_BASENAME), work3dg, work2dg)
       call state_trans(work3dg,ps=work2dg_diag(:,:,iv2d_diag_ps))
     endif
-    call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d,real(work3dg,RP),real(work2dg,RP),&
-                         fcer3d,&
-                         work2d) ! dummy
-                         !fcer2d)
-    call scatter_grd_mpi(mmean_rank_e,0,nv2d_diag,v2dg=real(work2dg_diag,RP),v2d=fcer2d)
+    call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d_diag,v3dg=real(work3dg,RP),v2dg=real(work2dg_diag,RP),&
+                         v3d=fcer3d,v2d=fcer2d)
 
     ! forecast from the analysis ensemble mean
     if ( myrank_e == mmean_rank_e ) then  
       call read_restart( trim(EFSO_FCST_FROM_ANAL_BASENAME), work3dg, work2dg)
-      call state_trans(work3dg,ps=work2dg_diag)
+      call state_trans(work3dg,ps=work2dg_diag(:,:,iv2d_diag_ps))
     endif
-    call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d,real(work3dg,RP),real(work2dg,RP),&
-                         work3d,&
-                         work2d) ! dummy
-    call scatter_grd_mpi(mmean_rank_e,0,nv2d_diag,v2dg=real(work2dg_diag,RP),v2d=work2d_diag)
+    call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d_diag,v3dg=real(work3dg,RP),v2dg=real(work2dg_diag,RP),&
+                         v3d=work3d,v2d=work2d_diag)
     fcer3d(:,:,:) = 0.5_r_size * ( fcer3d(:,:,:) + work3d(:,:,:) )
     fcer2d(:,:)   = 0.5_r_size * ( fcer2d(:,:)   + work2d_diag(:,:) )
 
     ! reference analysis ensemble mean
     if ( myrank_e == mmean_rank_e ) then  
       call read_restart( trim(EFSO_ANAL_IN_BASENAME), work3dg, work2dg)
-      call state_trans(work3dg,ps=work2dg_diag)
+      call state_trans(work3dg,ps=work2dg_diag(:,:,iv2d_diag_ps))
     endif
-    call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d,real(work3dg,RP),real(work2dg,RP),&
-                         work3d,&
-                         work2d) ! dummy
-    call scatter_grd_mpi(mmean_rank_e,0,nv2d_diag,v2dg=real(work2dg_diag,RP),v2d=work2d_diag)
+    call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d_diag,v3dg=real(work3dg,RP),v2dg=real(work2dg_diag,RP),&
+                         v3d=work3d,v2d=work2d_diag)
 
     !!! fcer3d,fcer2d: [1/2(K-1)](e^f_t+e^g_t) [Eq.(6), Ota et al. 2013]
-    fcer3d(:,:,:) = ( fcer3d(:,:,:) - work3d(:,:,:) )  / real( MEMBER-1, r_size )
-    fcer2d(:,:)   = ( fcer2d(:,:) - work2d_diag(:,:) ) / real( MEMBER-1, r_size )
+    fcer3d(:,:,:) = ( fcer3d(:,:,:) - work3d     (:,:,:) )  / real( MEMBER-1, r_size )
+    fcer2d(:,:)   = ( fcer2d(:,:)   - work2d_diag(:,:) )    / real( MEMBER-1, r_size )
 
     ! guess mean for full-level pressure computation
     if ( myrank_e == mmean_rank_e ) then  
       call read_restart( trim(EFSO_PREVIOUS_GUES_BASENAME), work3dg, work2dg)
-      call state_trans(work3dg)
+      call state_trans(work3dg,ps=work2dg_diag(:,:,iv2d_diag_ps))
     endif
-    call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d,v3dg=real(work3dg,RP),v2dg=real(work2dg,RP),v3d=gues3d,v2d=gues2d)
+    call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d_diag,v3dg=real(work3dg,RP),v2dg=real(work2dg_diag,RP),&
+                         v3d=gues3d,v2d=gues2d)
 
     deallocate( work3dg, work2dg )
     deallocate( work3d, work2d )
@@ -172,14 +166,11 @@ program efso
     !-----------------------------------------------------------------------
     ! EFSO computation
     !-----------------------------------------------------------------------
-    call init_obsense
     call das_efso( gues3d, gues2d, fcst3d, fcst2d, fcer3d, fcer2d )
 
     deallocate( gues3d, gues2d )
     deallocate( fcst3d, fcst2d )
     deallocate( fcer3d, fcer2d )
-
-    call destroy_obsense()
 
   end if ! [ myrank_use ]
 

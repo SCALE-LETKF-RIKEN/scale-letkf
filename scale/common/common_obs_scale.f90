@@ -1565,7 +1565,7 @@ END SUBROUTINE itpl_3d
 !-----------------------------------------------------------------------
 ! Monitor observation departure by giving the v3dg,v2dg data
 !-----------------------------------------------------------------------
-subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step)
+subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,return_raw_hx)
   use scale_prc, only: &
       PRC_myrank
 
@@ -1580,6 +1580,7 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step)
   LOGICAL,INTENT(OUT) :: monit_type(nid_obs)
   logical,intent(in) :: use_key
   integer,intent(in) :: step
+  logical, intent(in), optional :: return_raw_hx
 
   REAL(r_size) :: v3dgh(nlevh,nlonh,nlath,nv3dd)
   REAL(r_size) :: v2dgh(nlonh,nlath,nv2dd)
@@ -1594,6 +1595,10 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step)
 
   integer :: m
   real(r_size) :: obsdep_mean
+
+  logical :: return_raw_hx_ = .false.
+
+  if ( present( return_raw_hx)) return_raw_hx_ = return_raw_hx
 
   call state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
 
@@ -1711,7 +1716,9 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step)
       end select
 
       if (oqc(n) == iqc_good) then
-        ohx(n) = obs(iset)%dat(iidx) - ohx(n)
+        if ( .not. return_raw_hx_ ) then
+          ohx(n) = obs(iset)%dat(iidx) - ohx(n)
+        endif
       else
         ohx(n) = undef
       end if
@@ -1729,6 +1736,13 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step)
 
       if ( OBSDEP_OUT_NOQC ) then
         obsdep_qc(n) = iqc_good
+      endif
+
+      if ( return_raw_hx_) then
+        if ( obs(iset)%typ(iidx) == 3 ) then
+          write(6,'(a,2f7.2,f7.1,i7,i8,e13.2)')'Debug monit_obs ', obs(iset)%lon(iidx), obs(iset)%lat(iidx), obs(iset)%lev(iidx)*1.e-2, &
+          oqc(n), obs(iset)%elm(iidx), ohx(n)
+        endif
       endif
 
 !!! ensemble perturbation output
@@ -3234,10 +3248,10 @@ end subroutine read_obs_radar_nc
 subroutine write_obs_anal_rank_nc( filename, ya )
   use netcdf
   use common_ncio
- implicit none
+  implicit none
 
   character(len=*), intent(in) :: filename
-  real(r_size), intent(in) :: ya(obsdep_nobs,MEMBER)
+  real(r_size), intent(in) :: ya(MEMBER,obsdep_nobs)
 
   integer :: ncid
   integer :: dimid, dimid_mem
@@ -3288,22 +3302,23 @@ subroutine write_obs_anal_rank_nc( filename, ya )
 
   integer :: set_l(obsdep_nobs)
   integer :: idx_l(obsdep_nobs)
-  real(r_sngl) :: elm_l(obsdep_nobs)
+  integer :: elm_l(obsdep_nobs)
   real(r_sngl) :: lon_l(obsdep_nobs), lat_l(obsdep_nobs)
   real(r_sngl) :: lev_l(obsdep_nobs), dat_l(obsdep_nobs)
   real(r_sngl) :: dif_l(obsdep_nobs), err_l(obsdep_nobs)
-  real(r_sngl) :: ya_l(obsdep_nobs,MEMBER)
+  real(r_sngl) :: ya_l(MEMBER,obsdep_nobs)
   real(r_sngl) :: omb_l(obsdep_nobs)
   real(r_sngl) :: omb_emean_l(obsdep_nobs)
   integer :: typ_l(obsdep_nobs)
 
   do n = 1, obsdep_nobs
     nobs_l(n) = n
+!    write(6,'(a,i8,2f7.1,i7)') 'Debug write_obs_anal_rank_nc ',n, obs(obsdep_set(n))%lon(obsdep_idx(n)), obs(obsdep_set(n))%lat(obsdep_idx(n)), obs(obsdep_set(n))%rank(obsdep_idx(n))
  
     set_l(n) = int( obsdep_set(n) )
     idx_l(n) = int( obsdep_idx(n) )
 
-    elm_l(n) = real( obs(obsdep_set(n))%elm(obsdep_idx(n)), r_sngl )
+    elm_l(n) = int( obs(obsdep_set(n))%elm(obsdep_idx(n)) )
     lon_l(n) = real( obs(obsdep_set(n))%lon(obsdep_idx(n)), r_sngl )
     lat_l(n) = real( obs(obsdep_set(n))%lat(obsdep_idx(n)), r_sngl )
     lev_l(n) = real( obs(obsdep_set(n))%lev(obsdep_idx(n)), r_sngl )
@@ -3314,7 +3329,10 @@ subroutine write_obs_anal_rank_nc( filename, ya )
     omb_l(n) = real( obsdep_omb(n), r_sngl )
     omb_emean_l(n) = real( obsdep_omb_emean(n), r_sngl )
 
-    ya_l(n,1:MEMBER) = real( ya(n,1:MEMBER), r_sngl )
+    ya_l(1:MEMBER,n) = real( ya(1:MEMBER,n), r_sngl )
+    if ( obs(obsdep_set(n))%typ(obsdep_idx(n)) == 3 ) then
+      write(6,'(a,e13.2,2f7.2,f7.1,i8)')'Debug write_obs_anal_rank_nc ', ya_l(1,n), lon_l(n), lat_l(n), lev_l(n)*1.e-2, obs(obsdep_set(n))%elm(obsdep_idx(n))
+    endif
 
     typ_l(n) = int( obs(obsdep_set(n))%typ(obsdep_idx(n)) )
   enddo
@@ -3338,7 +3356,7 @@ subroutine write_obs_anal_rank_nc( filename, ya )
   call ncio_check( nf90_def_var(ncid, DIM_NAME_MEM, NF90_INT, dimid_mem, dim_varid_mem ) )
 
   ! Define the netCDF variables
-  call ncio_check( nf90_def_var(ncid, ELM_NAME, NF90_REAL, dimid, elm_varid) )
+  call ncio_check( nf90_def_var(ncid, ELM_NAME, NF90_INT, dimid, elm_varid) )
   call ncio_check( nf90_def_var(ncid, SET_NAME, NF90_INT, dimid, set_varid) )
   call ncio_check( nf90_def_var(ncid, IDX_NAME, NF90_INT, dimid, idx_varid) )
   call ncio_check( nf90_def_var(ncid, LON_NAME, NF90_REAL, dimid, lon_varid) )
@@ -3352,7 +3370,7 @@ subroutine write_obs_anal_rank_nc( filename, ya )
   call ncio_check( nf90_def_var(ncid, OMB_NAME, NF90_REAL, dimid, omb_varid) )
   call ncio_check( nf90_def_var(ncid, OMBEM_NAME, NF90_REAL, dimid, ombem_varid) )
 
-  call ncio_check( nf90_def_var(ncid, YA_NAME, NF90_REAL, (/dimid,dimid_mem/), ya_varid) )
+  call ncio_check( nf90_def_var(ncid, YA_NAME, NF90_REAL, (/dimid_mem,dimid/), ya_varid) )
 
   ! Add long names for the netCDF variables
   call ncio_check( nf90_put_att(ncid, elm_varid, "long_name", ELM_LONGNAME ) )
@@ -3405,7 +3423,7 @@ subroutine write_obs_anal_rank_nc( filename, ya )
                    count=(/obsdep_nobs/) ) )
 
   call ncio_check( nf90_put_var(ncid, ya_varid, ya_l, start=(/1,1/), &
-                   count=(/obsdep_nobs,MEMBER/) ) )
+                   count=(/MEMBER,obsdep_nobs/) ) )
 
   ! Close the file. 
   call ncio_check( nf90_close(ncid) )
@@ -3446,7 +3464,7 @@ subroutine get_nobs_efso( cfile, nrank, cnt_rank )
   return
 end subroutine get_nobs_efso
 !---------------------------
-subroutine get_obsdep_efso( cfile, nobs_local, nobs0, set, idx, dep, ya )
+subroutine get_obsdep_efso( cfile, nobs_local, nobs0, set, idx, qc, dep, ya )
   use netcdf
   use common_ncio
   implicit none
@@ -3457,13 +3475,15 @@ subroutine get_obsdep_efso( cfile, nobs_local, nobs0, set, idx, dep, ya )
 
   integer, intent(out) :: set(nobs_local)
   integer, intent(out) :: idx(nobs_local)
+  integer, intent(out) :: qc(nobs_local)
   real(r_size), intent(out) :: dep(nobs_local)
-  real(r_size), intent(out) :: ya(nobs_local,MEMBER)
+  real(r_size), intent(out) :: ya(MEMBER,nobs_local)
   integer :: ncid
 
   integer :: varid_set, varid_idx
   integer :: varid_dep
   integer :: varid_ya
+  integer :: varid_qc
 
   integer :: n
 
@@ -3475,6 +3495,7 @@ subroutine get_obsdep_efso( cfile, nobs_local, nobs0, set, idx, dep, ya )
   call ncio_check( nf90_inq_varid( ncid, "idx", varid_idx ) )
   call ncio_check( nf90_inq_varid( ncid, "omb", varid_dep ) )
   call ncio_check( nf90_inq_varid( ncid, "ya", varid_ya ) )
+  call ncio_check( nf90_inq_varid( ncid, "qc", varid_qc ) )
 
   ! Read variables
   call ncio_check( nf90_get_var( ncid, varid_set, set, &
@@ -3486,8 +3507,11 @@ subroutine get_obsdep_efso( cfile, nobs_local, nobs0, set, idx, dep, ya )
   call ncio_check( nf90_get_var( ncid, varid_dep, dep, &
                    start=(/1/), count=(/nobs_local/) ) )
 
+  call ncio_check( nf90_get_var( ncid, varid_qc,  qc,  &
+                   start=(/1/), count=(/nobs_local/) ) )
+
   call ncio_check( nf90_get_var( ncid, varid_ya, ya, &
-                   start=(/1,1/), count=(/nobs_local,MEMBER/) ) )
+                   start=(/1,1/), count=(/MEMBER,nobs_local/) ) )
 
   ! Close the file. 
   call ncio_check( nf90_close(ncid) )

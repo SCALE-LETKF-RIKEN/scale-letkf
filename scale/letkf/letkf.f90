@@ -141,7 +141,7 @@ PROGRAM letkf
     !
     ! READ GUES
     !
-    call read_ens_mpi(gues3d, gues2d)
+    call read_ens_mpi(gues3d, v2d=gues2d)
 
     if (DET_RUN .and. mmdetin /= mmdet) then
       gues3d(:,:,mmdet,:) = gues3d(:,:,mmdetin,:)

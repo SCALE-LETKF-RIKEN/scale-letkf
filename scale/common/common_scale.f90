@@ -1452,9 +1452,9 @@ subroutine state_trans(v3dg,ps)
                                rho_tmp,v3dg(:,:,:,iv3d_p),v3dg(:,:,:,iv3d_q),&
                                ! dummy !surface temperature is not used to calculate surface pressure 
                                v3dg(1,:,:,iv3d_t),                           & 
-                               FZ(KS:KE,IS:IE,JS:JE),dummy2d,ps )
-                               
-
+                               FZ(KS-1:KE,IS:IE,JS:JE),dummy2d,ps )
+    deallocate(rho_tmp)
+    deallocate(dummy2d)
   endif
 
   return

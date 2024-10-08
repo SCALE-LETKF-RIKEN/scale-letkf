@@ -1090,22 +1090,20 @@ END SUBROUTINE das_letkf
 subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d)
   implicit none
 
-  real(r_size), intent(in) :: gues3d(nij1,nlev,nv3d)     !
-  real(r_size), intent(in) :: gues2d(nij1,nv2d)          !
+  real(r_size), intent(in) :: gues3d(nij1,nlev,nv3d)        ! guess mean
+  real(r_size), intent(in) :: gues2d(nij1,nv2d_diag)        !
   real(r_size), intent(in) :: fcst3d(nij1,nlev,MEMBER,nv3d) ! forecast ensemble
-  real(r_size), intent(in) :: fcst2d(nij1,MEMBER,nv2d)      !
-  real(r_size), intent(in) :: fcer3d(nij1,nlev,nv3d) ! forecast error
-  real(r_size), intent(in) :: fcer2d(nij1,nv2d)      !
+  real(r_size), intent(in) :: fcst2d(nij1,MEMBER,nv2d_diag) !
+  real(r_size), intent(in) :: fcer3d(nij1,nlev,nv3d)        ! forecast error
+  real(r_size), intent(in) :: fcer2d(nij1,nv2d_diag)        !
 
+  real(r_size), allocatable :: obsense(:,:)
   real(r_size), allocatable :: hdxf(:,:)
   real(r_size), allocatable :: hdxa_rinv(:,:)
-  real(r_size), allocatable :: rdiag(:)
-  real(r_size), allocatable :: rloc(:)
+  real(r_size), allocatable :: nrdiag(:)      ! normalized diagonal of R
+  real(r_size), allocatable :: nrloc(:)       ! normalized localization factor (not used)
   real(r_size), allocatable :: dep(:)
-!  REAL(r_size),ALLOCATABLE :: tmptv(:,:)
-!  REAL(r_size),ALLOCATABLE :: pfull(:,:)
   real(r_size), allocatable :: djdy(:,:)
-!  REAL(r_size),ALLOCATABLE :: recbuf(:,:)
   real(r_size) :: work1(nterm,MEMBER)
   integer, allocatable :: vobsidx_l(:)
   integer :: ij, iv3d, iv2d, ilev, m, n
@@ -1122,6 +1120,7 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d)
 
   integer, allocatable :: obs_g_set(:)
   integer, allocatable :: obs_g_idx(:)
+  integer, allocatable :: obs_g_qc (:)
 
   if ( LOG_OUT ) write(6,'(A)') 'Hello from das_efso'
 !  nobstotal = obsda_sort%nobs 
@@ -1180,32 +1179,51 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d)
   ! MAIN ASSIMILATION LOOP
   !
   allocate( hdxf(1:nobstotal,1:MEMBER) )
-  allocate( rdiag(1:nobstotal) )
-  allocate( rloc(1:nobstotal)  )
+  allocate( nrdiag(1:nobstotal) )
+  allocate( nrloc(1:nobstotal)  )
   allocate( dep(1:nobstotal)   )
   allocate( vobsidx_l(1:nobstotal) )
 !--- For ILEV = 1 - NLEV
-!!$omp parallel private(ij,ilev,iv3d,iv2d,hdxf,rdiag,rloc,dep,nobsl,work1,m,nob,iob)
+!!$omp parallel private(ij,ilev,iv3d,iv2d,hdxf,nrdiag,nrloc,dep,nobsl,work1,m,nob,iob)
 !!$omp do schedule(dynamic)
 
   if ( LOG_OUT ) write(6,'(a)') 'Start dj/dy computation'
+  do i = 10, nobstotal, 10
+    if ( obs(obsda_sort%set(i))%typ(obsda_sort%idx(i)) /= 3 ) cycle
+    do m = 10, MEMBER, 10
+      write(6,'(a,i9,i5,2e12.3,2i5)') 'Debug ensval ', i, m, obsda_sort%ensval(m,i), obsda_sort%val(i), obs(obsda_sort%set(i))%typ(obsda_sort%idx(i)), obs(obsda_sort%set(i))%elm(obsda_sort%idx(i))
+    end do
+  enddo
 
   do ilev = 1, nlev
     do ij = 1, nij1
       call obs_local( rig1(ij), rjg1(ij), gues3d(ij,ilev,iv3d_p), hgt1(ij,ilev), &
-                      0, hdxf, rdiag, rloc, dep, nobsl, &
+                      0, hdxf, nrdiag, nrloc, dep, nobsl, &
                       vobsidx_l=vobsidx_l ) 
+!      if ( ilev == 1 .and. ij == 1 ) then
+        do nob = 1, nobsl
+          iob = vobsidx_l(nob)
+!          write(6,'(a,i5,2e12.3)') 'Check obs_local:', iob, rdiag(nob), rloc(nob)
+          ! if ( obs(obsda_sort%set(iob))%typ(obsda_sort%idx(iob)) == 1 .and. obs(obsda_sort%set(iob))%elm(obsda_sort%idx(iob)) == id_u_obs .and. ( nrdiag(nob) < 0.0001_r_size .or. abs(rloc(nob)) > 1.e10 ) ) then
+          !   write(6,'(a,e12.2,2f7.1,f5.1,2i6)') 'rdiag v', nrdiag(nob), obs(obsda_sort%set(iob))%lev(obsda_sort%idx(iob))*1.e-2, gues3d(ij,ilev,iv3d_p)*1.e-2, hgt1(ij,ilev)*1.e-3, obs(obsda_sort%set(iob))%typ(obsda_sort%idx(iob)), obs(obsda_sort%set(iob))%elm(obsda_sort%idx(iob))
+          !   write(6,'(a,4f7.1,e10.3)') 'rdiag h', obs(obsda_sort%set(iob))%ri(obsda_sort%idx(iob)), obs(obsda_sort%set(iob))%rj(obsda_sort%idx(iob)), rig1(ij), rjg1(ij), obs(obsda_sort%set(iob))%err(obsda_sort%idx(iob))
+          ! endif
+          ! if ( abs( rloc(nob) ) > 1.e20_r_size ) then
+          !   write(6,'(a,e12.2,2i10)') 'rloc is too large', rloc(nob), ilev, ij
+          ! endif
+        end do
+ !     endif
 
       if ( nobsl /= 0 ) then
         ! Forecast error
         work1 = 0.0_r_size
         do iv3d = 1, nv3d
           select case( iv3d )
-          case( iv3d_u, iv3d_v )
+          case( iv3dd_u, iv3dd_v )
             iterm = 1
-          case(iv3d_t)
+          case(iv3dd_t)
             iterm = 2
-          case(iv3d_q)
+          case(iv3dd_q)
             iterm = 3
           case default
             iterm = 0
@@ -1216,30 +1234,48 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d)
             enddo
           endif
         enddo ! nv3d
-        ! if( ilev == 1) then
-        !   do iv2d = 1, nv2d
-        !     if ( iv2d == iv2d_ps ) then
-        !       do m = 1, MEMBER
-        !         work1(2,m) = work1(2,m) + fcst2d(ij,m,iv2d) * fcer2d(ij,iv2d)
-        !       enddo
-        !     endif
-        !   enddo
-        ! endif
+
+        if( ilev == 1 ) then
+
+          do iv2d = 1, nv2d_diag
+            if ( iv2d == iv2d_diag_ps ) then
+              do m = 1, MEMBER
+                work1(2,m) = work1(2,m) + fcst2d(ij,m,iv2d) * fcer2d(ij,iv2d)
+              enddo
+            endif
+          enddo
+          
+        endif
+
         !!! work1: [1/2(K-1)](X^f_t)^T*C*(e^f_t+e^g_t)  [J/kg]
         ! Hdxa Rinv
         allocate( hdxa_rinv(nobsl,MEMBER) )
         do m = 1, MEMBER
           do nob = 1, nobsl
-            hdxa_rinv(nob,m) = hdxf(nob,m) / rdiag(nob) * rloc(nob)
+
+            if ( nrloc(nob) == 0.0_r_size ) cycle
+
+            hdxa_rinv(nob,m) = hdxf(nob,m) / nrdiag(nob) 
+            ! if ( m == 1 .and. ij == 1 .and. mod(nob,20) == 0 ) then
+            !   write(6,'(a,2f8.1,e10.2)') 'Check hdxa_rinv:', hdxf(nob,m), rloc(nob), rdiag(nob)
+            ! end if
+            ! if ( m == 1 .and. rloc(nob) < 0.0001_r_size ) then
+            !   write(6,'(a,e10.2,i5,2f7.2)') 'rloc is too small:', rloc(nob), obs(obsda_sort%set(vobsidx_l(nob)))%typ(obsda_sort%idx(vobsidx_l(nob))), obs(obsda_sort%set(vobsidx_l(nob)))%lon(obsda_sort%idx(vobsidx_l(nob))), obs(obsda_sort%set(vobsidx_l(nob)))%lat(obsda_sort%idx(vobsidx_l(nob)))
+            ! end if
           enddo
         enddo 
         !!! hdxa_rinv: rho*R^(-1)*Y^a_0 = rho*R^(-1)*(H X^a_0)
+
         ! dJ/dy
         do nob = 1, nobsl
           iob = vobsidx_l(nob)
+
+          if ( nrloc(nob) == 0.0_r_size ) cycle
+
           do m = 1, MEMBER
             djdy(:,iob) = djdy(:,iob) + work1(:,m) * hdxa_rinv(nob,m)
           enddo
+
         enddo
         !!! djdy: [1/2(K-1)]rho*R^(-1)*Y^a_0*(X^f_t)^T*C*(e^f_t+e^g_t)
         deallocate( hdxa_rinv )
@@ -1249,20 +1285,27 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d)
 !!$omp end do
 !!$omp end parallel
   deallocate( hdxf )
-  deallocate( rdiag )
-  deallocate( rloc )
+  deallocate( nrdiag )
+  deallocate( nrloc )
   deallocate( dep )
+  deallocate( vobsidx_l )
 
   if ( LOG_OUT ) write(6,'(a)') 'Finish dj/dy computation'
 
   !
   ! Calculate observation sensitivity
   !
+  allocate( obsense(nterm,nobstotal) )
+  obsense(:,:) = 0.0_r_size
 !!$omp parallel private(nob)
 !!$omp do
   do nob = 1, nobstotal
     obsense(:,nob) = djdy(:,nob) * obsda_sort%val(nob)
-    if ( LOG_OUT) write(6,'(a,i6,3f10.4)') 'Check obsense:', nob, maxval(abs(obsense(:,nob))), maxval(abs(djdy(:,nob))), obsda_sort%val(nob)
+    ! if ( LOG_OUT .and. mod(nob,50) == 0 ) then
+    !   write(6,'(a,i6,3f10.4,i4)') 'Check obsense:', nob, maxval(abs(obsense(:,nob))), maxval(abs(djdy(:,nob))), &
+    !   obsda_sort%val(nob), &
+    !   obs(obsda_sort%set(nob))%typ(obsda_sort%idx(nob))
+    ! endif
   enddo
   if ( LOG_OUT ) write(6,'(a)') 'Finish obsense computation'
   !!! obsense: delta e^{f-g}_t = [1/2(K-1)][y_o-H(xmean^b_0)]^T*rho*R^(-1)*Y^a_0*(X^f_t)^T*C*(e^f_t+e^g_t)
@@ -1270,41 +1313,42 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d)
 !!$omp end parallel
 
   deallocate( djdy )
-  deallocate( vobsidx_l )
 
   if ( nprocs_e > 1 ) then
     call MPI_ALLREDUCE( MPI_IN_PLACE, obsense, nterm*nobstotal, MPI_r_size, MPI_SUM, MPI_COMM_e, ierr )
   endif
   if ( LOG_OUT ) write(6,'(a)') 'Finish MPI comm'
-
+  
   if ( myrank_e == 0 ) then
 
-    allocate( obs_g_idx(nobstotalg) )
-    allocate( obs_g_set(nobstotalg) )
+    allocate( obs_g_idx(obs(1)%nobs) )
+    allocate( obs_g_set(obs(1)%nobs) )
+    allocate( obs_g_qc (obs(1)%nobs) )
 
     obs_g_idx = 0
     obs_g_set = 0
+    obs_g_qc  = 0
 
-    call init_obsense( use_global=.true. )
-    obsense_global(:,:) = 0.0_r_size
+    call init_obsense( obs(1)%nobs )
     if ( LOG_OUT ) write(6,'(a)') 'Finish init_obsense'
 
     if ( nobstotal > 0 ) then
       do nob = 1, nobstotal
-        iob = nint(obsda_sort%qv(nob)) ! global index for obsevations
+        iob = obsda_sort%idx(nob) !nint(obsda_sort%qv(nob)) ! global index for obsevations
         obsense_global(:,iob) = obsense(:,nob)
         obs_g_set(iob) = obsda_sort%set(nob)
         obs_g_idx(iob) = obsda_sort%idx(nob)
+        obs_g_qc (iob) = obsda_sort%qc (nob)
       end do
     endif
 
     if ( LOG_OUT ) write(6,'(a)') 'Finish calc obsense_global'
-    call MPI_ALLREDUCE( MPI_IN_PLACE, obsense_global, nterm*nobstotalg, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr )
+    call MPI_ALLREDUCE( MPI_IN_PLACE, obsense_global, nterm*obs(1)%nobs, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr )
 
-    call MPI_ALLREDUCE( MPI_IN_PLACE, obs_g_set, nobstotalg, MPI_INTEGER, MPI_MAX, MPI_COMM_d, ierr )
-    call MPI_ALLREDUCE( MPI_IN_PLACE, obs_g_idx, nobstotalg, MPI_INTEGER, MPI_MAX, MPI_COMM_d, ierr )
+    call MPI_ALLREDUCE( MPI_IN_PLACE, obs_g_set, obs(1)%nobs, MPI_INTEGER, MPI_MAX, MPI_COMM_d, ierr )
+    call MPI_ALLREDUCE( MPI_IN_PLACE, obs_g_idx, obs(1)%nobs, MPI_INTEGER, MPI_MAX, MPI_COMM_d, ierr )
+    call MPI_ALLREDUCE( MPI_IN_PLACE, obs_g_qc,  obs(1)%nobs, MPI_INTEGER, MPI_MAX, MPI_COMM_d, ierr )
     if ( LOG_OUT ) write(6,'(a)') 'Finish MPI comm for obsense_global'
-
 
     ! write out observation sensitivity
     if ( myrank_d == 0 ) then
@@ -1313,14 +1357,19 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d)
       !   write(6,'(a,3f8.2,i15)') 'Check obsense_global:', obsense_global(1,nob), obsense_global(2,nob), obsense_global(3,nob), nob
       ! end do
 
-      call write_efso_nc(trim( EFSO_OUTPUT_NC_BASENAME ) // '.nc', obs_g_set, obs_g_idx, obsense_global )
-      call print_obsense(obs_g_set, obs_g_idx, obsense_global )
+      call write_efso_nc(trim( EFSO_OUTPUT_NC_BASENAME ) // '.nc', obs(1)%nobs, obs_g_set, obs_g_idx, obs_g_qc, obsense_global )
+      call print_obsense(obs(1)%nobs, obs_g_set, obs_g_idx, obs_g_qc, obsense_global )
     endif
 
     deallocate( obs_g_set )
     deallocate( obs_g_idx )
+    deallocate( obs_g_qc  )
+
+    call destroy_obsense
 
   endif ! [ myrank_e == 0 ]
+
+  deallocate( obsense )
 
   return
 end subroutine das_efso
@@ -1978,6 +2027,10 @@ subroutine obs_local_cal(ri, rj, rlev, rz, nvar, iob, ic, ndist, nrloc, nrdiag)
       nrdiag = OBSERR_PQ**2 / nrloc
     end if
   endif
+
+  ! if ( obtyp == 1 .and. nrdiag < 0.0000001_r_size ) then
+  !   write(6,'(a,4e10.2,i7)') 'Debug obs_local_cal', nrdiag, obs(obset)%err(obidx), hori_loc_ctype(ic), vert_loc_ctype(ic), obs(obset)%elm(obidx)
+  ! endif
 
   return
 end subroutine obs_local_cal

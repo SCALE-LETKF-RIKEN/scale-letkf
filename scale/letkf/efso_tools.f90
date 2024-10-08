@@ -23,9 +23,8 @@ MODULE efso_tools
 
   private
   public lnorm, init_obsense, destroy_obsense, write_efso_nc ,print_obsense !,loc_advection
-  public obsense, obsense_global, lon2, lat2, nterm
+  public obsense_global, lon2, lat2, nterm
 
-  real(r_size), allocatable :: obsense(:,:)
   real(r_size), allocatable :: obsense_global(:,:)
   real(r_size), ALLOCATABLE :: lon2(:,:)
   real(r_size), ALLOCATABLE :: lat2(:,:)
@@ -33,20 +32,13 @@ MODULE efso_tools
 
 contains
 
-subroutine init_obsense( use_global )
+subroutine init_obsense( nobs )
   implicit none
 
-  logical, intent(in), optional :: use_global
+  integer, intent(in) :: nobs
 
-  logical :: use_global_ = .false.
-
-  if ( present( use_global ) ) use_global_ = use_global
-
-  if ( use_global_ ) then
-    allocate( obsense_global(nterm,nobstotalg) )
-  else
-    allocate( obsense(nterm,nobstotal) )
-  endif
+  allocate( obsense_global(nterm,nobs) )
+  obsense_global(:,:) = 0.0_r_size
 
   return
 end subroutine init_obsense
@@ -105,11 +97,11 @@ subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d)
   ! Calculate ensemble forecast perturbations
   do i = 1, MEMBER
     fcst3d(:,:,i,:) = fcst3d(:,:,i,:) - fcst3d(:,:,mmean,:)
-    fcst2d(:,i,:) = fcst2d(:,i,:) - fcst2d(:,mmean,:)
+    fcst2d(:,i,:)   = fcst2d(:,i,:)   - fcst2d(:,mmean,:)
   end do
 
   do ij = 1, nij1
-    ps_inv(ij) = 1.0_r_size / fcst3d(ij,1,mmean,iv3d_p)
+    ps_inv(ij) = 1.0_r_size / fcst2d(ij,mmean,iv2d_diag_ps)
   enddo
 
   if ( EFSO_USE_MOIST_ENERGY ) then
@@ -121,25 +113,21 @@ subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d)
   ! DX * DY / ( DX * DY * nlong * nlatg )
   area_factor = 1.0_r_size / ( nlong*nlatg ) 
   
-!  rdtrpr = sqrt(rd*tref)/pref
+  rdtrpr = sqrt(rd*tref)/pref
 !  ! For surface variables
 !  IF(tar_minlev <= 1) THEN
   do iv2d = 1, nv2d_diag
-!      IF(i == iv2d_ps) THEN
-!        !!! [(Rd*Tr)(dS/4pi)]^(1/2) * (ps'/Pr)
-!        fcer2d(:,i) = rdtrpr * wg1(:) * fcer2d(:,i)
-!        DO j=1,nbv
-!          fcst2d(:,j,i) = rdtrpr * wg1(:) * fcst2d(:,j,i)
-!        END DO
-!      ELSE
-        fcer2d(:,iv2d) = 0.0_r_size
-        fcst2d(:,:,iv2d) = 0.0_r_size
-!      END IF
-  end do
-!  ELSE
-!    fcer2d(:,:) = 0.0_r_size
-!    fcst2d(:,:,:) = 0.0_r_size
-!  END IF
+    if (iv2d == iv2d_diag_ps ) then
+      !!! [(Rd*Tr)(dS/4pi)]^(1/2) * (ps'/Pr)
+      fcer2d(:,iv2d) = rdtrpr * area_factor * fcer2d(:,iv2d)
+      do j = 1, MEMBER
+        fcst2d(:,j,i) = rdtrpr * area_factor * fcst2d(:,j,iv2d)
+      enddo
+    else
+      fcer2d(:,iv2d) = 0.0_r_size
+      fcst2d(:,:,iv2d) = 0.0_r_size
+    endif
+  enddo
 
 !$omp parallel private(k,ij,iv3d,qdry,CVtot,Rtot,CPovCV,weight,m,cptr,qweight,rho)
 !$omp do schedule(static) collapse(2)
@@ -192,7 +180,7 @@ subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d)
             fcst3d(ij,k,m,iv3d) = qweight * weight * fcst3d(ij,k,m,iv3d)
           enddo
         else
-          fcer3d(ij,k,iv3d) = 0.0_r_size
+          fcer3d(ij,k,iv3d)   = 0.0_r_size
           fcst3d(ij,k,:,iv3d) = 0.0_r_size
         endif
       enddo ! iv3d
@@ -254,12 +242,14 @@ SUBROUTINE loc_advection(ua,va,uf,vf)
   RETURN
 END SUBROUTINE loc_advection
 
-subroutine print_obsense(set,idx,obsense_global)
+subroutine print_obsense(nobs,set,idx,qc,obsense_global)
   implicit none
 
-  integer, intent(in) :: set(nobstotalg)
-  integer, intent(in) :: idx(nobstotalg)
-  real(r_size), intent(in) :: obsense_global(nterm,nobstotalg)
+  integer, intent(in) :: nobs
+  integer, intent(in) :: set(nobs)
+  integer, intent(in) :: idx(nobs)
+  integer, intent(in) :: qc (nobs)
+  real(r_size), intent(in) :: obsense_global(nterm,nobs)
 
   integer :: nobs_sense(nid_obs,nobtype)
   real(r_size) :: sumsense(nid_obs,nobtype)
@@ -269,7 +259,7 @@ subroutine print_obsense(set,idx,obsense_global)
   real(r_size) :: sumsense_t, rate_t
   integer :: nob, oid, otype, iterm
 
-  if ( nobstotalg == 0 ) return
+  if ( nobs == 0 ) return
 
   nobs_sense = 0
   sumsense = 0._r_size
@@ -277,16 +267,26 @@ subroutine print_obsense(set,idx,obsense_global)
 
   ! Loop over each observations
   iterm = 1
-  do nob = 1, nobstotalg
+  do nob = 1, nobs
+
+    ! Skip QCed observations
+    if ( qc(nob) /= iqc_good .or. set(nob) < 1 ) cycle
+
+
     ! Select observation types
     otype = obs(set(nob))%typ(idx(nob))
 
     ! Select observation elements
-    oid = ctype_elmtyp(uid_obs(obs(set(nob))%elm(idx(nob))),otype)
+    !oid = ctype_elmtyp(uid_obs(obs(set(nob))%elm(idx(nob))),otype)
+    oid = uid_obs(obs(set(nob))%elm(idx(nob)))
 
     ! Sum up
     nobs_sense(oid,otype) = nobs_sense(oid,otype) + 1
     sumsense(oid,otype)   = sumsense(oid,otype) + obsense_global(iterm,nob)
+    if ( abs( obsense_global(iterm,nob) ) > 1.e10_r_size) then
+      write(6,'(a,e10.2,3i6,i8,i5,2f7.2,f7.1)') 'Debug large obsense_global ',obsense_global(iterm,nob), &
+      nob, otype, oid, idx(nob), qc(nob), obs(set(nob))%lon(idx(nob)), obs(set(nob))%lat(idx(nob)), obs(set(nob))%lev(idx(nob))*1.e-3
+    endif
     if ( obsense_global(iterm,nob) < 0._r_size) then
       rate(oid,otype) = rate(oid,otype) + 1._r_size
     endif
@@ -326,23 +326,23 @@ end subroutine print_obsense
 subroutine destroy_obsense
   implicit none
 
-  if( allocated(obsense) ) deallocate(obsense)
-  if( allocated(lon2) ) deallocate(lon2)
-  if( allocated(lat2) ) deallocate(lat2)
+  if( allocated(obsense_global) ) deallocate(obsense_global)
 
   return
 end subroutine destroy_obsense
 
-subroutine write_efso_nc( filename, set, idx, obsense_global )
+subroutine write_efso_nc( filename, nobsall, set, idx, qc, obsense_global )
   use netcdf
   use common_ncio
   implicit none
 
   ! nobstotalg is defined in letkf_obs
   character(len=*), intent(in) :: filename
-  integer, intent(in) :: set(nobstotalg)
-  integer, intent(in) :: idx(nobstotalg)
-  real(r_size), intent(in) :: obsense_global(nterm,nobstotalg)
+  integer, intent(in) :: nobsall
+  integer, intent(in) :: set(nobsall)
+  integer, intent(in) :: idx(nobsall)
+  integer, intent(in) :: qc (nobsall)
+  real(r_size), intent(in) :: obsense_global(nterm,nobsall)
 
   integer :: ncid
   integer :: dimid, dimid_norm
@@ -378,28 +378,65 @@ subroutine write_efso_nc( filename, set, idx, obsense_global )
 
   character(len=*), parameter :: EFSO_LONGNAME = "EFSO (observation impact)"
 
-  integer :: nobs_l(nobstotalg)
+  integer, allocatable :: nobs_l(:)
   integer :: norm_l(nterm) 
-  integer :: n
+  integer :: n, nn
 
-  real(r_sngl) :: elm_l(nobstotalg)
-  real(r_sngl) :: lon_l(nobstotalg), lat_l(nobstotalg)
-  real(r_sngl) :: lev_l(nobstotalg), dat_l(nobstotalg)
-  real(r_sngl) :: dif_l(nobstotalg), err_l(nobstotalg)
-  integer :: typ_l(nobstotalg)
+  real(r_sngl), allocatable :: elm_l(:)
+  real(r_sngl), allocatable :: lon_l(:), lat_l(:)
+  real(r_sngl), allocatable :: lev_l(:), dat_l(:)
+  real(r_sngl), allocatable :: dif_l(:), err_l(:)
+  integer, allocatable :: typ_l(:)
 
-  do n = 1, nobstotalg
-    nobs_l(n) = n
+  real(r_sngl), allocatable :: obsense_global_l(:,:)
+
+  integer :: nobs
+
+  ! Count the number of observations to be written
+  nobs = 0
+  do n = 1, nobsall
+    if ( qc(n) /= iqc_good .or. set(n) < 1 ) then
+      cycle
+    endif
+    nobs = nobs + 1
+  enddo
+  print *, "write_efso_nc nobs = ", nobs
+
+  ! Allocate arrays
+  allocate( nobs_l(nobs) )
+  allocate( elm_l(nobs) )
+  allocate( lon_l(nobs) )
+  allocate( lat_l(nobs) )
+  allocate( lev_l(nobs) )
+  allocate( dat_l(nobs) )
+  allocate( dif_l(nobs) )
+  allocate( err_l(nobs) )
+  allocate( typ_l(nobs) )
+
+  allocate( obsense_global_l(nterm,nobs) )
+
+  ! Construct the arrays
+  nn = 0
+  do n = 1, nobsall
+    if ( qc(n) /= iqc_good .or. set(n) < 1 ) then
+      cycle
+    endif
+
+    nn = nn + 1
+
+    nobs_l(nn) = nn
  
-    elm_l(n) = real( obs(set(n))%elm(idx(n)), r_sngl )
-    lon_l(n) = real( obs(set(n))%lon(idx(n)), r_sngl )
-    lat_l(n) = real( obs(set(n))%lat(idx(n)), r_sngl )
-    lev_l(n) = real( obs(set(n))%lev(idx(n)), r_sngl )
-    dat_l(n) = real( obs(set(n))%dat(idx(n)), r_sngl )
-    dif_l(n) = real( obs(set(n))%dif(idx(n)), r_sngl )
-    err_l(n) = real( obs(set(n))%err(idx(n)), r_sngl )
+    elm_l(nn) = real( obs(set(n))%elm(idx(n)), r_sngl )
+    lon_l(nn) = real( obs(set(n))%lon(idx(n)), r_sngl )
+    lat_l(nn) = real( obs(set(n))%lat(idx(n)), r_sngl )
+    lev_l(nn) = real( obs(set(n))%lev(idx(n)), r_sngl )
+    dat_l(nn) = real( obs(set(n))%dat(idx(n)), r_sngl )
+    dif_l(nn) = real( obs(set(n))%dif(idx(n)), r_sngl )
+    err_l(nn) = real( obs(set(n))%err(idx(n)), r_sngl )
 
-    typ_l(n) = int( obs(set(n))%typ(idx(n)) )
+    typ_l(nn) = int( obs(set(n))%typ(idx(n)) )
+
+    obsense_global_l(:,nn) = real( obsense_global(:,n), r_sngl )
   enddo
 
   do n = 1, nterm
@@ -410,7 +447,7 @@ subroutine write_efso_nc( filename, set, idx, obsense_global )
   call ncio_check( nf90_create(trim(filename), nf90_clobber, ncid) )
 
   ! Define the dimensions. 
-  call ncio_check( nf90_def_dim(ncid, DIM_NAME,      nobstotalg, dimid) ) 
+  call ncio_check( nf90_def_dim(ncid, DIM_NAME,      nobs,  dimid) ) 
   call ncio_check( nf90_def_dim(ncid, DIM_NAME_NORM, nterm, dimid_norm) ) 
 
   ! Define the coordinate variables. 
@@ -453,27 +490,39 @@ subroutine write_efso_nc( filename, set, idx, obsense_global )
 
   ! Write the data.
   call ncio_check( nf90_put_var(ncid, elm_varid, elm_l, start=(/1/), &
-                   count=(/nobstotalg/) ) )
+                   count=(/nobs/) ) )
   call ncio_check( nf90_put_var(ncid, lon_varid, lon_l, start=(/1/), &
-                   count=(/nobstotalg/) ) )
+                   count=(/nobs/) ) )
   call ncio_check( nf90_put_var(ncid, lat_varid, lat_l, start=(/1/), &
-                   count=(/nobstotalg/) ) )
+                   count=(/nobs/) ) )
   call ncio_check( nf90_put_var(ncid, lev_varid, lev_l, start=(/1/), &
-                   count=(/nobstotalg/) ) )
+                   count=(/nobs/) ) )
   call ncio_check( nf90_put_var(ncid, dat_varid, dat_l, start=(/1/), &
-                   count=(/nobstotalg/) ) )
+                   count=(/nobs/) ) )
   call ncio_check( nf90_put_var(ncid, dif_varid, dif_l, start=(/1/), &
-                   count=(/nobstotalg/) ) )
+                   count=(/nobs/) ) )
   call ncio_check( nf90_put_var(ncid, err_varid, err_l, start=(/1/), &
-                   count=(/nobstotalg/) ) )
+                   count=(/nobs/) ) )
   call ncio_check( nf90_put_var(ncid, typ_varid, typ_l, start=(/1/), &
-                   count=(/nobstotalg/) ) )
+                   count=(/nobs/) ) )
 
-  call ncio_check( nf90_put_var(ncid, efso_varid, real(obsense_global,kind=r_sngl), start=(/1,1/), &
-                   count=(/nterm,nobstotalg/) ) )
+  call ncio_check( nf90_put_var(ncid, efso_varid, obsense_global_l, start=(/1,1/), &
+                   count=(/nterm,nobs/) ) )
 
   ! Close the file. 
   call ncio_check( nf90_close(ncid) )
+
+  deallocate( nobs_l )
+  deallocate( elm_l )
+  deallocate( lon_l )
+  deallocate( lat_l )
+  deallocate( lev_l )
+  deallocate( dat_l )
+  deallocate( dif_l )
+  deallocate( err_l )
+  deallocate( typ_l )
+
+  deallocate( obsense_global_l )
 
   return
 end subroutine write_efso_nc

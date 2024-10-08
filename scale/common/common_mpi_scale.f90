@@ -1159,7 +1159,7 @@ subroutine gather_grd_mpi(nrank,nv3d,nv2d,v3d,v2d,v3dg,v2dg)
     do n = 1, nv3d
       do k = 1, nlev
         j = ( n - 1 ) * nlev + k
-        bufs(1:nij1,j) = real(v3d(:,k,n),rp)
+        bufs(1:nij1,j) = real(v3d(:,k,n),RP)
       end do
     end do
     !omp end do
@@ -1171,7 +1171,7 @@ subroutine gather_grd_mpi(nrank,nv3d,nv2d,v3d,v2d,v3dg,v2dg)
     !omp do private(n,j)
     do n = 1, nv2d
       j = nv3d * nlev + n
-      bufs(1:nij1,j) = real(v2d(:,n),rp)
+      bufs(1:nij1,j) = real(v2d(:,n),RP)
     end do
     !omp end do
     !omp end parallel
@@ -1275,7 +1275,7 @@ subroutine read_ens_mpi(v3d, v2d, v2d_diag, EFSO )
   implicit none
 
   real(r_size), intent(out) :: v3d(nij1,nlev,nens,nv3d)
-  real(r_size), intent(out) :: v2d(nij1,nens,nv2d)
+  real(r_size), intent(out), optional :: v2d(nij1,nens,nv2d)
   real(r_size), intent(out), optional :: v2d_diag(nij1,nens,nv2d_diag)
   logical, intent(in), optional :: EFSO
  
@@ -1338,7 +1338,10 @@ subroutine read_ens_mpi(v3d, v2d, v2d_diag, EFSO )
     mstart = 1 + (it-1)*nprocs_e
     mend = min(it*nprocs_e, nens)
     if (mstart <= mend) then
-      call scatter_grd_mpi_alltoall(mstart, mend, nv3d, nv2d, v3dg, v2dg, v3d, v2d)
+      call scatter_grd_mpi_alltoall(mstart, mend, nv3d, nv2d, v3dg=v3dg, v2dg=v2dg, v3d=v3d, v2d=v2d)
+      if ( EFSO_ ) then
+        call scatter_grd_mpi_alltoall(mstart, mend, 0, nv2d_diag, v2dg=v2dg_diag, v2d=v2d_diag)
+      end if
     end if
 
     call mpi_timer('read_ens_mpi:scatter_grd_mpi_alltoall:', 2)
@@ -1385,7 +1388,7 @@ subroutine read_ens_mpi_addiinfl(v3d, v2d)
     mstart = 1 + (it-1)*nprocs_e
     mend = min(it*nprocs_e, MEMBER)
     if (mstart <= mend) then
-      call scatter_grd_mpi_alltoall(mstart, mend, nv3d, nv2d, v3dg, v2dg, v3d, v2d)
+      call scatter_grd_mpi_alltoall(mstart, mend, nv3d, nv2d, v3dg=v3dg, v2dg=v2dg, v3d=v3d, v2d=v2d)
     end if
   end do ! [ it = 1, nitmax ]
 
@@ -1409,7 +1412,7 @@ subroutine write_ens_mpi(v3d, v2d, monit_step)
 
   integer :: nobs
   ! analysis ensemble perturbation in the observation space
-  real(r_size), allocatable :: ya_local(:,:) 
+  real(r_size), allocatable :: ya_local(:,:) ! (MEMBER,nobs)
   ! analysis ensemble mean in the observation space
   real(r_size), allocatable :: ya_mean(:)
   integer :: ierr
@@ -1426,10 +1429,10 @@ subroutine write_ens_mpi(v3d, v2d, monit_step)
     monit_step_ = monit_step
   end if
 
-  if ( OBSANAL_OUT ) then
+  if ( OBSANAL_OUT .and. monit_step_ == 2 ) then
     nobs = obsda_sort%nobs_in_key 
     if ( nobs > 0 ) then
-      allocate( ya_local(nobs,MEMBER) )
+      allocate( ya_local(MEMBER,nobs) )
       ya_local(:,:) = 0.0_r_size
     endif
   endif
@@ -1453,15 +1456,15 @@ subroutine write_ens_mpi(v3d, v2d, monit_step)
       call mpi_timer('write_ens_mpi:monit_obs_mpi:', 2)
     end if
 
-    if ( OBSANAL_OUT ) then
+    if ( OBSANAL_OUT .and. monit_step_ == 2 ) then
 
       if ( im >= 1 .and. im <= MEMBER ) then
-        call monit_obs( v3dg, v2dg, topo2d, nobs_l, bias_l, rmse_l, monit_type, .true., 1 )
-        !call monit_obs_mem_mpi( v3dg, v2dg, im )
+        call monit_obs( v3dg, v2dg, topo2d, nobs_l, bias_l, rmse_l, monit_type, .true., 1, return_raw_hx=.true. )
+        !print *, 'Debug write_ens_mpi: monit_obs', im, myrank, nobs, shape( obsdep_omb )
 
         if ( nobs > 0 ) then
           ! obsdep_omb contains analysis in obs space 
-          ya_local(:,im) = obsdep_omb(:)
+          ya_local(im,:) = obsdep_omb(:)
         endif
       endif
 
@@ -1498,27 +1501,34 @@ subroutine write_ens_mpi(v3d, v2d, monit_step)
     end if
   end do ! [ it = 1, nitmax ]
 
-  if ( OBSANAL_OUT ) then
+  if ( OBSANAL_OUT .and. monit_step_ == 2 ) then
     if ( nobs > 0 ) then
 
       call MPI_ALLREDUCE( MPI_IN_PLACE, ya_local, nobs*MEMBER, MPI_r_size, MPI_SUM, MPI_COMM_e, ierr )
 
       allocate( ya_mean(nobs) )
-      ya_mean(:) = ya_local(:,1)
       do n = 1, nobs
+        ya_mean(n) = ya_local(1,n)
         do m = 2, MEMBER
-          ya_mean(n) = ya_mean(n) + ya_local(n,m)
+          ya_mean(n) = ya_mean(n) + ya_local(m,n)
         enddo
         ya_mean(n) = ya_mean(n) / real( MEMBER, r_size )
 
         do m = 1, MEMBER
-          ya_local(n,m) = ya_local(n,m) - ya_mean(n)
+          ya_local(m,n) = ya_local(m,n) - ya_mean(n)
         enddo
       enddo
       deallocate( ya_mean )
 
 
-      if ( myrank_e == mmean_rank_e ) then
+      if ( myrank_e == 0 ) then
+        do n = 1, nobs
+          if ( obs(obsdep_set(n))%typ(obsdep_idx(n)) == 3 ) then
+            do m = 1, MEMBER
+              write(6,'(a,i9,i6,e13.1,2f7.2,f7.1,i7)') 'Debug ya_local ', n, m, ya_local(m,n), obs(obsdep_set(n))%lon(obsdep_idx(n)), obs(obsdep_set(n))%lat(obsdep_idx(n)), obs(obsdep_set(n))%lev(obsdep_idx(n))*1.e-2, obs(obsdep_set(n))%elm(obsdep_idx(n))
+            enddo
+          endif
+        enddo
         write ( MYRANK_D6,'(I6.6)') myrank_d
         call write_obs_anal_rank_nc( trim( OBSANAL_OUT_BASENAME ) // MYRANK_D6 // '.nc', &
                                      ya_local )
@@ -1527,7 +1537,6 @@ subroutine write_ens_mpi(v3d, v2d, monit_step)
       deallocate( ya_local )
     endif
   endif
-
 
   return
 end subroutine write_ens_mpi
@@ -1540,10 +1549,10 @@ subroutine scatter_grd_mpi_alltoall(mstart,mend,nv3d,nv2d,v3dg,v2dg,v3d,v2d)
 
   integer, intent(in) :: mstart, mend
   integer, intent(in) :: nv3d, nv2d
-  real(RP), intent(in) :: v3dg(nlev,nlon,nlat,nv3d)
-  real(RP), intent(in) :: v2dg(nlon,nlat,nv2d)
-  real(r_size), intent(inout) :: v3d(nij1,nlev,nens,nv3d)
-  real(r_size), intent(inout) :: v2d(nij1,nens,nv2d)
+  real(RP), intent(in), optional :: v3dg(nlev,nlon,nlat,nv3d)
+  real(RP), intent(in), optional :: v2dg(nlon,nlat,nv2d)
+  real(r_size), intent(inout), optional :: v3d(nij1,nlev,nens,nv3d)
+  real(r_size), intent(inout), optional :: v2d(nij1,nens,nv2d)
   real(RP) :: bufs(nij1max,nlev*nv3d+nv2d,nprocs_e)
   real(RP) :: bufr(nij1max,nlev*nv3d+nv2d,nprocs_e)
   integer :: k, n, j, m, mcount, ierr
@@ -1555,22 +1564,28 @@ subroutine scatter_grd_mpi_alltoall(mstart,mend,nv3d,nv2d,v3dg,v2dg,v3d,v2d)
 #endif
 
   if ( myrank_e < mcount ) then
-    !omp parallel
-    !omp do private(n,k,j)
-    do n = 1, nv3d
-      do k = 1, nlev
-        j = ( n - 1 ) * nlev + k
-        call grd_to_buf(nprocs_e,v3dg(k,:,:,n),bufs(:,j,:))
+    if ( nv3d > 0 .and. present(v3dg) .and. present(v3d) ) then
+      !omp parallel
+      !omp do private(n,k,j)
+      do n = 1, nv3d
+        do k = 1, nlev
+          j = ( n - 1 ) * nlev + k
+          call grd_to_buf(nprocs_e,v3dg(k,:,:,n),bufs(:,j,:))
+        end do
       end do
-    end do
-    !omp end do
-    !omp do private(n,j)
-    do n = 1, nv2d
-      j = nv3d * nlev + n
-      call grd_to_buf(nprocs_e,v2dg(:,:,n),bufs(:,j,:))
-    end do
-    !omp end do
-    !omp end parallel
+      !omp end do
+      !omp end parallel
+    end if
+    if ( nv2d > 0 .and. present(v2dg) .and. present(v2d) ) then
+      !omp parallel
+      !omp do private(n,j)
+      do n = 1, nv2d
+        j = nv3d * nlev + n
+        call grd_to_buf(nprocs_e,v2dg(:,:,n),bufs(:,j,:))
+      end do
+      !omp end do
+      !omp end parallel
+    endif
   end if
 
 !  CALL MPI_BARRIER(MPI_COMM_e,ierr)
@@ -1583,22 +1598,33 @@ subroutine scatter_grd_mpi_alltoall(mstart,mend,nv3d,nv2d,v3dg,v2dg,v3d,v2d)
                        bufr, nr, nrt, COMM_datatype, MPI_COMM_e, ierr)
   end if
 
-  !omp parallel
-  !omp do private(m,n,k,j)
-  do m = mstart, mend
-    do n = 1, nv3d
-      do k = 1, nlev
-        j = ( n - 1 ) * nlev + k
-        v3d(:,k,m,n) = real(bufr(1:nij1,j,m-mstart+1),r_size)
+  if ( nv3d > 0 .and. present(v3dg) .and. present(v3d) ) then
+    !omp parallel
+    !omp do private(m,n,k,j)
+    do m = mstart, mend
+      do n = 1, nv3d
+        do k = 1, nlev
+          j = ( n - 1 ) * nlev + k
+          v3d(:,k,m,n) = real(bufr(1:nij1,j,m-mstart+1),r_size)
+        end do
+      end do
+    enddo
+    !omp end do
+    !omp end parallel
+  endif
+
+  if ( nv2d > 0 .and. present(v2dg) .and. present(v2d) ) then
+    !omp parallel
+    !omp do private(m,n,j)
+    do m = mstart, mend
+      do n = 1, nv2d
+        j = nv3d * nlev + n
+        v2d(:,m,n) = real(bufr(1:nij1,j,m-mstart+1),r_size)
       end do
     end do
-    do n = 1, nv2d
-      j = nv3d * nlev + n
-      v2d(:,m,n) = real(bufr(1:nij1,j,m-mstart+1),r_size)
-    end do
-  end do
-  !omp end do
-  !omp end parallel
+    !omp end do
+    !omp end parallel
+  endif
 
 !  CALL MPI_BARRIER(MPI_COMM_e,ierr)
   return
@@ -2640,34 +2666,55 @@ subroutine get_nobs_efso_mpi( nobs, nobs_local, nobs0 )
   return
 end subroutine get_nobs_efso_mpi
 !---------------------------------
-subroutine get_obsdep_efso_mpi( nobs_local, nobs0, obsset, obsidx, obsdep, obshdxf )
+subroutine get_obsdep_efso_mpi( nobslocal, nobs0, obsset, obsidx, obsqc, obsdep, obshdxf, nobslocal_qcok )
   implicit none
 
-  integer, intent(in) :: nobs_local
+  integer, intent(in) :: nobslocal
   integer, intent(in) :: nobs0
-  integer, intent(out) :: obsset(nobs_local)
-  integer, intent(out) :: obsidx(nobs_local)
-  real(r_size), intent(out) :: obsdep(nobs_local)
-  real(r_size), intent(out) :: obshdxf(nobs_local,MEMBER)
+  integer, intent(out) :: obsset(nobslocal)
+  integer, intent(out) :: obsidx(nobslocal)
+  integer, intent(out) :: obsqc (nobslocal)
+  real(r_size), intent(out) :: obsdep(nobslocal)
+  real(r_size), intent(out) :: obshdxf(MEMBER,nobslocal)
+  integer, intent(out) :: nobslocal_qcok
 
   character(6) :: MYRANK_D6
 
   integer :: ierr
+  integer :: n
 
   if ( LOG_OUT ) write(6,'(a)') 'Hello from get_obsdep_efso_mpi'
 
-  if ( nobs_local == 0 ) return
+  if ( nobslocal == 0 ) then
+    nobslocal_qcok = 0
+    return
+  endif
 
   if ( myrank_e == 0 ) then
     write ( MYRANK_D6,'(I6.6)') myrank_d
     if ( LOG_OUT ) print *, trim( OBSANAL_IN_BASENAME ) // MYRANK_D6 // '.nc'
     call get_obsdep_efso( trim( OBSANAL_IN_BASENAME ) // MYRANK_D6 // '.nc', &
-                          nobs_local, nobs0, obsset, obsidx, obsdep, obshdxf )
+                          nobslocal, nobs0, obsset, obsidx, obsqc, obsdep, obshdxf )
+
+    ! count the number of obs with qc=iqc_good
+    nobslocal_qcok = 0
+    do n = 1, nobslocal
+      if ( obs(obsset(n))%typ(obsidx(n)) == 3 ) then
+        write(6,'(a,2e12.1,2f7.2,f7.1)') 'Debug from get_obsdep_efso_mpi', obsdep(n), obshdxf(1,n), &
+        obs(obsset(n))%lon(obsidx(n)), obs(obsset(n))%lat(obsidx(n)), obs(obsset(n))%lev(obsidx(n))*1.e-3
+
+      endif
+      if ( obsqc(n) == 0 ) nobslocal_qcok = nobslocal_qcok + 1
+    end do
+
   endif
-  call MPI_BCAST( obsset, nobs_local, MPI_INTEGER, 0, MPI_COMM_e, ierr )
-  call MPI_BCAST( obsidx, nobs_local, MPI_INTEGER, 0, MPI_COMM_e, ierr )
-  call MPI_BCAST( obsdep, nobs_local, MPI_r_size, 0, MPI_COMM_e, ierr )
-  call MPI_BCAST( obshdxf, nobs_local*MEMBER, MPI_r_size, 0, MPI_COMM_e, ierr )
+  call MPI_BCAST( obsset, nobslocal, MPI_INTEGER, 0, MPI_COMM_e, ierr )
+  call MPI_BCAST( obsidx, nobslocal, MPI_INTEGER, 0, MPI_COMM_e, ierr )
+  call MPI_BCAST( obsqc,  nobslocal, MPI_INTEGER, 0, MPI_COMM_e, ierr )
+  call MPI_BCAST( obsdep, nobslocal, MPI_r_size, 0, MPI_COMM_e, ierr )
+  call MPI_BCAST( obshdxf, nobslocal*MEMBER, MPI_r_size, 0, MPI_COMM_e, ierr )
+
+  call MPI_BCAST( nobslocal_qcok, 1, MPI_INTEGER, 0, MPI_COMM_e, ierr )
 
   return
 end subroutine get_obsdep_efso_mpi
