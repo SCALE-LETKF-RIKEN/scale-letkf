@@ -175,6 +175,9 @@ MODULE common_obs_scale
   real(r_size), allocatable, save :: obsdep_oma(:) ! 
   real(r_size), allocatable, save :: obsdep_sprd(:) ! 
   real(r_size), allocatable, save :: obsdep_omb_emean(:) ! 
+ #ifdef RTTOV
+  real(r_size), allocatable, save :: obsdep_val2(:) ! cloud amount (CA) of Okamoto et al. (2014) 
+ #endif
 
   REAL(r_size),SAVE :: MIN_RADAR_REF
   REAL(r_size),SAVE :: RADAR_REF_THRES
@@ -1643,6 +1646,9 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
     if ( .not. allocated( obsdep_oma  ) ) allocate( obsdep_oma(obsdep_nobs) )
     if ( .not. allocated( obsdep_sprd ) ) allocate( obsdep_sprd(obsdep_nobs ))
     if ( .not. allocated( obsdep_omb_emean) ) allocate( obsdep_omb_emean(obsdep_nobs) )
+#ifdef RTTOV
+    if ( .not. allocated( obsdep_val2 ) ) allocate( obsdep_val2(obsdep_nobs ))
+#endif
   end if
 
   oqc = -1
@@ -1792,6 +1798,9 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
       enddo
       obsdep_sprd(n) = sqrt( obsdep_sprd(n) / ( MEMBER - 1 ) )
 
+#ifdef RTTOV
+      obsdep_val2(n) = obsda_sort%val2(nn)
+#endif
       if (LOG_LEVEL >= 3) then
         write (6, '(2I6,2F8.2,4F12.4,I3)') &
               obs(iset)%elm(iidx), &
@@ -2746,9 +2755,13 @@ subroutine write_obs_all(obs, missing, file_suffix)
   return
 end subroutine write_obs_all
 
-subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, sprd, nrank, cnt_rank )
+subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, sprd, nrank, cnt_rank, val2 )
   use netcdf
   use common_ncio
+  use scale_atmos_grid_cartesC, only: &
+    DX, DY, &
+    CXG => ATMOS_GRID_CARTESC_CXG, &
+    CYG => ATMOS_GRID_CARTESC_CYG
   implicit none
 
   character(len=*), intent(in) :: filename
@@ -2762,6 +2775,7 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
   real(r_size), intent(in) :: sprd(nobs)
   integer, intent(in) :: nrank
   integer, intent(in) :: cnt_rank(nrank)
+  real(r_size), optional, intent(in) :: val2(nobs)
 
   integer :: ncid
   integer :: dimid, dimid_rank
@@ -2770,8 +2784,10 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
   integer :: lev_varid, dat_varid, qc_varid
   integer :: dif_varid, err_varid
   integer :: omb_varid, oma_varid, omb_em_varid, sprd_varid
+  integer :: val2_varid
   integer :: typ_varid
   integer :: dim_rank_varid, nobs_varid
+  integer :: x_varid, y_varid
 
   character(len=*), parameter :: DIM_NAME = "number"
   character(len=*), parameter :: ELM_NAME = "elm"
@@ -2789,6 +2805,7 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
   character(len=*), parameter :: TYP_NAME = "typ"
   character(len=*), parameter :: DIM_MEM_NAME = "member"
   character(len=*), parameter :: NOBS_NAME = "nobs_rank"
+  character(len=*), parameter :: VAL2_NAME = "val2"
 
   character(len=*), parameter :: ELM_LONGNAME = "observation id"
   character(len=*), parameter :: LON_LONGNAME = "longitude"
@@ -2804,6 +2821,12 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
   character(len=*), parameter :: SPRD_LONGNAME = "ensemble spread in observation space"
   character(len=*), parameter :: TYP_LONGNAME = "observation platform type"
   character(len=*), parameter :: NOBS_LONGNAME = "number of assimilated observations in each rank"
+  character(len=*), parameter :: VAL2_LONGNAME = "cloud amount parameter"
+
+  character(len=*), parameter :: X_NAME = "x"
+  character(len=*), parameter :: Y_NAME = "y"
+  character(len=*), parameter :: X_LONGNAME = "x (m)"
+  character(len=*), parameter :: Y_LONGNAME = "y (m)"
 
   integer :: nobs_l(nobs), rank_l(nrank)
   integer :: n
@@ -2815,6 +2838,7 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
   integer :: typ_l(nobs)
   real(r_sngl) :: omb_l(nobs), oma_l(nobs)
   real(r_sngl) :: omb_em_l(nobs), sprd_l(nobs)
+  real(r_sngl) :: x_l(nobs), y_l(nobs), val2_l(nobs)
 
 
   do n = 1, nobs
@@ -2833,6 +2857,15 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
     oma_l(n) = real( oma(n), r_sngl )
     omb_em_l(n) = real( omb_em(n), r_sngl )
     sprd_l(n) = real( sprd(n), r_sngl )
+
+    if ( OBSDEP_OUT_XY ) then
+      x_l(n) = real( ( obs(set(n))%ri(idx(n)) - 1 ) *DX + CXG(1), r_sngl )
+      y_l(n) = real( ( obs(set(n))%rj(idx(n)) - 1 ) *DY + CYG(1), r_sngl )
+    endif
+
+    if ( present( val2 ) ) then
+      val2_l(n) = real( val2(n), r_sngl )
+    endif
   enddo
 
   do n = 1, nrank
@@ -2861,6 +2894,11 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
   call ncio_check( nf90_def_var(ncid, ERR_NAME, NF90_REAL, dimid, err_varid) )
   call ncio_check( nf90_def_var(ncid, TYP_NAME, NF90_INT,  dimid, typ_varid) )
 
+  if ( OBSDEP_OUT_XY ) then
+    call ncio_check( nf90_def_var(ncid, X_NAME, NF90_REAL, dimid, x_varid) )
+    call ncio_check( nf90_def_var(ncid, Y_NAME, NF90_REAL, dimid, y_varid) )
+  endif
+
   call ncio_check( nf90_def_var(ncid, OMB_NAME, NF90_REAL, dimid, omb_varid) )
   call ncio_check( nf90_def_var(ncid, OMA_NAME, NF90_REAL, dimid, oma_varid) )
   call ncio_check( nf90_def_var(ncid, OMB_EM_NAME, NF90_REAL, dimid, omb_em_varid) )
@@ -2878,11 +2916,21 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
   call ncio_check( nf90_put_att(ncid, err_varid, "long_name", ERR_LONGNAME ) )
   call ncio_check( nf90_put_att(ncid, typ_varid, "long_name", TYP_LONGNAME ) )
 
+  if ( OBSDEP_OUT_XY ) then
+    call ncio_check( nf90_put_att(ncid, x_varid, "long_name", X_LONGNAME ) )
+    call ncio_check( nf90_put_att(ncid, y_varid, "long_name", Y_LONGNAME ) )
+  endif  
+
   call ncio_check( nf90_put_att(ncid, omb_varid, "long_name", OMB_LONGNAME ) )
   call ncio_check( nf90_put_att(ncid, oma_varid, "long_name", OMA_LONGNAME ) )
   call ncio_check( nf90_put_att(ncid, omb_em_varid, "long_name", OMB_EM_LONGNAME ) )
   call ncio_check( nf90_put_att(ncid, sprd_varid, "long_name", SPRD_LONGNAME ) )
   call ncio_check( nf90_put_att(ncid, nobs_varid, "long_name", NOBS_LONGNAME ) )
+
+  if ( present( val2 ) ) then
+    call ncio_check( nf90_def_var(ncid, VAL2_NAME, NF90_REAL, dimid, val2_varid) )
+    call ncio_check( nf90_put_att(ncid, val2_varid, "long_name", VAL2_LONGNAME ) )
+  endif
 
   ! Add global attribute
   call ncio_check( nf90_put_att(ncid, NF90_GLOBAL, "total rank for SCALE (nprocs_d)", nrank ) )
@@ -2925,6 +2973,18 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
 
   call ncio_check( nf90_put_var(ncid, nobs_varid, cnt_rank, start=(/1/), &
                    count=(/nrank/) ) )
+
+  if ( OBSDEP_OUT_XY ) then
+    call ncio_check( nf90_put_var(ncid, x_varid, x_l, start=(/1/), &
+                     count=(/nobs/) ) )
+    call ncio_check( nf90_put_var(ncid, y_varid, y_l, start=(/1/), &
+                     count=(/nobs/) ) )
+  endif
+  
+  if ( present( val2 ) ) then
+    call ncio_check( nf90_put_var(ncid, val2_varid, val2_l, start=(/1/), &
+                     count=(/nobs/) ) )
+  endif
 
   ! Close the file. 
   call ncio_check( nf90_close(ncid) )

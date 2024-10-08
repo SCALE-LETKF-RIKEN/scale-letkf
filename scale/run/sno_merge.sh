@@ -14,7 +14,7 @@ ALLVAR=T
 SINGLE_VAR=F
 
 tint=21600 # [second]
-tstart='2023-07-01 0:00:00'
+tstart='2000-01-01 0:00:00'
 tend=$tstart
 
 . ./config.main
@@ -35,8 +35,8 @@ SNO_BASENAME_OUT="history"
 #DOM=2 
 
 # Output file (X & Y process number) for each member
-NP_OFILE_X=4
-NP_OFILE_Y=4
+NP_OFILE_X=6
+NP_OFILE_Y=8
 
 if [ "$INPUT_FROM_SNOW" == "T" ] ; then
   NP_OFILE_X=1

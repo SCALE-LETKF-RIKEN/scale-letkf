@@ -282,6 +282,7 @@ MODULE common_nml
   character(filelenmax) :: OBSDEP_OUT_BASENAME = 'obsdep'
   LOGICAL               :: OBSDEP_OUT_NC = .false.
   logical               :: OBSDEP_OUT_NOQC = .false.
+  logical               :: OBSDEP_OUT_XY = .false.
   logical               :: OBSNUM_OUT_NC = .false.
   character(filelenmax) :: OBSNUM_OUT_NC_BASENAME = 'obsnum'
   LOGICAL               :: OBSGUES_OUT = .false.                  !XXX not implemented yet...
@@ -1051,6 +1052,7 @@ subroutine read_nml_letkf_monitor
     OBSDEP_OUT_BASENAME, &
     OBSDEP_OUT_NC, &
     OBSDEP_OUT_NOQC, &
+    OBSDEP_OUT_XY,   &
     OBSNUM_OUT_NC, &
     OBSNUM_OUT_NC_BASENAME, &
     OBSGUES_OUT, &

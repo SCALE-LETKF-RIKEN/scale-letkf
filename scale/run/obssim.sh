@@ -19,6 +19,8 @@ echo "[$(datetime_now)] Start obssim $@"
 # Setting
 TSTART=13
 TEND=49
+TSTART=1
+TEND=12
 TINTERVAL=${FCSTOUT}
 
 #-------------------------------------------------------------------------------

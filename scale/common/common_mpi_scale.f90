@@ -1888,6 +1888,9 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
   real(r_size), allocatable :: obsdep_g_oma(:)
   real(r_size), allocatable :: obsdep_g_sprd(:)
   real(r_size), allocatable :: obsdep_g_omb_emean(:)
+#ifdef RTTOV
+  real(r_size), allocatable :: obsdep_g_val2(:)
+#endif
   integer :: cnts
   integer :: cntr(nprocs_d)
   integer :: dspr(nprocs_d)
@@ -1986,6 +1989,9 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
       allocate (obsdep_g_oma(obsdep_g_nobs))
       allocate (obsdep_g_sprd(obsdep_g_nobs))
       allocate (obsdep_g_omb_emean(obsdep_g_nobs))
+#ifdef RTTOV
+      allocate (obsdep_g_val2(obsdep_g_nobs))
+#endif
 
       if (obsdep_g_nobs > 0) then
         call MPI_GATHERV(obsdep_set, cnts, MPI_INTEGER, obsdep_g_set, cntr, dspr, MPI_INTEGER, 0, MPI_COMM_d, ierr)
@@ -1995,6 +2001,9 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
         call MPI_GATHERV(obsdep_oma, cnts, MPI_r_size,  obsdep_g_oma, cntr, dspr, MPI_r_size,  0, MPI_COMM_d, ierr)
         call MPI_GATHERV(obsdep_sprd, cnts, MPI_r_size,  obsdep_g_sprd, cntr, dspr, MPI_r_size,  0, MPI_COMM_d, ierr)
         call MPI_GATHERV(obsdep_omb_emean, cnts, MPI_r_size,  obsdep_g_omb_emean, cntr, dspr, MPI_r_size,  0, MPI_COMM_d, ierr)
+#ifdef RTTOV
+        call MPI_GATHERV(obsdep_val2, cnts, MPI_r_size,  obsdep_g_val2, cntr, dspr, MPI_r_size,  0, MPI_COMM_d, ierr)
+#endif
       end if
 
       if (myrank_d == 0) then
@@ -2005,7 +2014,11 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
                                  obsdep_g_idx, obsdep_g_qc,   &
                                  obsdep_g_omb, obsdep_g_oma,  &
                                  obsdep_g_omb_emean, obsdep_g_sprd, &
+#ifdef RTTOV
+                                 nprocs_d, cntr, val2=obsdep_g_val2 )
+#else
                                  nprocs_d, cntr )
+#endif
         else
           if ( LOG_OUT ) write (6,'(A,I6.6,2A)') 'MYRANK ', myrank,' is writing an obsda file ', trim(OBSDEP_OUT_BASENAME)//'.dat'
           call write_obs_dep( trim(OBSDEP_OUT_BASENAME)//'.dat', &
