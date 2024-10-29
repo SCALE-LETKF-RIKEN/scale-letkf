@@ -1699,6 +1699,9 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,retur
                           obs(iset)%lon(iidx),obs(iset)%lat(iidx), &
                           v3dgh,v2dgh,ohx(n),oqc(n),stggrd=1,typ=obs(iset)%typ(iidx))
         end if
+        if ( obtypelist(obs(iset)%typ(iidx)) == 'SFCSHP' .and. oqc(n) == iqc_good ) then
+          write(6,'(a,i6,f7.1,e14.3,2f10.1)') 'Check MONIT SFCSHP ', obs(iset)%elm(iidx), obs(iset)%lev(iidx)*1.e-2, rk, ohx(n), obs(iset)%dat(iidx)
+        endif
       !=========================================================================
       case (obsfmt_radar, obsfmt_radar_nc )
       !-------------------------------------------------------------------------
@@ -1739,7 +1742,7 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,retur
       endif
 
       if ( return_raw_hx_) then
-        if ( obs(iset)%typ(iidx) == 3 ) then
+        if ( obs(iset)%typ(iidx) == 3 .and. oqc(n) /= iqc_good ) then
           write(6,'(a,2f7.2,f7.1,i7,i8,e13.2)')'Debug monit_obs ', obs(iset)%lon(iidx), obs(iset)%lat(iidx), obs(iset)%lev(iidx)*1.e-2, &
           oqc(n), obs(iset)%elm(iidx), ohx(n)
         endif

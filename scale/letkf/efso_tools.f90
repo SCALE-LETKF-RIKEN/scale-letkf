@@ -22,7 +22,7 @@ MODULE efso_tools
   implicit none
 
   private
-  public lnorm, init_obsense, destroy_obsense, write_efso_nc ,print_obsense !,loc_advection
+  public lnorm, init_obsense, destroy_obsense, write_efso_nc ,print_obsense, get_total_impact!,loc_advection
   public obsense_global, lon2, lat2, nterm
 
   real(r_size), allocatable :: obsense_global(:,:)
@@ -53,20 +53,14 @@ end subroutine init_obsense
 ! [OUTPUT]
 !  fcst3d,fcst2d: C^(1/2)*X^f_t                    [(J/kg)^(1/2)]
 !  fcer3d,fcer2d: C^(1/2)*[1/2(K-1)](e^f_t+e^g_t)  [(J/kg)^(1/2)]
+!  fcer3d_diff,fcer2d_diff: (e^f_t-e^g_t)*C^(1/2)  [(J/kg)^(1/2)]
 !-----------------------------------------------------------------------
-subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d)
+subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d,fcer3d_diff,fcer2d_diff)
   use scale_const, only:    &
-     GRAV   => CONST_GRAV,  &
      Rdry   => CONST_Rdry,  &
      Rvap   => CONST_Rvap,  &
-     CVdry  => CONST_CVdry, &
-     LHV    => CONST_LHV0,  &
-     PRE00  => CONST_PRE00
-  use scale_tracer, only: TRACER_CV
-  use scale_atmos_grid_cartesC, only: &
-     CDZ => ATMOS_GRID_CARTESC_CDZ
-  use scale_atmos_grid_cartesC_index, only: &
-     KHALO
+     CPdry  => CONST_CPdry, &
+     LHV    => CONST_LHV0
   implicit none
 
   real(r_size), intent(inout) :: fcst3d(nij1,nlev,nens,nv3d)
@@ -74,11 +68,14 @@ subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d)
   real(r_size), intent(inout) :: fcer3d(nij1,nlev,nv3d)
   real(r_size), intent(inout) :: fcer2d(nij1,nv2d_diag)
 
+  real(r_size), intent(inout) :: fcer3d_diff(nij1,nlev,nv3d)
+  real(r_size), intent(inout) :: fcer2d_diff(nij1,nv2d_diag)
+
   real(r_size), parameter :: tref = 280.0_r_size
-  real(r_size), parameter :: pref = 1000.0e+2_r_size
+  real(r_size), parameter :: pref = 1.0e+5_r_size
   real(r_size) :: tmptv(nij1,nlev)
   real(r_size) :: pdelta(nij1,nlev)
-  real(r_size) :: weight, rho, area_factor
+  real(r_size) :: weight, area_factor
   real(r_size) :: rinbv, cptr, qweight, rdtrpr
 
   real(r_size) :: ps_inv(nij1)
@@ -88,17 +85,35 @@ subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d)
   integer :: iv3d, iv2d, m
   integer :: ij
 
-  real(r_size) :: qdry, CVtot, Rtot, CPovCV
   real(r_size) :: wmoist
+
+  real(r_size) :: dsigma
+  real(r_size) :: p_upper, p_lower
+
+  if ( LOG_OUT ) write(6,'(a)') 'Hello from lnorm'
+
+  ! Constants
+  cptr    = sqrt( CPdry / tref )
+  qweight = sqrt( wmoist / ( CPdry*tref ) ) * LHV
+  
+  rdtrpr  = sqrt( Rdry*tref ) / pref
+
+  ! DX * DY / ( DX * DY * nlong * nlatg )
+  area_factor = 1.0_r_size / ( nlong*nlatg ) 
+
 
   ! Calculate ensemble mean of forecast
   call ensmean_grd(MEMBER, nens, nij1, nv3d, nv2d_diag, fcst3d, fcst2d)
 
   ! Calculate ensemble forecast perturbations
-  do i = 1, MEMBER
-    fcst3d(:,:,i,:) = fcst3d(:,:,i,:) - fcst3d(:,:,mmean,:)
-    fcst2d(:,i,:)   = fcst2d(:,i,:)   - fcst2d(:,mmean,:)
+  do m = 1, MEMBER
+    fcst3d(:,:,m,:) = fcst3d(:,:,m,:) - fcst3d(:,:,mmean,:)
+    fcst2d(:,m,:)   = fcst2d(:,m,:)   - fcst2d(:,mmean,:)
   end do
+
+  do iv3d = 1, nv3d
+    write(6,'(a,2f10.1,i4)') 'Check ', fcst3d(1,1,1,iv3d), fcst3d(1,1,mmean,iv3d), iv3d
+  enddo
 
   do ij = 1, nij1
     ps_inv(ij) = 1.0_r_size / fcst2d(ij,mmean,iv2d_diag_ps)
@@ -110,85 +125,80 @@ subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d)
     wmoist = 0.0_r_size
   endif
 
-  ! DX * DY / ( DX * DY * nlong * nlatg )
-  area_factor = 1.0_r_size / ( nlong*nlatg ) 
-  
-  rdtrpr = sqrt(rd*tref)/pref
-!  ! For surface variables
+  !  ! For surface variables
 !  IF(tar_minlev <= 1) THEN
-  do iv2d = 1, nv2d_diag
-    if (iv2d == iv2d_diag_ps ) then
-      !!! [(Rd*Tr)(dS/4pi)]^(1/2) * (ps'/Pr)
-      fcer2d(:,iv2d) = rdtrpr * area_factor * fcer2d(:,iv2d)
-      do j = 1, MEMBER
-        fcst2d(:,j,i) = rdtrpr * area_factor * fcst2d(:,j,iv2d)
-      enddo
-    else
-      fcer2d(:,iv2d) = 0.0_r_size
-      fcst2d(:,:,iv2d) = 0.0_r_size
-    endif
+  do ij = 1, nij1
+    do iv2d = 1, nv2d_diag
+      if (iv2d == iv2d_diag_ps ) then
+        !!! [(Rd*Tr)(dS/4pi)]^(1/2) * (ps'/Pr)
+        fcer2d(ij,iv2d)      = rdtrpr * area_factor * fcer2d(ij,iv2d)
+        fcer2d_diff(ij,iv2d) = rdtrpr * area_factor * fcer2d_diff(ij,iv2d)
+        do m = 1, MEMBER
+          fcst2d(ij,m,iv2d)  = rdtrpr * area_factor * fcst2d(ij,m,iv2d)
+        enddo
+      else
+        fcer2d(ij,iv2d)          = 0.0_r_size
+        fcer2d_diff(ij,iv2d)     = 0.0_r_size
+        fcst2d(ij,1:MEMBER,iv2d) = 0.0_r_size
+      endif
+    enddo
   enddo
 
-!$omp parallel private(k,ij,iv3d,qdry,CVtot,Rtot,CPovCV,weight,m,cptr,qweight,rho)
-!$omp do schedule(static) collapse(2)
+!#$omp parallel private(k,ij,iv3d,weight,m,dsigma,p_upper,p_lower)
+!#$omp do schedule(static) collapse(2)
   do k = 1, nlev
-!    IF(k > tar_maxlev .or. k < tar_minlev) THEN
-!      fcst3d(:,k,:,:) = 0.0_r_size
-!      fcer3d(:,k,:) = 0.0_r_size
-!      CYCLE
-!    END IF
     do ij = 1, nij1
 
-      qdry  = 1.0_r_size
-      CVtot = 0.0_r_size
-      do iv3d = iv3d_q, nv3d ! loop over all moisture variables
-        qdry  = qdry - fcst3d(ij,k,mmean,iv3d)
-        CVtot = CVtot + fcst3d(ij,k,mmean,iv3d) * real( TRACER_CV(iv3d-iv3d_q+1), kind=r_size )
-      enddo
-      CVtot = CVdry * qdry + CVtot
-      Rtot  = real( Rdry, kind=r_size ) * qdry + real( Rvap, kind=r_size ) * fcst3d(ij,k,mmean,iv3d_q)
-      CPovCV = ( CVtot + Rtot ) / CVtot
-
       ! Compute weight
-      ! rho * g * dz / p_s
-      rho = fcst3d(ij,k,mmean,iv3d_p) / ( fcst3d(ij,k,mmean,iv3d_t)  * Rtot )
-      weight = sqrt( rho * real( GRAV, kind=r_size ) * real( CDZ(k+KHALO), kind=r_size ) * ps_inv(ij) * area_factor )
+      if ( k == 1 ) then
+        p_upper = ( fcst3d(ij,k,mmean,iv3d_p) + fcst3d(ij,k+1,mmean,iv3d_p) ) * 0.5_r_size
+        p_lower = fcst2d(ij,mmean,iv2d_diag_ps)
+      else if ( k == nlev ) then
+        p_upper = fcst3d(ij,k,mmean,iv3d_p)
+        p_lower = ( fcst3d(ij,k,mmean,iv3d_p) + fcst3d(ij,k-1,mmean,iv3d_p) ) * 0.5_r_size
+      else
+        p_upper = ( fcst3d(ij,k,mmean,iv3d_p) + fcst3d(ij,k+1,mmean,iv3d_p) ) * 0.5_r_size
+        p_lower = ( fcst3d(ij,k,mmean,iv3d_p) + fcst3d(ij,k-1,mmean,iv3d_p) ) * 0.5_r_size
+      endif
+      dsigma = abs( p_lower - p_upper ) * ps_inv(ij) 
 
-      ! Constants
-      cptr = sqrt( CPovCV / tref )
-      qweight = sqrt( wmoist/( CPovCV*tref ) ) * LHV
+      weight = sqrt( dsigma ) * area_factor
 
       do iv3d = 1, nv3d
         if ( iv3d == iv3d_u .or. iv3d == iv3d_v ) then
           !!! [(dsigma)(dS/4pi)]^(1/2) * u'
           !!! [(dsigma)(dS/4pi)]^(1/2) * v'
-          fcer3d(ij,k,iv3d) = weight * fcer3d(ij,k,iv3d)
+          fcer3d(ij,k,iv3d)      = weight * fcer3d(ij,k,iv3d)
+          fcer3d_diff(ij,k,iv3d) = weight * fcer3d_diff(ij,k,iv3d)
           do m = 1, MEMBER
-            fcst3d(ij,k,m,iv3d) = weight * fcst3d(ij,k,m,iv3d)
+            fcst3d(ij,k,m,iv3d)  = weight * fcst3d(ij,k,m,iv3d)
           enddo
         elseif (iv3d == iv3d_t) then
           !!! [(Cp/Tr)(dsigma)(dS/4pi)]^(1/2) * t'
-          fcer3d(ij,k,i) = cptr * weight * fcer3d(ij,k,iv3d)
+          fcer3d(ij,k,iv3d)      = cptr * weight * fcer3d(ij,k,iv3d)
+          fcer3d_diff(ij,k,iv3d) = cptr * weight * fcer3d_diff(ij,k,iv3d)
           do m = 1, MEMBER
-            fcst3d(ij,k,m,iv3d) = cptr * weight * fcst3d(ij,k,m,iv3d)
+            fcst3d(ij,k,m,iv3d)  = cptr * weight * fcst3d(ij,k,m,iv3d)
           enddo
         elseif (iv3d == iv3d_q) then
 ! specific humidity vs vapor concentration?
           !!! [(wg*L^2/Cp/Tr)(dsigma)(dS/4pi)]^(1/2) * q'
-          fcer3d(ij,k,iv3d) = qweight * weight * fcer3d(ij,k,iv3d)
+          fcer3d(ij,k,iv3d)      = qweight * weight * fcer3d(ij,k,iv3d)
+          fcer3d_diff(ij,k,iv3d) = qweight * weight * fcer3d_diff(ij,k,iv3d)
           do m = 1, MEMBER
-            fcst3d(ij,k,m,iv3d) = qweight * weight * fcst3d(ij,k,m,iv3d)
+            fcst3d(ij,k,m,iv3d)  = qweight * weight * fcst3d(ij,k,m,iv3d)
           enddo
         else
-          fcer3d(ij,k,iv3d)   = 0.0_r_size
-          fcst3d(ij,k,:,iv3d) = 0.0_r_size
+          fcer3d(ij,k,iv3d)      = 0.0_r_size
+          fcer3d_diff(ij,k,iv3d) = 0.0_r_size
+          fcst3d(ij,k,1:MEMBER,iv3d) = 0.0_r_size
         endif
       enddo ! iv3d
     enddo ! ij
 
   enddo ! k
-!$omp end do
-!$omp end parallel
+!#$omp end do
+!#$omp end parallel
 
 !  do i = 1, nij1
 !    IF(lon1(i) < tar_minlon .or. lon1(i) > tar_maxlon .or. &
@@ -202,6 +212,43 @@ subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d)
 
   return
 end subroutine lnorm
+
+subroutine get_total_impact(fcer3d,fcer2d,fcer3d_diff,fcer2d_diff,total_impact)
+  implicit none
+
+  ! C^(1/2)*[1/2(K-1)](e^f_t+e^g_t)
+  real(r_size), intent(in) :: fcer3d(nij1,nlev,nv3d) 
+  real(r_size), intent(in) :: fcer2d(nij1,nv2d_diag)
+
+  ! C^(1/2)(e^f_t-e^g_t)
+  real(r_size), intent(in) :: fcer3d_diff(nij1,nlev,nv3d)
+  real(r_size), intent(in) :: fcer2d_diff(nij1,nv2d_diag)
+
+  real(r_size), intent(out) :: total_impact
+
+  integer :: ij, K
+  integer :: iv3d, iv2d
+
+  total_impact = 0.0_r_size
+  do iv3d = 1, nv3d
+    do k = 1, nlev
+      do ij = 1, nij1
+        total_impact = total_impact + fcer3d_diff(ij,k,iv3d) * fcer3d(ij,k,iv3d) 
+      enddo
+    enddo
+  enddo
+
+  do iv2d = 1, nv2d_diag
+    do ij = 1, nij1
+      total_impact = total_impact + fcer2d_diff(ij,iv2d) * fcer2d(ij,iv2d)
+    enddo
+  enddo
+
+  ! (e^f_t-e^g_t)C*[1/2](e^f_t+e^g_t)
+  total_impact = total_impact * real(MEMBER-1,r_size)
+
+  return
+end subroutine get_total_impact
 
 SUBROUTINE loc_advection(ua,va,uf,vf)
   IMPLICIT NONE
@@ -242,7 +289,7 @@ SUBROUTINE loc_advection(ua,va,uf,vf)
   RETURN
 END SUBROUTINE loc_advection
 
-subroutine print_obsense(nobs,set,idx,qc,obsense_global)
+subroutine print_obsense(nobs,set,idx,qc,obsense_global,total_impact)
   implicit none
 
   integer, intent(in) :: nobs
@@ -250,6 +297,7 @@ subroutine print_obsense(nobs,set,idx,qc,obsense_global)
   integer, intent(in) :: idx(nobs)
   integer, intent(in) :: qc (nobs)
   real(r_size), intent(in) :: obsense_global(nterm,nobs)
+  real(r_size) :: total_impact
 
   integer :: nobs_sense(nid_obs,nobtype)
   real(r_size) :: sumsense(nid_obs,nobtype)
@@ -266,15 +314,26 @@ subroutine print_obsense(nobs,set,idx,qc,obsense_global)
   rate = 0._r_size
 
   ! Loop over each observations
-  iterm = 1
   do nob = 1, nobs
 
     ! Skip QCed observations
     if ( qc(nob) /= iqc_good .or. set(nob) < 1 ) cycle
 
+    ! Check the range of observation sensitivity
+    if ( any( abs( obsense_global(:,nob) ) > 1.e20_r_size ) ) then
+      write(6,'(a,i8,i4,2f7.2,f7.1)') 'Debug too large obsense_global ', &
+      nob, obs(set(nob))%typ(idx(nob)), obs(set(nob))%lon(idx(nob)), obs(set(nob))%lat(idx(nob)), obs(set(nob))%lev(idx(nob))*1.e-3
+      cycle
+    endif
+
 
     ! Select observation types
     otype = obs(set(nob))%typ(idx(nob))
+    if ( otype == 9 ) then
+      write(6,'(a,2f6.1,f7.1,i7,2e12.3)') 'Check in print SFCSHP', obs(set(nob))%lon(idx(nob)), obs(set(nob))%lat(idx(nob)), obs(set(nob))%lev(idx(nob))*1.e-3, &
+      obs(set(nob))%elm(idx(nob)), sum(obsense_global(1:nterm,nob)), obsda_sort%val(nob)!, &
+      !obsda_sort%ensval(1,nob), obsda_sort%ensval(2,nob)
+    endif
 
     ! Select observation elements
     !oid = ctype_elmtyp(uid_obs(obs(set(nob))%elm(idx(nob))),otype)
@@ -282,42 +341,48 @@ subroutine print_obsense(nobs,set,idx,qc,obsense_global)
 
     ! Sum up
     nobs_sense(oid,otype) = nobs_sense(oid,otype) + 1
-    sumsense(oid,otype)   = sumsense(oid,otype) + obsense_global(iterm,nob)
-    if ( abs( obsense_global(iterm,nob) ) > 1.e10_r_size) then
-      write(6,'(a,e10.2,3i6,i8,i5,2f7.2,f7.1)') 'Debug large obsense_global ',obsense_global(iterm,nob), &
-      nob, otype, oid, idx(nob), qc(nob), obs(set(nob))%lon(idx(nob)), obs(set(nob))%lat(idx(nob)), obs(set(nob))%lev(idx(nob))*1.e-3
-    endif
-    if ( obsense_global(iterm,nob) < 0._r_size) then
+    sumsense(oid,otype)   = sumsense(oid,otype) + sum(obsense_global(1:nterm,nob))
+    ! if ( abs( obsense_global(iterm,nob) ) > 1.e10_r_size) then
+    !   write(6,'(a,e10.2,3i6,i8,i5,2f7.2,f7.1)') 'Debug large obsense_global ',obsense_global(iterm,nob), &
+    !   nob, otype, oid, idx(nob), qc(nob), obs(set(nob))%lon(idx(nob)), obs(set(nob))%lat(idx(nob)), obs(set(nob))%lev(idx(nob))*1.e-3
+    ! endif
+!    write(6,'(a,e10.2,i8,2i6,i8,i5,2f7.2,f7.1)') 'Debug all obsense_global ',obsense_global(iterm,nob), &
+!    nob, otype, oid, idx(nob), qc(nob), obs(set(nob))%lon(idx(nob)), obs(set(nob))%lat(idx(nob)), obs(set(nob))%lev(idx(nob))*1.e-3
+  if ( sum(obsense_global(1:nterm,nob)) < 0._r_size) then
       rate(oid,otype) = rate(oid,otype) + 1._r_size
     endif
   enddo
 
   if ( LOG_OUT ) then
-    WRITE (6, '(A)') '============================================'
+    WRITE (6, '(A)') '======================================================'
     WRITE (6, '(A,I10)') ' TOTAL NUMBER OF OBSERVATIONS:', nobstotalg
-    WRITE (6, '(A)') '============================================'
-    WRITE (6, '(A)') '              nobs     dJ(KE)       +rate[%]'
+    WRITE (6, '(A)') '======================================================'
+    WRITE (6, '(A)') '                  nobs     dJ       +rate[%]  dJ(mean)'
     do otype = 1, nobtype
       nobs_t = sum(nobs_sense(:,otype))
       if ( nobs_t > 0 ) then
         sumsense_t = sum(sumsense(:,otype))
         rate_t = sum(rate(:,otype)) / real(nobs_t,r_size) * 100._r_size
         write (6, '(A)') '--------------------------------------------'
-        write (6,'(A6,1x,A6,1x,I8,1x,E12.5,1x,F8.2)') &
-            & obtypelist(otype),' TOTAL', nobs_t, sumsense_t, rate_t
+        write (6,'(A6,1x,A6,1x,I8,1x,E12.5,1x,F8.2,1x,E12.5)') &
+            & obtypelist(otype),' TOTAL', nobs_t, sumsense_t, rate_t, sumsense_t / real(nobs_t,r_size)
       endif
       do oid = 1, nid_obs
         if ( nobs_sense(oid,otype) > 0 ) then
           rate_t = rate(oid,otype) / real(nobs_sense(oid,otype),r_size) * 100._r_size
-          write (6,'(A6,1x,A6,1x,I8,1x,E12.5,1x,F8.2)') &
+          write (6,'(A6,1x,A6,1x,I8,1x,E12.5,1x,F8.2,1x,E12.5)') &
               & obtypelist(otype), obelmlist(oid), &
               & nobs_sense(oid,otype), &
               & sumsense(oid,otype),   &
-              & rate_t
+              & rate_t, &
+              & sumsense(oid,otype) / real(nobs_sense(oid,otype),r_size)
         endif
       enddo
     enddo
-    write (6, '(A)') '============================================'
+    write(6, '(A)') '============================================'
+    write(6,'(a,e12.5)') 'Total impact (sum): ', sum(sumsense(:,:))
+    write(6,'(a,e12.5)') 'Total impact (raw): ', total_impact
+    write(6, '(A)') '============================================'
   endif
 
   return
@@ -331,7 +396,7 @@ subroutine destroy_obsense
   return
 end subroutine destroy_obsense
 
-subroutine write_efso_nc( filename, nobsall, set, idx, qc, obsense_global )
+subroutine write_efso_nc( filename, nobsall, set, idx, qc, obsense_global, total_impact )
   use netcdf
   use common_ncio
   implicit none
@@ -343,6 +408,7 @@ subroutine write_efso_nc( filename, nobsall, set, idx, qc, obsense_global )
   integer, intent(in) :: idx(nobsall)
   integer, intent(in) :: qc (nobsall)
   real(r_size), intent(in) :: obsense_global(nterm,nobsall)
+  real(r_size), intent(in) :: total_impact
 
   integer :: ncid
   integer :: dimid, dimid_norm
@@ -479,7 +545,7 @@ subroutine write_efso_nc( filename, nobsall, set, idx, qc, obsense_global )
   call ncio_check( nf90_put_att(ncid, efso_varid, "long_name", EFSO_LONGNAME ) )
 
   ! Add global attribute
-  !call ncio_check( nf90_put_att(ncid, NF90_GLOBAL, "", XXX ) )
+  call ncio_check( nf90_put_att(ncid, NF90_GLOBAL, "total_impact", total_impact ) )
 
   ! End define mode.
   call ncio_check( nf90_enddef(ncid) )

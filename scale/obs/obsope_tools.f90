@@ -429,6 +429,9 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
               call Trans_XtoY(obs(iof)%elm(n), ril, rjl, rk, &
                               obs(iof)%lon(n), obs(iof)%lat(n), v3dg, v2dg, obsda%val(nn), obsda%qc(nn), typ=obs(iof)%typ(n))
             end if
+            if ( obtypelist(obs(iof)%typ(n)) == 'SFCSHP' .and. obsda%qc(nn) == iqc_good ) then
+              write(6,'(a,i6,f7.1,e14.3,2f10.1)') 'Check SFCSHP ', obs(iof)%elm(n), obs(iof)%lev(n)*1.e-2, rk, obsda%val(nn), obs(iof)%dat(n)
+            endif
           !=====================================================================
           case (obsfmt_radar, obsfmt_radar_nc)
           !---------------------------------------------------------------------

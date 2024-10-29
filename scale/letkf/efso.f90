@@ -26,6 +26,8 @@ program efso
   real(r_size), allocatable :: fcst2d(:,:,:)
   real(r_size), allocatable :: fcer3d(:,:,:)
   real(r_size), allocatable :: fcer2d(:,:)
+  real(r_size), allocatable :: fcer3d_diff(:,:,:)
+  real(r_size), allocatable :: fcer2d_diff(:,:)
   real(r_size), allocatable :: work3d(:,:,:)
   real(r_size), allocatable :: work2d(:,:)
   real(RP),     allocatable :: work3dg(:,:,:,:)
@@ -36,6 +38,8 @@ program efso
   real(RP),     allocatable :: work2dg_diag(:,:,:)
 !  real(r_size), allocatable :: uadf(:,:), vadf(:,:)
 !  real(r_size), allocatable :: uada(:,:), vada(:,:)
+
+  real(r_size) :: total_impact
 
 !-----------------------------------------------------------------------
 ! Initial settings
@@ -82,6 +86,8 @@ program efso
     allocate( fcst2d(nij1,nens,nv2d_diag) )
     allocate( fcer3d(nij1,nlev,nv3d) )
     allocate( fcer2d(nij1,nv2d_diag) )
+    allocate( fcer3d_diff(nij1,nlev,nv3d) )
+    allocate( fcer2d_diff(nij1,nv2d_diag) )
     allocate( work3d(nij1,nlev,nv3d) )
     allocate( work2d(nij1,nv2d) )
     allocate( work3dg(nlev,nlon,nlat,nv3d) )
@@ -117,6 +123,9 @@ program efso
     call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d_diag,v3dg=real(work3dg,RP),v2dg=real(work2dg_diag,RP),&
                          v3d=fcer3d,v2d=fcer2d)
 
+    fcer3d_diff(:,:,:) = fcer3d(:,:,:)  ! g_t
+    fcer2d_diff(:,:)   = fcer2d(:,:)    ! g_t
+
     ! forecast from the analysis ensemble mean
     if ( myrank_e == mmean_rank_e ) then  
       call read_restart( trim(EFSO_FCST_FROM_ANAL_BASENAME), work3dg, work2dg)
@@ -126,6 +135,9 @@ program efso
                          v3d=work3d,v2d=work2d_diag)
     fcer3d(:,:,:) = 0.5_r_size * ( fcer3d(:,:,:) + work3d(:,:,:) )
     fcer2d(:,:)   = 0.5_r_size * ( fcer2d(:,:)   + work2d_diag(:,:) )
+
+    fcer3d_diff(:,:,:) = work3d(:,:,:)    - fcer3d_diff(:,:,:) ! e^f_t - e^g_t
+    fcer2d_diff(:,:)   = work2d_diag(:,:) - fcer2d_diff(:,:)   ! e^f_t - e^g_t
 
     ! reference analysis ensemble mean
     if ( myrank_e == mmean_rank_e ) then  
@@ -155,9 +167,13 @@ program efso
     !
     ! Norm
     !
-    call lnorm( fcst3d, fcst2d, fcer3d, fcer2d )
+    call lnorm( fcst3d, fcst2d, fcer3d, fcer2d, fcer3d_diff, fcer2d_diff )
     !! fcst3d,fcst2d: C^(1/2)*X^f_t
     !! fcer3d,fcer2d: C^(1/2)*[1/2(K-1)](e^f_t+e^g_t)
+    !! fcer3d_diff,fcer2d_diff: C^(1/2)*(e^f_t-e^g_t)
+
+    call get_total_impact(fcer3d,fcer2d,fcer3d_diff,fcer2d_diff,total_impact)
+    !! total_impact: 1/2*(e^f_t-e^g_t)*C*(e^f_t+e^g_t)
 
     !-----------------------------------------------------------------------
     ! Winds for advection
@@ -166,11 +182,12 @@ program efso
     !-----------------------------------------------------------------------
     ! EFSO computation
     !-----------------------------------------------------------------------
-    call das_efso( gues3d, gues2d, fcst3d, fcst2d, fcer3d, fcer2d )
+    call das_efso( gues3d, gues2d, fcst3d, fcst2d, fcer3d, fcer2d, total_impact )
 
     deallocate( gues3d, gues2d )
     deallocate( fcst3d, fcst2d )
     deallocate( fcer3d, fcer2d )
+    deallocate( fcer3d_diff, fcer2d_diff )
 
   end if ! [ myrank_use ]
 

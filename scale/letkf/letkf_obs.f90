@@ -1641,14 +1641,6 @@ subroutine set_efso_obs
   call obs_da_value_allocate(obsda_sort, nensobs)
 
   call setup_obsda_sort(nobs_sub,nobs_g,obsda_sort,efso_flag=.true.)
-
-  do i = 10, nobstotal, 10
-    if ( obs(obsda_sort%set(i))%typ(obsda_sort%idx(i)) /= 3 ) cycle
-    do m = 10, MEMBER, 10
-      write(6,'(a,e12.1,2i8,i6,2f7.2,f7.1,e12.1)') 'Debug from set_efso_obs ', obsda_sort%ensval(m,i), m, i, obs(obsda_sort%set(i))%elm(obsda_sort%idx(i)), &
-      obs(obsda_sort%set(i))%lon(obsda_sort%idx(i)), obs(obsda_sort%set(i))%lat(obsda_sort%idx(i)), obs(obsda_sort%set(i))%lev(obsda_sort%idx(i))*1.e-3, obsda_sort%val(i)
-      enddo
-  enddo
   
   return
 end subroutine set_efso_obs
@@ -1984,7 +1976,6 @@ subroutine setup_obsda_sort(nobs_sub,nobs_g,obsda_sort,efso_flag)
       im_obs_2 = (nensobs_div+1) * nensobs_mod + nensobs_div * (myrank_e-nensobs_mod+1)
       nensobs_part = nensobs_div
     end if
-    write(6,'(a,4i10)') 'Debug info', nensobs, nensobs_div, nensobs_mod, nensobs_part
 
     obsbufs%nobs = nobs_sub(i_after_qc)
     call obs_da_value_allocate(obsbufs, nensobs_part)
