@@ -1213,7 +1213,7 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
       !   end do
       ! endif
 
-      if ( nobsl /= 0 ) then
+      if ( nobsl > 0 ) then
         ! Forecast error
         work1 = 0.0_r_size
         do iv3d = 1, nv3d

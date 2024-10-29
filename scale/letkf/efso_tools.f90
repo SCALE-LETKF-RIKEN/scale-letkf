@@ -111,10 +111,6 @@ subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d,fcer3d_diff,fcer2d_diff)
     fcst2d(:,m,:)   = fcst2d(:,m,:)   - fcst2d(:,mmean,:)
   end do
 
-  do iv3d = 1, nv3d
-    write(6,'(a,2f10.1,i4)') 'Check ', fcst3d(1,1,1,iv3d), fcst3d(1,1,mmean,iv3d), iv3d
-  enddo
-
   do ij = 1, nij1
     ps_inv(ij) = 1.0_r_size / fcst2d(ij,mmean,iv2d_diag_ps)
   enddo

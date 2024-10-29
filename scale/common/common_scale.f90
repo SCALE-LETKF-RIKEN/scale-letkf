@@ -1534,10 +1534,17 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
       COMM_wait
   use scale_atmos_grid_cartesC_metric, only: &
       ROTC => ATMOS_GRID_CARTESC_METRIC_ROTC
-!  use scale_const, only: &
-!      UNDEF => CONST_UNDEF,&
-!      Rdry   => CONST_Rdry, &
-!      Rvap   => CONST_Rvap
+  use scale_const, only: &
+      Rdry   => CONST_Rdry, &
+      Rvap   => CONST_Rvap, &
+      CVdry  => CONST_CVdry, &
+      PRE00 => CONST_PRE00
+  use scale_tracer, only: TRACER_CV
+  use scale_atmos_grid_cartesc_real, only: &
+     FZ => ATMOS_GRID_CARTESC_real_FZ
+  use scale_atmos_bottom, only: &
+     ATMOS_BOTTOM_estimate
+ 
 !  use scale_atmos_saturation, only: &
 !      ATMOS_SATURATION_psat_all
 
@@ -1555,7 +1562,9 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
   integer :: i, j, k, iv3d, iv2d
 
   real(RP) :: utmp, vtmp
-!  real(RP) :: qdry, Rtot
+  real(RP) :: qdry, Rtot, CVtot, CPovCV, CVovCP
+  real(RP) :: rho_RP(nlev,nlon,nlat)
+  real(RP) :: dummy2d(nlon,nlat)
 !  real(RP) :: psat(nlevh,nlonh,nlath)
 
   ! Variables that can be directly copied
@@ -1577,7 +1586,8 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
 
   ! Rotate U/V (model coord. wind) and obtain Umet/Vmet (true zonal/meridional wind)
   !-------------
-!$omp parallel do private(k,i,j,utmp,vtmp) schedule(static) collapse(2)
+
+!$omp parallel do private(k,i,j,utmp,vtmp,iv3d,qdry,CVtot,Rtot,CVovCP) schedule(static) collapse(2)
   do j = JS, JE
   do i = IS, IE
     do k = KS, KE
@@ -1586,6 +1596,20 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
     
       v3dgh_RP(k,i,j,iv3d_u) = utmp * ROTC(i,j,1) - vtmp * ROTC(i,j,2)
       v3dgh_RP(k,i,j,iv3d_v) = utmp * ROTC(i,j,2) + vtmp * ROTC(i,j,1)
+
+
+      qdry  = 1.0_RP
+      CVtot = 0.0_RP
+      do iv3d = iv3d_q, nv3d ! loop over all moisture variables
+        qdry  = qdry - v3dg(k,i,j,iv3d)
+        CVtot = CVtot + v3dg(k,i,j,iv3d) * TRACER_CV(iv3d-iv3d_q+1)
+      enddo
+      CVtot = CVdry * qdry + CVtot
+      Rtot  = Rdry  * qdry + Rvap * real(v3dg(k,i,j,iv3d_q),kind=RP)
+      CVovCP = CVtot / ( CVtot + Rtot )
+
+      rho_RP = real(v3dg(k,i,j,iv3d_p),kind=RP) / (Rtot * real(v3dg(k,i,j,iv3d_t),kind=RP))
+
     enddo
   enddo
   enddo
@@ -1634,6 +1658,12 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
   v2dgh_RP(IS:IE,JS:JE,iv2dd_q2m)  = v3dg(1,1:nlon,1:nlat,iv3d_q)
 
 !  v2dgh_RP(IS:IE,JS:JE,iv2dd_rain) = [[No way]]
+
+  call ATMOS_BOTTOM_estimate(nlev,1,nlev,nlon,1,nlon,nlat,1,nlat,          &
+                              rho_RP,v3dgh_RP(KS:KE,IS:IE,JS:JE,iv3d_p),v3dgh_RP(KS:KE,IS:IE,JS:JE,iv3d_q),&
+                              ! dummy !surface temperature is not used to calculate surface pressure 
+                              v3dgh_RP(KS,IS:IE,JS:JE,iv3d_t),                           & 
+                              FZ(KS-1:KE,IS:IE,JS:JE),dummy2d,v2dgh_RP(IS:IE,JS:JE,iv2dd_ps) )
 
   ! Pad the upper and lower halo areas
   !---------------------------------------------------------
