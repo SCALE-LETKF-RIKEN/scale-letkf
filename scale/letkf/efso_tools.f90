@@ -76,6 +76,7 @@ subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d,fcer3d_diff,fcer2d_diff)
   real(r_size) :: tmptv(nij1,nlev)
   real(r_size) :: pdelta(nij1,nlev)
   real(r_size) :: weight, area_factor
+  real(r_size) :: weight_diff
   real(r_size) :: rinbv, cptr, qweight, rdtrpr
 
   real(r_size) :: ps_inv(nij1)
@@ -128,7 +129,7 @@ subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d,fcer3d_diff,fcer2d_diff)
       if (iv2d == iv2d_diag_ps ) then
         !!! [(Rd*Tr)(dS/4pi)]^(1/2) * (ps'/Pr)
         fcer2d(ij,iv2d)      = rdtrpr * area_factor * fcer2d(ij,iv2d)
-        fcer2d_diff(ij,iv2d) = rdtrpr * area_factor * fcer2d_diff(ij,iv2d)
+        fcer2d_diff(ij,iv2d) = rdtrpr               * fcer2d_diff(ij,iv2d)
         do m = 1, MEMBER
           fcst2d(ij,m,iv2d)  = rdtrpr * area_factor * fcst2d(ij,m,iv2d)
         enddo
@@ -140,7 +141,7 @@ subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d,fcer3d_diff,fcer2d_diff)
     enddo
   enddo
 
-!#$omp parallel private(k,ij,iv3d,weight,m,dsigma,p_upper,p_lower)
+!#$omp parallel private(k,ij,iv3d,weight,weight_diff,m,dsigma,p_upper,p_lower)
 !#$omp do schedule(static) collapse(2)
   do k = 1, nlev
     do ij = 1, nij1
@@ -158,29 +159,30 @@ subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d,fcer3d_diff,fcer2d_diff)
       endif
       dsigma = abs( p_lower - p_upper ) * ps_inv(ij) 
 
-      weight = sqrt( dsigma ) * area_factor
+      weight      = sqrt( dsigma ) * area_factor
+      weight_diff = sqrt( dsigma ) 
 
       do iv3d = 1, nv3d
         if ( iv3d == iv3d_u .or. iv3d == iv3d_v ) then
           !!! [(dsigma)(dS/4pi)]^(1/2) * u'
           !!! [(dsigma)(dS/4pi)]^(1/2) * v'
-          fcer3d(ij,k,iv3d)      = weight * fcer3d(ij,k,iv3d)
-          fcer3d_diff(ij,k,iv3d) = weight * fcer3d_diff(ij,k,iv3d)
+          fcer3d(ij,k,iv3d)      = weight      * fcer3d(ij,k,iv3d)
+          fcer3d_diff(ij,k,iv3d) = weight_diff * fcer3d_diff(ij,k,iv3d)
           do m = 1, MEMBER
             fcst3d(ij,k,m,iv3d)  = weight * fcst3d(ij,k,m,iv3d)
           enddo
         elseif (iv3d == iv3d_t) then
           !!! [(Cp/Tr)(dsigma)(dS/4pi)]^(1/2) * t'
-          fcer3d(ij,k,iv3d)      = cptr * weight * fcer3d(ij,k,iv3d)
-          fcer3d_diff(ij,k,iv3d) = cptr * weight * fcer3d_diff(ij,k,iv3d)
+          fcer3d(ij,k,iv3d)      = cptr * weight      * fcer3d(ij,k,iv3d)
+          fcer3d_diff(ij,k,iv3d) = cptr * weight_diff * fcer3d_diff(ij,k,iv3d)
           do m = 1, MEMBER
             fcst3d(ij,k,m,iv3d)  = cptr * weight * fcst3d(ij,k,m,iv3d)
           enddo
         elseif (iv3d == iv3d_q) then
 ! specific humidity vs vapor concentration?
           !!! [(wg*L^2/Cp/Tr)(dsigma)(dS/4pi)]^(1/2) * q'
-          fcer3d(ij,k,iv3d)      = qweight * weight * fcer3d(ij,k,iv3d)
-          fcer3d_diff(ij,k,iv3d) = qweight * weight * fcer3d_diff(ij,k,iv3d)
+          fcer3d(ij,k,iv3d)      = qweight * weight      * fcer3d(ij,k,iv3d)
+          fcer3d_diff(ij,k,iv3d) = qweight * weight_diff * fcer3d_diff(ij,k,iv3d)
           do m = 1, MEMBER
             fcst3d(ij,k,m,iv3d)  = qweight * weight * fcst3d(ij,k,m,iv3d)
           enddo
@@ -285,7 +287,7 @@ SUBROUTINE loc_advection(ua,va,uf,vf)
   RETURN
 END SUBROUTINE loc_advection
 
-subroutine print_obsense(nobs,set,idx,qc,obsense_global,total_impact)
+subroutine print_obsense(nobs,set,idx,qc,obsense_global,total_impact,obval)
   implicit none
 
   integer, intent(in) :: nobs
@@ -293,7 +295,8 @@ subroutine print_obsense(nobs,set,idx,qc,obsense_global,total_impact)
   integer, intent(in) :: idx(nobs)
   integer, intent(in) :: qc (nobs)
   real(r_size), intent(in) :: obsense_global(nterm,nobs)
-  real(r_size) :: total_impact
+  real(r_size), intent(in) :: total_impact
+  real(r_size), intent(in) :: obval(nobs)
 
   integer :: nobs_sense(nid_obs,nobtype)
   real(r_size) :: sumsense(nid_obs,nobtype)
@@ -325,9 +328,9 @@ subroutine print_obsense(nobs,set,idx,qc,obsense_global,total_impact)
 
     ! Select observation types
     otype = obs(set(nob))%typ(idx(nob))
-    if ( otype == 9 ) then
-      write(6,'(a,2f6.1,f7.1,i7,2e12.3)') 'Check in print SFCSHP', obs(set(nob))%lon(idx(nob)), obs(set(nob))%lat(idx(nob)), obs(set(nob))%lev(idx(nob))*1.e-3, &
-      obs(set(nob))%elm(idx(nob)), sum(obsense_global(1:nterm,nob)), obsda_sort%val(nob)!, &
+    if ( otype == 3 ) then
+      write(6,'(a,2f6.1,f7.1,i7,2e12.3,i10)') 'Check in print AIRCFT', obs(set(nob))%lon(idx(nob)), obs(set(nob))%lat(idx(nob)), obs(set(nob))%lev(idx(nob))*1.e-3, &
+      obs(set(nob))%elm(idx(nob)), sum(obsense_global(1:nterm,nob)), obval(nob), idx(nob)!, &
       !obsda_sort%ensval(1,nob), obsda_sort%ensval(2,nob)
     endif
 
@@ -350,16 +353,16 @@ subroutine print_obsense(nobs,set,idx,qc,obsense_global,total_impact)
   enddo
 
   if ( LOG_OUT ) then
-    WRITE (6, '(A)') '======================================================'
+    WRITE (6, '(A)') '========================================================='
     WRITE (6, '(A,I10)') ' TOTAL NUMBER OF OBSERVATIONS:', nobstotalg
-    WRITE (6, '(A)') '======================================================'
+    WRITE (6, '(A)') '========================================================='
     WRITE (6, '(A)') '                  nobs     dJ       +rate[%]  dJ(mean)'
     do otype = 1, nobtype
       nobs_t = sum(nobs_sense(:,otype))
       if ( nobs_t > 0 ) then
         sumsense_t = sum(sumsense(:,otype))
         rate_t = sum(rate(:,otype)) / real(nobs_t,r_size) * 100._r_size
-        write (6, '(A)') '--------------------------------------------'
+        write (6, '(A)') '--------------------------------------------------------'
         write (6,'(A6,1x,A6,1x,I8,1x,E12.5,1x,F8.2,1x,E12.5)') &
             & obtypelist(otype),' TOTAL', nobs_t, sumsense_t, rate_t, sumsense_t / real(nobs_t,r_size)
       endif
@@ -375,10 +378,10 @@ subroutine print_obsense(nobs,set,idx,qc,obsense_global,total_impact)
         endif
       enddo
     enddo
-    write(6, '(A)') '============================================'
+    write(6, '(A)') '======================================================'
     write(6,'(a,e12.5)') 'Total impact (sum): ', sum(sumsense(:,:))
     write(6,'(a,e12.5)') 'Total impact (raw): ', total_impact
-    write(6, '(A)') '============================================'
+    write(6, '(A)') '======================================================'
   endif
 
   return

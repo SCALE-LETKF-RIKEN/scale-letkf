@@ -425,12 +425,17 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
           case (obsfmt_prepbufr)
           !---------------------------------------------------------------------
             call phys2ijk(v3dg(:,:,:,iv3dd_p), obs(iof)%elm(n), ril, rjl, obs(iof)%lev(n), rk, obsda%qc(nn), typ=obs(iof)%typ(n))
+            ! debug
+            ! if ( obtypelist(obs(iof)%typ(n)) /= 'AIRCFT' .and. obtypelist(obs(iof)%typ(n)) /= 'SATWND' .and. obtypelist(obs(iof)%typ(n)) /= 'ADPUPA' ) then
+            !   obsda%qc(nn) = iqc_undef
+            ! endif
             if (obsda%qc(nn) == iqc_good) then
               call Trans_XtoY(obs(iof)%elm(n), ril, rjl, rk, &
                               obs(iof)%lon(n), obs(iof)%lat(n), v3dg, v2dg, obsda%val(nn), obsda%qc(nn), typ=obs(iof)%typ(n))
             end if
-            if ( obtypelist(obs(iof)%typ(n)) == 'SFCSHP' .and. obsda%qc(nn) == iqc_good ) then
-              write(6,'(a,i6,f7.1,e14.3,2f10.1)') 'Check SFCSHP ', obs(iof)%elm(n), obs(iof)%lev(n)*1.e-2, rk, obsda%val(nn), obs(iof)%dat(n)
+!            if ( ( ( obtypelist(obs(iof)%typ(n)) == 'AIRCFT' ) .or. ( obtypelist(obs(iof)%typ(n)) == 'SATWND' ) ) .and. obsda%qc(nn) == iqc_good ) then
+            if (  obsda%qc(nn) == iqc_good ) then
+                write(6,'(a,i6,f7.1,e14.3,3f10.1,x,a)') 'Check obsope', obs(iof)%elm(n), obs(iof)%lev(n)*1.e-2, rk, obsda%val(nn), obs(iof)%dat(n), obs(iof)%err(n), obtypelist(obs(iof)%typ(n))
             endif
           !=====================================================================
           case (obsfmt_radar, obsfmt_radar_nc)

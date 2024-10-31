@@ -1598,7 +1598,7 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,retur
 
   logical :: return_raw_hx_ = .false.
 
-  if ( present( return_raw_hx)) return_raw_hx_ = return_raw_hx
+  if ( present( return_raw_hx )) return_raw_hx_ = return_raw_hx
 
   call state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
 
@@ -1741,8 +1741,8 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,retur
         obsdep_qc(n) = iqc_good
       endif
 
-      if ( return_raw_hx_) then
-        if ( obs(iset)%typ(iidx) == 3 .and. oqc(n) /= iqc_good ) then
+      if ( .not. return_raw_hx_ ) then
+        if ( oqc(n) == iqc_good ) then
           write(6,'(a,2f7.2,f7.1,i7,i8,e13.2)')'Debug monit_obs ', obs(iset)%lon(iidx), obs(iset)%lat(iidx), obs(iset)%lev(iidx)*1.e-2, &
           oqc(n), obs(iset)%elm(iidx), ohx(n)
         endif
@@ -2763,6 +2763,7 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
     err_l(n) = real( obs(set(n))%err(idx(n)), r_sngl )
 
     typ_l(n) = int( obs(set(n))%typ(idx(n)) )
+    write(6,'(a,2f10.1,i10)') 'Check from write_obs_dep_nc: ', omb(n), omb_em(n), n
   enddo
 
   do n = 1, nrank
@@ -3496,7 +3497,7 @@ subroutine get_obsdep_efso( cfile, nobs_local, nobs0, set, idx, qc, dep, ya )
   ! Get variable id
   call ncio_check( nf90_inq_varid( ncid, "set", varid_set ) )
   call ncio_check( nf90_inq_varid( ncid, "idx", varid_idx ) )
-  call ncio_check( nf90_inq_varid( ncid, "omb", varid_dep ) )
+  call ncio_check( nf90_inq_varid( ncid, "omb_emean", varid_dep ) )
   call ncio_check( nf90_inq_varid( ncid, "ya", varid_ya ) )
   call ncio_check( nf90_inq_varid( ncid, "qc", varid_qc ) )
 

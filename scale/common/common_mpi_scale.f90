@@ -1521,7 +1521,7 @@ subroutine write_ens_mpi(v3d, v2d, monit_step)
       deallocate( ya_mean )
 
 
-      if ( myrank_e == 0 ) then
+      if ( myrank_e == mmean_rank_e ) then
         do n = 1, nobs
           if ( obs(obsdep_set(n))%typ(obsdep_idx(n)) == 3 ) then
             do m = 1, MEMBER
@@ -2690,7 +2690,7 @@ subroutine get_obsdep_efso_mpi( nobslocal, nobs0, obsset, obsidx, obsqc, obsdep,
     return
   endif
 
-  if ( myrank_e == 0 ) then
+  if ( myrank_e == mmean_rank_e ) then
     write ( MYRANK_D6,'(I6.6)') myrank_d
     if ( LOG_OUT ) print *, trim( OBSANAL_IN_BASENAME ) // MYRANK_D6 // '.nc'
     call get_obsdep_efso( trim( OBSANAL_IN_BASENAME ) // MYRANK_D6 // '.nc', &
@@ -2699,22 +2699,21 @@ subroutine get_obsdep_efso_mpi( nobslocal, nobs0, obsset, obsidx, obsqc, obsdep,
     ! count the number of obs with qc=iqc_good
     nobslocal_qcok = 0
     do n = 1, nobslocal
-      if ( obs(obsset(n))%typ(obsidx(n)) == 3 ) then
+      if ( obsqc(n) == 0 ) then
         write(6,'(a,2e12.1,2f7.2,f7.1)') 'Debug from get_obsdep_efso_mpi', obsdep(n), obshdxf(1,n), &
         obs(obsset(n))%lon(obsidx(n)), obs(obsset(n))%lat(obsidx(n)), obs(obsset(n))%lev(obsidx(n))*1.e-3
-
       endif
       if ( obsqc(n) == 0 ) nobslocal_qcok = nobslocal_qcok + 1
     end do
 
   endif
-  call MPI_BCAST( obsset, nobslocal, MPI_INTEGER, 0, MPI_COMM_e, ierr )
-  call MPI_BCAST( obsidx, nobslocal, MPI_INTEGER, 0, MPI_COMM_e, ierr )
-  call MPI_BCAST( obsqc,  nobslocal, MPI_INTEGER, 0, MPI_COMM_e, ierr )
-  call MPI_BCAST( obsdep, nobslocal, MPI_r_size, 0, MPI_COMM_e, ierr )
-  call MPI_BCAST( obshdxf, nobslocal*MEMBER, MPI_r_size, 0, MPI_COMM_e, ierr )
+  call MPI_BCAST( obsset, nobslocal, MPI_INTEGER, mmean_rank_e, MPI_COMM_e, ierr )
+  call MPI_BCAST( obsidx, nobslocal, MPI_INTEGER, mmean_rank_e, MPI_COMM_e, ierr )
+  call MPI_BCAST( obsqc,  nobslocal, MPI_INTEGER, mmean_rank_e, MPI_COMM_e, ierr )
+  call MPI_BCAST( obsdep, nobslocal, MPI_r_size,  mmean_rank_e, MPI_COMM_e, ierr )
+  call MPI_BCAST( obshdxf, nobslocal*MEMBER, MPI_r_size, mmean_rank_e, MPI_COMM_e, ierr )
 
-  call MPI_BCAST( nobslocal_qcok, 1, MPI_INTEGER, 0, MPI_COMM_e, ierr )
+  call MPI_BCAST( nobslocal_qcok, 1, MPI_INTEGER, mmean_rank_e, MPI_COMM_e, ierr )
 
   return
 end subroutine get_obsdep_efso_mpi

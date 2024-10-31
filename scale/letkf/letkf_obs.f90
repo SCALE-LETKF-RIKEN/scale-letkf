@@ -1494,7 +1494,6 @@ subroutine set_efso_obs
           vert_loc_ctype(ictype) = VERT_LOCAL_RADAR_VR
         else
           vert_loc_ctype(ictype) = VERT_LOCAL(ityp)
-          write(6,'(a,f10.1,2i8)') 'Check vloc ', VERT_LOCAL(ityp), ityp, ielm_u
         end if
       end if ! [ ctype_use(ielm_u, ityp) ]
     end do ! [ ielm_u = 1, nid_obs ]
@@ -1528,6 +1527,11 @@ subroutine set_efso_obs
   !(4) Reading background observation data and analysis ensemble observations
   
     call get_obsdep_efso_mpi( nobslocal_all, nobs0, obsset, obsidx, obsqc, obsdep, obshdxf, nobslocal_qcok )
+
+  else
+
+    nobslocal_qcok = 0
+
   endif
 
   nobstotal  = nobslocal_qcok
@@ -1535,7 +1539,7 @@ subroutine set_efso_obs
   if ( nobslocal_all > 0 ) then
 
     if ( LOG_OUT ) then
-      write(6,'(a,i10,i8)') 'Total number of observations (local) (qc=ok): ', nobstotal, myrank_d
+      write(6,'(a,2i10,i8)') 'Total number of observations (local) (qc=ok): ', nobslocal_qcok, nobslocal_all, myrank_d
     endif
 
     call obs_da_value_allocate( obsda, MEMBER )
@@ -1548,6 +1552,7 @@ subroutine set_efso_obs
         obsda%idx(i) = obsidx(n)
         obsda%qc (i) = obsqc(n)
         obsda%val(i) = obsdep(n)
+        write(6,'(a,f10.1,i8)')'Check obsdep: ', obsdep(n), obsqc(n)
         do m = 1, MEMBER
           obsda%ensval(m,i) = obshdxf(m,n)
         enddo
@@ -1563,68 +1568,7 @@ subroutine set_efso_obs
 
   endif
 
-  ! (5) Calculate basic observation information
-
-  nobs_max_per_file = 0
-  do iof = 1, OBS_IN_NUM
-    if (obs(iof)%nobs > nobs_max_per_file) then
-      nobs_max_per_file = obs(iof)%nobs
-    end if
-  end do
-
-  nobs_max_per_file_sub = (nobs_max_per_file - 1) / nprocs_a + 1
-  allocate (obrank_bufs(nobs_max_per_file_sub))
-  allocate (ri_bufs(nobs_max_per_file_sub))
-  allocate (rj_bufs(nobs_max_per_file_sub))
-
-  allocate (cntr(nprocs_a))
-  allocate (dspr(nprocs_a))
-
-  ! Use all processes to compute the basic obsevration information
-  ! (locations in model grids and the subdomains they belong to)
-  !-----------------------------------------------------------------------------
-
-  do iof = 1, OBS_IN_NUM
-    if (obs(iof)%nobs > 0) then ! Process basic obsevration information for all observations since this information is not saved in obsda files
-                                ! when using separate observation operators; ignore the 'OBSDA_RUN' setting for this section
-      nsub = obs(iof)%nobs / nprocs_a
-      nmod = mod(obs(iof)%nobs, nprocs_a)
-      do ip = 1, nmod
-        cntr(ip) = nsub + 1
-      end do
-      do ip = nmod+1, nprocs_a
-        cntr(ip) = nsub
-      end do
-      dspr(1) = 0
-      do ip = 2, nprocs_a
-        dspr(ip) = dspr(ip-1) + cntr(ip-1)
-      end do
-
-      obrank_bufs(:) = -1
-!$omp parallel do private(ibufs,n) schedule(static)
-      do ibufs = 1, cntr(myrank_a+1)
-        n = dspr(myrank_a+1) + ibufs
-
-        call phys2ij(obs(iof)%lon(n), obs(iof)%lat(n), ri_bufs(ibufs), rj_bufs(ibufs))
-        call rij_rank(ri_bufs(ibufs), rj_bufs(ibufs), obrank_bufs(ibufs))
-      end do ! [ ibufs = 1, cntr(myrank_a+1) ]
-!$omp end parallel do
-
-      call mpi_timer('obsope_cal:first_scan_cal:', 2, barrier=MPI_COMM_a)
-
-      call MPI_ALLGATHERV(obrank_bufs, cntr(myrank_a+1), MPI_INTEGER, obs(iof)%rank, cntr, dspr, MPI_INTEGER, MPI_COMM_a, ierr)
-      call MPI_ALLGATHERV(ri_bufs,     cntr(myrank_a+1), MPI_r_size,  obs(iof)%ri,   cntr, dspr, MPI_r_size,  MPI_COMM_a, ierr)
-      call MPI_ALLGATHERV(rj_bufs,     cntr(myrank_a+1), MPI_r_size,  obs(iof)%rj,   cntr, dspr, MPI_r_size,  MPI_COMM_a, ierr)
-
-      call mpi_timer('obsope_cal:first_scan_reduce:', 2)
-    end if ! [ obs(iof)%nobs > 0 ]
-  end do ! [ do iof = 1, OBS_IN_NUM ]
-
-  deallocate (cntr, dspr)
-  deallocate (obrank_bufs, ri_bufs, rj_bufs)
-
-
-  ! (6) Set up obsgrd
+  ! (5) Set up obsgrd
   allocate (obsgrd(nctype))
 
   call initiate_obsgrd
@@ -1728,8 +1672,13 @@ subroutine count_obsgrd(obsda,nobs_sub,nobs_g,efso_flag)
     iidx = obsda%idx(n)
     ictype = ctype_elmtyp(uid_obs(obs(iof)%elm(iidx)), obs(iof)%typ(iidx))  
 
-    ri = obs(iof)%ri(iidx)
-    rj = obs(iof)%rj(iidx)
+    if ( efso_flag_ ) then
+      call phys2ij(obs(iof)%lon(iidx), obs(iof)%lat(iidx), ri, rj)
+      call rij_rank(ri, rj, obs(iof)%rank(iidx))
+    else
+      ri = obs(iof)%ri(iidx)
+      rj = obs(iof)%rj(iidx)
+    endif
 
     if (obsda%qc(n) == iqc_good) then
       call ij_obsgrd(ictype, ri, rj, i, j)

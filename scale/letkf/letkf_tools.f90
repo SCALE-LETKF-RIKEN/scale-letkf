@@ -1123,6 +1123,7 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
   integer, allocatable :: obs_g_set(:)
   integer, allocatable :: obs_g_idx(:)
   integer, allocatable :: obs_g_qc (:)
+  real(r_size), allocatable :: obs_g_val(:)
 
   if ( LOG_OUT ) write(6,'(A)') 'Hello from das_efso'
 !  nobstotal = obsda_sort%nobs 
@@ -1325,10 +1326,12 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
     allocate( obs_g_idx(obs(1)%nobs) )
     allocate( obs_g_set(obs(1)%nobs) )
     allocate( obs_g_qc (obs(1)%nobs) )
+    allocate( obs_g_val(obs(1)%nobs) )
 
     obs_g_idx = 0
     obs_g_set = 0
     obs_g_qc  = 0
+    obs_g_val = 0.0_r_size
 
     call init_obsense( obs(1)%nobs )
     if ( LOG_OUT ) write(6,'(a)') 'Finish init_obsense'
@@ -1340,6 +1343,9 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
         obs_g_set(iob) = obsda_sort%set(nob)
         obs_g_idx(iob) = obsda_sort%idx(nob)
         obs_g_qc (iob) = obsda_sort%qc (nob)
+        if ( obs(obsda_sort%set(nob))%rank(obsda_sort%idx(nob))== myrank_d ) then
+          obs_g_val(iob) = obsda_sort%val(nob)
+        endif
       end do
     endif
 
@@ -1349,6 +1355,7 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
     call MPI_ALLREDUCE( MPI_IN_PLACE, obs_g_set, obs(1)%nobs, MPI_INTEGER, MPI_MAX, MPI_COMM_d, ierr )
     call MPI_ALLREDUCE( MPI_IN_PLACE, obs_g_idx, obs(1)%nobs, MPI_INTEGER, MPI_MAX, MPI_COMM_d, ierr )
     call MPI_ALLREDUCE( MPI_IN_PLACE, obs_g_qc,  obs(1)%nobs, MPI_INTEGER, MPI_MAX, MPI_COMM_d, ierr )
+    call MPI_ALLREDUCE( MPI_IN_PLACE, obs_g_val, obs(1)%nobs, MPI_r_size,  MPI_SUM, MPI_COMM_d, ierr )
 
     call MPI_ALLREDUCE( MPI_IN_PLACE, total_impact, 1, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr )
 
@@ -1362,7 +1369,7 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
       ! end do
 
       call write_efso_nc(trim( EFSO_OUTPUT_NC_BASENAME ) // '.nc', obs(1)%nobs, obs_g_set, obs_g_idx, obs_g_qc, obsense_global, total_impact )
-      call print_obsense(obs(1)%nobs, obs_g_set, obs_g_idx, obs_g_qc, obsense_global, total_impact )
+      call print_obsense(obs(1)%nobs, obs_g_set, obs_g_idx, obs_g_qc, obsense_global, total_impact, obs_g_val )
     endif
 
     deallocate( obs_g_set )
