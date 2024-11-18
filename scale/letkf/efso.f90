@@ -118,7 +118,7 @@ program efso
     ! forecast from the ensemble mean of first guess
     if ( myrank_e == mmean_rank_e ) then  
       call read_restart( trim(EFSO_FCST_FROM_GUES_BASENAME), work3dg, work2dg)
-      call state_trans(work3dg,ps=work2dg_diag(:,:,iv2d_diag_ps))
+      call state_trans(work3dg,rotate_flag=.true.,ps=work2dg_diag(:,:,iv2d_diag_ps))
     endif
     call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d_diag,v3dg=real(work3dg,RP),v2dg=real(work2dg_diag,RP),&
                          v3d=fcer3d,v2d=fcer2d)
@@ -129,20 +129,22 @@ program efso
     ! forecast from the analysis ensemble mean
     if ( myrank_e == mmean_rank_e ) then  
       call read_restart( trim(EFSO_FCST_FROM_ANAL_BASENAME), work3dg, work2dg)
-      call state_trans(work3dg,ps=work2dg_diag(:,:,iv2d_diag_ps))
+      call state_trans(work3dg,rotate_flag=.true.,ps=work2dg_diag(:,:,iv2d_diag_ps))
     endif
     call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d_diag,v3dg=real(work3dg,RP),v2dg=real(work2dg_diag,RP),&
                          v3d=work3d,v2d=work2d_diag)
+    ! (f_t + g_t)/2
     fcer3d(:,:,:) = 0.5_r_size * ( fcer3d(:,:,:) + work3d(:,:,:) )
     fcer2d(:,:)   = 0.5_r_size * ( fcer2d(:,:)   + work2d_diag(:,:) )
 
-    fcer3d_diff(:,:,:) = work3d(:,:,:)    - fcer3d_diff(:,:,:) ! e^f_t - e^g_t
-    fcer2d_diff(:,:)   = work2d_diag(:,:) - fcer2d_diff(:,:)   ! e^f_t - e^g_t
+    ! e^f_t - e^g_t
+    fcer3d_diff(:,:,:) = work3d(:,:,:)    - fcer3d_diff(:,:,:) 
+    fcer2d_diff(:,:)   = work2d_diag(:,:) - fcer2d_diff(:,:)   
 
     ! reference analysis ensemble mean
     if ( myrank_e == mmean_rank_e ) then  
       call read_restart( trim(EFSO_ANAL_IN_BASENAME), work3dg, work2dg)
-      call state_trans(work3dg,ps=work2dg_diag(:,:,iv2d_diag_ps))
+      call state_trans(work3dg,rotate_flag=.true.,ps=work2dg_diag(:,:,iv2d_diag_ps))
     endif
     call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d_diag,v3dg=real(work3dg,RP),v2dg=real(work2dg_diag,RP),&
                          v3d=work3d,v2d=work2d_diag)
@@ -154,7 +156,7 @@ program efso
     ! guess mean for full-level pressure computation
     if ( myrank_e == mmean_rank_e ) then  
       call read_restart( trim(EFSO_PREVIOUS_GUES_BASENAME), work3dg, work2dg)
-      call state_trans(work3dg,ps=work2dg_diag(:,:,iv2d_diag_ps))
+      call state_trans(work3dg,rotate_flag=.true.,ps=work2dg_diag(:,:,iv2d_diag_ps))
     endif
     call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d_diag,v3dg=real(work3dg,RP),v2dg=real(work2dg_diag,RP),&
                          v3d=gues3d,v2d=gues2d)

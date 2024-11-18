@@ -1385,7 +1385,7 @@ end subroutine read_restart_trans_history
 !-------------------------------------------------------------------------------
 ! Transform the SCALE restart variables to the LETKF state variables
 !-------------------------------------------------------------------------------
-subroutine state_trans(v3dg,ps)
+subroutine state_trans(v3dg,rotate_flag,ps)
   use scale_tracer, only: TRACER_CV
   use scale_const, only: &
      Rdry   => CONST_Rdry, &
@@ -1398,10 +1398,13 @@ subroutine state_trans(v3dg,ps)
      FZ => ATMOS_GRID_CARTESC_real_FZ
   use scale_atmos_grid_cartesC_index, only: &
      IS, IE, JS, JE, KS, KE
+  use scale_atmos_grid_cartesC_metric, only: &
+     ROTC => ATMOS_GRID_CARTESC_METRIC_ROTC
 
   implicit none
 
   real(RP), intent(inout) :: v3dg(nlev,nlon,nlat,nv3d)
+  logical,  intent(in),  optional :: rotate_flag
   real(RP), intent(out), optional :: ps(nlon,nlat)
   real(RP) :: rho,pres,temp
   real(RP) :: qdry,CVtot,Rtot,CPovCV
@@ -1409,6 +1412,14 @@ subroutine state_trans(v3dg,ps)
 
   real(RP), allocatable :: rho_tmp(:,:,:)
   real(RP), allocatable :: dummy2d(:,:)
+
+  real(RP) :: utmp, vtmp
+
+  logical :: rotate_flag_ = .false.
+
+  if ( present( rotate_flag ) ) then
+    rotate_flag_ = rotate_flag
+  end if
 
   if ( present(ps) ) then
     allocate(rho_tmp(nlev,nlon,nlat))
@@ -1455,6 +1466,23 @@ subroutine state_trans(v3dg,ps)
                                FZ(KS-1:KE,IS:IE,JS:JE),dummy2d,ps )
     deallocate(rho_tmp)
     deallocate(dummy2d)
+  endif
+
+  if ( rotate_flag_ ) then
+    !$omp parallel do private(i,j,k,utmp,vtmp) collapse(2)
+    do j = 1, nlat
+      do i = 1, nlon
+        do k = 1, nlev
+          utmp = v3dg(k,i,j,iv3d_u)
+          vtmp = v3dg(k,i,j,iv3d_v)     
+          
+          v3dg(k,i,j,iv3d_u) = utmp * ROTC(i,j,1) - vtmp * ROTC(i,j,2)
+          v3dg(k,i,j,iv3d_v) = utmp * ROTC(i,j,2) + vtmp * ROTC(i,j,1)
+        
+        enddo
+      enddo
+    enddo
+    !$omp end parallel do
   endif
 
   return

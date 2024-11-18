@@ -3497,7 +3497,7 @@ subroutine get_obsdep_efso( cfile, nobs_local, nobs0, set, idx, qc, dep, ya )
   ! Get variable id
   call ncio_check( nf90_inq_varid( ncid, "set", varid_set ) )
   call ncio_check( nf90_inq_varid( ncid, "idx", varid_idx ) )
-  call ncio_check( nf90_inq_varid( ncid, "omb_emean", varid_dep ) )
+  call ncio_check( nf90_inq_varid( ncid, "omb", varid_dep ) )
   call ncio_check( nf90_inq_varid( ncid, "ya", varid_ya ) )
   call ncio_check( nf90_inq_varid( ncid, "qc", varid_qc ) )
 

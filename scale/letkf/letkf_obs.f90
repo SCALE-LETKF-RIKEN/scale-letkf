@@ -1391,9 +1391,6 @@ end subroutine obs_choose_ext
 !  Modified, renamed from 'read_monit_obs' to 'set_efso_obs', 2013/12/26 Guo-Yuan Lien
 !-----------------------------------------------------------------------
 subroutine set_efso_obs
-  use scale_atmos_grid_cartesC, only: &
-    DX, &
-    DY
   implicit none
 
   integer :: n, m, i
@@ -1552,7 +1549,6 @@ subroutine set_efso_obs
         obsda%idx(i) = obsidx(n)
         obsda%qc (i) = obsqc(n)
         obsda%val(i) = obsdep(n)
-        write(6,'(a,f10.1,i8)')'Check obsdep: ', obsdep(n), obsqc(n)
         do m = 1, MEMBER
           obsda%ensval(m,i) = obshdxf(m,n)
         enddo

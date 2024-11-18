@@ -22,7 +22,7 @@ MODULE efso_tools
   implicit none
 
   private
-  public lnorm, init_obsense, destroy_obsense, write_efso_nc ,print_obsense, get_total_impact!,loc_advection
+  public init_obsense, destroy_obsense, write_efso_nc ,print_obsense, get_total_impact!,loc_advection
   public obsense_global, lon2, lat2, nterm
 
   real(r_size), allocatable :: obsense_global(:,:)
@@ -43,173 +43,7 @@ subroutine init_obsense( nobs )
   return
 end subroutine init_obsense
 
-!-----------------------------------------------------------------------
-! Compute norm
-! [ref: Eq.(6,7,9), Ota et al. 2013]
-!-----------------------------------------------------------------------
-! [INPUT]
-!  fcst3d,fcst2d: (xmean+X)^f_t  (total field)
-!  fcer3d,fcer2d: [1/2(K-1)](e^f_t+e^g_t)
-! [OUTPUT]
-!  fcst3d,fcst2d: C^(1/2)*X^f_t                    [(J/kg)^(1/2)]
-!  fcer3d,fcer2d: C^(1/2)*[1/2(K-1)](e^f_t+e^g_t)  [(J/kg)^(1/2)]
-!  fcer3d_diff,fcer2d_diff: (e^f_t-e^g_t)*C^(1/2)  [(J/kg)^(1/2)]
-!-----------------------------------------------------------------------
-subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d,fcer3d_diff,fcer2d_diff)
-  use scale_const, only:    &
-     Rdry   => CONST_Rdry,  &
-     Rvap   => CONST_Rvap,  &
-     CPdry  => CONST_CPdry, &
-     LHV    => CONST_LHV0
-  implicit none
 
-  real(r_size), intent(inout) :: fcst3d(nij1,nlev,nens,nv3d)
-  real(r_size), intent(inout) :: fcst2d(nij1,nens,nv2d_diag)
-  real(r_size), intent(inout) :: fcer3d(nij1,nlev,nv3d)
-  real(r_size), intent(inout) :: fcer2d(nij1,nv2d_diag)
-
-  real(r_size), intent(inout) :: fcer3d_diff(nij1,nlev,nv3d)
-  real(r_size), intent(inout) :: fcer2d_diff(nij1,nv2d_diag)
-
-  real(r_size), parameter :: tref = 280.0_r_size
-  real(r_size), parameter :: pref = 1.0e+5_r_size
-  real(r_size) :: tmptv(nij1,nlev)
-  real(r_size) :: pdelta(nij1,nlev)
-  real(r_size) :: weight, area_factor
-  real(r_size) :: weight_diff
-  real(r_size) :: rinbv, cptr, qweight, rdtrpr
-
-  real(r_size) :: ps_inv(nij1)
-
-  integer :: iret
-  integer :: i, j, k
-  integer :: iv3d, iv2d, m
-  integer :: ij
-
-  real(r_size) :: wmoist
-
-  real(r_size) :: dsigma
-  real(r_size) :: p_upper, p_lower
-
-  if ( LOG_OUT ) write(6,'(a)') 'Hello from lnorm'
-
-  ! Constants
-  cptr    = sqrt( CPdry / tref )
-  qweight = sqrt( wmoist / ( CPdry*tref ) ) * LHV
-  
-  rdtrpr  = sqrt( Rdry*tref ) / pref
-
-  ! DX * DY / ( DX * DY * nlong * nlatg )
-  area_factor = 1.0_r_size / ( nlong*nlatg ) 
-
-
-  ! Calculate ensemble mean of forecast
-  call ensmean_grd(MEMBER, nens, nij1, nv3d, nv2d_diag, fcst3d, fcst2d)
-
-  ! Calculate ensemble forecast perturbations
-  do m = 1, MEMBER
-    fcst3d(:,:,m,:) = fcst3d(:,:,m,:) - fcst3d(:,:,mmean,:)
-    fcst2d(:,m,:)   = fcst2d(:,m,:)   - fcst2d(:,mmean,:)
-  end do
-
-  do ij = 1, nij1
-    ps_inv(ij) = 1.0_r_size / fcst2d(ij,mmean,iv2d_diag_ps)
-  enddo
-
-  if ( EFSO_USE_MOIST_ENERGY ) then
-    wmoist = 1.0_r_size
-  else
-    wmoist = 0.0_r_size
-  endif
-
-  !  ! For surface variables
-!  IF(tar_minlev <= 1) THEN
-  do ij = 1, nij1
-    do iv2d = 1, nv2d_diag
-      if (iv2d == iv2d_diag_ps ) then
-        !!! [(Rd*Tr)(dS/4pi)]^(1/2) * (ps'/Pr)
-        fcer2d(ij,iv2d)      = rdtrpr * area_factor * fcer2d(ij,iv2d)
-        fcer2d_diff(ij,iv2d) = rdtrpr               * fcer2d_diff(ij,iv2d)
-        do m = 1, MEMBER
-          fcst2d(ij,m,iv2d)  = rdtrpr * area_factor * fcst2d(ij,m,iv2d)
-        enddo
-      else
-        fcer2d(ij,iv2d)          = 0.0_r_size
-        fcer2d_diff(ij,iv2d)     = 0.0_r_size
-        fcst2d(ij,1:MEMBER,iv2d) = 0.0_r_size
-      endif
-    enddo
-  enddo
-
-!#$omp parallel private(k,ij,iv3d,weight,weight_diff,m,dsigma,p_upper,p_lower)
-!#$omp do schedule(static) collapse(2)
-  do k = 1, nlev
-    do ij = 1, nij1
-
-      ! Compute weight
-      if ( k == 1 ) then
-        p_upper = ( fcst3d(ij,k,mmean,iv3d_p) + fcst3d(ij,k+1,mmean,iv3d_p) ) * 0.5_r_size
-        p_lower = fcst2d(ij,mmean,iv2d_diag_ps)
-      else if ( k == nlev ) then
-        p_upper = fcst3d(ij,k,mmean,iv3d_p)
-        p_lower = ( fcst3d(ij,k,mmean,iv3d_p) + fcst3d(ij,k-1,mmean,iv3d_p) ) * 0.5_r_size
-      else
-        p_upper = ( fcst3d(ij,k,mmean,iv3d_p) + fcst3d(ij,k+1,mmean,iv3d_p) ) * 0.5_r_size
-        p_lower = ( fcst3d(ij,k,mmean,iv3d_p) + fcst3d(ij,k-1,mmean,iv3d_p) ) * 0.5_r_size
-      endif
-      dsigma = abs( p_lower - p_upper ) * ps_inv(ij) 
-
-      weight      = sqrt( dsigma ) * area_factor
-      weight_diff = sqrt( dsigma ) 
-
-      do iv3d = 1, nv3d
-        if ( iv3d == iv3d_u .or. iv3d == iv3d_v ) then
-          !!! [(dsigma)(dS/4pi)]^(1/2) * u'
-          !!! [(dsigma)(dS/4pi)]^(1/2) * v'
-          fcer3d(ij,k,iv3d)      = weight      * fcer3d(ij,k,iv3d)
-          fcer3d_diff(ij,k,iv3d) = weight_diff * fcer3d_diff(ij,k,iv3d)
-          do m = 1, MEMBER
-            fcst3d(ij,k,m,iv3d)  = weight * fcst3d(ij,k,m,iv3d)
-          enddo
-        elseif (iv3d == iv3d_t) then
-          !!! [(Cp/Tr)(dsigma)(dS/4pi)]^(1/2) * t'
-          fcer3d(ij,k,iv3d)      = cptr * weight      * fcer3d(ij,k,iv3d)
-          fcer3d_diff(ij,k,iv3d) = cptr * weight_diff * fcer3d_diff(ij,k,iv3d)
-          do m = 1, MEMBER
-            fcst3d(ij,k,m,iv3d)  = cptr * weight * fcst3d(ij,k,m,iv3d)
-          enddo
-        elseif (iv3d == iv3d_q) then
-! specific humidity vs vapor concentration?
-          !!! [(wg*L^2/Cp/Tr)(dsigma)(dS/4pi)]^(1/2) * q'
-          fcer3d(ij,k,iv3d)      = qweight * weight      * fcer3d(ij,k,iv3d)
-          fcer3d_diff(ij,k,iv3d) = qweight * weight_diff * fcer3d_diff(ij,k,iv3d)
-          do m = 1, MEMBER
-            fcst3d(ij,k,m,iv3d)  = qweight * weight * fcst3d(ij,k,m,iv3d)
-          enddo
-        else
-          fcer3d(ij,k,iv3d)      = 0.0_r_size
-          fcer3d_diff(ij,k,iv3d) = 0.0_r_size
-          fcst3d(ij,k,1:MEMBER,iv3d) = 0.0_r_size
-        endif
-      enddo ! iv3d
-    enddo ! ij
-
-  enddo ! k
-!#$omp end do
-!#$omp end parallel
-
-!  do i = 1, nij1
-!    IF(lon1(i) < tar_minlon .or. lon1(i) > tar_maxlon .or. &
-!         & lat1(i) < tar_minlat .or. lat1(i) > tar_maxlat) THEN
-!      fcer2d(i,:) = 0.0_r_size
-!      fcst2d(i,:,:) = 0.0_r_size
-!      fcer3d(i,:,:) = 0.0_r_size
-!      fcst3d(i,:,:,:) = 0.0_r_size
-!    END IF
-!  end do
-
-  return
-end subroutine lnorm
 
 subroutine get_total_impact(fcer3d,fcer2d,fcer3d_diff,fcer2d_diff,total_impact)
   implicit none
@@ -328,11 +162,8 @@ subroutine print_obsense(nobs,set,idx,qc,obsense_global,total_impact,obval)
 
     ! Select observation types
     otype = obs(set(nob))%typ(idx(nob))
-    if ( otype == 3 ) then
-      write(6,'(a,2f6.1,f7.1,i7,2e12.3,i10)') 'Check in print AIRCFT', obs(set(nob))%lon(idx(nob)), obs(set(nob))%lat(idx(nob)), obs(set(nob))%lev(idx(nob))*1.e-3, &
-      obs(set(nob))%elm(idx(nob)), sum(obsense_global(1:nterm,nob)), obval(nob), idx(nob)!, &
-      !obsda_sort%ensval(1,nob), obsda_sort%ensval(2,nob)
-    endif
+    write(6,'(a,a,x,2f6.1,f7.1,i7,2e10.2)') 'Check in print ', obtypelist(otype), obs(set(nob))%lon(idx(nob)), obs(set(nob))%lat(idx(nob)), obs(set(nob))%lev(idx(nob))*1.e-2, &
+    obs(set(nob))%elm(idx(nob)), sum(obsense_global(1:nterm,nob)), obval(nob)
 
     ! Select observation elements
     !oid = ctype_elmtyp(uid_obs(obs(set(nob))%elm(idx(nob))),otype)
