@@ -22,7 +22,7 @@ MODULE efso_tools
   implicit none
 
   private
-  public init_obsense, destroy_obsense, write_efso_nc ,print_obsense, get_total_impact!,loc_advection
+  public init_obsense, destroy_obsense, write_efso_nc, print_obsense, get_total_impact!,loc_advection
   public obsense_global, lon2, lat2, nterm
 
   real(r_size), allocatable :: obsense_global(:,:)
@@ -121,7 +121,7 @@ SUBROUTINE loc_advection(ua,va,uf,vf)
   RETURN
 END SUBROUTINE loc_advection
 
-subroutine print_obsense(nobs,set,idx,qc,obsense_global,total_impact,obval)
+subroutine print_obsense(nobs,set,idx,qc,obsense_global,total_impact,obval,print_dry)
   implicit none
 
   integer, intent(in) :: nobs
@@ -131,6 +131,7 @@ subroutine print_obsense(nobs,set,idx,qc,obsense_global,total_impact,obval)
   real(r_size), intent(in) :: obsense_global(nterm,nobs)
   real(r_size), intent(in) :: total_impact
   real(r_size), intent(in) :: obval(nobs)
+  logical, optional, intent(in) :: print_dry
 
   integer :: nobs_sense(nid_obs,nobtype)
   real(r_size) :: sumsense(nid_obs,nobtype)
@@ -138,9 +139,13 @@ subroutine print_obsense(nobs,set,idx,qc,obsense_global,total_impact,obval)
 
   integer :: nobs_t
   real(r_size) :: sumsense_t, rate_t
+  real(r_size) :: absmax
+  real(r_size) :: obsense
   integer :: nob, oid, otype, iterm
+  logical :: print_dry_ = .true.
 
   if ( nobs == 0 ) return
+  if ( present(print_dry) ) print_dry_ = print_dry
 
   nobs_sense = 0
   sumsense = 0._r_size
@@ -153,37 +158,51 @@ subroutine print_obsense(nobs,set,idx,qc,obsense_global,total_impact,obval)
     if ( qc(nob) /= iqc_good .or. set(nob) < 1 ) cycle
 
     ! Check the range of observation sensitivity
-    if ( any( abs( obsense_global(:,nob) ) > 1.e20_r_size ) ) then
+    if ( print_dry_ ) then
+      absmax = abs( obsense_global(1,nob) )
+    else
+      absmax = maxval( abs( obsense_global(1:nterm,nob) ) )
+    endif
+
+    if ( absmax > 1.e20_r_size ) then
       write(6,'(a,i8,i4,2f7.2,f7.1)') 'Debug too large obsense_global ', &
-      nob, obs(set(nob))%typ(idx(nob)), obs(set(nob))%lon(idx(nob)), obs(set(nob))%lat(idx(nob)), obs(set(nob))%lev(idx(nob))*1.e-3
+      nob, obs(set(nob))%typ(idx(nob)), obs(set(nob))%lon(idx(nob)), obs(set(nob))%lat(idx(nob)), obs(set(nob))%lev(idx(nob))*1.e-2
       cycle
     endif
 
 
     ! Select observation types
     otype = obs(set(nob))%typ(idx(nob))
-    write(6,'(a,a,x,2f6.1,f7.1,i7,2e10.2)') 'Check in print ', obtypelist(otype), obs(set(nob))%lon(idx(nob)), obs(set(nob))%lat(idx(nob)), obs(set(nob))%lev(idx(nob))*1.e-2, &
-    obs(set(nob))%elm(idx(nob)), sum(obsense_global(1:nterm,nob)), obval(nob)
-
+    if ( nob < 20 ) then
+      write(6,'(a,a,x,2f6.1,f7.1,i7,4e10.2)') 'Check in print ', obtypelist(otype), obs(set(nob))%lon(idx(nob)), obs(set(nob))%lat(idx(nob)), obs(set(nob))%lev(idx(nob))*1.e-2, &
+      obs(set(nob))%elm(idx(nob)), obsense_global(1,nob), obsense_global(2,nob), obsense_global(3,nob), obval(nob)
+    endif
+    
     ! Select observation elements
     !oid = ctype_elmtyp(uid_obs(obs(set(nob))%elm(idx(nob))),otype)
     oid = uid_obs(obs(set(nob))%elm(idx(nob)))
 
     ! Sum up
     nobs_sense(oid,otype) = nobs_sense(oid,otype) + 1
-    sumsense(oid,otype)   = sumsense(oid,otype) + sum(obsense_global(1:nterm,nob))
-    ! if ( abs( obsense_global(iterm,nob) ) > 1.e10_r_size) then
-    !   write(6,'(a,e10.2,3i6,i8,i5,2f7.2,f7.1)') 'Debug large obsense_global ',obsense_global(iterm,nob), &
-    !   nob, otype, oid, idx(nob), qc(nob), obs(set(nob))%lon(idx(nob)), obs(set(nob))%lat(idx(nob)), obs(set(nob))%lev(idx(nob))*1.e-3
-    ! endif
-!    write(6,'(a,e10.2,i8,2i6,i8,i5,2f7.2,f7.1)') 'Debug all obsense_global ',obsense_global(iterm,nob), &
-!    nob, otype, oid, idx(nob), qc(nob), obs(set(nob))%lon(idx(nob)), obs(set(nob))%lat(idx(nob)), obs(set(nob))%lev(idx(nob))*1.e-3
-  if ( sum(obsense_global(1:nterm,nob)) < 0._r_size) then
+    if ( print_dry_ ) then
+      obsense = obsense_global(1,nob)
+    else
+      obsense = sum( obsense_global(1:nterm,nob) )
+    endif
+    sumsense(oid,otype) = sumsense(oid,otype) + obsense
+
+    if ( obsense < 0._r_size) then
       rate(oid,otype) = rate(oid,otype) + 1._r_size
     endif
   enddo
 
   if ( LOG_OUT ) then
+    write(6,'(a)') '========================================================='
+    if ( print_dry_ ) then
+      write(6,'(a)') ' Dry energy statistics '
+    else
+      write(6,'(a)') ' Total energy statistics '
+    endif
     WRITE (6, '(A)') '========================================================='
     WRITE (6, '(A,I10)') ' TOTAL NUMBER OF OBSERVATIONS:', nobstotalg
     WRITE (6, '(A)') '========================================================='

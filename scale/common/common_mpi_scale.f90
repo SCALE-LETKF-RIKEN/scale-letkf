@@ -1523,11 +1523,7 @@ subroutine write_ens_mpi(v3d, v2d, monit_step)
 
       if ( myrank_e == mmean_rank_e ) then
         do n = 1, nobs
-          if ( obs(obsdep_set(n))%typ(obsdep_idx(n)) == 3 ) then
-            do m = 1, MEMBER
-              write(6,'(a,i9,i6,e13.1,2f7.2,f7.1,i7)') 'Debug ya_local ', n, m, ya_local(m,n), obs(obsdep_set(n))%lon(obsdep_idx(n)), obs(obsdep_set(n))%lat(obsdep_idx(n)), obs(obsdep_set(n))%lev(obsdep_idx(n))*1.e-2, obs(obsdep_set(n))%elm(obsdep_idx(n))
-            enddo
-          endif
+          write(6,'(a,i9,2f7.2,f7.1,i7,2e10.2)') 'Debug ya_local ', n, obs(obsdep_set(n))%lon(obsdep_idx(n)), obs(obsdep_set(n))%lat(obsdep_idx(n)), obs(obsdep_set(n))%lev(obsdep_idx(n))*1.e-2, obs(obsdep_set(n))%elm(obsdep_idx(n)), maxval(ya_local(:,n)), minval(ya_local(:,n))
         enddo
         write ( MYRANK_D6,'(I6.6)') myrank_d
         call write_obs_anal_rank_nc( trim( OBSANAL_OUT_BASENAME ) // MYRANK_D6 // '.nc', &

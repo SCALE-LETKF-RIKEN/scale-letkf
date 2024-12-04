@@ -991,9 +991,10 @@ while ((time <= ETIME)); do
       GUES_SPRD_OUT_BASENAME="${RESTART_OUT_PATH[$d]}/../gues/sprd/init_$(datetime_scale $atime)"
       ANAL_OUT_BASENAME="${RESTART_OUT_PATH[$d]}/<member>/init_$(datetime_scale $atime)"
       EFSO_ANAL_IN_BASENAME="${RESTART_OUT_PATH[$d]}/mean/init_$(datetime_scale $atime)"
-      EFSO_FCST_FROM_GUES_BASENAME="${HISTORY_EFSO_PATH}/mgue/init_$(datetime_scale $atime)"
-      EFSO_FCST_FROM_ANAL_BASENAME="${HISTORY_EFSO_PATH}/mean/init_$(datetime_scale $atime)"
-      EFSO_EFCST_FROM_ANAL_BASENAME="${HISTORY_EFSO_PATH}/<member>/init_$(datetime_scale $atime)"
+      EFSO_FCST_FROM_GUES_BASENAME="${OUTDIR[$d]}/${time}/fcst/mgue/init_$(datetime_scale $atime)" 
+      EFSO_FCST_FROM_ANAL_BASENAME="${OUTDIR[$d]}/${time}/fcst/mean/init_$(datetime_scale $atime)" 
+      EFSO_EFCST_FROM_ANAL_BASENAME="${OUTDIR[$d]}/${time}/fcst/<member>/init_$(datetime_scale $atime)"
+#      EFSO_EFCST_FROM_ANAL_BASENAME="${HISTORY_EFSO_PATH}/<member>/init_$(datetime_scale $atime)"
       EFSO_PREVIOUS_GUES_BASENAME="${RESTART_OUT_PATH[$d]}/../../${time}/gues/mean/init_$(datetime_scale $time)"
       RESTART_IN_BASENAME_SCALE="${RESTART_OUT_PATH[$d]}/../gues/<member>/init"
     fi
@@ -1249,9 +1250,12 @@ config_file_scale_core (){
 
       RESTART_OUTPUT_TF=".true."
 
-      mkdir -p ${OUTDIR[$d]}/$atime/anal/${name_m[$mlocal]}
-      mkdir -p ${OUTDIR[$d]}/$atime/gues/${name_m[$mlocal]}
-      mkdir -p ${OUTDIR[$d]}/$time/hist/${name_m[$mlocal]}
+      if (( mlocal != mmgue)); then
+        mkdir -p ${OUTDIR[$d]}/$atime/anal/${name_m[$mlocal]}
+        mkdir -p ${OUTDIR[$d]}/$atime/gues/${name_m[$mlocal]}
+        mkdir -p ${OUTDIR[$d]}/$time/hist/${name_m[$mlocal]}
+      fi
+
 
       if ((DISK_MODE >= 1)) ;then
         RESTART_IN_BASENAME[$d]="${RESTART_IN_PATH[$d]}/${name_m[$mlocal]}/anal"
@@ -1264,6 +1268,31 @@ config_file_scale_core (){
         fi
         RESTART_OUT_BASENAME[$d]="${RESTART_OUT_PATH[$d]}/${name_m[$mlocal]}/init"
       fi
+
+
+      if (( EFSO_RUN == 1 && mlocal == mmgue)); then
+
+        if ((DISK_MODE >= 1)) ;then
+          RESTART_IN_BASENAME[$d]="${RESTART_IN_PATH[$d]}/mean/gues"
+        else
+          RESTART_IN_BASENAME[$d]="${RESTART_IN_PATH[$d]}/../../${time}/gues/mean/init"
+        fi
+        RESTART_OUT_BASENAME[$d]="${RESTART_IN_PATH[$d]}/../../${time}/fcst/mgue/init"
+        mkdir -p "${RESTART_IN_PATH[$d]}/../../${time}/fcst/mgue"
+        for m in $(seq $MEMBER); do
+          mkdir -p "${RESTART_IN_PATH[$d]}/../../${time}/fcst/$(printf $MEMBER_FMT $m)"
+        done
+        
+        #"${RESTART_IN_BASENAME[$d]}"
+
+#        ln -fs ${OUTDIR[$d]}/${time}/gues/mean ${OUTDIR[$d]}/${time}/gues/${name_m[$mlocal]} # tentative
+#        mkdir -p ${OUTDIR[$d]}/${time}/gues/${name_m[$mlocal]}
+
+#        RESTART_IN_PATH[$d]="${RESTART_IN_PATH[$d]}/../../${time}/gues"
+#        RESTART_OUT_PATH[$d]="${RESTART_OUT_PATH[$d]}/../../${time}/gues"
+      fi
+
+
 
       if ((WINDOW_S == LCYCLE && WINDOW_E == LCYCLE));then
         HISTORY_OUT_WAIT=$((LCYCLE+LTIMESLOT)) ### 3D-LETKF : suppress history output

@@ -312,6 +312,8 @@ while ((time <= ETIME)); do
 #            mkdir -p $BGDIR/gues/$mem
 #            cp -r $BGDIR/anal/$mem/* $BGDIR/gues/$mem/
 #          done
+          mpiexec -n $((NNODES*PPN)) ./copy_restart_mpi.sh $BGDIR/anal $OUTDIR/$time/fcst $atime
+          mpiexec_cnt=$((mpiexec_cnt+1))
         fi
         if ((OUT_OPT <= 3)) ;then
           mpiexec -n $((NNODES*PPN)) ./copy_restart_mpi.sh $BGDIR/anal $OUTDIR/$atime/gues $atime
