@@ -1416,9 +1416,10 @@ subroutine set_efso_obs
   real(r_size), allocatable :: rj_bufs(:)
 
   integer, allocatable :: cntr(:), dspr(:)
+
+  real(r_size) :: sprd
   
   if ( LOG_OUT ) write(6,'(A)') 'Hello from set_efso_obs'
-
 
   ! (1) set up ctype_use and nctype
   ctype_use(:,:) = .false.
@@ -1549,10 +1550,14 @@ subroutine set_efso_obs
         obsda%idx(i) = obsidx(n)
         obsda%qc (i) = obsqc(n)
         obsda%val(i) = obsdep(n)
+        sprd = 0.0_r_size
         do m = 1, MEMBER
           obsda%ensval(m,i) = obshdxf(m,n)
+          sprd = sprd + obshdxf(m,n)**2
         enddo
-
+        sprd = sqrt(sprd / real(MEMBER-1,r_size))
+        write(6,'(a,3e11.1)') 'Debug obsda ensval: ', sum(obsda%ensval(1:MEMBER,i)), obsda%ensval(1,i), sprd
+        
       endif
     enddo
   

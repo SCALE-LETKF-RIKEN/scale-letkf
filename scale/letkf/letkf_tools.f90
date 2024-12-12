@@ -1236,7 +1236,7 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
             if ( iterm == 3 .and. ilev == 1 .and. ij == 1 ) then
               write(6,'(a,3e10.2)') 'Check work1: ', maxval(work1(3,1:MEMBER)), maxval(fcst3d(ij,ilev,1:MEMBER,iv3d)), fcer3d(ij,ilev,iv3d)
             endif
-        endif
+          endif
         enddo ! nv3d
 
         if( ilev == 1 ) then
@@ -1269,6 +1269,9 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
             else
               hdxa_rinv(nob,m) = hdxf(nob,m) / nrdiag(nob) 
             endif
+            if ( ilev == 1 .and. ij == 1 .and. m == 1 .and. nob == 1 ) then
+              write(6,'(a,6e12.3)')'Debug hdxa_rinv: ', hdxa_rinv(nob,m), hdxf(nob,m), sum(hdxf(nob,1:MEMBER)), nrdiag(nob), nrloc(nob), dep(nob)
+            endif
           enddo
         enddo 
         !!! hdxa_rinv: rho*R^(-1)*Y^a_0 = rho*R^(-1)*(H X^a_0)
@@ -1277,7 +1280,7 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
         do nob = 1, nobsl
           iob = vobsidx_l(nob)
           do m = 1, MEMBER
-            djdy(:,iob) = djdy(:,iob) + work1(:,m) * hdxa_rinv(nob,m)
+            djdy(1:nterm,iob) = djdy(1:nterm,iob) + work1(1:nterm,m) * hdxa_rinv(nob,m)
           enddo
         enddo
         !!! djdy: [1/2(K-1)]rho*R^(-1)*Y^a_0*(X^f_t)^T*C*(e^f_t+e^g_t)
@@ -1304,8 +1307,8 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
 !!$omp parallel private(nob)
 !!$omp do
   do nob = 1, nobstotal
-    if ( mod(nob,100)==0 ) then
-      write(6,'(a,3e12.2,i9)') 'Check djdy ', djdy(1,nob), djdy(2,nob), djdy(3,nob), nob
+    if ( mod(nob,200)==0 ) then
+      write(6,'(a,3e12.2,i9,2f10.1)') 'Check djdy ', djdy(1,nob), djdy(2,nob), djdy(3,nob), nob, obsda_sort%val(nob), obs(obsda_sort%set(nob))%dat(obsda_sort%idx(nob))
     endif
     obsense(1:nterm,nob) = djdy(1:nterm,nob) * obsda_sort%val(nob)
     ! if ( LOG_OUT .and. mod(nob,50) == 0 ) then
@@ -1324,6 +1327,7 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
 
   if ( nprocs_e > 1 ) then
     call MPI_ALLREDUCE( MPI_IN_PLACE, obsense, nterm*nobstotal, MPI_r_size, MPI_SUM, MPI_COMM_e, ierr )
+    call MPI_ALLREDUCE( MPI_IN_PLACE, total_impact, 1, MPI_r_size, MPI_SUM, MPI_COMM_e, ierr )
   endif
   if ( LOG_OUT ) write(6,'(a)') 'Finish MPI comm'
   
@@ -1373,7 +1377,7 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
       ! do nob = 1, nobstotalg
       !   write(6,'(a,3f8.2,i15)') 'Check obsense_global:', obsense_global(1,nob), obsense_global(2,nob), obsense_global(3,nob), nob
       ! end do
-
+      
       call write_efso_nc(trim( EFSO_OUTPUT_NC_BASENAME ) // '.nc', obs(1)%nobs, obs_g_set, obs_g_idx, obs_g_qc, obsense_global, total_impact )
       call print_obsense(obs(1)%nobs, obs_g_set, obs_g_idx, obs_g_qc, obsense_global, total_impact, obs_g_val, print_dry=.true. )
       call print_obsense(obs(1)%nobs, obs_g_set, obs_g_idx, obs_g_qc, obsense_global, total_impact, obs_g_val, print_dry=.false. )
@@ -2181,8 +2185,7 @@ subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d,fcer3d_diff,fcer2d_diff)
 
   real(r_size), parameter :: tref = 280.0_r_size
   real(r_size), parameter :: pref = 1.0e+5_r_size
-  real(r_size) :: weight, area_factor
-  real(r_size) :: weight_diff
+  real(r_size) :: weight, area_factor_root
   real(r_size) :: rinbv, cptr, qweight, rdtrpr
 
   real(r_size) :: ps_inv(nij1)
@@ -2210,7 +2213,7 @@ subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d,fcer3d_diff,fcer2d_diff)
   rdtrpr  = sqrt( Rdry*tref ) / pref
 
   ! DX * DY / ( DX * DY * nlong * nlatg )
-  area_factor = 1.0_r_size / ( nlong*nlatg ) 
+  area_factor_root = sqrt( 1.0_r_size / ( nlong*nlatg ) )
 
 
   ! Calculate ensemble mean of forecast
@@ -2225,6 +2228,7 @@ subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d,fcer3d_diff,fcer2d_diff)
         enddo
       enddo
     enddo
+    write(6,'(a,2f10.1,x,a)') 'Chech fcst3d_pert_lnorm', maxval( fcst3d(:,:,1:MEMBER,iv3d) ), sum( fcst3d(3,3,1:MEMBER,iv3d) ), v3dd_name(iv3d) 
   enddo
 
   do iv2d = 1, nv2d_diag
@@ -2241,18 +2245,17 @@ subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d,fcer3d_diff,fcer2d_diff)
 
 
   !  ! For surface variables
-!  IF(tar_minlev <= 1) THEN
   do ij = 1, nij1
     call relax_beta(rig1(ij),rjg1(ij),hgt1(ij,1),beta)
-    beta = sqrt( beta)
+    beta = sqrt( beta )
 
     do iv2d = 1, nv2d_diag
       if (iv2d == iv2d_diag_ps ) then
         !!! [(Rd*Tr)(dS/4pi)]^(1/2) * (ps'/Pr)
-        fcer2d(ij,iv2d)      = rdtrpr * area_factor * fcer2d(ij,iv2d) * beta
-        fcer2d_diff(ij,iv2d) = rdtrpr               * fcer2d_diff(ij,iv2d) * beta
+        fcer2d(ij,iv2d)      = rdtrpr * area_factor_root * fcer2d(ij,iv2d) * beta
+        fcer2d_diff(ij,iv2d) = rdtrpr * area_factor_root * fcer2d_diff(ij,iv2d) * beta
         do m = 1, MEMBER
-          fcst2d(ij,m,iv2d)  = rdtrpr * area_factor * fcst2d(ij,m,iv2d)
+          fcst2d(ij,m,iv2d)  = rdtrpr * area_factor_root * fcst2d(ij,m,iv2d) * beta
         enddo
       else
         fcer2d(ij,iv2d)          = 0.0_r_size
@@ -2279,37 +2282,37 @@ subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d,fcer3d_diff,fcer2d_diff)
         p_lower = ( fcst3d(ij,k,mmean,iv3d_p) + fcst3d(ij,k-1,mmean,iv3d_p) ) * 0.5_r_size
       endif
       dsigma = abs( p_lower - p_upper ) * ps_inv(ij) 
-
-      weight      = sqrt( dsigma ) * area_factor
-      weight_diff = sqrt( dsigma ) 
+      if ( ij == 1 ) then
+        write(6,'(a,3f8.1,2e11.3)')'debug p_up_low ', p_upper*1.e-2, p_lower*1.e-2, fcst2d(ij,mmean,iv2d_diag_ps)*1.e-2, ps_inv(ij), dsigma
+      endif
 
       call relax_beta(rig1(ij),rjg1(ij),hgt1(ij,k),beta)
-      beta = sqrt( beta)
+
+      weight = sqrt( dsigma * beta ) * area_factor_root
 
 
       do iv3d = 1, nv3d
         if ( iv3d == iv3d_u .or. iv3d == iv3d_v ) then 
           !!! [(dsigma)(dS/4pi)]^(1/2) * u'
           !!! [(dsigma)(dS/4pi)]^(1/2) * v'
-          fcer3d(ij,k,iv3d)      = weight      * fcer3d(ij,k,iv3d) * beta
-          fcer3d_diff(ij,k,iv3d) = weight_diff * fcer3d_diff(ij,k,iv3d) * beta
+          fcer3d(ij,k,iv3d)      = weight * fcer3d(ij,k,iv3d) 
+          fcer3d_diff(ij,k,iv3d) = weight * fcer3d_diff(ij,k,iv3d) 
           do m = 1, MEMBER
-            fcst3d(ij,k,m,iv3d)  = weight * fcst3d(ij,k,m,iv3d)
+            fcst3d(ij,k,m,iv3d)  = weight * fcst3d(ij,k,m,iv3d) 
           enddo
         elseif (iv3d == iv3d_t) then
           !!! [(Cp/Tr)(dsigma)(dS/4pi)]^(1/2) * t'
-          fcer3d(ij,k,iv3d)      = cptr * weight      * fcer3d(ij,k,iv3d) * beta
-          fcer3d_diff(ij,k,iv3d) = cptr * weight_diff * fcer3d_diff(ij,k,iv3d) * beta
+          fcer3d(ij,k,iv3d)      = cptr * weight * fcer3d(ij,k,iv3d) * beta
+          fcer3d_diff(ij,k,iv3d) = cptr * weight * fcer3d_diff(ij,k,iv3d) * beta
           do m = 1, MEMBER
-            fcst3d(ij,k,m,iv3d)  = cptr * weight * fcst3d(ij,k,m,iv3d)
+            fcst3d(ij,k,m,iv3d)  = cptr * weight * fcst3d(ij,k,m,iv3d) * beta
           enddo
         elseif (iv3d == iv3d_q) then
-! specific humidity vs vapor concentration?
           !!! [(wg*L^2/Cp/Tr)(dsigma)(dS/4pi)]^(1/2) * q'
-          fcer3d(ij,k,iv3d)      = qweight * weight      * fcer3d(ij,k,iv3d) * beta
-          fcer3d_diff(ij,k,iv3d) = qweight * weight_diff * fcer3d_diff(ij,k,iv3d) * beta
+          fcer3d(ij,k,iv3d)      = qweight * weight * fcer3d(ij,k,iv3d) * beta
+          fcer3d_diff(ij,k,iv3d) = qweight * weight * fcer3d_diff(ij,k,iv3d) * beta
           do m = 1, MEMBER
-            fcst3d(ij,k,m,iv3d)  = qweight * weight * fcst3d(ij,k,m,iv3d)
+            fcst3d(ij,k,m,iv3d)  = qweight * weight * fcst3d(ij,k,m,iv3d) * beta
           enddo
         else
           fcer3d(ij,k,iv3d)      = 0.0_r_size

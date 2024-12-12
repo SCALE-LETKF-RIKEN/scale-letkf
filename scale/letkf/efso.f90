@@ -130,7 +130,7 @@ program efso
     call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d_diag,v3dg=real(work3dg,RP),v2dg=real(work2dg_diag,RP),&
                          v3d=fcer3d,v2d=fcer2d)
     do iv3d = 1, nv3d
-      write(6,'(a,2e12.2,x,a)')'Debug L132', fcer3d(3,3,iv3d),maxval(fcer3d(3,:,iv3d)), v3dd_name(iv3d)
+      write(6,'(a,2e12.2,x,a)')'Debug L132 fcst gues/mean', fcer3d(3,3,iv3d),maxval(fcer3d(3,:,iv3d)), v3dd_name(iv3d)
     enddo
                     
 
@@ -145,7 +145,7 @@ program efso
     call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d_diag,v3dg=real(work3dg,RP),v2dg=real(work2dg_diag,RP),&
                          v3d=work3d,v2d=work2d_diag)
     do iv3d = 1, nv3d
-      write(6,'(a,2e12.2,x,a)')'Debug L147', work3d(3,3,iv3d),maxval(work3d(3,:,iv3d)), v3dd_name(iv3d)
+      write(6,'(a,2e12.2,x,a)')'Debug L147 fcst manl ', work3d(3,3,iv3d), maxval(work3d(3,:,iv3d)), v3dd_name(iv3d)
     enddo
                     
     ! (f_t + g_t)/2
@@ -157,7 +157,7 @@ program efso
       enddo
     enddo
     do iv3d = 1, nv3d
-      write(6,'(a,2e10.2,x,a)') 'Check L158 ', maxval(fcer3d(:,:,iv3d)), minval(fcer3d(:,:,iv3d)), v3dd_name(iv3d)
+      write(6,'(a,2e10.2,x,a)') 'Check L158 fcer (f+g)/2', maxval(fcer3d(:,:,iv3d)), minval(fcer3d(:,:,iv3d)), v3dd_name(iv3d)
     enddo
     do iv2d = 1, nv2d_diag
       do ij = 1, nij1
@@ -188,10 +188,11 @@ program efso
     call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d_diag,v3dg=real(work3dg,RP),v2dg=real(work2dg_diag,RP),&
                          v3d=work3d,v2d=work2d_diag)
     do iv3d = 1, nv3d
-      write(6,'(a,2e12.2,x,a)')'Debug L186', work3d(3,3,iv3d),maxval(work3d(3,:,iv3d)), v3dd_name(iv3d)
+      write(6,'(a,2e12.2,x,a)')'Debug L186 reference ', work3d(3,3,iv3d), maxval(work3d(3,:,iv3d)), v3dd_name(iv3d)
     enddo                 
 
     !!! fcer3d,fcer2d: [1/2(K-1)](e^f_t+e^g_t) [Eq.(6), Ota et al. 2013]
+    ! (f_t + g_t)/2 - reference = 1/2(e^f_t+e^g_t)
     do iv3d = 1, nv3d
       do k = 1, nlev
         do ij = 1, nij1
@@ -206,11 +207,11 @@ program efso
     enddo
     print *,""
     do iv3d = 1, nv3d
-      write(6,'(a,3e10.2,x,a)')'Debug L208', fcer3d(3,3,iv3d), maxval(fcer3d(:,:,iv3d)), minval(fcer3d(:,:,iv3d)), v3dd_name(iv3d)
+      write(6,'(a,3e10.2,x,a)')'Debug L209 fcer ', fcer3d(3,3,iv3d), maxval(fcer3d(:,:,iv3d)), minval(fcer3d(:,:,iv3d)), v3dd_name(iv3d)
     enddo                 
     print *,""
     do iv2d = 1, nv2d_diag
-      write(6,'(a,3e10.2,x,a)')'Debug L212', fcer2d(3,iv2d), maxval(fcer2d(:,iv2d)), minval(fcer2d(:,iv2d)), 'Ps'
+      write(6,'(a,3e10.2,x,a)')'Debug L209 fcer ', fcer2d(3,iv2d), maxval(fcer2d(:,iv2d)), minval(fcer2d(:,iv2d)), 'Ps'
     enddo                 
     print *,""
 
@@ -222,7 +223,7 @@ program efso
     call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d_diag,v3dg=real(work3dg,RP),v2dg=real(work2dg_diag,RP),&
                          v3d=gues3d,v2d=gues2d)
     do iv3d = 1, nv3d
-      write(6,'(a,2e12.2,x,a)')'Debug L181', gues3d(3,3,iv3d),maxval(gues3d(3,:,iv3d)), v3dd_name(iv3d)
+      write(6,'(a,2e12.2,x,a)')'Debug L181 guess ', gues3d(3,3,iv3d),maxval(gues3d(3,:,iv3d)), v3dd_name(iv3d)
     enddo
                     
 
