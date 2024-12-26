@@ -122,31 +122,39 @@ program efso
     !
     ! Forecast error at evaluation time
     !
-    ! forecast from the ensemble mean of first guess
-    if ( myrank_e == mmean_rank_e ) then  
-      call read_restart( trim(EFSO_FCST_FROM_GUES_BASENAME), work3dg, work2dg)
-      call state_trans(work3dg,rotate_flag=.true.,ps=work2dg_diag(:,:,iv2d_diag_ps))
-    endif
-    call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d_diag,v3dg=real(work3dg,RP),v2dg=real(work2dg_diag,RP),&
-                         v3d=fcer3d,v2d=fcer2d)
-    do iv3d = 1, nv3d
-      write(6,'(a,2e12.2,x,a)')'Debug L132 fcst gues/mean', fcer3d(3,3,iv3d),maxval(fcer3d(3,:,iv3d)), v3dd_name(iv3d)
-    enddo
-                    
-
-    fcer3d_diff(:,:,:) = fcer3d(:,:,:)  ! g_t
-    fcer2d_diff(:,:)   = fcer2d(:,:)    ! g_t
-
     ! forecast from the analysis ensemble mean
     if ( myrank_e == mmean_rank_e ) then  
       call read_restart( trim(EFSO_FCST_FROM_ANAL_BASENAME), work3dg, work2dg)
       call state_trans(work3dg,rotate_flag=.true.,ps=work2dg_diag(:,:,iv2d_diag_ps))
     endif
     call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d_diag,v3dg=real(work3dg,RP),v2dg=real(work2dg_diag,RP),&
-                         v3d=work3d,v2d=work2d_diag)
+                         v3d=fcer3d,v2d=fcer2d)
     do iv3d = 1, nv3d
-      write(6,'(a,2e12.2,x,a)')'Debug L147 fcst manl ', work3d(3,3,iv3d), maxval(work3d(3,:,iv3d)), v3dd_name(iv3d)
+      write(6,'(a,2e12.2,x,a)')'Debug L134 fcst manl ', work3d(3,3,iv3d), maxval(work3d(3,:,iv3d)), v3dd_name(iv3d)
     enddo
+
+    ! forecast from the ensemble mean of first guess
+    if ( myrank_e == mmean_rank_e ) then  
+      call read_restart( trim(EFSO_FCST_FROM_GUES_BASENAME), work3dg, work2dg)
+      call state_trans(work3dg,rotate_flag=.true.,ps=work2dg_diag(:,:,iv2d_diag_ps))
+    endif
+    call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d_diag,v3dg=real(work3dg,RP),v2dg=real(work2dg_diag,RP),&
+                         v3d=work3d,v2d=work2d_diag)
+
+    ! e^f_t - e^g_t
+    do iv3d = 1, nv3d
+      do k = 1, nlev
+        do ij = 1, nij1
+          fcer3d_diff(ij,k,iv3d) = fcer3d(ij,k,iv3d) - work3d(ij,k,iv3d)
+        enddo
+      enddo
+    enddo 
+
+    do iv2d = 1, nv2d_diag
+      do ij = 1, nij1
+        fcer2d_diff(ij,iv2d) = fcer2d(ij,iv2d) - work2d_diag(ij,iv2d)
+      enddo
+    enddo   
                     
     ! (f_t + g_t)/2
     do iv3d = 1, nv3d
@@ -157,7 +165,7 @@ program efso
       enddo
     enddo
     do iv3d = 1, nv3d
-      write(6,'(a,2e10.2,x,a)') 'Check L158 fcer (f+g)/2', maxval(fcer3d(:,:,iv3d)), minval(fcer3d(:,:,iv3d)), v3dd_name(iv3d)
+      write(6,'(a,2e10.2,x,a)') 'Check L170 fcer (f+g)/2', maxval(fcer3d(:,:,iv3d)), minval(fcer3d(:,:,iv3d)), v3dd_name(iv3d)
     enddo
     do iv2d = 1, nv2d_diag
       do ij = 1, nij1
@@ -165,20 +173,6 @@ program efso
       enddo
     enddo
 
-    ! e^f_t - e^g_t
-    do iv3d = 1, nv3d
-      do k = 1, nlev
-        do ij = 1, nij1
-          fcer3d_diff(ij,k,iv3d) = work3d(ij,k,iv3d) - fcer3d_diff(ij,k,iv3d)
-        enddo
-      enddo
-    enddo 
-
-    do iv2d = 1, nv2d_diag
-      do ij = 1, nij1
-        fcer2d_diff(ij,iv2d) = work2d_diag(ij,iv2d) - fcer2d_diff(ij,iv2d)
-      enddo
-    enddo   
 
     ! reference analysis ensemble mean
     if ( myrank_e == mmean_rank_e ) then  

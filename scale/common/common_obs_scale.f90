@@ -3336,9 +3336,9 @@ subroutine write_obs_anal_rank_nc( filename, ya )
     ya_l(1:MEMBER,n) = real( ya(1:MEMBER,n), r_sngl )
     if ( obtypelist(obs(obsdep_set(n))%typ(obsdep_idx(n))) == 'SATWND' ) then
       if ( obs(obsdep_set(n))%elm(obsdep_idx(n)) == id_u_obs) then 
-        write(6,'(a,2e11.2,2f7.2,f7.1,e11.2,i6,f8.1)')'Debug write_obs_anal_rank_nc SATWND U', maxval(ya_l(1:MEMBER,n)), minval(ya_l(1:MEMBER,n)), lon_l(n), lat_l(n), lev_l(n)*1.e-2, omb_l(n), obsdep_qc(n), err_l(n)
+        write(6,'(a,3f7.2,2f7.1,i6,2f6.1)')'Debug write_obs_anal_rank_nc SATWND U', lon_l(n), lat_l(n), lev_l(n)*1.e-2, omb_l(n), omb_emean_l(n),obsdep_qc(n), dat_l(n), err_l(n)
       else if ( obs(obsdep_set(n))%elm(obsdep_idx(n)) == id_v_obs) then 
-        write(6,'(a,2e11.2,2f7.2,f7.1,e11.2,i6,f8.1)')'Debug write_obs_anal_rank_nc SATWND V', maxval(ya_l(1:MEMBER,n)), minval(ya_l(1:MEMBER,n)), lon_l(n), lat_l(n), lev_l(n)*1.e-2, omb_l(n), obsdep_qc(n), err_l(n)
+        write(6,'(a,2e11.2,2f7.2,f7.1,e11.2,i6,2f6.1)')'Debug write_obs_anal_rank_nc SATWND V', maxval(ya_l(1:MEMBER,n)), minval(ya_l(1:MEMBER,n)), lon_l(n), lat_l(n), lev_l(n)*1.e-2, omb_l(n), obsdep_qc(n), dat_l(n), err_l(n)
       endif
     endif
 

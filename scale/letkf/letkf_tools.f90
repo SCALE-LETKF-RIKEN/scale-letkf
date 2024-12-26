@@ -1125,6 +1125,8 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
   integer, allocatable :: obs_g_qc (:)
   real(r_size), allocatable :: obs_g_val(:)
 
+  real(r_size) :: rlon, rlat 
+
   if ( LOG_OUT ) write(6,'(A)') 'Hello from das_efso'
 !  nobstotal = obsda_sort%nobs 
   if ( LOG_OUT ) write(6,'(A,I8)') 'Target observation numbers (global)    : NOBS=', nobstotalg
@@ -1192,27 +1194,11 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
 
   do ilev = 1, nlev
     do ij = 1, nij1
+
       call obs_local( rig1(ij), rjg1(ij), gues3d(ij,ilev,iv3d_p), hgt1(ij,ilev), &
                       0, & ! No variable localization
                       hdxf, nrdiag, nrloc, dep, nobsl, &
                       vobsidx_l=vobsidx_l ) 
-      ! if ( nobsl > 0 ) then
-      !   write(6,'(a,e10.4,4i7)') 'Check hdxf: ', maxval(abs(hdxf(1:nobsl,:))), obs(obsda_sort%set(nob))%typ(obsda_sort%idx(nob)), obs(obsda_sort%set(nob))%elm(obsda_sort%idx(nob)), ij, ilev
-      ! endif
-      
-      ! if ( ilev == 1 .and. ij == 1 ) then
-      !   do nob = 1, nobsl
-      !     iob = vobsidx_l(nob)
-      !     write(6,'(a,2e10.3,2i7)') 'Check hdxf: ', maxval(abs(hdxf(nob,1:MEMBER))), maxval(abs(obsda_sort%ensval(1:MEMBER,iob))), iob, nob !obs(obsda_sort%set(nob))%typ(obsda_sort%idx(nob)), obs(obsda_sort%set(nob))%elm(obsda_sort%idx(nob)), ij, ilev
-      !     ! if ( obs(obsda_sort%set(iob))%typ(obsda_sort%idx(iob)) == 1 .and. obs(obsda_sort%set(iob))%elm(obsda_sort%idx(iob)) == id_u_obs .and. ( nrdiag(nob) < 0.0001_r_size .or. abs(rloc(nob)) > 1.e10 ) ) then
-      !     !   write(6,'(a,e12.2,2f7.1,f5.1,2i6)') 'rdiag v', nrdiag(nob), obs(obsda_sort%set(iob))%lev(obsda_sort%idx(iob))*1.e-2, gues3d(ij,ilev,iv3d_p)*1.e-2, hgt1(ij,ilev)*1.e-3, obs(obsda_sort%set(iob))%typ(obsda_sort%idx(iob)), obs(obsda_sort%set(iob))%elm(obsda_sort%idx(iob))
-      !     !   write(6,'(a,4f7.1,e10.3)') 'rdiag h', obs(obsda_sort%set(iob))%ri(obsda_sort%idx(iob)), obs(obsda_sort%set(iob))%rj(obsda_sort%idx(iob)), rig1(ij), rjg1(ij), obs(obsda_sort%set(iob))%err(obsda_sort%idx(iob))
-      !     ! endif
-      !     ! if ( abs( rloc(nob) ) > 1.e20_r_size ) then
-      !     !   write(6,'(a,e12.2,2i10)') 'rloc is too large', rloc(nob), ilev, ij
-      !     ! endif
-      !   end do
-      ! endif
 
       if ( nobsl > 0 ) then
         ! Forecast error
@@ -1271,16 +1257,29 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
             endif
             if ( ilev == 1 .and. ij == 1 .and. m == 1 .and. nob == 1 ) then
               write(6,'(a,6e12.3)')'Debug hdxa_rinv: ', hdxa_rinv(nob,m), hdxf(nob,m), sum(hdxf(nob,1:MEMBER)), nrdiag(nob), nrloc(nob), dep(nob)
+              call ij2phys( rig1(ij), rjg1(ij), rlon, rlat )
+              write(6,'(a,2f7.2,f7.1)') 'Debug1 lon, lat, lev ', obs(obsda_sort%set(vobsidx_l(nob)))%lon(obsda_sort%idx(vobsidx_l(nob))), &
+              obs(obsda_sort%set(vobsidx_l(nob)))%lat(obsda_sort%idx(vobsidx_l(nob))), &
+              obs(obsda_sort%set(vobsidx_l(nob)))%lev(obsda_sort%idx(vobsidx_l(nob)))*1.e-2
+              write(6,'(a,2f7.2,f7.1)') 'Debug2 lon, lat, lev ', rlon, rlat, gues3d(ij,ilev,iv3d_p)*1.e-2
             endif
           enddo
+        enddo
+        do m = 1, MEMBER
+          if ( ilev == 1 .and. ij == 1 ) then
+            write(6,'(a,1e12.3)')'Debug ensemble ya: ', hdxf(1,m)
+          endif
         enddo 
+        if ( ilev == 1 .and. ij == 1 ) then
+          write(6,'(a,1e12.3)')'Debug ensemble ya_sum: ', sum(hdxf(1,1:MEMBER))
+        endif        
         !!! hdxa_rinv: rho*R^(-1)*Y^a_0 = rho*R^(-1)*(H X^a_0)
 
         ! dJ/dy
         do nob = 1, nobsl
           iob = vobsidx_l(nob)
           do m = 1, MEMBER
-            djdy(1:nterm,iob) = djdy(1:nterm,iob) + work1(1:nterm,m) * hdxa_rinv(nob,m)
+            djdy(1:nterm,iob) = djdy(1:nterm,iob) + work1(1:nterm,m) * hdxa_rinv(nob,m) 
           enddo
         enddo
         !!! djdy: [1/2(K-1)]rho*R^(-1)*Y^a_0*(X^f_t)^T*C*(e^f_t+e^g_t)
@@ -1307,9 +1306,9 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
 !!$omp parallel private(nob)
 !!$omp do
   do nob = 1, nobstotal
-    if ( mod(nob,200)==0 ) then
+!    if ( mod(nob,10)==0 ) then
       write(6,'(a,3e12.2,i9,2f10.1)') 'Check djdy ', djdy(1,nob), djdy(2,nob), djdy(3,nob), nob, obsda_sort%val(nob), obs(obsda_sort%set(nob))%dat(obsda_sort%idx(nob))
-    endif
+!    endif
     obsense(1:nterm,nob) = djdy(1:nterm,nob) * obsda_sort%val(nob)
     ! if ( LOG_OUT .and. mod(nob,50) == 0 ) then
     !   write(6,'(a,i9,2e13.4,2i7)') 'Check djdy & hdxf: ', nob, maxval(abs(djdy(:,nob))), maxval(abs(hdxf(nob,:))), obs(obsda_sort%set(nob))%typ(obsda_sort%idx(nob)), obs(obsda_sort%set(nob))%elm(obsda_sort%idx(nob))
@@ -2203,7 +2202,7 @@ subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d,fcer3d_diff,fcer2d_diff)
   if ( LOG_OUT ) write(6,'(a)') 'Hello from lnorm'
 
   ! Constants
-  cptr    = sqrt( CPdry / tref )
+  cptr = sqrt( CPdry / tref )
   if ( EFSO_USE_MOIST_ENERGY ) then
     qweight = sqrt( 1.0_r_size / ( CPdry*tref ) ) * LHV
   else

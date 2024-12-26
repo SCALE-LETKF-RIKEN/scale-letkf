@@ -1493,6 +1493,7 @@ subroutine set_efso_obs
         else
           vert_loc_ctype(ictype) = VERT_LOCAL(ityp)
         end if
+        write(6,'(a,i7,2e12.2)') 'Debug localization: ', elm_ctype(ictype), hori_loc_ctype(ictype), vert_loc_ctype(ictype)
       end if ! [ ctype_use(ielm_u, ityp) ]
     end do ! [ ielm_u = 1, nid_obs ]
   end do ! [ ityp = 1, nobtype ]
@@ -1550,14 +1551,17 @@ subroutine set_efso_obs
         obsda%idx(i) = obsidx(n)
         obsda%qc (i) = obsqc(n)
         obsda%val(i) = obsdep(n)
+        write(6,'(a,i7,5f7.2)') 'obsda%val ', n, obsda%val(i), obs(obsda%set(i))%dat(obsidx(i)), &
+        obs(obsda%set(i))%lon(obsidx(i)), obs(obsda%set(i))%lat(obsidx(i)), obs(obsda%set(i))%lev(obsidx(i))*1.e-2
         sprd = 0.0_r_size
         do m = 1, MEMBER
           obsda%ensval(m,i) = obshdxf(m,n)
           sprd = sprd + obshdxf(m,n)**2
         enddo
         sprd = sqrt(sprd / real(MEMBER-1,r_size))
-        write(6,'(a,3e11.1)') 'Debug obsda ensval: ', sum(obsda%ensval(1:MEMBER,i)), obsda%ensval(1,i), sprd
-        
+        if ( mod(i,10) == 0 ) then
+          write(6,'(a,3e11.1)') 'Debug obsda ensval: ', sum(obsda%ensval(1:MEMBER,i)), obsda%ensval(1,i), sprd
+        endif      
       endif
     enddo
   

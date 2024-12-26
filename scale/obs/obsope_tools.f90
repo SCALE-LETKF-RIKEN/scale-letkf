@@ -430,6 +430,10 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
             if ( obtypelist(obs(iof)%typ(n)) /= 'SATWND' ) then !.and. obtypelist(obs(iof)%typ(n)) /= 'ADPUPA' ) then
                 obsda%qc(nn) = iqc_undef
             endif
+            if ( obs(iof)%lon(n) < 111.0 .or. obs(iof)%lon(n) > 112.0 .or. &
+                  obs(iof)%lat(n) <  20.0 .or. obs(iof)%lat(n) >  21.0 ) then
+              obsda%qc(nn) = iqc_undef
+            endif
             if (obsda%qc(nn) == iqc_good) then
               call Trans_XtoY(obs(iof)%elm(n), ril, rjl, rk, &
                               obs(iof)%lon(n), obs(iof)%lat(n), v3dg, v2dg, obsda%val(nn), obsda%qc(nn), typ=obs(iof)%typ(n))
