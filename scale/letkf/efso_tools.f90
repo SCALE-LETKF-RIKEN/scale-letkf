@@ -77,7 +77,7 @@ subroutine get_total_impact(fcer3d,fcer2d,fcer3d_diff,fcer2d_diff,total_impact)
   enddo
 
   ! (e^f_t-e^g_t)C*[1/2](e^f_t+e^g_t)
-  total_impact = total_impact * real(MEMBER-1,r_size)
+  ! debug ! total_impact = total_impact * real(MEMBER-1,r_size)
 
   return
 end subroutine get_total_impact

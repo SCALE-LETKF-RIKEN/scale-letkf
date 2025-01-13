@@ -577,6 +577,7 @@ SUBROUTINE set_letkf_obs
     obsgrd(ictype)%ngrdsch_j = ceiling(hori_loc_ctype(ictype) * dist_zero_fac / obsgrd(ictype)%grdspc_j)
     obsgrd(ictype)%ngrdext_i = obsgrd(ictype)%ngrd_i + obsgrd(ictype)%ngrdsch_i * 2
     obsgrd(ictype)%ngrdext_j = obsgrd(ictype)%ngrd_j + obsgrd(ictype)%ngrdsch_j * 2
+    print *, 'Line 580', obsgrd(ictype)%grdspc_j, obsgrd(ictype)%ngrd_j, obsgrd(ictype)%ngrdsch_j, hori_loc_ctype(ictype)
 
     allocate (obsgrd(ictype)%n (  obsgrd(ictype)%ngrd_i, obsgrd(ictype)%ngrd_j, 0:nprocs_d-1))
     allocate (obsgrd(ictype)%ac(0:obsgrd(ictype)%ngrd_i, obsgrd(ictype)%ngrd_j, 0:nprocs_d-1))
@@ -957,8 +958,9 @@ SUBROUTINE set_letkf_obs
 
       ishift = (ip_i - myp_i) * obsgrd(ictype)%ngrd_i + obsgrd(ictype)%ngrdsch_i
       jshift = (ip_j - myp_j) * obsgrd(ictype)%ngrd_j + obsgrd(ictype)%ngrdsch_j
-
+      print *,'Line 960', ip_j, myp_j, obsgrd(ictype)%ngrd_j, obsgrd(ictype)%ngrdsch_j
       do j = jmin2, jmax2
+        print *, 'Line 962', shape(obsgrd(ictype)%ac_ext), imin2, imax2, j, jshift
         ns_ext = obsgrd(ictype)%ac_ext(imin2+ishift-1,j+jshift) + 1
         ne_ext = obsgrd(ictype)%ac_ext(imax2+ishift  ,j+jshift)
         if (ns_ext > ne_ext) cycle
@@ -1511,9 +1513,6 @@ subroutine set_efso_obs
       write(6,'(a)') 'efso finished successfully'
     endif  
 
-    call finalize_mpi_scale
-    stop
-    
   endif
 
   if ( nobslocal_all > 0 ) then

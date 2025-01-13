@@ -1127,6 +1127,8 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
 
   real(r_size) :: rlon, rlat 
 
+  integer :: num_a, num_ed
+
   if ( LOG_OUT ) write(6,'(A)') 'Hello from das_efso'
 !  nobstotal = obsda_sort%nobs 
   if ( LOG_OUT ) write(6,'(A,I8)') 'Target observation numbers (global)    : NOBS=', nobstotalg
@@ -1201,6 +1203,13 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
                       vobsidx_l=vobsidx_l ) 
 
       if ( nobsl > 0 ) then
+        if ( mod(ilev,5) == 0 .and. mod(ij,10)== 0 ) then
+          write(6,'(a,3i5,2f8.2,f7.1)') 'Debug obs_local: ', ij, ilev, nobsl, rig1(ij), rjg1(ij), gues3d(ij,ilev,iv3d_p)*1.e-2
+          do nob = 1, nobsl
+            write(6,'(a,i7,3f7.1)') 'Debug obs_local_loc: ', nob, obs(obsda_sort%set(vobsidx_l(nob)))%lon(obsda_sort%idx(vobsidx_l(nob))), obs(obsda_sort%set(vobsidx_l(nob)))%lat(obsda_sort%idx(vobsidx_l(nob))), obs(obsda_sort%set(vobsidx_l(nob)))%lev(obsda_sort%idx(vobsidx_l(nob)))*1.e-2
+             
+          enddo
+        endif
         ! Forecast error
         work1 = 0.0_r_size
         do iv3d = 1, nv3d
@@ -1323,14 +1332,41 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
 !!$omp end parallel
 
   deallocate( djdy )
+  ! debug
+  ! do ij = 1, nij1
+  !   write(6,'(a,i8,a,i8,a,f8.2,a,f8.2)') 'Check rij,', myrank_e, ',', myrank_d, ',', rig1(ij), ',' ,rjg1(ij)
+  ! end do
 
-  if ( nprocs_e > 1 ) then
-    call MPI_ALLREDUCE( MPI_IN_PLACE, obsense, nterm*nobstotal, MPI_r_size, MPI_SUM, MPI_COMM_e, ierr )
-    call MPI_ALLREDUCE( MPI_IN_PLACE, total_impact, 1, MPI_r_size, MPI_SUM, MPI_COMM_e, ierr )
+  num_a = 1
+  num_ed = 1
+  write(6,'(a,2i8)') 'Check1 num_a, num_ed: ', num_a, num_ed
+
+  call MPI_ALLREDUCE( MPI_IN_PLACE, num_a, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_a, ierr )
+
+  call MPI_ALLREDUCE( MPI_IN_PLACE, num_ed, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_e, ierr )
+  call MPI_ALLREDUCE( MPI_IN_PLACE, num_ed, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_d, ierr )
+  write(6,'(a,2i8)') 'Check2 num_a, num_ed: ', num_a, num_ed
+
+
+  if ( myrank_e == 0 ) then
+    write(6,'(a,2i8,2e13.3)') 'Debug91 ', myrank_e, nprocs_e, obsense(1,1), total_impact
+    ! debug
   endif
+
+  ! MPI communication
+  ! Allreduce obsense and total_impact with MPI_COMM_e (all horizontal grid points)
+  if ( nprocs_e > 1 ) then
+!    call MPI_ALLREDUCE( MPI_IN_PLACE, obsense, nterm*nobstotal, MPI_r_size, MPI_SUM, MPI_COMM_e, ierr )
+!    call MPI_ALLREDUCE( MPI_IN_PLACE, total_impact, 1,          MPI_r_size, MPI_SUM, MPI_COMM_e, ierr )
+  endif
+
+  if ( myrank_e == 0 ) then
+    write(6,'(a,2i8,2e13.3)') 'Debug92 ', myrank_e, nprocs_e, obsense(1,1), total_impact
+  endif
+
   if ( LOG_OUT ) write(6,'(a)') 'Finish MPI comm'
   
-  if ( myrank_e == 0 ) then
+!  if ( myrank_e == 0 ) then
 
     allocate( obs_g_idx(obs(1)%nobs) )
     allocate( obs_g_set(obs(1)%nobs) )
@@ -1359,19 +1395,19 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
     endif
 
     if ( LOG_OUT ) write(6,'(a)') 'Finish calc obsense_global'
-    call MPI_ALLREDUCE( MPI_IN_PLACE, obsense_global, nterm*obs(1)%nobs, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr )
+    call MPI_ALLREDUCE( MPI_IN_PLACE, obsense_global, nterm*obs(1)%nobs, MPI_r_size, MPI_SUM, MPI_COMM_a, ierr ) ! check
 
     call MPI_ALLREDUCE( MPI_IN_PLACE, obs_g_set, obs(1)%nobs, MPI_INTEGER, MPI_MAX, MPI_COMM_d, ierr )
     call MPI_ALLREDUCE( MPI_IN_PLACE, obs_g_idx, obs(1)%nobs, MPI_INTEGER, MPI_MAX, MPI_COMM_d, ierr )
     call MPI_ALLREDUCE( MPI_IN_PLACE, obs_g_qc,  obs(1)%nobs, MPI_INTEGER, MPI_MAX, MPI_COMM_d, ierr )
     call MPI_ALLREDUCE( MPI_IN_PLACE, obs_g_val, obs(1)%nobs, MPI_r_size,  MPI_SUM, MPI_COMM_d, ierr )
 
-    call MPI_ALLREDUCE( MPI_IN_PLACE, total_impact, 1, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr )
+    call MPI_ALLREDUCE( MPI_IN_PLACE, total_impact, 1, MPI_r_size, MPI_SUM, MPI_COMM_a, ierr ) ! check
 
     if ( LOG_OUT ) write(6,'(a)') 'Finish MPI comm for obsense_global'
 
     ! write out observation sensitivity
-    if ( myrank_d == 0 ) then
+    if ( myrank_a == 0 ) then
       if ( LOG_OUT ) write(6,'(a)') 'Write obsense_global'
       ! do nob = 1, nobstotalg
       !   write(6,'(a,3f8.2,i15)') 'Check obsense_global:', obsense_global(1,nob), obsense_global(2,nob), obsense_global(3,nob), nob
@@ -1388,7 +1424,7 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
 
     call destroy_obsense
 
-  endif ! [ myrank_e == 0 ]
+  ! endif ! [ myrank_e == 0 ]
 
   deallocate( obsense )
 
