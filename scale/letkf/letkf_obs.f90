@@ -1512,7 +1512,7 @@ subroutine set_efso_obs
       write(6,'(a)') 'No observations for EFSO'
       write(6,'(a)') 'efso finished successfully'
     endif  
-
+    return
   endif
 
   if ( nobslocal_all > 0 ) then
@@ -1968,7 +1968,7 @@ subroutine setup_obsda_sort(nobs_sub,nobs_g,obsda_sort,efso_flag)
 
     call MPI_ALLGATHERV(obsbufs%set, cnts, MPI_INTEGER, obsbufr%set, cntr, dspr, MPI_INTEGER, MPI_COMM_d, ierr)
     call MPI_ALLGATHERV(obsbufs%idx, cnts, MPI_INTEGER, obsbufr%idx, cntr, dspr, MPI_INTEGER, MPI_COMM_d, ierr)
-    call MPI_ALLGATHERV(obsbufs%val, cnts, MPI_r_size, obsbufr%val, cntr, dspr, MPI_r_size, MPI_COMM_d, ierr)
+    call MPI_ALLGATHERV(obsbufs%val, cnts, MPI_r_size,  obsbufr%val, cntr, dspr, MPI_r_size, MPI_COMM_d, ierr)
     if (nensobs_part > 0) then
       call MPI_ALLGATHERV(obsbufs%ensval, cnts*nensobs_part, MPI_r_size, obsbufr%ensval, cntr*nensobs_part, dspr*nensobs_part, MPI_r_size, MPI_COMM_d, ierr)
     end if
@@ -2084,13 +2084,13 @@ subroutine setup_obsda_sort(nobs_sub,nobs_g,obsda_sort,efso_flag)
 
   if ( efso_flag_ ) then 
 
-    !omp parallel do private(n,iof,iidx)
+    !##omp parallel do private(n,iof,iidx)
     do n = 1, obsda_sort%nobs
       iof = obsda_sort%set(n)
       iidx = obsda_sort%idx(n)
       call phys2ij(obs(iof)%lon(iidx), obs(iof)%lat(iidx), obs(iof)%ri(iidx), obs(iof)%rj(iidx))
     end do
-    !omp end parallel do
+    !##omp end parallel do
 
   endif
 

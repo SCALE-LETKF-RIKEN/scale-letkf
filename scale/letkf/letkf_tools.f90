@@ -1193,6 +1193,10 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
   !     write(6,'(a,i9,i5,2e12.3,2i5)') 'Debug ensval ', i, m, obsda_sort%ensval(m,i), obsda_sort%val(i), obs(obsda_sort%set(i))%typ(obsda_sort%idx(i)), obs(obsda_sort%set(i))%elm(obsda_sort%idx(i))
   !   end do
   ! enddo
+  write(6,'(a,4f8.2)') 'Check domain range: ', minval(lon2d), maxval(lon2d), minval(lat2d), maxval(lat2d)
+  do nobsl = 1, nobstotal
+    write(6,'(a,i8,3f8.2)') 'obsda location: ', nobsl, obs(1)%lon(obsda_sort%idx(nobsl)), obs(1)%lat(obsda_sort%idx(nobsl)), obs(1)%lev(obsda_sort%idx(nobsl))*1.e-2
+  enddo
 
   do ilev = 1, nlev
     do ij = 1, nij1
@@ -1203,13 +1207,14 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
                       vobsidx_l=vobsidx_l ) 
 
       if ( nobsl > 0 ) then
-        if ( mod(ilev,5) == 0 .and. mod(ij,10)== 0 ) then
-          write(6,'(a,3i5,2f8.2,f7.1)') 'Debug obs_local: ', ij, ilev, nobsl, rig1(ij), rjg1(ij), gues3d(ij,ilev,iv3d_p)*1.e-2
-          do nob = 1, nobsl
-            write(6,'(a,i7,3f7.1)') 'Debug obs_local_loc: ', nob, obs(obsda_sort%set(vobsidx_l(nob)))%lon(obsda_sort%idx(vobsidx_l(nob))), obs(obsda_sort%set(vobsidx_l(nob)))%lat(obsda_sort%idx(vobsidx_l(nob))), obs(obsda_sort%set(vobsidx_l(nob)))%lev(obsda_sort%idx(vobsidx_l(nob)))*1.e-2
+        ! call ij2phys(rig1(ij), rjg1(ij), lon_, lat_)
+        ! if ( mod(ilev,5) == 0 .and. mod(ij,5)== 0 ) then
+        !   write(6,'(a,3i5,2f8.2,3f8.2)') 'Debug obs_local: ', ij, ilev, nobsl, rig1(ij), rjg1(ij), lon_, lat_, gues3d(ij,ilev,iv3d_p)*1.e-2
+        !   do nob = 1, nobsl
+        !     write(6,'(a,i7,3f8.2)') 'Debug obs_local_loc: ', nob, obs(obsda_sort%set(vobsidx_l(nob)))%lon(obsda_sort%idx(vobsidx_l(nob))), obs(obsda_sort%set(vobsidx_l(nob)))%lat(obsda_sort%idx(vobsidx_l(nob))), obs(obsda_sort%set(vobsidx_l(nob)))%lev(obsda_sort%idx(vobsidx_l(nob)))*1.e-2
              
-          enddo
-        endif
+        !   enddo
+        ! endif
         ! Forecast error
         work1 = 0.0_r_size
         do iv3d = 1, nv3d
@@ -1316,7 +1321,8 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
 !!$omp do
   do nob = 1, nobstotal
 !    if ( mod(nob,10)==0 ) then
-      write(6,'(a,3e12.2,i9,2f10.1)') 'Check djdy ', djdy(1,nob), djdy(2,nob), djdy(3,nob), nob, obsda_sort%val(nob), obs(obsda_sort%set(nob))%dat(obsda_sort%idx(nob))
+    !  write(6,'(a,3e12.2,i9,2f10.1)') 'Check djdy ', djdy(1,nob), djdy(2,nob), djdy(3,nob), nob, obsda_sort%val(nob), obs(obsda_sort%set(nob))%dat(obsda_sort%idx(nob))
+    write(6,'(a,1e12.2,2i8,3f10.1)') 'Check djdy ', djdy(1,nob), nob, obsda_sort%idx(nob), obsda_sort%val(nob), obsda_sort%ensval(nob,1), obs(obsda_sort%set(nob))%dat(obsda_sort%idx(nob))
 !    endif
     obsense(1:nterm,nob) = djdy(1:nterm,nob) * obsda_sort%val(nob)
     ! if ( LOG_OUT .and. mod(nob,50) == 0 ) then
