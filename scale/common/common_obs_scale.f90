@@ -1565,7 +1565,7 @@ END SUBROUTINE itpl_3d
 !-----------------------------------------------------------------------
 ! Monitor observation departure by giving the v3dg,v2dg data
 !-----------------------------------------------------------------------
-subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,return_raw_hx)
+subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
   use scale_prc, only: &
       PRC_myrank
 
@@ -1580,7 +1580,7 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,retur
   LOGICAL,INTENT(OUT) :: monit_type(nid_obs)
   logical,intent(in) :: use_key
   integer,intent(in) :: step
-  logical, intent(in), optional :: return_raw_hx
+  logical, intent(in), optional :: efso
 
   REAL(r_size) :: v3dgh(nlevh,nlonh,nlath,nv3dd)
   REAL(r_size) :: v2dgh(nlonh,nlath,nv2dd)
@@ -1596,9 +1596,9 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,retur
   integer :: m
   real(r_size) :: obsdep_mean
 
-  logical :: return_raw_hx_ = .false.
+  logical :: efso_ = .false.
 
-  if ( present( return_raw_hx )) return_raw_hx_ = return_raw_hx
+  if (present(efso)) efso_ = efso
 
   call state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
 
@@ -1618,7 +1618,8 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,retur
     stop
   end if
 #endif
-  if (step == 1) then
+
+  if (step == 1 .or. efso_ ) then
     obsdep_nobs = nnobs
     if ( .not. allocated( obsdep_set  ) ) allocate( obsdep_set(obsdep_nobs) )
     if ( .not. allocated( obsdep_idx  ) ) allocate( obsdep_idx(obsdep_nobs) )
@@ -1673,7 +1674,6 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,retur
 
     oelm(n) = obs(iset)%elm(iidx)
 
-
     call rij_g2l(PRC_myrank, obs(iset)%ri(iidx), obs(iset)%rj(iidx), ril, rjl)
 #ifdef LETKF_DEBUG
     if (PRC_myrank /= obs(iset)%rank(iidx) .or. obs(iset)%rank(iidx) == -1) then
@@ -1699,9 +1699,6 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,retur
                           obs(iset)%lon(iidx),obs(iset)%lat(iidx), &
                           v3dgh,v2dgh,ohx(n),oqc(n),stggrd=1,typ=obs(iset)%typ(iidx))
         end if
-        if ( obtypelist(obs(iset)%typ(iidx)) == 'SFCSHP' .and. oqc(n) == iqc_good ) then
-          write(6,'(a,i6,f7.1,e14.3,2f10.1)') 'Check MONIT SFCSHP ', obs(iset)%elm(iidx), obs(iset)%lev(iidx)*1.e-2, rk, ohx(n), obs(iset)%dat(iidx)
-        endif
       !=========================================================================
       case (obsfmt_radar, obsfmt_radar_nc )
       !-------------------------------------------------------------------------
@@ -1719,9 +1716,7 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,retur
       end select
 
       if (oqc(n) == iqc_good) then
-        if ( .not. return_raw_hx_ ) then
-          ohx(n) = obs(iset)%dat(iidx) - ohx(n)
-        endif
+        ohx(n) = obs(iset)%dat(iidx) - ohx(n)
       else
         ohx(n) = undef
       end if
@@ -1741,13 +1736,7 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,retur
         obsdep_qc(n) = iqc_good
       endif
 
-      if ( .not. return_raw_hx_ ) then
-        if ( oqc(n) == iqc_good ) then
-          write(6,'(a,2f7.2,f7.1,i7,i8,e13.2)')'Debug monit_obs ', obs(iset)%lon(iidx), obs(iset)%lat(iidx), obs(iset)%lev(iidx)*1.e-2, &
-          oqc(n), obs(iset)%elm(iidx), ohx(n)
-        endif
-      endif
-
+ 
 !!! ensemble perturbation output
       obsdep_mean = obsda_sort%ensval(1,nn)
       do m = 2, MEMBER
@@ -1780,6 +1769,13 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,retur
   end do ! [ n = 1, nnobs ]
 !$omp end parallel do
 
+  if ( efso_ ) then
+    deallocate (oelm)
+    deallocate (ohx)
+    deallocate (oqc)
+  
+    return
+  endif
 
   call monit_dep(nnobs,oelm,ohx,oqc,nobs,bias,rmse)
 

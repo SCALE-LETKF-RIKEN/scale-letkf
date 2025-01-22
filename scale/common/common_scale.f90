@@ -1612,6 +1612,7 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
   v3dgh_RP(KS:KE,IS:IE,JS:JE,iv3dd_qs) = v3dg(:,:,:,iv3d_qs)
   v3dgh_RP(KS:KE,IS:IE,JS:JE,iv3dd_qg) = v3dg(:,:,:,iv3d_qg)
 
+
   ! Rotate U/V (model coord. wind) and obtain Umet/Vmet (true zonal/meridional wind)
   !-------------
 
@@ -1672,6 +1673,7 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
   !---------------------------------------------------------
 
   call scale_calc_z(topo, height)
+
   v3dgh_RP(KS:KE,IS:IE,JS:JE,iv3dd_hgt) = height(1:nlev,1:nlon,1:nlat)
 
   ! Surface variables: use the 1st level as the surface (although it is not)
@@ -1713,6 +1715,7 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
   do iv3d = 1, nv3dd
     call COMM_vars8( v3dgh_RP(:,:,:,iv3d), iv3d )
   end do
+
   do iv3d = 1, nv3dd
     call COMM_wait ( v3dgh_RP(:,:,:,iv3d), iv3d )
   end do

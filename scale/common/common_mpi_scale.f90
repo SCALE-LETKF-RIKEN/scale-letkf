@@ -1419,11 +1419,6 @@ subroutine write_ens_mpi(v3d, v2d, monit_step)
   integer :: n, m
   character(6) :: MYRANK_D6
 
-  integer :: nobs_l(nid_obs)
-  real(r_size) :: bias_l(nid_obs)
-  real(r_size) :: rmse_l(nid_obs)
-  logical :: monit_type(nid_obs)
-
   monit_step_ = 0
   if (present(monit_step)) then
     monit_step_ = monit_step
@@ -1431,8 +1426,8 @@ subroutine write_ens_mpi(v3d, v2d, monit_step)
 
   if ( OBSANAL_OUT .and. monit_step_ == 2 ) then
     nobs = obsda_sort%nobs_in_key 
+    allocate( ya_local(MEMBER,nobs) )
     if ( nobs > 0 ) then
-      allocate( ya_local(MEMBER,nobs) )
       ya_local(:,:) = 0.0_r_size
     endif
   endif
@@ -1450,25 +1445,16 @@ subroutine write_ens_mpi(v3d, v2d, monit_step)
 
     call mpi_timer('write_ens_mpi:gather_grd_mpi_alltoall:', 2)
 
+    if ( OBSANAL_OUT .and. monit_step_ == 2 ) then
+      call monit_obs4efso_mpi(v3dg, v2dg, im, nobs, ya_local)
+    endif
+
     if (monit_step_ > 0 .and. mstart <= mmean .and. mmean <= mend) then
       call monit_obs_mpi(v3dg, v2dg, monit_step_)
 
       call mpi_timer('write_ens_mpi:monit_obs_mpi:', 2)
     end if
 
-    if ( OBSANAL_OUT .and. monit_step_ == 2 ) then
-
-      if ( im >= 1 .and. im <= MEMBER ) then
-        call monit_obs( v3dg, v2dg, topo2d, nobs_l, bias_l, rmse_l, monit_type, .true., 1, return_raw_hx=.true. )
-        !print *, 'Debug write_ens_mpi: monit_obs', im, myrank, nobs, shape( obsdep_omb )
-
-        if ( nobs > 0 ) then
-          ! obsdep_omb contains analysis in obs space 
-          ya_local(im,:) = obsdep_omb(:)
-        endif
-      endif
-
-    endif
 
     ! Note: write all members + mean + mdet
     ! 
@@ -1820,10 +1806,9 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
   !       because only these processes have read topo files in 'topo2d'
   ! 
   if (myrank_e == mmean_rank_e) then
-    call monit_obs(v3dg, v2dg, topo2d, nobs, bias, rmse, monit_type, .true., monit_step)
+    call monit_obs(v3dg, v2dg, topo2d, nobs, bias, rmse, monit_type, .true., monit_step, efso=.false.)
 
     call mpi_timer('monit_obs_mpi:monit_obs:', 2)
-
     do i = 1, nid_obs
       if (monit_type(i)) then
         nobs_g(i) = nobs(i)
@@ -2713,6 +2698,39 @@ subroutine get_obsdep_efso_mpi( nobslocal, nobs0, obsset, obsidx, obsqc, obsdep,
 
   return
 end subroutine get_obsdep_efso_mpi
+
+!-------------------------------------------------------------------------------
+! MPI driver for monitoring observation departure statistics
+!-------------------------------------------------------------------------------
+subroutine monit_obs4efso_mpi(v3dg, v2dg, im, nobs, ya_local)
+  implicit none
+!  call monit_obs4efso_mpi(v3dg, v2dg, im, nobs, ya_local)
+
+  real(RP), intent(in) :: v3dg(nlev,nlon,nlat,nv3d)
+  real(RP), intent(in) :: v2dg(nlon,nlat,nv2d)
+  integer, intent(in)  :: im ! ensemble member index
+  integer, intent(in)  :: nobs
+  real(r_size), intent(inout) :: ya_local(MEMBER,nobs) 
+
+
+  ! dummy parameters
+  integer :: nobs_dummy(nid_obs)
+  real(r_size) :: bias_dummy(nid_obs)
+  real(r_size) :: rmse_dummy(nid_obs)
+  logical :: monit_type_dummy(nid_obs)
+
+  if ( LOG_OUT ) write(6,'(a)') 'Hello from monit_obs4efso_mpi'
+
+  if ( im >= 1 .and. im <= MEMBER ) then
+
+    call monit_obs(v3dg, v2dg, topo2d, nobs_dummy, bias_dummy, rmse_dummy, monit_type_dummy, .true., 2, efso=.true.)
+    ! obsdep_oma contains obs-minus-analysis in obs space 
+    if ( nobs > 0 ) then
+      ya_local(im,1:nobs) = -obsdep_oma(1:nobs) ! analysis (each member) - observation
+    endif  
+  endif
+
+end subroutine monit_obs4efso_mpi
 
 !===============================================================================
 end module common_mpi_scale
