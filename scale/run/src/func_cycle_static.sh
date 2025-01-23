@@ -1253,8 +1253,8 @@ config_file_scale_core (){
       if (( mlocal != mmgue)); then
         mkdir -p ${OUTDIR[$d]}/$atime/anal/${name_m[$mlocal]}
         mkdir -p ${OUTDIR[$d]}/$atime/gues/${name_m[$mlocal]}
-        mkdir -p ${OUTDIR[$d]}/$time/hist/${name_m[$mlocal]}
       fi
+      mkdir -p ${OUTDIR[$d]}/$time/hist/${name_m[$mlocal]}
 
 
       if ((DISK_MODE >= 1)) ;then

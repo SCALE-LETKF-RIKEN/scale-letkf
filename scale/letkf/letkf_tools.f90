@@ -1193,7 +1193,7 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
   !     write(6,'(a,i9,i5,2e12.3,2i5)') 'Debug ensval ', i, m, obsda_sort%ensval(m,i), obsda_sort%val(i), obs(obsda_sort%set(i))%typ(obsda_sort%idx(i)), obs(obsda_sort%set(i))%elm(obsda_sort%idx(i))
   !   end do
   ! enddo
-  write(6,'(a,4f8.2)') 'Check domain range: ', minval(lon2d), maxval(lon2d), minval(lat2d), maxval(lat2d)
+!  write(6,'(a,4e12.2)') 'Check domain range: ', minval(lon2d), maxval(lon2d), minval(lat2d), maxval(lat2d)
   do nobsl = 1, nobstotal
     write(6,'(a,i8,3f8.2)') 'obsda location: ', nobsl, obs(1)%lon(obsda_sort%idx(nobsl)), obs(1)%lat(obsda_sort%idx(nobsl)), obs(1)%lev(obsda_sort%idx(nobsl))*1.e-2
   enddo
@@ -1207,6 +1207,7 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
                       vobsidx_l=vobsidx_l ) 
 
       if ( nobsl > 0 ) then
+        write(6,'(a,i9,2i6)') 'Obs is found', nobsl, ij, ilev
         ! call ij2phys(rig1(ij), rjg1(ij), lon_, lat_)
         ! if ( mod(ilev,5) == 0 .and. mod(ij,5)== 0 ) then
         !   write(6,'(a,3i5,2f8.2,3f8.2)') 'Debug obs_local: ', ij, ilev, nobsl, rig1(ij), rjg1(ij), lon_, lat_, gues3d(ij,ilev,iv3d_p)*1.e-2
@@ -1233,7 +1234,7 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
             do m = 1, MEMBER
               work1(iterm,m) = work1(iterm,m) + fcst3d(ij,ilev,m,iv3d) * fcer3d(ij,ilev,iv3d)
             enddo
-            if ( iterm == 3 .and. ilev == 1 .and. ij == 1 ) then
+            if ( iterm == 3 .and. mod(ilev,2) == 0 .and. mod(ij,2) == 0 ) then
               write(6,'(a,3e10.2)') 'Check work1: ', maxval(work1(3,1:MEMBER)), maxval(fcst3d(ij,ilev,1:MEMBER,iv3d)), fcer3d(ij,ilev,iv3d)
             endif
           endif
@@ -1269,7 +1270,7 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
             else
               hdxa_rinv(nob,m) = hdxf(nob,m) / nrdiag(nob) 
             endif
-            if ( ilev == 1 .and. ij == 1 .and. m == 1 .and. nob == 1 ) then
+            if ( mod(ilev,2) == 0 .and. mod(ij,2) == 0 .and. m == 1 .and. nob == 1 ) then
               write(6,'(a,6e12.3)')'Debug hdxa_rinv: ', hdxa_rinv(nob,m), hdxf(nob,m), sum(hdxf(nob,1:MEMBER)), nrdiag(nob), nrloc(nob), dep(nob)
               call ij2phys( rig1(ij), rjg1(ij), rlon, rlat )
               write(6,'(a,2f7.2,f7.1)') 'Debug1 lon, lat, lev ', obs(obsda_sort%set(vobsidx_l(nob)))%lon(obsda_sort%idx(vobsidx_l(nob))), &
@@ -1280,11 +1281,11 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
           enddo
         enddo
         do m = 1, MEMBER
-          if ( ilev == 1 .and. ij == 1 ) then
+          if ( mod(ilev,2) == 0 .and. mod(ij,2) == 0 ) then
             write(6,'(a,1e12.3)')'Debug ensemble ya: ', hdxf(1,m)
           endif
         enddo 
-        if ( ilev == 1 .and. ij == 1 ) then
+        if ( mod(ilev,2) == 0 .and. mod(ij,2) == 0 ) then
           write(6,'(a,1e12.3)')'Debug ensemble ya_sum: ', sum(hdxf(1,1:MEMBER))
         endif        
         !!! hdxa_rinv: rho*R^(-1)*Y^a_0 = rho*R^(-1)*(H X^a_0)
@@ -1343,8 +1344,8 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
   !   write(6,'(a,i8,a,i8,a,f8.2,a,f8.2)') 'Check rij,', myrank_e, ',', myrank_d, ',', rig1(ij), ',' ,rjg1(ij)
   ! end do
 
-  num_a = 1
-  num_ed = 1
+  num_a = nij1
+  num_ed = nij1
   write(6,'(a,2i8)') 'Check1 num_a, num_ed: ', num_a, num_ed
 
   call MPI_ALLREDUCE( MPI_IN_PLACE, num_a, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_a, ierr )
