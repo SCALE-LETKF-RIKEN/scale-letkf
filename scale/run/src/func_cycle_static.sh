@@ -1279,6 +1279,7 @@ config_file_scale_core (){
         fi
         RESTART_OUT_BASENAME[$d]="${RESTART_IN_PATH[$d]}/../../${time}/fcst/mgue/init"
         mkdir -p "${RESTART_IN_PATH[$d]}/../../${time}/fcst/mgue"
+        mkdir -p "${RESTART_IN_PATH[$d]}/../../${time}/fcst/mean"
         for m in $(seq $MEMBER); do
           mkdir -p "${RESTART_IN_PATH[$d]}/../../${time}/fcst/$(printf $MEMBER_FMT $m)"
         done
