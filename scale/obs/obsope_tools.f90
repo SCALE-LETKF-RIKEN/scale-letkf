@@ -430,8 +430,9 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
             if ( obtypelist(obs(iof)%typ(n)) /= 'SATWND' ) then !.and. obtypelist(obs(iof)%typ(n)) /= 'ADPUPA' ) then
                 obsda%qc(nn) = iqc_undef
             endif
-            if ( obs(iof)%lon(n) < 111.5 .or. obs(iof)%lon(n) > 112.0 .or. &
-                  obs(iof)%lat(n) <  20.5 .or. obs(iof)%lat(n) >  21.0 .or. obs(iof)%lev(n) > 50000.0 ) then
+            if ( obs(iof)%lon(n) < 111.8 .or. obs(iof)%lon(n) > 111.95 .or. &
+                  obs(iof)%lat(n) <  20.5 .or. obs(iof)%lat(n) >  20.76 .or. obs(iof)%lev(n) > 15000.0 &
+                  .or. obs(iof)%elm(n) /= id_u_obs ) then
               obsda%qc(nn) = iqc_undef
             endif
             if (obsda%qc(nn) == iqc_good) then

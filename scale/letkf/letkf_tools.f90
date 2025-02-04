@@ -1195,7 +1195,7 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
   ! enddo
 !  write(6,'(a,4e12.2)') 'Check domain range: ', minval(lon2d), maxval(lon2d), minval(lat2d), maxval(lat2d)
   do nobsl = 1, nobstotal
-    write(6,'(a,i8,3f8.2)') 'obsda location: ', nobsl, obs(1)%lon(obsda_sort%idx(nobsl)), obs(1)%lat(obsda_sort%idx(nobsl)), obs(1)%lev(obsda_sort%idx(nobsl))*1.e-2
+    write(6,'(a,i8,5f8.2)') 'obsda location: ', nobsl, obs(1)%lon(obsda_sort%idx(nobsl)), obs(1)%lat(obsda_sort%idx(nobsl)), obs(1)%lev(obsda_sort%idx(nobsl))*1.e-2, obs(1)%ri(obsda_sort%idx(nobsl)), obs(1)%rj(obsda_sort%idx(nobsl))
   enddo
 
   do ilev = 1, nlev
@@ -1207,7 +1207,9 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
                       vobsidx_l=vobsidx_l ) 
 
       if ( nobsl > 0 ) then
-        write(6,'(a,i9,2i6)') 'Obs is found', nobsl, ij, ilev
+        call ij2phys( rig1(ij), rjg1(ij), rlon, rlat )
+
+        write(6,'(a,i9,2i6,a,2f8.2,a,2f8.2)') 'Obs is found', nobsl, ij, ilev, ' ri,rj: ', rig1(ij), rjg1(ij), ' lon,lat: ',rlon, rlat
         ! call ij2phys(rig1(ij), rjg1(ij), lon_, lat_)
         ! if ( mod(ilev,5) == 0 .and. mod(ij,5)== 0 ) then
         !   write(6,'(a,3i5,2f8.2,3f8.2)') 'Debug obs_local: ', ij, ilev, nobsl, rig1(ij), rjg1(ij), lon_, lat_, gues3d(ij,ilev,iv3d_p)*1.e-2
@@ -1231,9 +1233,12 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
           end select
 
           if( iterm > 0) then
+            write(6,'(a,f13.4)')'Check fcst3d and fcer3d: mean: ', sum(fcst3d(ij,ilev,1:MEMBER,iv3d))/MEMBER 
             do m = 1, MEMBER
+              write(6,'(a,2i5,2f13.4)') 'values ', m, iv3d, fcst3d(ij,ilev,m,iv3d), fcer3d(ij,ilev,iv3d)
               work1(iterm,m) = work1(iterm,m) + fcst3d(ij,ilev,m,iv3d) * fcer3d(ij,ilev,iv3d)
             enddo
+            write(6,'(a)') ''
             if ( iterm == 3 .and. mod(ilev,2) == 0 .and. mod(ij,2) == 0 ) then
               write(6,'(a,3e10.2)') 'Check work1: ', maxval(work1(3,1:MEMBER)), maxval(fcst3d(ij,ilev,1:MEMBER,iv3d)), fcer3d(ij,ilev,iv3d)
             endif
@@ -1270,24 +1275,17 @@ subroutine das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
             else
               hdxa_rinv(nob,m) = hdxf(nob,m) / nrdiag(nob) 
             endif
-            if ( mod(ilev,2) == 0 .and. mod(ij,2) == 0 .and. m == 1 .and. nob == 1 ) then
-              write(6,'(a,6e12.3)')'Debug hdxa_rinv: ', hdxa_rinv(nob,m), hdxf(nob,m), sum(hdxf(nob,1:MEMBER)), nrdiag(nob), nrloc(nob), dep(nob)
-              call ij2phys( rig1(ij), rjg1(ij), rlon, rlat )
-              write(6,'(a,2f7.2,f7.1)') 'Debug1 lon, lat, lev ', obs(obsda_sort%set(vobsidx_l(nob)))%lon(obsda_sort%idx(vobsidx_l(nob))), &
-              obs(obsda_sort%set(vobsidx_l(nob)))%lat(obsda_sort%idx(vobsidx_l(nob))), &
-              obs(obsda_sort%set(vobsidx_l(nob)))%lev(obsda_sort%idx(vobsidx_l(nob)))*1.e-2
-              write(6,'(a,2f7.2,f7.1)') 'Debug2 lon, lat, lev ', rlon, rlat, gues3d(ij,ilev,iv3d_p)*1.e-2
-            endif
+            write(6,'(a,2i9,2f8.2,2f15.1)') 'Check hdxf ', nob, m, hdxf(nob,m), sum(hdxf(nob,1:MEMBER))/MEMBER, nrdiag(nob), hdxa_rinv(nob,m)
+            ! if ( mod(ilev,2) == 0 .and. mod(ij,2) == 0 .and. m == 1 .and. nob == 1 ) then
+            !   write(6,'(a,6e12.3)')'Debug hdxa_rinv: ', hdxa_rinv(nob,m), hdxf(nob,m), sum(hdxf(nob,1:MEMBER)), nrdiag(nob), nrloc(nob), dep(nob)
+            !   call ij2phys( rig1(ij), rjg1(ij), rlon, rlat )
+            !   write(6,'(a,2f7.2,f7.1)') 'Debug1 lon, lat, lev ', obs(obsda_sort%set(vobsidx_l(nob)))%lon(obsda_sort%idx(vobsidx_l(nob))), &
+            !   obs(obsda_sort%set(vobsidx_l(nob)))%lat(obsda_sort%idx(vobsidx_l(nob))), &
+            !   obs(obsda_sort%set(vobsidx_l(nob)))%lev(obsda_sort%idx(vobsidx_l(nob)))*1.e-2
+            !   write(6,'(a,2f7.2,f7.1)') 'Debug2 lon, lat, lev ', rlon, rlat, gues3d(ij,ilev,iv3d_p)*1.e-2
+            ! endif
           enddo
         enddo
-        do m = 1, MEMBER
-          if ( mod(ilev,2) == 0 .and. mod(ij,2) == 0 ) then
-            write(6,'(a,1e12.3)')'Debug ensemble ya: ', hdxf(1,m)
-          endif
-        enddo 
-        if ( mod(ilev,2) == 0 .and. mod(ij,2) == 0 ) then
-          write(6,'(a,1e12.3)')'Debug ensemble ya_sum: ', sum(hdxf(1,1:MEMBER))
-        endif        
         !!! hdxa_rinv: rho*R^(-1)*Y^a_0 = rho*R^(-1)*(H X^a_0)
 
         ! dJ/dy
@@ -2244,6 +2242,10 @@ subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d,fcer3d_diff,fcer2d_diff)
 
   if ( LOG_OUT ) write(6,'(a)') 'Hello from lnorm'
 
+  do iv3d = 1, nv3d
+    write(6,'(a,a,4f14.5)') 'Check fcer3d/fcst3d before lnorm: ', v3dd_name(iv3d), maxval(fcer3d(:,:,iv3d)), minval(fcer3d(:,:,iv3d)), maxval(fcst3d(:,:,1:MEMBER,iv3d)), minval(fcst3d(:,:,1:MEMBER,iv3d))
+  enddo
+
   ! Constants
   cptr = sqrt( CPdry / tref )
   if ( EFSO_USE_MOIST_ENERGY ) then
@@ -2263,6 +2265,7 @@ subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d,fcer3d_diff,fcer2d_diff)
 
   ! Calculate ensemble forecast perturbations
   do iv3d = 1, nv3d
+    write(6,'(a,i8,3f10.2)') 'Check fcst3d ', iv3d, fcst3d(3,3,mmean,iv3d), sum( fcst3d(3,3,1:MEMBER,iv3d) )/real(MEMBER)
     do m = 1, MEMBER
       do k = 1, nlev
         do ij = 1, nij1
@@ -2270,7 +2273,6 @@ subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d,fcer3d_diff,fcer2d_diff)
         enddo
       enddo
     enddo
-    write(6,'(a,2f10.1,x,a)') 'Chech fcst3d_pert_lnorm', maxval( fcst3d(:,:,1:MEMBER,iv3d) ), sum( fcst3d(3,3,1:MEMBER,iv3d) ), v3dd_name(iv3d) 
   enddo
 
   do iv2d = 1, nv2d_diag
@@ -2324,9 +2326,9 @@ subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d,fcer3d_diff,fcer2d_diff)
         p_lower = ( fcst3d(ij,k,mmean,iv3d_p) + fcst3d(ij,k-1,mmean,iv3d_p) ) * 0.5_r_size
       endif
       dsigma = abs( p_lower - p_upper ) * ps_inv(ij) 
-      if ( ij == 1 ) then
-        write(6,'(a,3f8.1,2e11.3)')'debug p_up_low ', p_upper*1.e-2, p_lower*1.e-2, fcst2d(ij,mmean,iv2d_diag_ps)*1.e-2, ps_inv(ij), dsigma
-      endif
+      ! if ( ij == 1 ) then
+      !   write(6,'(a,3f8.1,2e11.3)')'debug p_up_low ', p_upper*1.e-2, p_lower*1.e-2, fcst2d(ij,mmean,iv2d_diag_ps)*1.e-2, ps_inv(ij), dsigma
+      ! endif
 
       call relax_beta(rig1(ij),rjg1(ij),hgt1(ij,k),beta)
 
@@ -2377,6 +2379,10 @@ subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d,fcer3d_diff,fcer2d_diff)
 !      fcst3d(i,:,:,:) = 0.0_r_size
 !    END IF
 !  end do
+
+  do iv3d = 1, nv3d
+    write(6,'(a,a,4f14.5)') 'Check fcer3d/fcst3d after lnorm: ', v3dd_name(iv3d), maxval(fcer3d(:,:,iv3d)), minval(fcer3d(:,:,iv3d)), maxval(fcst3d(:,:,1:MEMBER,iv3d)), minval(fcst3d(:,:,1:MEMBER,iv3d))
+  enddo
 
   return
 end subroutine lnorm
