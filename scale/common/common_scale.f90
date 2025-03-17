@@ -2191,5 +2191,34 @@ subroutine rij_rank_g2l(ig, jg, rank, il, jl)
 
   return
 end subroutine rij_rank_g2l
+
+subroutine copy_scale_file(filename_in, filename_out)
+  use scale_prc, only: &
+    PRC_myrank
+  implicit none
+
+  character(len=*), intent(in) :: filename_in
+  character(len=*), intent(in) :: filename_out
+
+  character(len=12) :: filesuffix = '.pe000000.nc'
+
+  integer :: status
+
+  write (filesuffix(4:9),'(I6.6)') PRC_myrank
+
+  if ( LOG_LEVEL >= 3 .and. LOG_OUT ) then
+    write(6,'(a,x,a,x,a,x,a)') 'Copying ', trim(filename_in)//filesuffix, ' to ', trim(filename_out)//filesuffix
+  endif
+
+  call execute_command_line("cp " // trim(filename_in) // filesuffix // " " // trim(filename_out) // filesuffix, exitstat=status)
+
+  if (status /= 0) then
+    print *, "Error copying file, exit status: ", status
+    stop
+  endif
+
+  return
+end subroutine copy_scale_file
+
 !===============================================================================
 END MODULE common_scale

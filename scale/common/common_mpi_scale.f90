@@ -1282,7 +1282,7 @@ subroutine read_ens_mpi(v3d, v2d, v2d_diag, EFSO )
   real(RP) :: v3dg(nlev,nlon,nlat,nv3d)
   real(RP) :: v2dg(nlon,nlat,nv2d)
   real(RP) :: v2dg_diag(nlon,nlat,nv2d_diag)
-  character(len=filelenmax) :: filename
+  character(len=filelenmax) :: filename, filename4copy
   integer :: it, im, mstart, mend
 
   logical :: EFSO_ = .false.
@@ -1323,6 +1323,16 @@ subroutine read_ens_mpi(v3d, v2d, v2d_diag, EFSO )
 #endif
 
       call mpi_timer('read_ens_mpi:read_restart:', 2)
+
+      if ( EFSO_RUN .and. .not. EFSO_ ) then
+        ! copy the forecast data stored in "anal" directory to "fcst" directory for EFSO
+        ! This process is called from LETKF (EFSO_ = F), not from EFSO
+
+        filename4copy = EFSO_EFCST_FROM_ANAL_BASENAME
+        call filename_replace_mem(filename4copy, im)
+
+        call copy_scale_file(filename, filename4copy)
+      endif
 
       if ( EFSO_ ) then
         call state_trans(v3dg, rotate_flag=.true., ps=v2dg_diag(:,:,iv2d_diag_ps))
