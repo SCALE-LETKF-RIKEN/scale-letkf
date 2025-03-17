@@ -1303,6 +1303,9 @@ subroutine read_ens_mpi(v3d, v2d, v2d_diag, EFSO )
           filename = EFSO_EFCST_FROM_ANAL_BASENAME
         endif
         call filename_replace_mem(filename, im)
+        if ( EFSO_  ) then
+          write(6,'(a,x,a)') 'Check_EFSO_EFCST_FROM_ANAL_BASENAME', trim(filename)
+        endif
       else if (im == mmean) then
         filename = GUES_MEAN_INOUT_BASENAME
       else if (im == mmdet) then
@@ -1503,14 +1506,14 @@ subroutine write_ens_mpi(v3d, v2d, monit_step)
         do m = 1, MEMBER
           ya_local(m,n) = ya_local(m,n) - ya_mean(n)
         enddo
+        ! if ( maxval(abs(ya_local(1:MEMBER,n))) > 1.e10_r_size ) then ! debug
+        !   write(6,'(a,e20.10)') 'Large_ya_local: ', maxval(abs(ya_local(1:MEMBER,n)))
+        ! endif
       enddo
       deallocate( ya_mean )
 
 
       if ( myrank_e == mmean_rank_e ) then
-        do n = 1, nobs
-          write(6,'(a,i9,2f7.2,f7.1,i7,2e10.2)') 'Debug ya_local ', n, obs(obsdep_set(n))%lon(obsdep_idx(n)), obs(obsdep_set(n))%lat(obsdep_idx(n)), obs(obsdep_set(n))%lev(obsdep_idx(n))*1.e-2, obs(obsdep_set(n))%elm(obsdep_idx(n)), maxval(ya_local(:,n)), minval(ya_local(:,n))
-        enddo
         write ( MYRANK_D6,'(I6.6)') myrank_d
         call write_obs_anal_rank_nc( trim( OBSANAL_OUT_BASENAME ) // MYRANK_D6 // '.nc', &
                                      ya_local )
@@ -2704,7 +2707,6 @@ end subroutine get_obsdep_efso_mpi
 !-------------------------------------------------------------------------------
 subroutine monit_obs4efso_mpi(v3dg, v2dg, im, nobs, ya_local)
   implicit none
-!  call monit_obs4efso_mpi(v3dg, v2dg, im, nobs, ya_local)
 
   real(RP), intent(in) :: v3dg(nlev,nlon,nlat,nv3d)
   real(RP), intent(in) :: v2dg(nlon,nlat,nv2d)

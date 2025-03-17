@@ -77,7 +77,8 @@ subroutine get_total_impact(fcer3d,fcer2d,fcer3d_diff,fcer2d_diff,total_impact)
   enddo
 
   ! (e^f_t-e^g_t)C*[1/2](e^f_t+e^g_t)
-  ! debug ! total_impact = total_impact * real(MEMBER-1,r_size)
+  !! offset the division by [MEMBER-1] for fcer3/2d in efso.f90
+  total_impact = total_impact * real(MEMBER-1,r_size)
 
   return
 end subroutine get_total_impact
@@ -165,18 +166,18 @@ subroutine print_obsense(nobs,set,idx,qc,obsense_global,total_impact,obval,print
     endif
 
     if ( absmax > 1.e20_r_size ) then
-      write(6,'(a,i8,i4,2f7.2,f7.1)') 'Debug too large obsense_global ', &
-      nob, obs(set(nob))%typ(idx(nob)), obs(set(nob))%lon(idx(nob)), obs(set(nob))%lat(idx(nob)), obs(set(nob))%lev(idx(nob))*1.e-2
+      write(6,'(a,i8,x,a,2f7.2,f7.1,e15.6)') 'Debug too large obsense_global ', &
+      nob, obtypelist(obs(set(nob))%typ(idx(nob))), obs(set(nob))%lon(idx(nob)), obs(set(nob))%lat(idx(nob)), obs(set(nob))%lev(idx(nob))*1.e-2, obval(nob)
       cycle
     endif
+    ! ! debug
+    ! if ( obs(set(nob))%lev(idx(nob)) > 90000.0_r_size ) then
+    !   cycle
+    ! endif
 
 
     ! Select observation types
     otype = obs(set(nob))%typ(idx(nob))
-    if ( nob < 20 ) then
-      write(6,'(a,a,x,2f6.1,f7.1,i7,4e10.2)') 'Check in print ', obtypelist(otype), obs(set(nob))%lon(idx(nob)), obs(set(nob))%lat(idx(nob)), obs(set(nob))%lev(idx(nob))*1.e-2, &
-      obs(set(nob))%elm(idx(nob)), obsense_global(1,nob), obsense_global(2,nob), obsense_global(3,nob), obval(nob)
-    endif
     
     ! Select observation elements
     !oid = ctype_elmtyp(uid_obs(obs(set(nob))%elm(idx(nob))),otype)
@@ -204,7 +205,7 @@ subroutine print_obsense(nobs,set,idx,qc,obsense_global,total_impact,obval,print
       write(6,'(a)') ' Total energy statistics '
     endif
     WRITE (6, '(A)') '========================================================='
-    WRITE (6, '(A,I10)') ' TOTAL NUMBER OF OBSERVATIONS:', nobstotalg
+    WRITE (6, '(A,I10)') ' TOTAL NUMBER OF OBSERVATIONS:', sum(nobs_sense(:,:))
     WRITE (6, '(A)') '========================================================='
     WRITE (6, '(A)') '                  nobs     dJ       +rate[%]  dJ(mean)'
     do otype = 1, nobtype

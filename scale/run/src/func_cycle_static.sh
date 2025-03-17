@@ -993,7 +993,7 @@ while ((time <= ETIME)); do
       EFSO_ANAL_IN_BASENAME="${RESTART_OUT_PATH[$d]}/mean/init_$(datetime_scale $atime)"
       EFSO_FCST_FROM_GUES_BASENAME="${OUTDIR[$d]}/${time}/fcst/mgue/init_$(datetime_scale $atime)" 
       EFSO_FCST_FROM_ANAL_BASENAME="${OUTDIR[$d]}/${time}/fcst/mean/init_$(datetime_scale $atime)" 
-      EFSO_EFCST_FROM_ANAL_BASENAME="${OUTDIR[$d]}/${time}/fcst/<member>/init_$(datetime_scale $atime)"
+      EFSO_EFCST_FROM_ANAL_BASENAME="${OUTDIR[$d]}/${time}/anal/<member>/init_$(datetime_scale $atime)"
 #      EFSO_EFCST_FROM_ANAL_BASENAME="${HISTORY_EFSO_PATH}/<member>/init_$(datetime_scale $atime)"
       EFSO_PREVIOUS_GUES_BASENAME="${RESTART_OUT_PATH[$d]}/../../${time}/gues/mean/init_$(datetime_scale $time)"
       RESTART_IN_BASENAME_SCALE="${RESTART_OUT_PATH[$d]}/../gues/<member>/init"
@@ -1534,10 +1534,8 @@ OUT_CYCLE_SKIP=${OUT_CYCLE_SKIP:-1}
 
 CYCLEFLEN=$WINDOW_E     # Model forecast length in a cycle (second)
 if (( EFSO_RUN > 0 )) ; then
-  EFSO_FCST_LENGTH=${EFSO_FCST_LENGTH:-$WINDOW_E}
-  if (( WINDOW_E < EFSO_FCST_LENGTH )) ; then
-    CYCLEFLEN=$EFSO_FCST_LENGTH
-  fi
+  EFSO_FCST_LENGTH=${EFSO_FCST_LENGTH:-$LCYCLE}
+  CYCLEFLEN=$((EFSO_FCST_LENGTH+LCYCLE))
 fi
 
 if [ -z "$FCSTOUT" ] || ((FCSTOUT >= LTIMESLOT)); then

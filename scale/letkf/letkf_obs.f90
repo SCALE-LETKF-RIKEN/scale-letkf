@@ -577,7 +577,6 @@ SUBROUTINE set_letkf_obs
     obsgrd(ictype)%ngrdsch_j = ceiling(hori_loc_ctype(ictype) * dist_zero_fac / obsgrd(ictype)%grdspc_j)
     obsgrd(ictype)%ngrdext_i = obsgrd(ictype)%ngrd_i + obsgrd(ictype)%ngrdsch_i * 2
     obsgrd(ictype)%ngrdext_j = obsgrd(ictype)%ngrd_j + obsgrd(ictype)%ngrdsch_j * 2
-    print *, 'Line 580', obsgrd(ictype)%grdspc_j, obsgrd(ictype)%ngrd_j, obsgrd(ictype)%ngrdsch_j, hori_loc_ctype(ictype)
 
     allocate (obsgrd(ictype)%n (  obsgrd(ictype)%ngrd_i, obsgrd(ictype)%ngrd_j, 0:nprocs_d-1))
     allocate (obsgrd(ictype)%ac(0:obsgrd(ictype)%ngrd_i, obsgrd(ictype)%ngrd_j, 0:nprocs_d-1))
@@ -958,9 +957,7 @@ SUBROUTINE set_letkf_obs
 
       ishift = (ip_i - myp_i) * obsgrd(ictype)%ngrd_i + obsgrd(ictype)%ngrdsch_i
       jshift = (ip_j - myp_j) * obsgrd(ictype)%ngrd_j + obsgrd(ictype)%ngrdsch_j
-      print *,'Line 960', ip_j, myp_j, obsgrd(ictype)%ngrd_j, obsgrd(ictype)%ngrdsch_j
       do j = jmin2, jmax2
-        print *, 'Line 962', shape(obsgrd(ictype)%ac_ext), imin2, imax2, j, jshift
         ns_ext = obsgrd(ictype)%ac_ext(imin2+ishift-1,j+jshift) + 1
         ne_ext = obsgrd(ictype)%ac_ext(imax2+ishift  ,j+jshift)
         if (ns_ext > ne_ext) cycle
@@ -1495,7 +1492,6 @@ subroutine set_efso_obs
         else
           vert_loc_ctype(ictype) = VERT_LOCAL(ityp)
         end if
-        write(6,'(a,i7,2e12.2)') 'Debug localization: ', elm_ctype(ictype), hori_loc_ctype(ictype), vert_loc_ctype(ictype)
       end if ! [ ctype_use(ielm_u, ityp) ]
     end do ! [ ielm_u = 1, nid_obs ]
   end do ! [ ityp = 1, nobtype ]
@@ -1550,17 +1546,24 @@ subroutine set_efso_obs
         obsda%idx(i) = obsidx(n)
         obsda%qc (i) = obsqc(n)
         obsda%val(i) = obsdep(n)
-        write(6,'(a,i7,5f7.2)') 'obsda%val ', n, obsda%val(i), obs(obsda%set(i))%dat(obsidx(i)), &
-        obs(obsda%set(i))%lon(obsidx(i)), obs(obsda%set(i))%lat(obsidx(i)), obs(obsda%set(i))%lev(obsidx(i))*1.e-2
         sprd = 0.0_r_size
         do m = 1, MEMBER
           obsda%ensval(m,i) = obshdxf(m,n)
           sprd = sprd + obshdxf(m,n)**2
         enddo
         sprd = sqrt(sprd / real(MEMBER-1,r_size))
-        if ( mod(i,10) == 0 ) then
-          write(6,'(a,3e11.1)') 'Debug obsda ensval: ', sum(obsda%ensval(1:MEMBER,i)), obsda%ensval(1,i), sprd
-        endif      
+!        if ( obs(obsda%set(i))%lev(obsda%idx(i)) > 90000.0_r_size ) then
+        write(6,'(a,i7,x,a,4e12.2)') 'Check_ya', i, obtypelist(int(obs(obsda%set(i))%typ(obsda%idx(i)))), &
+        obsda%val(i), &
+        sprd, &
+        obs(obsda%set(i))%err(obsda%idx(i)), &
+        abs(obsda%val(i)) * sprd / (obs(obsda%set(i))%err(obsda%idx(i))**2)
+        if ( maxval(abs(obsda%ensval(1:MEMBER,i))) > 1.e10_r_size ) then
+          write(6,'(a,i9,x,a,f8.1,3e12.3)') 'Check_ya: ', i, obtypelist(int(obs(obsda%set(i))%typ(obsda%idx(i)))), obs(obsda%set(i))%lev(obsda%idx(i))*1.e-2, obsda%val(i), maxval(obsda%ensval(1:MEMBER,i)), minval(obsda%ensval(1:MEMBER,i))
+        endif
+        if ( obtypelist(int(obs(obsda%set(i))%typ(obsda%idx(i)))) == 'ADPSFC' ) then
+          write(6,'(a,i7,3f7.1,3e13.3)') 'Check_ADPSFC: ', i, obs(obsda%set(i))%lev(obsda%idx(i))*1.e-2, obs(obsda%set(i))%dat(obsda%idx(i))*1.e-2, obs(obsda%set(i))%err(obsda%idx(i))*1.e-2, obsda%val(i), maxval(obsda%ensval(1:MEMBER,i)), minval(obsda%ensval(1:MEMBER,i))
+        endif
       endif
     enddo
   

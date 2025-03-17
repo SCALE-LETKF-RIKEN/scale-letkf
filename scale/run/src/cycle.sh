@@ -305,15 +305,15 @@ while ((time <= ETIME)); do
             cp -r $BGDIR/anal/mean/* $OUTDIR/$atime/anal/sprd/ 
             cp -r $BGDIR/anal/mean/* $OUTDIR/$atime/gues/sprd/ 
         fi
-        if ((EFSO_RUN == 1)) ;then
-          # copy restart files for EFSO
-          efso_vtime=$(datetime $time $EFSO_FCST_LENGTH s)
-          for mmmm in 'mean' $(seq -f %04g 1 ${MEMBER}) ; do 
-            for pe in $(seq -f %06g 0 $((SCALE_NP-1)) ) ;do
-              cp -r $BGDIR/anal/$mmmm/init_$(datetime_scale $efso_vtime).pe${pe}.nc $OUTDIR/$time/fcst/$mmmm/init_$(datetime_scale $efso_vtime).pe${pe}.nc 
-            done 
-          done
-        fi
+        # if ((EFSO_RUN == 1)) ;then
+        #   # copy restart files for EFSO
+        #   efso_vtime=$(datetime $time $EFSO_FCST_LENGTH s)
+        #   for mmmm in 'mean' $(seq -f %04g 1 ${MEMBER}) ; do 
+        #     for pe in $(seq -f %06g 0 $((SCALE_NP-1)) ) ;do
+        #       cp -r $BGDIR/anal/$mmmm/init_$(datetime_scale $efso_vtime).pe${pe}.nc $OUTDIR/$time/fcst/$mmmm/init_$(datetime_scale $efso_vtime).pe${pe}.nc 
+        #     done 
+        #   done
+        # fi
         if ((OUT_OPT <= 3)) ;then
           mpiexec -n $((NNODES*PPN)) ./copy_restart_mpi.sh $BGDIR/anal $OUTDIR/$atime/gues $atime
           mpiexec_cnt=$((mpiexec_cnt+1))

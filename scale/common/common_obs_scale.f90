@@ -1230,9 +1230,9 @@ SUBROUTINE phys2ijk(p_full,elem,ri,rj,rlev,rk,qc,typ)
     IF(rk > plev(ks)) THEN
       call itpl_2d(p_full(ks,:,:),ri,rj,ptmp)
 !print *, ks, rk, plev(ks)
-      if (LOG_LEVEL >= 2) then
+      !if (LOG_LEVEL >= 2) then ! debug
         write(6,'(A,F12.1,A,F12.1,A,I5)') '[Warning] observation is too low: pbottom=', ptmp, ', lev=', rlev, ', elem=', elem
-      end if
+      !end if
       rk = undef
       qc = iqc_out_vlo
 
@@ -1694,10 +1694,21 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
       !-------------------------------------------------------------------------
         call phys2ijk(v3dgh(:,:,:,iv3dd_p),obs(iset)%elm(iidx), &
                       ril,rjl,obs(iset)%lev(iidx),rk,oqc(n),typ=obs(iset)%typ(iidx))
+        if ( efso_ .and. oqc(n) == iqc_out_vlo ) then
+          ! For EFSO, we don't care if the observation is too low
+          ! because the observation proccessed here passed QC in LETKF
+          oqc(n) = iqc_good
+          rk = 1.0_r_size
+        endif
         if (oqc(n) == iqc_good) then
           call Trans_XtoY(obs(iset)%elm(iidx),ril,rjl,rk, &
                           obs(iset)%lon(iidx),obs(iset)%lat(iidx), &
                           v3dgh,v2dgh,ohx(n),oqc(n),stggrd=1,typ=obs(iset)%typ(iidx))
+          if ( efso_ .and. oqc(n) == iqc_ps_ter ) then
+            ! For EFSO, we don't care if the pressure adjustment is too large
+            ! because the observation proccessed here passed QC in LETKF
+            oqc(n) = iqc_good
+          endif
         end if
       !=========================================================================
       case (obsfmt_radar, obsfmt_radar_nc )
