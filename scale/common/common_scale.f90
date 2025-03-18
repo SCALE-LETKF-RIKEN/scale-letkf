@@ -2206,9 +2206,9 @@ subroutine copy_scale_file(filename_in, filename_out)
 
   write (filesuffix(4:9),'(I6.6)') PRC_myrank
 
-  if ( LOG_LEVEL >= 3 .and. LOG_OUT ) then
+!  if ( LOG_LEVEL >= 3 .and. LOG_OUT ) then
     write(6,'(a,x,a,x,a,x,a)') 'Copying ', trim(filename_in)//filesuffix, ' to ', trim(filename_out)//filesuffix
-  endif
+!  endif
 
   call execute_command_line("cp " // trim(filename_in) // filesuffix // " " // trim(filename_out) // filesuffix, exitstat=status)
 

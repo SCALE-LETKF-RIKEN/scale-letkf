@@ -1329,9 +1329,18 @@ subroutine read_ens_mpi(v3d, v2d, v2d_diag, EFSO )
         ! This process is called from LETKF (EFSO_ = F), not from EFSO
 
         filename4copy = EFSO_EFCST_FROM_ANAL_BASENAME
-        call filename_replace_mem(filename4copy, im)
-
-        call copy_scale_file(filename, filename4copy)
+        if ( im == 1 ) then 
+          ! copy mean and member 1
+          call filename_replace_mem(filename4copy, 'mean')
+          call copy_scale_file(filename, filename4copy)
+          filename4copy = EFSO_EFCST_FROM_ANAL_BASENAME
+          call filename_replace_mem(filename4copy, im)
+          call copy_scale_file(filename, filename4copy)
+        elseif ( im <= MEMBER ) then
+          ! copy the other members
+          call filename_replace_mem(filename4copy, im)
+          call copy_scale_file(filename, filename4copy)
+        endif
       endif
 
       if ( EFSO_ ) then

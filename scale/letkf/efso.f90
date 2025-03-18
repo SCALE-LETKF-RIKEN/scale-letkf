@@ -123,8 +123,9 @@ program efso
       !
       ! Forecast error at evaluation time
       !
-      ! forecast from the analysis ensemble mean
+      ! forecast from analysis ensemble mean
       if ( myrank_e == mmean_rank_e ) then  
+        if ( LOG_OUT ) write(6,'(a)') 'Read forecast from analysis ensemble mean' 
         call read_restart( trim(EFSO_FCST_FROM_ANAL_BASENAME), work3dg, work2dg)
         call state_trans(work3dg,rotate_flag=.true.,ps=work2dg_diag(:,:,iv2d_diag_ps))
       endif
@@ -136,6 +137,7 @@ program efso
 
       ! forecast from the ensemble mean of first guess
       if ( myrank_e == mmean_rank_e ) then  
+        if ( LOG_OUT ) write(6,'(a)') 'Read forecast from guess ensemble mean' 
         call read_restart( trim(EFSO_FCST_FROM_GUES_BASENAME), work3dg, work2dg)
         call state_trans(work3dg,rotate_flag=.true.,ps=work2dg_diag(:,:,iv2d_diag_ps))
       endif
@@ -177,6 +179,7 @@ program efso
 
       ! reference analysis ensemble mean
       if ( myrank_e == mmean_rank_e ) then  
+        if ( LOG_OUT ) write(6,'(a)') 'Read reference (analysis ensemble mean)' 
         call read_restart( trim(EFSO_ANAL_IN_BASENAME), work3dg, work2dg)
         call state_trans(work3dg,rotate_flag=.true.,ps=work2dg_diag(:,:,iv2d_diag_ps))
       endif
@@ -212,6 +215,7 @@ program efso
 
       ! guess mean for full-level pressure computation
       if ( myrank_e == mmean_rank_e ) then  
+        if ( LOG_OUT ) write(6,'(a)') 'Read guess ensemble mean' 
         call read_restart( trim(EFSO_PREVIOUS_GUES_BASENAME), work3dg, work2dg)
         call state_trans(work3dg,rotate_flag=.true.,ps=work2dg_diag(:,:,iv2d_diag_ps))
       endif
