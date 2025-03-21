@@ -153,6 +153,8 @@ PROGRAM letkf
     !
     ! WRITE ENS MEAN and SPRD
     !
+    call copy_restart4mean_and_gues ! copy restart files for mean (guess) and spread (anal/gues)
+
     if (DEPARTURE_STAT .and. LOG_LEVEL >= 1) then
       call write_ensmean(GUES_MEAN_INOUT_BASENAME, gues3d, gues2d, calced=.false., monit_step=1)
     else

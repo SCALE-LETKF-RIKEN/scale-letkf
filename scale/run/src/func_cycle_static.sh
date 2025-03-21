@@ -1250,9 +1250,14 @@ config_file_scale_core (){
 
       RESTART_OUTPUT_TF=".true."
 
+      # prepare directories
       if (( mlocal != mmgue)); then
         mkdir -p ${OUTDIR[$d]}/$atime/anal/${name_m[$mlocal]}
         mkdir -p ${OUTDIR[$d]}/$atime/gues/${name_m[$mlocal]}
+      fi
+      if (( mlocal == mmean)); then
+        mkdir -p ${OUTDIR[$d]}/$atime/anal/sprd
+        mkdir -p ${OUTDIR[$d]}/$atime/gues/sprd
       fi
       mkdir -p ${OUTDIR[$d]}/$time/hist/${name_m[$mlocal]}
 

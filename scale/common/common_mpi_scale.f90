@@ -2753,5 +2753,31 @@ subroutine monit_obs4efso_mpi(v3dg, v2dg, im, nobs, ya_local)
 
 end subroutine monit_obs4efso_mpi
 
+subroutine copy_restart4mean_and_gues()
+  implicit none
+
+  character(len=filelenmax) :: filename_in
+
+  if ( myrank_e == mmean_rank_e ) then
+
+    ! copy restart files for mean (guess)
+    filename_in = ANAL_OUT_BASENAME
+    call filename_replace_mem(filename_in, 'mean')
+    call copy_scale_file(filename_in, GUES_MEAN_INOUT_BASENAME)
+
+    ! copy restart files for spread (guess)
+    if ( GUES_SPRD_OUT ) then
+      call copy_scale_file(filename_in, GUES_SPRD_OUT_BASENAME)
+    endif 
+
+    ! copy restart files for spread (analysis)
+    if ( ANAL_SPRD_OUT ) then
+      call copy_scale_file(filename_in, ANAL_SPRD_OUT_BASENAME)
+    endif
+
+  endif ! myrank_e == mmean_rank_e
+
+  return
+end subroutine copy_restart4mean_and_gues
 !===============================================================================
 end module common_mpi_scale
