@@ -43,12 +43,10 @@ subroutine init_obsense( nobs )
   return
 end subroutine init_obsense
 
-
-
 subroutine get_total_impact(fcer3d,fcer2d,fcer3d_diff,fcer2d_diff,total_impact)
   implicit none
 
-  ! C^(1/2)*[1/2(K-1)](e^f_t+e^g_t)
+  ! C^(1/2)*(e^f_t+e^g_t)
   real(r_size), intent(in) :: fcer3d(nij1,nlev,nv3d) 
   real(r_size), intent(in) :: fcer2d(nij1,nv2d_diag)
 
@@ -76,9 +74,8 @@ subroutine get_total_impact(fcer3d,fcer2d,fcer3d_diff,fcer2d_diff,total_impact)
     enddo
   enddo
 
-  ! (e^f_t-e^g_t)C*[1/2](e^f_t+e^g_t)
-  !! offset the division by [MEMBER-1] for fcer3/2d in efso.f90
-  total_impact = total_impact * real(MEMBER-1,r_size)
+  ! [1/2]*(e^f_t-e^g_t)C(e^f_t+e^g_t)
+  total_impact = 0.5_r_size * total_impact
 
   return
 end subroutine get_total_impact

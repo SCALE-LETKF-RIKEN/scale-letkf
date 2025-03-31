@@ -429,9 +429,9 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
             ! if ( obs(iof)%lev(n) > 40000.0_r_size ) then
             !   obsda%qc(nn) = iqc_out_vhi
             ! end if
-            ! if ( obtypelist(obs(iof)%typ(n)) /= 'ADPSFC' ) then
-            !   obsda%qc(nn) = iqc_undef
-            ! end if 
+            if ( obtypelist(obs(iof)%typ(n)) /= 'ADPUPA' ) then
+              obsda%qc(nn) = iqc_undef
+            end if 
             ! if ( obtypelist(obs(iof)%typ(n)) /= 'AIRCFT' .and. obtypelist(obs(iof)%typ(n)) /= 'SATWND' ) then !.and. obtypelist(obs(iof)%typ(n)) /= 'ADPUPA' ) then
             ! if ( obtypelist(obs(iof)%typ(n)) /= 'SATWND' ) then !.and. obtypelist(obs(iof)%typ(n)) /= 'ADPUPA' ) then
             !     obsda%qc(nn) = iqc_undef

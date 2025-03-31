@@ -1090,7 +1090,7 @@ END SUBROUTINE das_letkf
 ! [INPUT]
 !  gues3d,gues2d: xmean^g_0
 !  fcst3d,fcst2d: C^(1/2)*X^f_t                    [(J/kg)^(1/2)]
-!  fcer3d,fcer2d: C^(1/2)*[1/2(K-1)](e^f_t+e^g_t)  [(J/kg)^(1/2)]
+!  fcer3d,fcer2d: C^(1/2)*(e^f_t+e^g_t)            [(J/kg)^(1/2)]
 !  total_impact: 1/2*(e^f_t-e^g_t)*C*(e^f_t+e^g_t) [J/kg]
 ! (save variables)
 !  obshdxf:
@@ -1353,7 +1353,7 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
 !    endif
 !    obsense(1:nterm,nob) = djdy(1:nterm,nob) * obsda_sort%val(nob)
     do iterm = 1, nterm
-      obsense(iterm,nob) = sum(djdy_3d(iterm,nob,1:nij1,1:nlev)) * obsda_sort%val(nob)
+      obsense(iterm,nob) = 0.5_r_size * sum(djdy_3d(iterm,nob,1:nij1,1:nlev)) * obsda_sort%val(nob) / real( MEMBER-1, r_size )
     enddo
     ! write(6,'(a,2e22.12)') 'dif_in_djdy', djdy(1,nob), sum(djdy_3d(1,nob,1:nij1,1:nlev))
     ! if ( LOG_OUT .and. mod(nob,50) == 0 ) then
@@ -2235,10 +2235,10 @@ end subroutine weight_RTPS
 !-----------------------------------------------------------------------
 ! [INPUT]
 !  fcst3d,fcst2d: (xmean+X)^f_t  (total field)
-!  fcer3d,fcer2d: [1/2(K-1)](e^f_t+e^g_t)
+!  fcer3d,fcer2d: (e^f_t+e^g_t)
 ! [OUTPUT]
 !  fcst3d,fcst2d: C^(1/2)*X^f_t                    [(J/kg)^(1/2)]
-!  fcer3d,fcer2d: C^(1/2)*[1/2(K-1)](e^f_t+e^g_t)  [(J/kg)^(1/2)]
+!  fcer3d,fcer2d: C^(1/2)*(e^f_t+e^g_t)  [(J/kg)^(1/2)]
 !  fcer3d_diff,fcer2d_diff: (e^f_t-e^g_t)*C^(1/2)  [(J/kg)^(1/2)]
 !-----------------------------------------------------------------------
 subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d,fcer3d_diff,fcer2d_diff)
@@ -2349,16 +2349,23 @@ subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d,fcer3d_diff,fcer2d_diff)
 
       ! Compute weight
       if ( k == 1 ) then
-        p_upper = ( fcst3d(ij,k,mmean,iv3d_p) + fcst3d(ij,k+1,mmean,iv3d_p) ) * 0.5_r_size
-        p_lower = fcst2d(ij,mmean,iv2d_diag_ps)
-      else if ( k == nlev ) then
-        p_upper = fcst3d(ij,k,mmean,iv3d_p)
-        p_lower = ( fcst3d(ij,k,mmean,iv3d_p) + fcst3d(ij,k-1,mmean,iv3d_p) ) * 0.5_r_size
+        dsigma = 1.0_r_size - fcst3d(ij,2,mmean,iv3d_p) * ps_inv(ij)
+      elseif( k == nlev ) then
+        dsigma = 0.5_r_size * fcst3d(ij,nlev-1,mmean,iv3d_p) * ps_inv(ij)
       else
-        p_upper = ( fcst3d(ij,k,mmean,iv3d_p) + fcst3d(ij,k+1,mmean,iv3d_p) ) * 0.5_r_size
-        p_lower = ( fcst3d(ij,k,mmean,iv3d_p) + fcst3d(ij,k-1,mmean,iv3d_p) ) * 0.5_r_size
+        dsigma = 0.5_r_size * ( fcst3d(ij,k-1,mmean,iv3d_p) - fcst3d(ij,k+1,mmean,iv3d_p) ) * ps_inv(ij)
       endif
-      dsigma = abs( p_lower - p_upper ) * ps_inv(ij) 
+      ! if ( k == 1 ) then
+      !   p_upper = ( fcst3d(ij,k,mmean,iv3d_p) + fcst3d(ij,k+1,mmean,iv3d_p) ) * 0.5_r_size
+      !   p_lower = fcst2d(ij,mmean,iv2d_diag_ps)
+      ! else if ( k == nlev ) then
+      !   p_upper = fcst3d(ij,k,mmean,iv3d_p)
+      !   p_lower = ( fcst3d(ij,k,mmean,iv3d_p) + fcst3d(ij,k-1,mmean,iv3d_p) ) * 0.5_r_size
+      ! else
+      !   p_upper = ( fcst3d(ij,k,mmean,iv3d_p) + fcst3d(ij,k+1,mmean,iv3d_p) ) * 0.5_r_size
+      !   p_lower = ( fcst3d(ij,k,mmean,iv3d_p) + fcst3d(ij,k-1,mmean,iv3d_p) ) * 0.5_r_size
+      ! endif
+      ! dsigma = abs( p_lower - p_upper ) * ps_inv(ij) 
       ! if ( ij == 1 ) then
       !   write(6,'(a,3f8.1,2e11.3)')'debug p_up_low ', p_upper*1.e-2, p_lower*1.e-2, fcst2d(ij,mmean,iv2d_diag_ps)*1.e-2, ps_inv(ij), dsigma
       ! endif

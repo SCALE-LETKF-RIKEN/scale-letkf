@@ -30,14 +30,19 @@ program efso
   real(r_size), allocatable :: fcer3d_diff(:,:,:)
   real(r_size), allocatable :: fcer2d_diff(:,:)
   real(r_size), allocatable :: work3d(:,:,:)
-  real(r_size), allocatable :: work2d(:,:)
+!   real(r_size), allocatable :: work2d(:,:)
   real(RP),     allocatable :: work3dg(:,:,:,:)
   real(RP),     allocatable :: work2dg(:,:,:)
 
   ! for 2D variables diagnosed from 3D variables to calculate norm
   real(r_size), allocatable :: work2d_diag(:,:)
   real(RP),     allocatable :: work2dg_diag(:,:,:)
-!  real(r_size), allocatable :: uadf(:,:), vadf(:,:)
+
+  ! reference data
+  real(r_size), allocatable :: work3d_ref(:,:,:)
+  real(r_size), allocatable :: work2d_diag_ref(:,:)
+
+  !  real(r_size), allocatable :: uadf(:,:), vadf(:,:)
 !  real(r_size), allocatable :: uada(:,:), vada(:,:)
 
   real(r_size) :: total_impact
@@ -100,12 +105,15 @@ program efso
       allocate( fcer3d_diff(nij1,nlev,nv3d) )
       allocate( fcer2d_diff(nij1,nv2d_diag) )
       allocate( work3d(nij1,nlev,nv3d) )
-      allocate( work2d(nij1,nv2d) )
+!       allocate( work2d(nij1,nv2d) )
       allocate( work3dg(nlev,nlon,nlat,nv3d) )
       allocate( work2dg(nlon,nlat,nv2d) )
 
       allocate( work2d_diag(nij1,nv2d_diag) )
       allocate( work2dg_diag(nlon,nlat,nv2d_diag) )
+
+      allocate( work3d_ref(nij1,nlev,nv3d) )
+      allocate( work2d_diag_ref(nij1,nv2d_diag) )
 
       !-----------------------------------------------------------------------
       ! Read model data
@@ -114,16 +122,13 @@ program efso
       ! Forecast ensemble
       !
       call read_ens_mpi(fcst3d, v2d_diag=fcst2d, EFSO=.true.)
-      ! do iv3d = 1, nv3d
-      !   write(6,'(a,2e12.2,x,a)')'Debug read_ens_mpi', fcst3d(3,3,2,iv3d), maxval(fcst3d(:,:,1:MEMBER,iv3d)), v3dd_name(iv3d)
-      ! enddo
 
       !!! fcst3d,fcst2d: (xmean+X)^f_t [Eq.(6), Ota et al. 2013]
 
       !
       ! Forecast error at evaluation time
       !
-      ! forecast from analysis ensemble mean
+      ! forecast from analysis ensemble mean (x^f_t)
       if ( myrank_e == mmean_rank_e ) then  
         if ( LOG_OUT ) write(6,'(a)') 'Read forecast from analysis ensemble mean' 
         call read_restart( trim(EFSO_FCST_FROM_ANAL_BASENAME), work3dg, work2dg)
@@ -131,11 +136,8 @@ program efso
       endif
       call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d_diag,v3dg=real(work3dg,RP),v2dg=real(work2dg_diag,RP),&
                           v3d=fcer3d,v2d=fcer2d)
-      ! do iv3d = 1, nv3d
-      !   write(6,'(a,2e12.2,x,a)')'Debug L134 fcst manl ', fcer3d(3,3,iv3d), maxval(fcer3d(3,:,iv3d)), v3dd_name(iv3d)
-      ! enddo
 
-      ! forecast from the ensemble mean of first guess
+      ! forecast from the ensemble mean of first guess (x^g_t)
       if ( myrank_e == mmean_rank_e ) then  
         if ( LOG_OUT ) write(6,'(a)') 'Read forecast from guess ensemble mean' 
         call read_restart( trim(EFSO_FCST_FROM_GUES_BASENAME), work3dg, work2dg)
@@ -144,7 +146,35 @@ program efso
       call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d_diag,v3dg=real(work3dg,RP),v2dg=real(work2dg_diag,RP),&
                           v3d=work3d,v2d=work2d_diag)
 
-      ! e^f_t - e^g_t
+      ! reference analysis ensemble mean (x^a_t)
+      if ( myrank_e == mmean_rank_e ) then  
+        if ( LOG_OUT ) write(6,'(a)') 'Read reference (analysis ensemble mean)' 
+        call read_restart( trim(EFSO_ANAL_IN_BASENAME), work3dg, work2dg)
+        call state_trans(work3dg,rotate_flag=.true.,ps=work2dg_diag(:,:,iv2d_diag_ps))
+      endif
+      call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d_diag,v3dg=real(work3dg,RP),v2dg=real(work2dg_diag,RP),&
+                          v3d=work3d_ref,v2d=work2d_diag_ref)
+
+      ! guess mean for full-level pressure computation
+      if ( myrank_e == mmean_rank_e ) then  
+        if ( LOG_OUT ) write(6,'(a)') 'Read guess ensemble mean' 
+        call read_restart( trim(EFSO_PREVIOUS_GUES_BASENAME), work3dg, work2dg)
+        call state_trans(work3dg,rotate_flag=.true.,ps=work2dg_diag(:,:,iv2d_diag_ps))
+      endif
+      call scatter_grd_mpi(mmean_rank_e,nv3d,0,v3dg=real(work3dg,RP),&
+                          v3d=gues3d)
+
+      deallocate( work3dg )
+      deallocate( work2dg )
+      deallocate( work2dg_diag )
+                    
+      !-- Required data for EFSO --
+      ! gues3d:     x^g_0
+      ! fcer3d:     x^f_t
+      ! work3d:     x^g_t 
+      ! work3d_ref: x^a_t
+
+      ! e^f_t - e^g_t = x^f_t - x^g_t
       do iv3d = 1, nv3d
         do k = 1, nlev
           do ij = 1, nij1
@@ -159,84 +189,33 @@ program efso
         enddo
       enddo   
                       
-      ! (f_t + g_t)/2
+      !!! fcer3d,fcer2d: (e^f_t+e^g_t) [Eq.(6), Ota et al. 2013]
+      ! (e^f_t + e^g_t) = (x^f - x^a) + (x^g - x^a) = x^f + x^g - 2x^a
       do iv3d = 1, nv3d
         do k = 1, nlev
           do ij = 1, nij1
-            fcer3d(ij,k,iv3d) = 0.5_r_size * ( fcer3d(ij,k,iv3d) + work3d(ij,k,iv3d) )
-          enddo
-        enddo
-      enddo
-      ! do iv3d = 1, nv3d
-      !   write(6,'(a,2e10.2,x,a)') 'Check L170 fcer (f+g)/2', maxval(fcer3d(:,:,iv3d)), minval(fcer3d(:,:,iv3d)), v3dd_name(iv3d)
-      ! enddo
-      do iv2d = 1, nv2d_diag
-        do ij = 1, nij1
-          fcer2d(ij,iv2d) = 0.5_r_size * ( fcer2d(ij,iv2d) + work2d_diag(ij,iv2d) )
-        enddo
-      enddo
-
-
-      ! reference analysis ensemble mean
-      if ( myrank_e == mmean_rank_e ) then  
-        if ( LOG_OUT ) write(6,'(a)') 'Read reference (analysis ensemble mean)' 
-        call read_restart( trim(EFSO_ANAL_IN_BASENAME), work3dg, work2dg)
-        call state_trans(work3dg,rotate_flag=.true.,ps=work2dg_diag(:,:,iv2d_diag_ps))
-      endif
-      call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d_diag,v3dg=real(work3dg,RP),v2dg=real(work2dg_diag,RP),&
-                          v3d=work3d,v2d=work2d_diag)
-      ! do iv3d = 1, nv3d
-      !   write(6,'(a,2e12.2,x,a)')'Debug L186 reference ', work3d(3,3,iv3d), maxval(work3d(3,:,iv3d)), v3dd_name(iv3d)
-      ! enddo                 
-
-      !!! fcer3d,fcer2d: [1/2(K-1)](e^f_t+e^g_t) [Eq.(6), Ota et al. 2013]
-      ! (f_t + g_t)/2 - reference = 1/2(e^f_t+e^g_t)
-      do iv3d = 1, nv3d
-        do k = 1, nlev
-          do ij = 1, nij1
-            fcer3d(ij,k,iv3d) = ( fcer3d(ij,k,iv3d) - work3d(ij,k,iv3d) )  / real( MEMBER-1, r_size )
+            fcer3d(ij,k,iv3d) = fcer3d(ij,k,iv3d) + work3d(ij,k,iv3d) - 2.0_r_size * work3d_ref(ij,k,iv3d) 
           enddo
         enddo
       enddo
       do iv2d = 1, nv2d_diag
         do ij = 1, nij1
-          fcer2d(ij,iv2d)   = ( fcer2d(ij,iv2d) - work2d_diag(ij,iv2d) ) / real( MEMBER-1, r_size )
+          fcer2d(ij,iv2d) = fcer2d(ij,iv2d) + work2d_diag(ij,iv2d) - 2.0_r_size * work2d_diag_ref(ij,iv2d) 
         enddo
       enddo
-      ! print *,""
-      ! do iv3d = 1, nv3d
-      !   write(6,'(a,3e10.2,x,a)')'Debug L209 fcer ', fcer3d(3,3,iv3d), maxval(fcer3d(:,:,iv3d)), minval(fcer3d(:,:,iv3d)), v3dd_name(iv3d)
-      ! enddo                 
-      ! print *,""
-      ! do iv2d = 1, nv2d_diag
-      !   write(6,'(a,3e10.2,x,a)')'Debug L209 fcer ', fcer2d(3,iv2d), maxval(fcer2d(:,iv2d)), minval(fcer2d(:,iv2d)), 'Ps'
-      ! enddo                 
-      ! print *,""
 
-      ! guess mean for full-level pressure computation
-      if ( myrank_e == mmean_rank_e ) then  
-        if ( LOG_OUT ) write(6,'(a)') 'Read guess ensemble mean' 
-        call read_restart( trim(EFSO_PREVIOUS_GUES_BASENAME), work3dg, work2dg)
-        call state_trans(work3dg,rotate_flag=.true.,ps=work2dg_diag(:,:,iv2d_diag_ps))
-      endif
-      call scatter_grd_mpi(mmean_rank_e,nv3d,0,v3dg=real(work3dg,RP),&
-                          v3d=gues3d)
-      ! do iv3d = 1, nv3d
-      !   write(6,'(a,2e12.2,x,a)')'Debug L181 guess ', gues3d(3,3,iv3d),maxval(gues3d(3,:,iv3d)), v3dd_name(iv3d)
-      ! enddo
                       
+      deallocate( work3d )
+      deallocate( work3d_ref, work2d_diag_ref )
 
-      deallocate( work3dg, work2dg )
-      deallocate( work3d, work2d )
-
-      deallocate( work2d_diag, work2dg_diag )
+      deallocate( work2d_diag )
 
       !
       ! Norm
       !
       call lnorm( fcst3d, fcst2d, fcer3d, fcer2d, fcer3d_diff, fcer2d_diff )
       !! fcst3d,fcst2d: C^(1/2)*X^f_t
-      !! fcer3d,fcer2d: C^(1/2)*[1/2(K-1)](e^f_t+e^g_t)
+      !! fcer3d,fcer2d: C^(1/2)*(e^f_t+e^g_t)
       !! fcer3d_diff,fcer2d_diff: C^(1/2)*(e^f_t-e^g_t)
 
       call get_total_impact(fcer3d,fcer2d,fcer3d_diff,fcer2d_diff,total_impact)
