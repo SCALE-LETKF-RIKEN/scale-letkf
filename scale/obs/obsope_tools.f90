@@ -425,29 +425,22 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
           case (obsfmt_prepbufr)
           !---------------------------------------------------------------------
             call phys2ijk(v3dg(:,:,:,iv3dd_p), obs(iof)%elm(n), ril, rjl, obs(iof)%lev(n), rk, obsda%qc(nn), typ=obs(iof)%typ(n))
-            ! debug
-            ! if ( obs(iof)%lev(n) > 40000.0_r_size ) then
-            !   obsda%qc(nn) = iqc_out_vhi
-            ! end if
-            if ( obtypelist(obs(iof)%typ(n)) /= 'ADPUPA' ) then
-              obsda%qc(nn) = iqc_undef
-            end if 
-            ! if ( obtypelist(obs(iof)%typ(n)) /= 'AIRCFT' .and. obtypelist(obs(iof)%typ(n)) /= 'SATWND' ) then !.and. obtypelist(obs(iof)%typ(n)) /= 'ADPUPA' ) then
-            ! if ( obtypelist(obs(iof)%typ(n)) /= 'SATWND' ) then !.and. obtypelist(obs(iof)%typ(n)) /= 'ADPUPA' ) then
-            !     obsda%qc(nn) = iqc_undef
-            ! endif
-            ! if ( obs(iof)%lon(n) < 111.8 .or. obs(iof)%lon(n) > 111.95 .or. &
-            !       obs(iof)%lat(n) <  20.5 .or. obs(iof)%lat(n) >  20.76 .or. obs(iof)%lev(n) > 15000.0 &
-            !       .or. obs(iof)%elm(n) /= id_u_obs ) then
-            !   obsda%qc(nn) = iqc_undef
-            ! endif
             if (obsda%qc(nn) == iqc_good) then
               call Trans_XtoY(obs(iof)%elm(n), ril, rjl, rk, &
                               obs(iof)%lon(n), obs(iof)%lat(n), v3dg, v2dg, obsda%val(nn), obsda%qc(nn), typ=obs(iof)%typ(n))
             end if
-!            if ( ( ( obtypelist(obs(iof)%typ(n)) == 'AIRCFT' ) .or. ( obtypelist(obs(iof)%typ(n)) == 'SATWND' ) ) .and. obsda%qc(nn) == iqc_good ) then
-            ! if (  obsda%qc(nn) == iqc_good ) then
-            !     write(6,'(a,i6,f7.1,e14.3,3f10.1,x,a)') 'Check obsope', obs(iof)%elm(n), obs(iof)%lev(n)*1.e-2, rk, obsda%val(nn), obs(iof)%dat(n), obs(iof)%err(n), obtypelist(obs(iof)%typ(n))
+            if ( obtypelist(obs(iof)%typ(n)) /= 'ADPUPA' ) then
+              obsda%qc(nn) = iqc_undef ! debug
+            endif
+            ! if ( obs(iof)%lev(n) > 85000.0_r_size ) then
+            !   obsda%qc(nn) = iqc_undef ! debug
+            ! endif
+            ! if ( abs( obs(iof)%lon(n) - 149.300) > 0.01_r_size .or. &
+            !      abs( obs(iof)%lat(n) -  44.500) > 0.01_r_size ) then
+            !   obsda%qc(nn) = iqc_undef ! debug
+            ! end if
+            ! if ( mod(nint(ril),3) /= 0 .or. mod(nint(rjl),3) /= 0 ) then
+            !   obsda%qc(nn) = iqc_undef ! debug
             ! endif
           !=====================================================================
           case (obsfmt_radar, obsfmt_radar_nc)

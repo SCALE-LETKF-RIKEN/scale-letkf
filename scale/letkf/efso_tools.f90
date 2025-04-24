@@ -54,41 +54,64 @@ subroutine get_total_impact(fcer3d,fcer2d,fcer3d_diff,fcer2d_diff,total_impact)
   real(r_size), intent(in) :: fcer3d_diff(nij1,nlev,nv3d)
   real(r_size), intent(in) :: fcer2d_diff(nij1,nv2d_diag)
 
-  real(r_size), intent(out) :: total_impact
+  real(r_size), intent(out) :: total_impact(nterm)
 
   integer :: ij, K
   integer :: iv3d, iv2d
+  integer :: iterm
 
-  total_impact = 0.0_r_size
+  total_impact(1:nterm) = 0.0_r_size
+
   do iv3d = 1, nv3d
-    do k = 1, nlev
-      do ij = 1, nij1
-        total_impact = total_impact + fcer3d_diff(ij,k,iv3d) * fcer3d(ij,k,iv3d) 
+    select case( iv3d )
+    case( iv3d_u, iv3d_v )
+      iterm = 1
+    case(iv3d_t)
+      iterm = 2
+    case(iv3d_q)
+      iterm = 3
+    case default
+      iterm = 0
+    end select
+
+    if ( iterm > 0 ) then
+
+      do k = 1, nlev
+        do ij = 1, nij1
+          total_impact(iterm) = total_impact(iterm) + fcer3d_diff(ij,k,iv3d) * fcer3d(ij,k,iv3d) 
+        enddo
       enddo
-    enddo
+
+    endif
+
   enddo
 
+  iterm = 2
   do iv2d = 1, nv2d_diag
     do ij = 1, nij1
-      total_impact = total_impact + fcer2d_diff(ij,iv2d) * fcer2d(ij,iv2d)
+      total_impact(iterm) = total_impact(iterm) + fcer2d_diff(ij,iv2d) * fcer2d(ij,iv2d)
     enddo
   enddo
 
   ! [1/2]*(e^f_t-e^g_t)C(e^f_t+e^g_t)
-  total_impact = 0.5_r_size * total_impact
+  do iterm = 1, nterm
+    total_impact(iterm) = 0.5_r_size * total_impact(iterm)
+  enddo
 
   return
 end subroutine get_total_impact
 
-SUBROUTINE loc_advection(ua,va,uf,vf)
-  IMPLICIT NONE
-  real(r_size),INTENT(IN) :: ua(nij1,nlev)
-  real(r_size),INTENT(IN) :: va(nij1,nlev)
-  real(r_size),INTENT(IN) :: uf(nij1,nlev)
-  real(r_size),INTENT(IN) :: vf(nij1,nlev)
+subroutine loc_advection(ua,va,uf,vf)
+  implicit none
+
+  real(r_size), intent(in) :: ua(nij1,nlev)
+  real(r_size), intent(in) :: va(nij1,nlev)
+  real(r_size), intent(in) :: uf(nij1,nlev)
+  real(r_size), intent(in) :: vf(nij1,nlev)
   real(r_size) :: rad2deg, deg2rad
   real(r_size) :: coslat(nij1)
-  INTEGER :: i,k
+  integer :: i,k
+  
 !  ALLOCATE(lon2(nij1,nlev))
 !  ALLOCATE(lat2(nij1,nlev))
 !  deg2rad = pi/180.0_r_size
@@ -116,8 +139,9 @@ SUBROUTINE loc_advection(ua,va,uf,vf)
 !      END IF
 !    END DO
 !  END DO
-  RETURN
-END SUBROUTINE loc_advection
+
+  return
+end subroutine loc_advection
 
 subroutine print_obsense(nobs,set,idx,qc,obsense_global,total_impact,obval,print_dry)
   implicit none
@@ -127,7 +151,7 @@ subroutine print_obsense(nobs,set,idx,qc,obsense_global,total_impact,obval,print
   integer, intent(in) :: idx(nobs)
   integer, intent(in) :: qc (nobs)
   real(r_size), intent(in) :: obsense_global(nterm,nobs)
-  real(r_size), intent(in) :: total_impact
+  real(r_size), intent(in) :: total_impact(nterm)
   real(r_size), intent(in) :: obval(nobs)
   logical, optional, intent(in) :: print_dry
 
@@ -141,6 +165,7 @@ subroutine print_obsense(nobs,set,idx,qc,obsense_global,total_impact,obval,print
   real(r_size) :: obsense
   integer :: nob, oid, otype, iterm
   logical :: print_dry_ = .true.
+  real(r_size) :: total_impact_print
 
   if ( nobs == 0 ) return
   if ( present(print_dry) ) print_dry_ = print_dry
@@ -148,6 +173,12 @@ subroutine print_obsense(nobs,set,idx,qc,obsense_global,total_impact,obval,print
   nobs_sense = 0
   sumsense = 0._r_size
   rate = 0._r_size
+
+  if ( print_dry_ ) then
+    total_impact_print = total_impact(1)
+  else
+    total_impact_print = sum(total_impact(1:nterm))
+  endif
 
   ! Loop over each observations
   do nob = 1, nobs
@@ -167,11 +198,18 @@ subroutine print_obsense(nobs,set,idx,qc,obsense_global,total_impact,obval,print
       nob, obtypelist(obs(set(nob))%typ(idx(nob))), obs(set(nob))%lon(idx(nob)), obs(set(nob))%lat(idx(nob)), obs(set(nob))%lev(idx(nob))*1.e-2, obval(nob)
       cycle
     endif
-    ! ! debug
-    ! if ( obs(set(nob))%lev(idx(nob)) > 90000.0_r_size ) then
-    !   cycle
-    ! endif
-
+    ! debug
+    if ( print_dry_ ) then
+      write(6,'(a,i7,x,a,2f8.3,2f7.1,2e11.2)') 'debug_efso_print ', &
+      nob, obtypelist(obs(set(nob))%typ(idx(nob))), obs(set(nob))%lon(idx(nob)), obs(set(nob))%lat(idx(nob)), obs(set(nob))%lev(idx(nob))*1.e-2, obs(set(nob))%err(idx(nob)), obval(nob), obsense_global(1,nob)
+      if ( abs(obsense_global(1,nob)) > 0.1e-1 ) then
+        write(6,'(a,i7,x,a,2f8.3,2f7.1,2e11.2)') 'large_debug_efso_print ', &
+        nob, obtypelist(obs(set(nob))%typ(idx(nob))), obs(set(nob))%lon(idx(nob)), obs(set(nob))%lat(idx(nob)), obs(set(nob))%lev(idx(nob))*1.e-2, obs(set(nob))%err(idx(nob)), obval(nob), obsense_global(1,nob)
+      else
+        write(6,'(a,i7,x,a,2f8.3,2f7.1,2e11.2)') 'small_debug_efso_print ', &
+        nob, obtypelist(obs(set(nob))%typ(idx(nob))), obs(set(nob))%lon(idx(nob)), obs(set(nob))%lat(idx(nob)), obs(set(nob))%lev(idx(nob))*1.e-2, obs(set(nob))%err(idx(nob)), obval(nob), obsense_global(1,nob)
+      endif  
+    endif
 
     ! Select observation types
     otype = obs(set(nob))%typ(idx(nob))
@@ -228,7 +266,7 @@ subroutine print_obsense(nobs,set,idx,qc,obsense_global,total_impact,obval,print
     enddo
     write(6, '(A)') '======================================================'
     write(6,'(a,e12.5)') 'Total impact (sum): ', sum(sumsense(:,:))
-    write(6,'(a,e12.5)') 'Total impact (raw): ', total_impact
+    write(6,'(a,e12.5)') 'Total impact (raw): ', total_impact_print
     write(6, '(A)') '======================================================'
   endif
 
@@ -255,7 +293,7 @@ subroutine write_efso_nc( filename, nobsall, set, idx, qc, obsense_global, total
   integer, intent(in) :: idx(nobsall)
   integer, intent(in) :: qc (nobsall)
   real(r_size), intent(in) :: obsense_global(nterm,nobsall)
-  real(r_size), intent(in) :: total_impact
+  real(r_size), intent(in) :: total_impact(nterm)
 
   integer :: ncid
   integer :: dimid, dimid_norm
@@ -265,7 +303,7 @@ subroutine write_efso_nc( filename, nobsall, set, idx, qc, obsense_global, total
   integer :: lev_varid, dat_varid
   integer :: dif_varid, err_varid
   integer :: typ_varid
-  integer :: efso_varid
+  integer :: efso_varid, efso_total_varid
 
   character(len=*), parameter :: DIM_NAME = "number"
   character(len=*), parameter :: DIM_NAME_NORM = "norm"
@@ -279,6 +317,7 @@ subroutine write_efso_nc( filename, nobsall, set, idx, qc, obsense_global, total
   character(len=*), parameter :: TYP_NAME = "typ"
 
   character(len=*), parameter :: EFSO_NAME = "efso"
+  character(len=*), parameter :: EFSO_TOTAL_NAME = "efso_total"
 
   character(len=*), parameter :: ELM_LONGNAME = "observation id"
   character(len=*), parameter :: LON_LONGNAME = "longitude"
@@ -290,6 +329,7 @@ subroutine write_efso_nc( filename, nobsall, set, idx, qc, obsense_global, total
   character(len=*), parameter :: TYP_LONGNAME = "observation platform type"
 
   character(len=*), parameter :: EFSO_LONGNAME = "EFSO (observation impact)"
+  character(len=*), parameter :: EFSO_TOTAL_LONGNAME = "Total EFSO (observation impact)"
 
   integer, allocatable :: nobs_l(:)
   integer :: norm_l(nterm) 
@@ -378,6 +418,7 @@ subroutine write_efso_nc( filename, nobsall, set, idx, qc, obsense_global, total
   call ncio_check( nf90_def_var(ncid, TYP_NAME, NF90_INT,  dimid, typ_varid) )
 
   call ncio_check( nf90_def_var(ncid, EFSO_NAME, NF90_REAL, (/dimid_norm, dimid/), efso_varid) )
+  call ncio_check( nf90_def_var(ncid, EFSO_TOTAL_NAME, NF90_REAL, (/dimid_norm/), efso_total_varid) )
 
   ! Add long names for the netCDF variables
   call ncio_check( nf90_put_att(ncid, elm_varid, "long_name", ELM_LONGNAME ) )
@@ -390,9 +431,8 @@ subroutine write_efso_nc( filename, nobsall, set, idx, qc, obsense_global, total
   call ncio_check( nf90_put_att(ncid, typ_varid, "long_name", TYP_LONGNAME ) )
 
   call ncio_check( nf90_put_att(ncid, efso_varid, "long_name", EFSO_LONGNAME ) )
+  call ncio_check( nf90_put_att(ncid, efso_total_varid, "long_name", EFSO_TOTAL_LONGNAME ) )
 
-  ! Add global attribute
-  call ncio_check( nf90_put_att(ncid, NF90_GLOBAL, "total_impact", total_impact ) )
 
   ! End define mode.
   call ncio_check( nf90_enddef(ncid) )
@@ -421,6 +461,8 @@ subroutine write_efso_nc( filename, nobsall, set, idx, qc, obsense_global, total
 
   call ncio_check( nf90_put_var(ncid, efso_varid, obsense_global_l, start=(/1,1/), &
                    count=(/nterm,nobs/) ) )
+  call ncio_check( nf90_put_var(ncid, efso_total_varid, real(total_impact, kind=r_sngl), start=(/1/), &
+                   count=(/nterm/) ) )
 
   ! Close the file. 
   call ncio_check( nf90_close(ncid) )

@@ -1229,10 +1229,9 @@ SUBROUTINE phys2ijk(p_full,elem,ri,rj,rlev,rk,qc,typ)
     END IF
     IF(rk > plev(ks)) THEN
       call itpl_2d(p_full(ks,:,:),ri,rj,ptmp)
-!print *, ks, rk, plev(ks)
-      !if (LOG_LEVEL >= 2) then ! debug
+      if (LOG_LEVEL >= 2) then 
         write(6,'(A,F12.1,A,F12.1,A,I5)') '[Warning] observation is too low: pbottom=', ptmp, ', lev=', rlev, ', elem=', elem
-      !end if
+      end if
       rk = undef
       qc = iqc_out_vlo
 
@@ -1698,7 +1697,10 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
           ! For EFSO, we don't care if the observation is too low
           ! because the observation proccessed here passed QC in LETKF
           oqc(n) = iqc_good
-          rk = 1.0_r_size
+          rk = 1.0_r_size   
+          if ( LOG_LEVEL >= 3 ) then
+            write(6,'(a,3f7.2)') 'Reset obs-height QC in EFSO', obs(iset)%lon(iidx), obs(iset)%lat(iidx), obs(iset)%lev(iidx)*1.e-2
+          endif
         endif
         if (oqc(n) == iqc_good) then
           call Trans_XtoY(obs(iset)%elm(iidx),ril,rjl,rk, &
@@ -1707,7 +1709,10 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
           if ( efso_ .and. oqc(n) == iqc_ps_ter ) then
             ! For EFSO, we don't care if the pressure adjustment is too large
             ! because the observation proccessed here passed QC in LETKF
-            oqc(n) = iqc_good
+            if ( LOG_LEVEL >= 3 ) then
+              write(6,'(a,3f7.2)') 'Large PS adjustment in EFSO', obs(iset)%lon(iidx), obs(iset)%lat(iidx), obs(iset)%lev(iidx)*1.e-2
+            endif
+            oqc(n) = iqc_good 
           endif
         end if
       !=========================================================================
@@ -3256,6 +3261,8 @@ subroutine read_obs_radar_nc( cfile, obs )
   return
 end subroutine read_obs_radar_nc
 !---------------------------
+! Write Y^a (analysis ensemble perturbations in the obs space)
+! obsdep_nobs (=obsda_sort%nobs_in_key) corresponds to the observations assimilated in LETKF
 subroutine write_obs_anal_rank_nc( filename, ya )
   use netcdf
   use common_ncio
@@ -3314,6 +3321,7 @@ subroutine write_obs_anal_rank_nc( filename, ya )
   integer :: set_l(obsdep_nobs)
   integer :: idx_l(obsdep_nobs)
   integer :: elm_l(obsdep_nobs)
+  integer :: qc_l(obsdep_nobs)
   real(r_sngl) :: lon_l(obsdep_nobs), lat_l(obsdep_nobs)
   real(r_sngl) :: lev_l(obsdep_nobs), dat_l(obsdep_nobs)
   real(r_sngl) :: dif_l(obsdep_nobs), err_l(obsdep_nobs)
@@ -3324,7 +3332,7 @@ subroutine write_obs_anal_rank_nc( filename, ya )
 
   do n = 1, obsdep_nobs
     nobs_l(n) = n
-!    write(6,'(a,i8,2f7.1,i7)') 'Debug write_obs_anal_rank_nc ',n, obs(obsdep_set(n))%lon(obsdep_idx(n)), obs(obsdep_set(n))%lat(obsdep_idx(n)), obs(obsdep_set(n))%rank(obsdep_idx(n))
+    qc_l(n) = int(obsda_sort%qc(n))
  
     set_l(n) = int( obsdep_set(n) )
     idx_l(n) = int( obsdep_idx(n) )
@@ -3341,13 +3349,6 @@ subroutine write_obs_anal_rank_nc( filename, ya )
     omb_emean_l(n) = real( obsdep_omb_emean(n), r_sngl )
 
     ya_l(1:MEMBER,n) = real( ya(1:MEMBER,n), r_sngl )
-    if ( obtypelist(obs(obsdep_set(n))%typ(obsdep_idx(n))) == 'SATWND' ) then
-      if ( obs(obsdep_set(n))%elm(obsdep_idx(n)) == id_u_obs) then 
-        write(6,'(a,3f7.2,2f7.1,i6,2f6.1)')'Debug write_obs_anal_rank_nc SATWND U', lon_l(n), lat_l(n), lev_l(n)*1.e-2, omb_l(n), omb_emean_l(n),obsdep_qc(n), dat_l(n), err_l(n)
-      else if ( obs(obsdep_set(n))%elm(obsdep_idx(n)) == id_v_obs) then 
-        write(6,'(a,2e11.2,2f7.2,f7.1,e11.2,i6,2f6.1)')'Debug write_obs_anal_rank_nc SATWND V', maxval(ya_l(1:MEMBER,n)), minval(ya_l(1:MEMBER,n)), lon_l(n), lat_l(n), lev_l(n)*1.e-2, omb_l(n), obsdep_qc(n), dat_l(n), err_l(n)
-      endif
-    endif
 
     typ_l(n) = int( obs(obsdep_set(n))%typ(obsdep_idx(n)) )
   enddo
@@ -3414,6 +3415,8 @@ subroutine write_obs_anal_rank_nc( filename, ya )
   ! Write the data.
   call ncio_check( nf90_put_var(ncid, elm_varid, elm_l, start=(/1/), &
                    count=(/obsdep_nobs/) ) )
+  call ncio_check( nf90_put_var(ncid, typ_varid, typ_l, start=(/1/), &
+                   count=(/obsdep_nobs/) ) )
   call ncio_check( nf90_put_var(ncid, set_varid, set_l, start=(/1/), &
                    count=(/obsdep_nobs/) ) )
   call ncio_check( nf90_put_var(ncid, idx_varid, idx_l, start=(/1/), &
@@ -3426,7 +3429,7 @@ subroutine write_obs_anal_rank_nc( filename, ya )
                    count=(/obsdep_nobs/) ) )
   call ncio_check( nf90_put_var(ncid, dat_varid, dat_l, start=(/1/), &
                    count=(/obsdep_nobs/) ) )
-  call ncio_check( nf90_put_var(ncid, qc_varid,  obsdep_qc, start=(/1/), &
+  call ncio_check( nf90_put_var(ncid, qc_varid,  qc_l, start=(/1/), &
                    count=(/obsdep_nobs/) ) )
   call ncio_check( nf90_put_var(ncid, dif_varid, dif_l, start=(/1/), &
                    count=(/obsdep_nobs/) ) )

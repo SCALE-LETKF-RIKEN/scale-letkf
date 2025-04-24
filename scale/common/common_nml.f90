@@ -120,6 +120,10 @@ MODULE common_nml
   logical :: FILL_BY_ZERO_MISSING_VARIABLES = .false.
 
   logical :: EFSO_USE_MOIST_ENERGY = .true.
+  logical :: EFSO_DIAGNOSE_PS      = .false.
+  logical :: EFSO_UV_ROTATE        = .true.       ! Rotate U/V winds read from restart files in EFSO
+  real(r_size) :: EFSO_FCST_LENGTH = 0.0_r_size   ! EFSO forecast length (seconds)
+  real(r_size) :: EFSO_LOC_ADV_RATE = 0.75_r_size ! EFSO localization advection rate 
 
   real(r_size) :: INFL_MUL = 1.0d0           ! >  0: globally constant covariance inflation
                                              ! <= 0: use 3D inflation field from 'INFL_MUL_IN_BASENAME' file
@@ -601,12 +605,16 @@ subroutine read_nml_letkf
     ANAL_SPRD_OUT, &
     ANAL_SPRD_OUT_BASENAME, &
     LETKF_TOPOGRAPHY_IN_BASENAME, &
+    EFSO_DIAGNOSE_PS,        &
     EFSO_ANAL_IN_BASENAME, &
     EFSO_FCST_FROM_GUES_BASENAME, &
     EFSO_FCST_FROM_ANAL_BASENAME, &
     EFSO_EFCST_FROM_ANAL_BASENAME, &
     EFSO_PREVIOUS_GUES_BASENAME,   &
     EFSO_USE_MOIST_ENERGY,   &
+    EFSO_UV_ROTATE,          &
+    EFSO_FCST_LENGTH,        &
+    EFSO_LOC_ADV_RATE,       &
     EFSO_OUTPUT_NC_BASENAME, &
     INFL_MUL, &
     INFL_MUL_MIN, &

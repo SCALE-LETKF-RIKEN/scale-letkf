@@ -383,15 +383,9 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
             CALL obs_local(rig1(ij),rjg1(ij),gues3d(ij,ilev,mmean,iv3d_p),hgt1(ij,ilev),n, & !GYL
                            hdxf,rdiag,rloc,dep,nobsl,nobsl_t=nobsl_t,cutd_t=cutd_t,srch_q0=search_q0(:,n,ij,ilev)) !GYL
           end if
-          ! if ( nobsl > 0 ) then !(mod(ilev,2) == 0 .and. mod(ij,2) == 0 .and. n == 1 ) then
-          !   write(6,'(a,4i5,3e20.12)') 'Debug-LOC ', ilev, nint(rig1(ij)), nint(rjg1(ij)), nobsl, rdiag(1), rloc(1), dep(1)
-          ! endif                     
-          ! if ( nobsl > 0 ) then
-          !   write(6,'(a,5i7)') 'Nobs_is_not_zero ', nobsl, nint(rig1(ij)), nint(rjg1(ij)), ilev, ij
-          ! endif                                                                      
                                                       !GYL
                                                                        !GYL
-          IF(RELAX_ALPHA_SPREAD /= 0.0d0) THEN                                         !GYL
+          IF( RELAX_ALPHA_SPREAD /= 0.0_r_size ) THEN                                         !GYL
             if (DET_RUN) then                                                          !GYL
               CALL letkf_core(MEMBER,nobstotal,nobsl,hdxf,rdiag,rloc,dep,work3d(ij,ilev,n), & !GYL
                               trans(:,:,n2nc),transm=transm(:,n2nc),pao=pa(:,:,n2nc), & !GYL
@@ -430,7 +424,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
         ! relaxation via LETKF weight
         IF(RELAX_ALPHA /= 0.0d0) THEN                                                  !GYL - RTPP method (Zhang et al. 2004)
           CALL weight_RTPP(trans(:,:,n2nc),parm,transrlx)                              !GYL
-        ELSE IF(RELAX_ALPHA_SPREAD /= 0.0d0) THEN                                      !GYL - RTPS method (Whitaker and Hamill 2012)
+        ELSE IF( RELAX_ALPHA_SPREAD /= 0.0_r_size ) THEN                                      !GYL - RTPS method (Whitaker and Hamill 2012)
           IF(RELAX_SPREAD_OUT) THEN                                                    !GYL
             CALL weight_RTPS(trans(:,:,n2nc),pa(:,:,n2nc),gues3d(ij,ilev,:,n), &       !GYL
                              parm,transrlx,work3da(ij,ilev,n))                         !GYL
@@ -531,8 +525,8 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
             else                                                                       !GYL
               CALL obs_local(rig1(ij),rjg1(ij),gues3d(ij,ilev,mmean,iv3d_p),hgt1(ij,ilev),nv3d+n,hdxf,rdiag,rloc,dep,nobsl,nobsl_t=nobsl_t,cutd_t=cutd_t,srch_q0=search_q0(:,nv3d+1,ij,ilev))
             end if                                                                     !GYL
-            IF(RELAX_ALPHA_SPREAD /= 0.0d0) THEN                                       !GYL
-              if (DET_RUN) then                                                        !GYL
+            IF ( RELAX_ALPHA_SPREAD /= 0.0_r_size ) THEN                                       !GYL
+              if ( DET_RUN ) then                                                        !GYL
                 CALL letkf_core(MEMBER,nobstotal,nobsl,hdxf,rdiag,rloc,dep,work2d(ij,n), & !GYL
                                 trans(:,:,n2nc),transm=transm(:,n2nc),pao=pa(:,:,n2nc), & !GYL
                                 rdiag_wloc=.true.,infl_update=INFL_MUL_ADAPTIVE, &     !GYL
@@ -564,7 +558,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
           ! relaxation via LETKF weight
           IF(RELAX_ALPHA /= 0.0d0) THEN                                              !GYL - RTPP method (Zhang et al. 2004)
             CALL weight_RTPP(trans(:,:,n2nc),parm,transrlx)                          !GYL
-          ELSE IF(RELAX_ALPHA_SPREAD /= 0.0d0) THEN                                  !GYL - RTPS method (Whitaker and Hamill 2012)
+          ELSE IF( RELAX_ALPHA_SPREAD /= 0.0_r_size ) THEN                                  !GYL - RTPS method (Whitaker and Hamill 2012)
             IF(RELAX_SPREAD_OUT) THEN                                                !GYL
               CALL weight_RTPS(trans(:,:,n2nc),pa(:,:,n2nc),gues2d(ij,:,n), &        !GYL
                                parm,transrlx,work2da(ij,n))                          !GYL
@@ -1096,7 +1090,10 @@ END SUBROUTINE das_letkf
 !  obshdxf:
 ! [OUTPUT]
 !-----------------------------------------------------------------------
-subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
+subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_impact)
+  use scale_atmos_grid_cartesC, only: &
+      DX, &
+      DY
   implicit none
 
   real(r_size), intent(in) :: gues3d(nij1,nlev,nv3d)        ! guess mean
@@ -1104,8 +1101,15 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
   real(r_size), intent(in) :: fcst2d(nij1,nens,nv2d_diag)   !
   real(r_size), intent(in) :: fcer3d(nij1,nlev,nv3d)        ! forecast error
   real(r_size), intent(in) :: fcer2d(nij1,nv2d_diag)        !
-  real(r_size), intent(in) :: total_impact                  ! total impact
+  real(r_size), intent(in) :: uwind_a(nij1,nlev)       ! U-wind (analysis)
+  real(r_size), intent(in) :: vwind_a(nij1,nlev)       ! V-wind (analysis)
+  real(r_size), intent(in) :: total_impact(nterm)           ! total impact
 
+  ! localization advection
+  real(r_size) :: dri_adv(nij1,nlev)
+  real(r_size) :: drj_adv(nij1,nlev)
+
+  ! observation sensitibity
   real(r_size), allocatable :: obsense(:,:)
   real(r_size), allocatable :: hdxf(:,:)
   real(r_size), allocatable :: hdxa_rinv(:,:)
@@ -1196,7 +1200,6 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
 !!$omp parallel private(ij,ilev,iv3d,iv2d,hdxf,nrdiag,nrloc,dep,nobsl,iterm,m,nob,iob)
 !!$omp do schedule(dynamic)
 
-  if ( LOG_OUT ) write(6,'(a)') 'Start dj/dy computation'
   ! do i = 10, nobstotal, 10
   !   if ( obs(obsda_sort%set(i))%typ(obsda_sort%idx(i)) /= 3 ) cycle
   !   do m = 10, MEMBER, 10
@@ -1208,37 +1211,31 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
   !   write(6,'(a,i8,5f8.2)') 'obsda location: ', nobsl, obs(1)%lon(obsda_sort%idx(nobsl)), obs(1)%lat(obsda_sort%idx(nobsl)), obs(1)%lev(obsda_sort%idx(nobsl))*1.e-2, obs(1)%ri(obsda_sort%idx(nobsl)), obs(1)%rj(obsda_sort%idx(nobsl))
   ! enddo
 
+  if ( LOG_OUT ) write(6,'(a)') 'Calculate localization advection'
+
+  do ilev = 1, nlev
+    do ij = 1, nij1
+      dri_adv(ij,ilev) = -0.5_r_size * ( gues3d(ij,ilev,iv3d_u) + uwind_a(ij,ilev) ) * EFSO_FCST_LENGTH / DX * EFSO_LOC_ADV_RATE
+      drj_adv(ij,ilev) = -0.5_r_size * ( gues3d(ij,ilev,iv3d_v) + vwind_a(ij,ilev) ) * EFSO_FCST_LENGTH / DY * EFSO_LOC_ADV_RATE
+    enddo
+  enddo
+
+  if ( LOG_OUT ) write(6,'(a)') 'Start dj/dy computation'
+
   do ilev = 1, nlev
     do ij = 1, nij1
 
-      call obs_local( rig1(ij), rjg1(ij), gues3d(ij,ilev,iv3d_p), hgt1(ij,ilev), &
+      write(6,'(a,2i7,2f8.2)') 'check', ij, ilev, rig1(ij), dri_adv(ij,ilev)
+      call obs_local( rig1(ij)+dri_adv(ij,ilev), rjg1(ij)+drj_adv(ij,ilev), gues3d(ij,ilev,iv3d_p), hgt1(ij,ilev), &
                       0, & ! No variable localization
                       hdxf, nrdiag, nrloc, dep, nobsl, &
                       vobsidx_l=vobsidx_l ) 
-      if ( nobsl > 0 .and. mod(ilev,5) == 0 .and. mod(ij,15) == 0 ) then
-        write(6,'(a,2i5,i9,3f9.1,4e14.4)') 'Debug-LOC ', ilev, ij, vobsidx_l(1), gues3d(ij,ilev,iv3d_p)*1.e-2, obs(obsda_sort%set(vobsidx_l(1)))%lev(obsda_sort%idx(vobsidx_l(1)))*1.e-2,&
-        obs(obsda_sort%set(vobsidx_l(1)))%dat(obsda_sort%idx(vobsidx_l(1)))*1.e-2,&
-        nrdiag(1), nrloc(1), ABS(LOG(obs(obsda_sort%set(vobsidx_l(1)))%dat(obsda_sort%idx(vobsidx_l(1)))) - LOG(gues3d(ij,ilev,iv3d_p))) / 0.4, dist_zero_fac!, dep(1), obs(obsda_sort%set(vobsidx_l(1)))%err(obsda_sort%idx(vobsidx_l(1)))
-      endif 
-      ! if ( nobsl > 0 ) then
-      !   write(6,'(a,5i7)') 'Nobs_is_not_zero ', nobsl, nint(rig1(ij)), nint(rjg1(ij)), ilev, ij
-      ! endif                                                                      
+      write(6,'(a)') 'obs_local_end' 
             
 
       if ( nobsl > 0 ) then
-        ! if (ij == 5 .and. ilev == 30 ) then
-        !   write(6,'(a,e20.10)') 'Check_nrdiag', nrdiag(1)
-        ! endif
-        ! call ij2phys( rig1(ij), rjg1(ij), rlon, rlat )
-
-        ! write(6,'(a,i9,2i6,a,2f8.2,a,2f8.2)') 'Obs is found', nobsl, ij, ilev, ' ri,rj: ', rig1(ij), rjg1(ij), ' lon,lat: ',rlon, rlat
-        ! call ij2phys(rig1(ij), rjg1(ij), lon_, lat_)
-        ! if ( mod(ilev,5) == 0 .and. mod(ij,5)== 0 ) then
-        !   write(6,'(a,3i5,2f8.2,3f8.2)') 'Debug obs_local: ', ij, ilev, nobsl, rig1(ij), rjg1(ij), lon_, lat_, gues3d(ij,ilev,iv3d_p)*1.e-2
-        !   do nob = 1, nobsl
-        !     write(6,'(a,i7,3f8.2)') 'Debug obs_local_loc: ', nob, obs(obsda_sort%set(vobsidx_l(nob)))%lon(obsda_sort%idx(vobsidx_l(nob))), obs(obsda_sort%set(vobsidx_l(nob)))%lat(obsda_sort%idx(vobsidx_l(nob))), obs(obsda_sort%set(vobsidx_l(nob)))%lev(obsda_sort%idx(vobsidx_l(nob)))*1.e-2
-             
-        !   enddo
+        ! if ( mod(ij,10)== 5 .and. mod(ilev,2) == 0 ) then
+        !   write(6,'(a,2i5,2f8.1)') 'das_efso', ij, ilev, obs(obsda_sort%set(vobsidx_l(1)))%dat(obsda_sort%idx(vobsidx_l(1)))*1.e-2, gues3d(ij,ilev,iv3d_p)*1.e-2
         ! endif
         ! Forecast error
         work1 = 0.0_r_size
@@ -1255,15 +1252,9 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
           end select
 
           if ( iterm > 0) then
-            ! write(6,'(a,f13.4)')'Check fcst3d and fcer3d: mean: ', sum(fcst3d(ij,ilev,1:MEMBER,iv3d))/MEMBER 
             do m = 1, MEMBER
-              ! write(6,'(a,2i5,2f13.4)') 'values ', m, iv3d, fcst3d(ij,ilev,m,iv3d), fcer3d(ij,ilev,iv3d)
               work1(iterm,m) = work1(iterm,m) + fcst3d(ij,ilev,m,iv3d) * fcer3d(ij,ilev,iv3d)
             enddo
-            ! write(6,'(a)') ''
-            ! if ( iterm == 3 .and. mod(ilev,2) == 0 .and. mod(ij,2) == 0 ) then
-            !   write(6,'(a,3e10.2)') 'Check work1: ', maxval(work1(3,1:MEMBER)), maxval(fcst3d(ij,ilev,1:MEMBER,iv3d)), fcer3d(ij,ilev,iv3d)
-            ! endif
           endif
         enddo ! nv3d
 
@@ -1297,15 +1288,6 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
             else
               hdxa_rinv(nob,m) = hdxf(nob,m) / nrdiag(nob) 
             endif
-            ! write(6,'(a,2i9,2f8.2,2f15.1)') 'Check hdxf ', nob, m, hdxf(nob,m), sum(hdxf(nob,1:MEMBER))/MEMBER, nrdiag(nob), hdxa_rinv(nob,m)
-            ! if ( mod(ilev,2) == 0 .and. mod(ij,2) == 0 .and. m == 1 .and. nob == 1 ) then
-            !   write(6,'(a,6e12.3)')'Debug hdxa_rinv: ', hdxa_rinv(nob,m), hdxf(nob,m), sum(hdxf(nob,1:MEMBER)), nrdiag(nob), nrloc(nob), dep(nob)
-            !   call ij2phys( rig1(ij), rjg1(ij), rlon, rlat )
-            !   write(6,'(a,2f7.2,f7.1)') 'Debug1 lon, lat, lev ', obs(obsda_sort%set(vobsidx_l(nob)))%lon(obsda_sort%idx(vobsidx_l(nob))), &
-            !   obs(obsda_sort%set(vobsidx_l(nob)))%lat(obsda_sort%idx(vobsidx_l(nob))), &
-            !   obs(obsda_sort%set(vobsidx_l(nob)))%lev(obsda_sort%idx(vobsidx_l(nob)))*1.e-2
-            !   write(6,'(a,2f7.2,f7.1)') 'Debug2 lon, lat, lev ', rlon, rlat, gues3d(ij,ilev,iv3d_p)*1.e-2
-            ! endif
           enddo
         enddo
         !!! hdxa_rinv: rho*R^(-1)*Y^a_0 = rho*R^(-1)*(H X^a_0)
@@ -1349,19 +1331,23 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
   do nob = 1, nobstotal
 !    if ( mod(nob,10)==0 ) then
     !  write(6,'(a,3e12.2,i9,2f10.1)') 'Check djdy ', djdy(1,nob), djdy(2,nob), djdy(3,nob), nob, obsda_sort%val(nob), obs(obsda_sort%set(nob))%dat(obsda_sort%idx(nob))
-!    write(6,'(a,1e12.2,2i8,3f10.1)') 'Check djdy ', djdy(1,nob), nob, obsda_sort%idx(nob), obsda_sort%val(nob), obsda_sort%ensval(nob,1), obs(obsda_sort%set(nob))%dat(obsda_sort%idx(nob))
+    write(6,'(a,2i7,3f7.2,1e10.2,3f10.1)') 'Check djdy ', &
+    nob, &
+    obsda_sort%idx(nob), &
+    obs(obsda_sort%set(nob))%lon(obsda_sort%idx(nob)), &
+    obs(obsda_sort%set(nob))%lat(obsda_sort%idx(nob)), &
+    obs(obsda_sort%set(nob))%lev(obsda_sort%idx(nob)), &
+    sum(djdy_3d(1,nob,1:nij1,1:nlev)), &
+    obsda_sort%val(nob), &
+    obs(obsda_sort%set(nob))%err(obsda_sort%idx(nob)), &
+    obs(obsda_sort%set(nob))%dat(obsda_sort%idx(nob))
+!    obsda_sort%ensval(nob,1), &
+!    
 !    endif
 !    obsense(1:nterm,nob) = djdy(1:nterm,nob) * obsda_sort%val(nob)
     do iterm = 1, nterm
       obsense(iterm,nob) = 0.5_r_size * sum(djdy_3d(iterm,nob,1:nij1,1:nlev)) * obsda_sort%val(nob) / real( MEMBER-1, r_size )
     enddo
-    ! write(6,'(a,2e22.12)') 'dif_in_djdy', djdy(1,nob), sum(djdy_3d(1,nob,1:nij1,1:nlev))
-    ! if ( LOG_OUT .and. mod(nob,50) == 0 ) then
-    !   write(6,'(a,i9,2e13.4,2i7)') 'Check djdy & hdxf: ', nob, maxval(abs(djdy(:,nob))), maxval(abs(hdxf(nob,:))), obs(obsda_sort%set(nob))%typ(obsda_sort%idx(nob)), obs(obsda_sort%set(nob))%elm(obsda_sort%idx(nob))
-    ! !   write(6,'(a,i6,3f10.4,i4)') 'Check obsense:', nob, maxval(abs(obsense(:,nob))), maxval(abs(djdy(:,nob))), &
-    ! !   obsda_sort%val(nob), &
-    ! !   obs(obsda_sort%set(nob))%typ(obsda_sort%idx(nob))
-    ! endif
   enddo
   write(6,'(a,3e19.6)') 'obsense_total', sum(obsense(1,:)), sum(obsense(2,:)), sum(obsense(3,:))
   if ( LOG_OUT ) write(6,'(a)') 'Finish obsense computation'
@@ -1441,7 +1427,7 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,total_impact)
     call MPI_ALLREDUCE( MPI_IN_PLACE, obs_g_qc,  obs(1)%nobs, MPI_INTEGER, MPI_MAX, MPI_COMM_d, ierr )
     call MPI_ALLREDUCE( MPI_IN_PLACE, obs_g_val, obs(1)%nobs, MPI_r_size,  MPI_SUM, MPI_COMM_d, ierr )
 
-    call MPI_ALLREDUCE( MPI_IN_PLACE, total_impact, 1, MPI_r_size, MPI_SUM, MPI_COMM_a, ierr ) ! check
+    call MPI_ALLREDUCE( MPI_IN_PLACE, total_impact, nterm, MPI_r_size, MPI_SUM, MPI_COMM_a, ierr ) ! check
 
     if ( LOG_OUT ) write(6,'(a)') 'Finish MPI comm for obsense_global'
 
@@ -2276,9 +2262,6 @@ subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d,fcer3d_diff,fcer2d_diff)
 
   if ( LOG_OUT ) write(6,'(a)') 'Hello from lnorm'
 
-  ! do iv3d = 1, nv3d
-  !   write(6,'(a,a,4f14.5)') 'Check fcer3d/fcst3d before lnorm: ', v3dd_name(iv3d), maxval(fcer3d(:,:,iv3d)), minval(fcer3d(:,:,iv3d)), maxval(fcst3d(:,:,1:MEMBER,iv3d)), minval(fcst3d(:,:,1:MEMBER,iv3d))
-  ! enddo
 
   ! Constants
   cptr = sqrt( CPdry / tref )
@@ -2348,27 +2331,24 @@ subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d,fcer3d_diff,fcer2d_diff)
     do ij = 1, nij1
 
       ! Compute weight
-      if ( k == 1 ) then
-        dsigma = 1.0_r_size - fcst3d(ij,2,mmean,iv3d_p) * ps_inv(ij)
-      elseif( k == nlev ) then
-        dsigma = 0.5_r_size * fcst3d(ij,nlev-1,mmean,iv3d_p) * ps_inv(ij)
-      else
-        dsigma = 0.5_r_size * ( fcst3d(ij,k-1,mmean,iv3d_p) - fcst3d(ij,k+1,mmean,iv3d_p) ) * ps_inv(ij)
-      endif
       ! if ( k == 1 ) then
-      !   p_upper = ( fcst3d(ij,k,mmean,iv3d_p) + fcst3d(ij,k+1,mmean,iv3d_p) ) * 0.5_r_size
-      !   p_lower = fcst2d(ij,mmean,iv2d_diag_ps)
-      ! else if ( k == nlev ) then
-      !   p_upper = fcst3d(ij,k,mmean,iv3d_p)
-      !   p_lower = ( fcst3d(ij,k,mmean,iv3d_p) + fcst3d(ij,k-1,mmean,iv3d_p) ) * 0.5_r_size
+      !   dsigma = 1.0_r_size - fcst3d(ij,2,mmean,iv3d_p) * ps_inv(ij)
+      ! elseif( k == nlev ) then
+      !   dsigma = 0.5_r_size * fcst3d(ij,nlev-1,mmean,iv3d_p) * ps_inv(ij)
       ! else
-      !   p_upper = ( fcst3d(ij,k,mmean,iv3d_p) + fcst3d(ij,k+1,mmean,iv3d_p) ) * 0.5_r_size
-      !   p_lower = ( fcst3d(ij,k,mmean,iv3d_p) + fcst3d(ij,k-1,mmean,iv3d_p) ) * 0.5_r_size
+      !   dsigma = 0.5_r_size * ( fcst3d(ij,k-1,mmean,iv3d_p) - fcst3d(ij,k+1,mmean,iv3d_p) ) * ps_inv(ij)
       ! endif
-      ! dsigma = abs( p_lower - p_upper ) * ps_inv(ij) 
-      ! if ( ij == 1 ) then
-      !   write(6,'(a,3f8.1,2e11.3)')'debug p_up_low ', p_upper*1.e-2, p_lower*1.e-2, fcst2d(ij,mmean,iv2d_diag_ps)*1.e-2, ps_inv(ij), dsigma
-      ! endif
+      if ( k == 1 ) then
+        p_upper = ( fcst3d(ij,k,mmean,iv3d_p) + fcst3d(ij,k+1,mmean,iv3d_p) ) * 0.5_r_size
+        p_lower = fcst2d(ij,mmean,iv2d_diag_ps)
+      else if ( k == nlev ) then
+        p_upper = fcst3d(ij,k,mmean,iv3d_p)
+        p_lower = ( fcst3d(ij,k,mmean,iv3d_p) + fcst3d(ij,k-1,mmean,iv3d_p) ) * 0.5_r_size
+      else
+        p_upper = ( fcst3d(ij,k,mmean,iv3d_p) + fcst3d(ij,k+1,mmean,iv3d_p) ) * 0.5_r_size
+        p_lower = ( fcst3d(ij,k,mmean,iv3d_p) + fcst3d(ij,k-1,mmean,iv3d_p) ) * 0.5_r_size
+      endif
+      dsigma = abs( p_lower - p_upper ) * ps_inv(ij) 
 
       call relax_beta(rig1(ij),rjg1(ij),hgt1(ij,k),beta)
 

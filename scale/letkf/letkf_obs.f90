@@ -1402,6 +1402,7 @@ subroutine set_efso_obs
 
   integer :: nobs0 ! number of total obs until myrank_d-1
   integer :: nobslocal_all, nobslocal_qcok
+  integer :: nobs_qcok_global
 
   integer :: nobs_max_per_file
   integer :: nobs_max_per_file_sub
@@ -1528,6 +1529,18 @@ subroutine set_efso_obs
 
   endif
 
+  if ( myrank_e == 0 ) then
+    nobs_qcok_global = nobslocal_qcok
+    call MPI_ALLREDUCE(MPI_IN_PLACE, nobs_qcok_global, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_d, ierr)
+    if ( LOG_OUT ) then
+      write(6,'(a,i10)') 'Number of QC=ok observations (global): ', nobs_qcok_global 
+    endif
+    if ( nobs_qcok_global /= nobstotalg ) then
+      write(6,'(a)') 'Number of QC=ok observations (global) from aobs does not match that from obsde (global)! Stop!'
+      stop
+    endif
+  endif
+
   nobstotal  = nobslocal_qcok
   obsda%nobs = nobslocal_qcok
   if ( nobslocal_all > 0 ) then
@@ -1552,18 +1565,16 @@ subroutine set_efso_obs
           sprd = sprd + obshdxf(m,n)**2
         enddo
         sprd = sqrt(sprd / real(MEMBER-1,r_size))
+        ! debug
+        ! do m = 1, MEMBER
+          write(6,'(a,i8,2f7.2,f7.1,e12.4)') 'Ya_efso', obsda%idx(i), &
+                obs(obsda%set(i))%lon(obsda%idx(i)), &
+                obs(obsda%set(i))%lat(obsda%idx(i)), &
+                obs(obsda%set(i))%lev(obsda%idx(i))*1.e-2, &
+                sprd
+        !         obsda%ensval(m,i)
+        ! enddo
 !        if ( obs(obsda%set(i))%lev(obsda%idx(i)) > 90000.0_r_size ) then
-        write(6,'(a,i7,x,a,4e12.2)') 'Check_ya', i, obtypelist(int(obs(obsda%set(i))%typ(obsda%idx(i)))), &
-        obsda%val(i), &
-        sprd, &
-        obs(obsda%set(i))%err(obsda%idx(i)), &
-        abs(obsda%val(i)) * sprd / (obs(obsda%set(i))%err(obsda%idx(i))**2)
-        if ( maxval(abs(obsda%ensval(1:MEMBER,i))) > 1.e10_r_size ) then
-          write(6,'(a,i9,x,a,f8.1,3e12.3)') 'Check_ya: ', i, obtypelist(int(obs(obsda%set(i))%typ(obsda%idx(i)))), obs(obsda%set(i))%lev(obsda%idx(i))*1.e-2, obsda%val(i), maxval(obsda%ensval(1:MEMBER,i)), minval(obsda%ensval(1:MEMBER,i))
-        endif
-        if ( obtypelist(int(obs(obsda%set(i))%typ(obsda%idx(i)))) == 'ADPSFC' ) then
-          write(6,'(a,i7,3f7.1,3e13.3)') 'Check_ADPSFC: ', i, obs(obsda%set(i))%lev(obsda%idx(i))*1.e-2, obs(obsda%set(i))%dat(obsda%idx(i))*1.e-2, obs(obsda%set(i))%err(obsda%idx(i))*1.e-2, obsda%val(i), maxval(obsda%ensval(1:MEMBER,i)), minval(obsda%ensval(1:MEMBER,i))
-        endif
       endif
     enddo
   
@@ -1623,6 +1634,12 @@ subroutine initiate_obsgrd
     obsgrd(ictype)%grdspc_j = DY * real(nlat,r_size) / real(obsgrd(ictype)%ngrd_j,r_size)
     obsgrd(ictype)%ngrdsch_i = ceiling(hori_loc_ctype(ictype) * dist_zero_fac / obsgrd(ictype)%grdspc_i)
     obsgrd(ictype)%ngrdsch_j = ceiling(hori_loc_ctype(ictype) * dist_zero_fac / obsgrd(ictype)%grdspc_j)
+    if ( EFSO_RUN ) then
+      ! Extend the number of search grids if EFSO is true
+      ! Assume horizontal winds for advection are < 200 m/s 
+      obsgrd(ictype)%ngrdsch_i = obsgrd(ictype)%ngrdsch_i + ceiling(200.0_r_size * EFSO_FCST_LENGTH / obsgrd(ictype)%grdspc_i )
+      obsgrd(ictype)%ngrdsch_j = obsgrd(ictype)%ngrdsch_j + ceiling(200.0_r_size * EFSO_FCST_LENGTH / obsgrd(ictype)%grdspc_j )
+    endif
     obsgrd(ictype)%ngrdext_i = obsgrd(ictype)%ngrd_i + obsgrd(ictype)%ngrdsch_i * 2
     obsgrd(ictype)%ngrdext_j = obsgrd(ictype)%ngrd_j + obsgrd(ictype)%ngrdsch_j * 2
 

@@ -1330,11 +1330,15 @@ subroutine read_ens_mpi(v3d, v2d, v2d_diag, EFSO )
 
         filename4copy = EFSO_EFCST_FROM_ANAL_BASENAME
         if ( im == 1 ) then 
-          ! copy mean and member 1
-          call filename_replace_mem(filename4copy, 'mean')
-          call copy_scale_file(filename, filename4copy)
-          filename4copy = EFSO_EFCST_FROM_ANAL_BASENAME
+          ! Copy member 1 and mean
+          ! member 1
           call filename_replace_mem(filename4copy, im)
+          call copy_scale_file(filename, filename4copy)
+          ! mean
+          filename4copy = EFSO_EFCST_FROM_ANAL_BASENAME
+          filename = GUES_IN_BASENAME
+          call filename_replace_mem(filename4copy, 'mean')
+          call filename_replace_mem(filename, 'mean')
           call copy_scale_file(filename, filename4copy)
         elseif ( im <= MEMBER ) then
           ! copy the other members
@@ -1344,7 +1348,7 @@ subroutine read_ens_mpi(v3d, v2d, v2d_diag, EFSO )
       endif
 
       if ( EFSO_ ) then
-        call state_trans(v3dg, rotate_flag=.true., ps=v2dg_diag(:,:,iv2d_diag_ps))
+        call state_trans(v3dg, rotate_flag=EFSO_UV_ROTATE, ps=v2dg_diag(:,:,iv2d_diag_ps))
       else
         call state_trans(v3dg)
       endif

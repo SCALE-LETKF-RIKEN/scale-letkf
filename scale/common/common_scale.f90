@@ -1459,11 +1459,16 @@ subroutine state_trans(v3dg,rotate_flag,ps)
 !$OMP END PARALLEL DO
 
   if ( present(ps) ) then
-    call ATMOS_BOTTOM_estimate(nlev,1,nlev,nlon,1,nlon,nlat,1,nlat,          &
-                               rho_tmp,v3dg(:,:,:,iv3d_p),v3dg(:,:,:,iv3d_q),&
-                               ! dummy !surface temperature is not used to calculate surface pressure 
-                               v3dg(1,:,:,iv3d_t),                           & 
-                               FZ(KS-1:KE,IS:IE,JS:JE),dummy2d,ps )
+    if ( EFSO_DIAGNOSE_PS ) then
+      call ATMOS_BOTTOM_estimate(nlev,1,nlev,nlon,1,nlon,nlat,1,nlat,          &
+                                rho_tmp,v3dg(:,:,:,iv3d_p),v3dg(:,:,:,iv3d_q),&
+                                ! dummy !surface temperature is not used to calculate surface pressure 
+                                v3dg(1,:,:,iv3d_t),                           & 
+                                FZ(KS-1:KE,IS:IE,JS:JE),dummy2d,ps )
+    else
+      ps = v3dg(1,:,:,iv3d_p)
+    endif
+    
     deallocate(rho_tmp)
     deallocate(dummy2d)
   endif
@@ -2206,9 +2211,9 @@ subroutine copy_scale_file(filename_in, filename_out)
 
   write (filesuffix(4:9),'(I6.6)') PRC_myrank
 
-!  if ( LOG_LEVEL >= 3 .and. LOG_OUT ) then
+  if ( LOG_LEVEL >= 3 .and. LOG_OUT ) then
     write(6,'(a,x,a,x,a,x,a)') 'Copying ', trim(filename_in)//filesuffix, ' to ', trim(filename_out)//filesuffix
-!  endif
+  endif
 
   call execute_command_line("cp " // trim(filename_in) // filesuffix // " " // trim(filename_out) // filesuffix, exitstat=status)
 

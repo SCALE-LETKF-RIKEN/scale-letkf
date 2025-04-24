@@ -964,14 +964,19 @@ while ((time <= ETIME)); do
     OBSANAL_IN_BASENAME="${OUTDIR[$d]}/${time}/aobs/obsanal_rank"
     OBSANAL_OUT_BASENAME="${OUTDIR[$d]}/${atime}/aobs/obsanal_rank"
 
-    mkdir -p ${OUTDIR[$d]}/${time}/aobs 
-    mkdir -p ${OUTDIR[$d]}/${atime}/aobs
-
     if ((EFSO_RUN==1));then
       OBSDEP_OUT_NC_TF=".true."
       OBSANAL_OUT_TF=".true."
-      EFSO_OUTPUT_NC_BASENAME="${OUTDIR[$d]}/obsdep/efso_${time}" # EFSO
+      EFSO_OUTPUT_NC_BASENAME="${OUTDIR[$d]}/obsdep/efso_${time}" 
+
+      rm -rf ${OUTDIR[$d]}/${time}/aobs 
+      rm -rf ${OUTDIR[$d]}/${atime}/aobs
+
+      mkdir -p ${OUTDIR[$d]}/${time}/aobs 
+      mkdir -p ${OUTDIR[$d]}/${atime}/aobs
+
     fi
+    
     if ((DISK_MODE >= 1)) ;then
 #      GUES_IN_BASENAME="${RESTART_OUT_PATH[$d]}/<member>/gues_$(datetime_scale $atime)"
       GUES_IN_BASENAME="${RESTART_OUT_PATH[$d]}/<member>/anal_$(datetime_scale $atime)"
@@ -1029,6 +1034,7 @@ while ((time <= ETIME)); do
             -e "/!--ANAL_OUT_BASENAME--/a ANAL_OUT_BASENAME = \"${ANAL_OUT_BASENAME}\"," \
             -e "/!--ANAL_SPRD_OUT--/a ANAL_SPRD_OUT = ${SPRD_OUT_TF}," \
             -e "/!--LETKF_TOPOGRAPHY_IN_BASENAME--/a LETKF_TOPOGRAPHY_IN_BASENAME = \"${TOPO_PATH}/topo/topo\"," \
+            -e "/!--EFSO_FCST_LENGTH--/a EFSO_FCST_LENGTH = ${EFSO_FCST_LENGTH}.D0," \
             -e "/!--EFSO_ANAL_IN_BASENAME--/a EFSO_ANAL_IN_BASENAME = \"${EFSO_ANAL_IN_BASENAME}\"," \
             -e "/!--EFSO_FCST_FROM_GUES_BASENAME--/a EFSO_FCST_FROM_GUES_BASENAME = \"${EFSO_FCST_FROM_GUES_BASENAME}\"," \
             -e "/!--EFSO_FCST_FROM_ANAL_BASENAME--/a EFSO_FCST_FROM_ANAL_BASENAME = \"${EFSO_FCST_FROM_ANAL_BASENAME}\"," \

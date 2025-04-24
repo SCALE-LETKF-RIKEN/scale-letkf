@@ -42,10 +42,12 @@ program efso
   real(r_size), allocatable :: work3d_ref(:,:,:)
   real(r_size), allocatable :: work2d_diag_ref(:,:)
 
-  !  real(r_size), allocatable :: uadf(:,:), vadf(:,:)
-!  real(r_size), allocatable :: uada(:,:), vada(:,:)
+  ! analysis (reference) winds for localization advection
+  real(r_size), allocatable :: uwind_a(:,:)
+  real(r_size), allocatable :: vwind_a(:,:)
 
-  real(r_size) :: total_impact
+  ! total observation impact (raw) 
+  real(r_size) :: total_impact(nterm)
 
   integer :: iv3d, iv2d
   integer :: ij, k
@@ -115,6 +117,9 @@ program efso
       allocate( work3d_ref(nij1,nlev,nv3d) )
       allocate( work2d_diag_ref(nij1,nv2d_diag) )
 
+      allocate( uwind_a(nij1,nlev) )
+      allocate( vwind_a(nij1,nlev) )
+
       !-----------------------------------------------------------------------
       ! Read model data
       !-----------------------------------------------------------------------
@@ -132,7 +137,7 @@ program efso
       if ( myrank_e == mmean_rank_e ) then  
         if ( LOG_OUT ) write(6,'(a)') 'Read forecast from analysis ensemble mean' 
         call read_restart( trim(EFSO_FCST_FROM_ANAL_BASENAME), work3dg, work2dg)
-        call state_trans(work3dg,rotate_flag=.true.,ps=work2dg_diag(:,:,iv2d_diag_ps))
+        call state_trans(work3dg,rotate_flag=EFSO_UV_ROTATE,ps=work2dg_diag(:,:,iv2d_diag_ps))
       endif
       call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d_diag,v3dg=real(work3dg,RP),v2dg=real(work2dg_diag,RP),&
                           v3d=fcer3d,v2d=fcer2d)
@@ -141,7 +146,7 @@ program efso
       if ( myrank_e == mmean_rank_e ) then  
         if ( LOG_OUT ) write(6,'(a)') 'Read forecast from guess ensemble mean' 
         call read_restart( trim(EFSO_FCST_FROM_GUES_BASENAME), work3dg, work2dg)
-        call state_trans(work3dg,rotate_flag=.true.,ps=work2dg_diag(:,:,iv2d_diag_ps))
+        call state_trans(work3dg,rotate_flag=EFSO_UV_ROTATE,ps=work2dg_diag(:,:,iv2d_diag_ps))
       endif
       call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d_diag,v3dg=real(work3dg,RP),v2dg=real(work2dg_diag,RP),&
                           v3d=work3d,v2d=work2d_diag)
@@ -150,16 +155,18 @@ program efso
       if ( myrank_e == mmean_rank_e ) then  
         if ( LOG_OUT ) write(6,'(a)') 'Read reference (analysis ensemble mean)' 
         call read_restart( trim(EFSO_ANAL_IN_BASENAME), work3dg, work2dg)
-        call state_trans(work3dg,rotate_flag=.true.,ps=work2dg_diag(:,:,iv2d_diag_ps))
+        call state_trans(work3dg,rotate_flag=EFSO_UV_ROTATE,ps=work2dg_diag(:,:,iv2d_diag_ps))
       endif
       call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d_diag,v3dg=real(work3dg,RP),v2dg=real(work2dg_diag,RP),&
                           v3d=work3d_ref,v2d=work2d_diag_ref)
+      uwind_a = work3d_ref(:,:,iv3d_u)
+      vwind_a = work3d_ref(:,:,iv3d_v)
 
       ! guess mean for full-level pressure computation
       if ( myrank_e == mmean_rank_e ) then  
         if ( LOG_OUT ) write(6,'(a)') 'Read guess ensemble mean' 
         call read_restart( trim(EFSO_PREVIOUS_GUES_BASENAME), work3dg, work2dg)
-        call state_trans(work3dg,rotate_flag=.true.,ps=work2dg_diag(:,:,iv2d_diag_ps))
+        call state_trans(work3dg,rotate_flag=EFSO_UV_ROTATE,ps=work2dg_diag(:,:,iv2d_diag_ps))
       endif
       call scatter_grd_mpi(mmean_rank_e,nv3d,0,v3dg=real(work3dg,RP),&
                           v3d=gues3d)
@@ -228,12 +235,13 @@ program efso
       !-----------------------------------------------------------------------
       ! EFSO computation
       !-----------------------------------------------------------------------
-      call das_efso( gues3d, fcst3d, fcst2d, fcer3d, fcer2d, total_impact )
+      call das_efso( gues3d, fcst3d, fcst2d, fcer3d, fcer2d, uwind_a, vwind_a, total_impact )
 
       deallocate( gues3d )
       deallocate( fcst3d, fcst2d )
       deallocate( fcer3d, fcer2d )
       deallocate( fcer3d_diff, fcer2d_diff )
+      deallocate( uwind_a, vwind_a)
 
     endif ! [ nobstotalg > 0 ]
   end if ! [ myrank_use ]
