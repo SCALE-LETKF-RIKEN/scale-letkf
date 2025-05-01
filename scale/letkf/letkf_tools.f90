@@ -1132,14 +1132,10 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
   integer :: dspr(nprocs_d)
   integer :: i, ip
 
-  integer, allocatable :: obs_g_set(:)
-  integer, allocatable :: obs_g_idx(:)
   integer, allocatable :: obs_g_qc (:)
   real(r_size), allocatable :: obs_g_val(:)
 
-  real(r_size) :: rlon, rlat 
-
-  integer :: num_a, num_ed
+  integer :: iof, set
 
   if ( LOG_OUT ) write(6,'(A)') 'Hello from das_efso'
 !  nobstotal = obsda_sort%nobs 
@@ -1200,16 +1196,6 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
 !!$omp parallel private(ij,ilev,iv3d,iv2d,hdxf,nrdiag,nrloc,dep,nobsl,iterm,m,nob,iob)
 !!$omp do schedule(dynamic)
 
-  ! do i = 10, nobstotal, 10
-  !   if ( obs(obsda_sort%set(i))%typ(obsda_sort%idx(i)) /= 3 ) cycle
-  !   do m = 10, MEMBER, 10
-  !     write(6,'(a,i9,i5,2e12.3,2i5)') 'Debug ensval ', i, m, obsda_sort%ensval(m,i), obsda_sort%val(i), obs(obsda_sort%set(i))%typ(obsda_sort%idx(i)), obs(obsda_sort%set(i))%elm(obsda_sort%idx(i))
-  !   end do
-  ! enddo
-!  write(6,'(a,4e12.2)') 'Check domain range: ', minval(lon2d), maxval(lon2d), minval(lat2d), maxval(lat2d)
-  ! do nobsl = 1, nobstotal
-  !   write(6,'(a,i8,5f8.2)') 'obsda location: ', nobsl, obs(1)%lon(obsda_sort%idx(nobsl)), obs(1)%lat(obsda_sort%idx(nobsl)), obs(1)%lev(obsda_sort%idx(nobsl))*1.e-2, obs(1)%ri(obsda_sort%idx(nobsl)), obs(1)%rj(obsda_sort%idx(nobsl))
-  ! enddo
 
   if ( LOG_OUT ) write(6,'(a)') 'Calculate localization advection'
 
@@ -1225,18 +1211,13 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
   do ilev = 1, nlev
     do ij = 1, nij1
 
-      write(6,'(a,2i7,2f8.2)') 'check', ij, ilev, rig1(ij), dri_adv(ij,ilev)
       call obs_local( rig1(ij)+dri_adv(ij,ilev), rjg1(ij)+drj_adv(ij,ilev), gues3d(ij,ilev,iv3d_p), hgt1(ij,ilev), &
                       0, & ! No variable localization
                       hdxf, nrdiag, nrloc, dep, nobsl, &
                       vobsidx_l=vobsidx_l ) 
-      write(6,'(a)') 'obs_local_end' 
             
 
       if ( nobsl > 0 ) then
-        ! if ( mod(ij,10)== 5 .and. mod(ilev,2) == 0 ) then
-        !   write(6,'(a,2i5,2f8.1)') 'das_efso', ij, ilev, obs(obsda_sort%set(vobsidx_l(1)))%dat(obsda_sort%idx(vobsidx_l(1)))*1.e-2, gues3d(ij,ilev,iv3d_p)*1.e-2
-        ! endif
         ! Forecast error
         work1 = 0.0_r_size
         do iv3d = 1, nv3d
@@ -1325,31 +1306,11 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
   obsense(:,:) = 0.0_r_size
 !!$omp parallel private(nob)
 !!$omp do
-  ! do ij = 1, nij1
-  !   write(6,'(a,2i8,f24.20)') 'Checkdjdy_3d: ', int(rig1(ij)), int(rjg1(ij)), sum(djdy_3d(1,1,ij,1:nlev))*1.e5
-  ! enddo
   do nob = 1, nobstotal
-!    if ( mod(nob,10)==0 ) then
-    !  write(6,'(a,3e12.2,i9,2f10.1)') 'Check djdy ', djdy(1,nob), djdy(2,nob), djdy(3,nob), nob, obsda_sort%val(nob), obs(obsda_sort%set(nob))%dat(obsda_sort%idx(nob))
-    write(6,'(a,2i7,3f7.2,1e10.2,3f10.1)') 'Check djdy ', &
-    nob, &
-    obsda_sort%idx(nob), &
-    obs(obsda_sort%set(nob))%lon(obsda_sort%idx(nob)), &
-    obs(obsda_sort%set(nob))%lat(obsda_sort%idx(nob)), &
-    obs(obsda_sort%set(nob))%lev(obsda_sort%idx(nob)), &
-    sum(djdy_3d(1,nob,1:nij1,1:nlev)), &
-    obsda_sort%val(nob), &
-    obs(obsda_sort%set(nob))%err(obsda_sort%idx(nob)), &
-    obs(obsda_sort%set(nob))%dat(obsda_sort%idx(nob))
-!    obsda_sort%ensval(nob,1), &
-!    
-!    endif
-!    obsense(1:nterm,nob) = djdy(1:nterm,nob) * obsda_sort%val(nob)
     do iterm = 1, nterm
       obsense(iterm,nob) = 0.5_r_size * sum(djdy_3d(iterm,nob,1:nij1,1:nlev)) * obsda_sort%val(nob) / real( MEMBER-1, r_size )
     enddo
   enddo
-  write(6,'(a,3e19.6)') 'obsense_total', sum(obsense(1,:)), sum(obsense(2,:)), sum(obsense(3,:))
   if ( LOG_OUT ) write(6,'(a)') 'Finish obsense computation'
   !!! obsense: delta e^{f-g}_t = [1/2(K-1)][y_o-H(xmean^b_0)]^T*rho*R^(-1)*Y^a_0*(X^f_t)^T*C*(e^f_t+e^g_t)
 !!$omp end do
@@ -1357,97 +1318,52 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
 
   deallocate( djdy )
   deallocate( djdy_3d )
-  ! debug
-  ! do ij = 1, nij1
-  !   write(6,'(a,i8,a,i8,a,f8.2,a,f8.2)') 'Check rij,', myrank_e, ',', myrank_d, ',', rig1(ij), ',' ,rjg1(ij)
-  ! end do
-
-  ! num_a = nij1
-  ! num_ed = nij1
-  ! write(6,'(a,2i8)') 'Check1 num_a, num_ed: ', num_a, num_ed
-
-  ! call MPI_ALLREDUCE( MPI_IN_PLACE, num_a, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_a, ierr )
-
-  ! call MPI_ALLREDUCE( MPI_IN_PLACE, num_ed, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_e, ierr )
-  ! call MPI_ALLREDUCE( MPI_IN_PLACE, num_ed, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_d, ierr )
-  ! write(6,'(a,2i8)') 'Check2 num_a, num_ed: ', num_a, num_ed
 
 
-  ! if ( myrank_e == 0 ) then
-  !   write(6,'(a,2i8,2e13.3)') 'Debug91 ', myrank_e, nprocs_e, obsense(1,1), total_impact
-  !   ! debug
-  ! endif
 
-  ! MPI communication
-  ! Allreduce obsense and total_impact with MPI_COMM_e (all horizontal grid points)
-!   if ( nprocs_e > 1 ) then
-!    call MPI_ALLREDUCE( MPI_IN_PLACE, obsense, nterm*nobstotal, MPI_r_size, MPI_SUM, MPI_COMM_e, ierr )
-!    call MPI_ALLREDUCE( MPI_IN_PLACE, total_impact, 1,          MPI_r_size, MPI_SUM, MPI_COMM_e, ierr )
-!  endif
+  do iof = 1, OBS_IN_NUM
+    if ( obs(iof)%nobs == 0 ) cycle
 
-  ! if ( myrank_e == 0 ) then
-  !   write(6,'(a,2i8,2e13.3)') 'Debug92 ', myrank_e, nprocs_e, obsense(1,1), total_impact
-  ! endif
+    allocate( obs_g_qc (obs(iof)%nobs) )
 
-  if ( LOG_OUT ) write(6,'(a)') 'Finish MPI comm'
-  
-!  if ( myrank_e == 0 ) then
+    obs_g_qc  = 1
 
-    allocate( obs_g_idx(obs(1)%nobs) )
-    allocate( obs_g_set(obs(1)%nobs) )
-    allocate( obs_g_qc (obs(1)%nobs) )
-    allocate( obs_g_val(obs(1)%nobs) )
-
-    obs_g_idx = 0
-    obs_g_set = 0
-    obs_g_qc  = 0
-    obs_g_val = 0.0_r_size
-
-    call init_obsense( obs(1)%nobs )
-    if ( LOG_OUT ) write(6,'(a)') 'Finish init_obsense'
+    call init_obsense( obs(iof)%nobs )
+    if ( LOG_OUT ) write(6,'(a,i6)') 'init_obsense for file index', iof
 
     if ( nobstotal > 0 ) then
       do nob = 1, nobstotal
-        iob = obsda_sort%idx(nob) !nint(obsda_sort%qv(nob)) ! global index for obsevations
+        set = obsda_sort%set(nob) ! set (file) index for obsevations
+        if ( set /= iof ) cycle
+
+        iob = obsda_sort%idx(nob) ! global index for obsevations
         obsense_global(:,iob) = obsense(:,nob)
-        obs_g_set(iob) = obsda_sort%set(nob)
-        obs_g_idx(iob) = obsda_sort%idx(nob)
         obs_g_qc (iob) = obsda_sort%qc (nob)
-        if ( obs(obsda_sort%set(nob))%rank(obsda_sort%idx(nob))== myrank_d ) then
-          obs_g_val(iob) = obsda_sort%val(nob)
-        endif
       end do
     endif
 
-    if ( LOG_OUT ) write(6,'(a)') 'Finish calc obsense_global'
-    call MPI_ALLREDUCE( MPI_IN_PLACE, obsense_global, nterm*obs(1)%nobs, MPI_r_size, MPI_SUM, MPI_COMM_a, ierr ) ! check
+    if ( LOG_OUT ) write(6,'(a)') 'Finish constructing obsense_global'
+    call MPI_ALLREDUCE( MPI_IN_PLACE, obsense_global, nterm*obs(iof)%nobs, MPI_r_size, MPI_SUM, MPI_COMM_a, ierr ) 
 
-    call MPI_ALLREDUCE( MPI_IN_PLACE, obs_g_set, obs(1)%nobs, MPI_INTEGER, MPI_MAX, MPI_COMM_d, ierr )
-    call MPI_ALLREDUCE( MPI_IN_PLACE, obs_g_idx, obs(1)%nobs, MPI_INTEGER, MPI_MAX, MPI_COMM_d, ierr )
-    call MPI_ALLREDUCE( MPI_IN_PLACE, obs_g_qc,  obs(1)%nobs, MPI_INTEGER, MPI_MAX, MPI_COMM_d, ierr )
-    call MPI_ALLREDUCE( MPI_IN_PLACE, obs_g_val, obs(1)%nobs, MPI_r_size,  MPI_SUM, MPI_COMM_d, ierr )
+    call MPI_ALLREDUCE( MPI_IN_PLACE, obs_g_qc,  obs(iof)%nobs, MPI_INTEGER, MPI_MAX, MPI_COMM_a, ierr )
+    call MPI_ALLREDUCE( MPI_IN_PLACE, total_impact, nterm, MPI_r_size, MPI_SUM, MPI_COMM_a, ierr ) 
 
-    call MPI_ALLREDUCE( MPI_IN_PLACE, total_impact, nterm, MPI_r_size, MPI_SUM, MPI_COMM_a, ierr ) ! check
-
-    if ( LOG_OUT ) write(6,'(a)') 'Finish MPI comm for obsense_global'
+    if ( LOG_OUT ) write(6,'(a)') 'Finish MPI comm for obsense_global, QC, and total_impact'
 
     ! write out observation sensitivity
     if ( myrank_a == 0 ) then
       if ( LOG_OUT ) write(6,'(a)') 'Write obsense_global'
-      ! do nob = 1, nobstotalg
-      !   write(6,'(a,3f8.2,i15)') 'Check obsense_global:', obsense_global(1,nob), obsense_global(2,nob), obsense_global(3,nob), nob
-      ! end do
       
-      call write_efso_nc(trim( EFSO_OUTPUT_NC_BASENAME ) // '.nc', obs(1)%nobs, obs_g_set, obs_g_idx, obs_g_qc, obsense_global, total_impact )
-      call print_obsense(obs(1)%nobs, obs_g_set, obs_g_idx, obs_g_qc, obsense_global, total_impact, obs_g_val, print_dry=.true. )
-      call print_obsense(obs(1)%nobs, obs_g_set, obs_g_idx, obs_g_qc, obsense_global, total_impact, obs_g_val, print_dry=.false. )
+      call write_efso_nc(trim( EFSO_OUTPUT_NC_BASENAME ) // '_' // trim(OBS_IN_FORMAT(iof)) // '.nc', obs(iof)%nobs, iof, obs_g_qc, obsense_global, total_impact )
+      call print_obsense(obs(iof)%nobs, iof, obs_g_qc, obsense_global, total_impact, print_dry=.true. )
+      call print_obsense(obs(iof)%nobs, iof, obs_g_qc, obsense_global, total_impact, print_dry=.false. )
     endif
 
-    deallocate( obs_g_set )
-    deallocate( obs_g_idx )
     deallocate( obs_g_qc  )
 
     call destroy_obsense
+
+  enddo
 
   ! endif ! [ myrank_e == 0 ]
 

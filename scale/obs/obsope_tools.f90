@@ -429,19 +429,6 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
               call Trans_XtoY(obs(iof)%elm(n), ril, rjl, rk, &
                               obs(iof)%lon(n), obs(iof)%lat(n), v3dg, v2dg, obsda%val(nn), obsda%qc(nn), typ=obs(iof)%typ(n))
             end if
-            if ( obtypelist(obs(iof)%typ(n)) /= 'ADPUPA' ) then
-              obsda%qc(nn) = iqc_undef ! debug
-            endif
-            ! if ( obs(iof)%lev(n) > 85000.0_r_size ) then
-            !   obsda%qc(nn) = iqc_undef ! debug
-            ! endif
-            ! if ( abs( obs(iof)%lon(n) - 149.300) > 0.01_r_size .or. &
-            !      abs( obs(iof)%lat(n) -  44.500) > 0.01_r_size ) then
-            !   obsda%qc(nn) = iqc_undef ! debug
-            ! end if
-            ! if ( mod(nint(ril),3) /= 0 .or. mod(nint(rjl),3) /= 0 ) then
-            !   obsda%qc(nn) = iqc_undef ! debug
-            ! endif
           !=====================================================================
           case (obsfmt_radar, obsfmt_radar_nc)
           !---------------------------------------------------------------------

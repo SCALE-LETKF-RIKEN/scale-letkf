@@ -143,16 +143,15 @@ subroutine loc_advection(ua,va,uf,vf)
   return
 end subroutine loc_advection
 
-subroutine print_obsense(nobs,set,idx,qc,obsense_global,total_impact,obval,print_dry)
+!OCL SERIAL
+subroutine print_obsense(nobs,set,qc,obsense_global,total_impact,print_dry)
   implicit none
 
   integer, intent(in) :: nobs
-  integer, intent(in) :: set(nobs)
-  integer, intent(in) :: idx(nobs)
+  integer, intent(in) :: set
   integer, intent(in) :: qc (nobs)
   real(r_size), intent(in) :: obsense_global(nterm,nobs)
   real(r_size), intent(in) :: total_impact(nterm)
-  real(r_size), intent(in) :: obval(nobs)
   logical, optional, intent(in) :: print_dry
 
   integer :: nobs_sense(nid_obs,nobtype)
@@ -161,7 +160,6 @@ subroutine print_obsense(nobs,set,idx,qc,obsense_global,total_impact,obval,print
 
   integer :: nobs_t
   real(r_size) :: sumsense_t, rate_t
-  real(r_size) :: absmax
   real(r_size) :: obsense
   integer :: nob, oid, otype, iterm
   logical :: print_dry_ = .true.
@@ -184,39 +182,13 @@ subroutine print_obsense(nobs,set,idx,qc,obsense_global,total_impact,obval,print
   do nob = 1, nobs
 
     ! Skip QCed observations
-    if ( qc(nob) /= iqc_good .or. set(nob) < 1 ) cycle
-
-    ! Check the range of observation sensitivity
-    if ( print_dry_ ) then
-      absmax = abs( obsense_global(1,nob) )
-    else
-      absmax = maxval( abs( obsense_global(1:nterm,nob) ) )
-    endif
-
-    if ( absmax > 1.e20_r_size ) then
-      write(6,'(a,i8,x,a,2f7.2,f7.1,e15.6)') 'Debug too large obsense_global ', &
-      nob, obtypelist(obs(set(nob))%typ(idx(nob))), obs(set(nob))%lon(idx(nob)), obs(set(nob))%lat(idx(nob)), obs(set(nob))%lev(idx(nob))*1.e-2, obval(nob)
-      cycle
-    endif
-    ! debug
-    if ( print_dry_ ) then
-      write(6,'(a,i7,x,a,2f8.3,2f7.1,2e11.2)') 'debug_efso_print ', &
-      nob, obtypelist(obs(set(nob))%typ(idx(nob))), obs(set(nob))%lon(idx(nob)), obs(set(nob))%lat(idx(nob)), obs(set(nob))%lev(idx(nob))*1.e-2, obs(set(nob))%err(idx(nob)), obval(nob), obsense_global(1,nob)
-      if ( abs(obsense_global(1,nob)) > 0.1e-1 ) then
-        write(6,'(a,i7,x,a,2f8.3,2f7.1,2e11.2)') 'large_debug_efso_print ', &
-        nob, obtypelist(obs(set(nob))%typ(idx(nob))), obs(set(nob))%lon(idx(nob)), obs(set(nob))%lat(idx(nob)), obs(set(nob))%lev(idx(nob))*1.e-2, obs(set(nob))%err(idx(nob)), obval(nob), obsense_global(1,nob)
-      else
-        write(6,'(a,i7,x,a,2f8.3,2f7.1,2e11.2)') 'small_debug_efso_print ', &
-        nob, obtypelist(obs(set(nob))%typ(idx(nob))), obs(set(nob))%lon(idx(nob)), obs(set(nob))%lat(idx(nob)), obs(set(nob))%lev(idx(nob))*1.e-2, obs(set(nob))%err(idx(nob)), obval(nob), obsense_global(1,nob)
-      endif  
-    endif
+    if ( qc(nob) /= iqc_good ) cycle
 
     ! Select observation types
-    otype = obs(set(nob))%typ(idx(nob))
+    otype = obs(set)%typ(nob)
     
     ! Select observation elements
-    !oid = ctype_elmtyp(uid_obs(obs(set(nob))%elm(idx(nob))),otype)
-    oid = uid_obs(obs(set(nob))%elm(idx(nob)))
+    oid = uid_obs(obs(set)%elm(nob))
 
     ! Sum up
     nobs_sense(oid,otype) = nobs_sense(oid,otype) + 1
@@ -281,16 +253,15 @@ subroutine destroy_obsense
   return
 end subroutine destroy_obsense
 
-subroutine write_efso_nc( filename, nobsall, set, idx, qc, obsense_global, total_impact )
+!OCL SERIAL
+subroutine write_efso_nc( filename, nobsall, set, qc, obsense_global, total_impact )
   use netcdf
   use common_ncio
   implicit none
 
-  ! nobstotalg is defined in letkf_obs
   character(len=*), intent(in) :: filename
   integer, intent(in) :: nobsall
-  integer, intent(in) :: set(nobsall)
-  integer, intent(in) :: idx(nobsall)
+  integer, intent(in) :: set
   integer, intent(in) :: qc (nobsall)
   real(r_size), intent(in) :: obsense_global(nterm,nobsall)
   real(r_size), intent(in) :: total_impact(nterm)
@@ -348,12 +319,14 @@ subroutine write_efso_nc( filename, nobsall, set, idx, qc, obsense_global, total
   ! Count the number of observations to be written
   nobs = 0
   do n = 1, nobsall
-    if ( qc(n) /= iqc_good .or. set(n) < 1 ) then
+    if ( qc(n) /= iqc_good ) then
       cycle
     endif
     nobs = nobs + 1
   enddo
-  print *, "write_efso_nc nobs = ", nobs
+  if ( LOG_OUT .and. LOG_LEVEL >= 3 ) then
+    write(6,'(a,i10)') "write_efso_nc nobs = ", nobs
+  endif
 
   ! Allocate arrays
   allocate( nobs_l(nobs) )
@@ -371,7 +344,7 @@ subroutine write_efso_nc( filename, nobsall, set, idx, qc, obsense_global, total
   ! Construct the arrays
   nn = 0
   do n = 1, nobsall
-    if ( qc(n) /= iqc_good .or. set(n) < 1 ) then
+    if ( qc(n) /= iqc_good ) then
       cycle
     endif
 
@@ -379,15 +352,15 @@ subroutine write_efso_nc( filename, nobsall, set, idx, qc, obsense_global, total
 
     nobs_l(nn) = nn
  
-    elm_l(nn) = real( obs(set(n))%elm(idx(n)), r_sngl )
-    lon_l(nn) = real( obs(set(n))%lon(idx(n)), r_sngl )
-    lat_l(nn) = real( obs(set(n))%lat(idx(n)), r_sngl )
-    lev_l(nn) = real( obs(set(n))%lev(idx(n)), r_sngl )
-    dat_l(nn) = real( obs(set(n))%dat(idx(n)), r_sngl )
-    dif_l(nn) = real( obs(set(n))%dif(idx(n)), r_sngl )
-    err_l(nn) = real( obs(set(n))%err(idx(n)), r_sngl )
+    elm_l(nn) = real( obs(set)%elm(n), r_sngl )
+    lon_l(nn) = real( obs(set)%lon(n), r_sngl )
+    lat_l(nn) = real( obs(set)%lat(n), r_sngl )
+    lev_l(nn) = real( obs(set)%lev(n), r_sngl )
+    dat_l(nn) = real( obs(set)%dat(n), r_sngl )
+    dif_l(nn) = real( obs(set)%dif(n), r_sngl )
+    err_l(nn) = real( obs(set)%err(n), r_sngl )
 
-    typ_l(nn) = int( obs(set(n))%typ(idx(n)) )
+    typ_l(nn) = int( obs(set)%typ(n) )
 
     obsense_global_l(:,nn) = real( obsense_global(:,n), r_sngl )
   enddo

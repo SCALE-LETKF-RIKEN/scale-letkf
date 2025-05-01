@@ -1552,6 +1552,7 @@ subroutine set_efso_obs
     call obs_da_value_allocate( obsda, MEMBER )
 
     i = 0
+    !OCL SERIAL
     do n = 1, nobslocal_all
       if ( obsqc(n) == iqc_good ) then
         i = i + 1
@@ -1567,11 +1568,11 @@ subroutine set_efso_obs
         sprd = sqrt(sprd / real(MEMBER-1,r_size))
         ! debug
         ! do m = 1, MEMBER
-          write(6,'(a,i8,2f7.2,f7.1,e12.4)') 'Ya_efso', obsda%idx(i), &
-                obs(obsda%set(i))%lon(obsda%idx(i)), &
-                obs(obsda%set(i))%lat(obsda%idx(i)), &
-                obs(obsda%set(i))%lev(obsda%idx(i))*1.e-2, &
-                sprd
+          ! write(6,'(a,i8,2f7.2,f7.1,e12.4)') 'Ya_efso', obsda%idx(i), &
+          !       obs(obsda%set(i))%lon(obsda%idx(i)), &
+          !       obs(obsda%set(i))%lat(obsda%idx(i)), &
+          !       obs(obsda%set(i))%lev(obsda%idx(i))*1.e-2, &
+          !       sprd
         !         obsda%ensval(m,i)
         ! enddo
 !        if ( obs(obsda%set(i))%lev(obsda%idx(i)) > 90000.0_r_size ) then
@@ -1784,12 +1785,12 @@ subroutine count_obsgrd(obsda,nobs_sub,nobs_g,efso_flag)
       obsgrd(ictype)%tot(:) = obsgrd(ictype)%ac(obsgrd(ictype)%ngrd_i,obsgrd(ictype)%ngrd_j,:) &
                             - obsgrd(ictype-1)%ac(obsgrd(ictype-1)%ngrd_i,obsgrd(ictype-1)%ngrd_j,:)
     end if
-! #ifdef LETKF_DEBUG
+#ifdef LETKF_DEBUG
      if (obsgrd(ictype)%tot(myrank_d) /= obsgrd(ictype)%tot_sub(i_after_qc)) then
        write (6, '(A)') '[Error] Observation counts are inconsistent !!!'
        stop 99
      end if
-! #endif
+#endif
 
     nobs_sub(:) = nobs_sub(:) + obsgrd(ictype)%tot_sub(:)
     nobs_g(:) = nobs_g(:) + obsgrd(ictype)%tot_g(:)
@@ -1799,7 +1800,7 @@ subroutine count_obsgrd(obsda,nobs_sub,nobs_g,efso_flag)
 
   call mpi_timer('set_letkf_obs:bucket_sort_info_allreduce:', 2)
 
-! #ifdef LETKF_DEBUG
+#ifdef LETKF_DEBUG
    if (nctype > 0) then
      if (obsgrd(nctype)%ac(obsgrd(nctype)%ngrd_i,obsgrd(nctype)%ngrd_j,myrank_d) /= nobs_sub(i_after_qc)) then
        write (6, '(A)') '[Error] Observation counts are inconsistent !!!'
@@ -1810,7 +1811,7 @@ subroutine count_obsgrd(obsda,nobs_sub,nobs_g,efso_flag)
        stop 99
      end if
    end if
-! #endif
+#endif
   nobstotalg = nobs_g(i_after_qc) ! total obs number in the global domain (all types)
 
   return
