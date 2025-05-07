@@ -2706,10 +2706,6 @@ subroutine get_obsdep_efso_mpi( nobslocal, nobs0, obsset, obsidx, obsqc, obsdep,
     ! count the number of obs with qc=iqc_good
     nobslocal_qcok = 0
     do n = 1, nobslocal
-      if ( obsqc(n) == 0 ) then
-        write(6,'(a,2e12.1,2f7.2,f7.1)') 'Debug from get_obsdep_efso_mpi', obsdep(n), obshdxf(1,n), &
-        obs(obsset(n))%lon(obsidx(n)), obs(obsset(n))%lat(obsidx(n)), obs(obsset(n))%lev(obsidx(n))*1.e-3
-      endif
       if ( obsqc(n) == 0 ) nobslocal_qcok = nobslocal_qcok + 1
     end do
 
