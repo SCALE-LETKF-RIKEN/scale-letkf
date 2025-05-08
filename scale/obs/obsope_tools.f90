@@ -79,6 +79,10 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
   character(len=4) :: nstr
   character(len=timer_name_width) :: timer_str
 
+  ! Dupilication detection
+  integer :: nn2, oidx_prev
+  integer :: iof_prev
+
 !-------------------------------------------------------------------------------
 
   call mpi_timer('', 2)
@@ -475,6 +479,48 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
         end do ! [ nn = n1, n2 ]
 !$omp end parallel do
  
+        ! Detect duplicated observations
+        !
+        if ( n2 - n1 > 1 .and. DUPLICATE_OBS_DETECTION ) then
+
+          do nn = n1+1, n2
+            iof = obsda%set(nn)
+            n = obsda%idx(nn)
+
+            if (obsda%qc(nn) /= iqc_good) cycle
+
+            do nn2 = n1, nn-1
+              iof_prev  = obsda%set(nn2)
+              oidx_prev = obsda%idx(nn2)
+  
+              if ( obs(iof_prev)%typ(oidx_prev) /= obs(iof)%typ(n) ) cycle
+              if ( obs(iof_prev)%elm(oidx_prev) /= obs(iof)%elm(n) ) cycle
+              if ( abs( obs(iof_prev)%ri(oidx_prev)  - obs(iof)%ri(n)  ) > DUPLICATE_MIN_GRID_DIFF ) cycle
+              if ( abs( obs(iof_prev)%rj(oidx_prev)  - obs(iof)%rj(n)  ) > DUPLICATE_MIN_GRID_DIFF ) cycle
+              if ( abs( obs(iof_prev)%dif(oidx_prev) - obs(iof)%dif(n) ) > DUPLICATE_MIN_TIME_DIFF ) cycle
+
+              if ( obs(iof)%elm(n) < 10000 ) then
+                ! Non-surface observtions
+                select case (obtypelist(obs(iof)%typ(n)))
+                case ( 'PHARAD' )
+                  if ( abs( obs(iof_prev)%lev(oidx_prev) - obs(iof)%lev(n) ) > DUPLICATE_MIN_Z_DIFF ) cycle
+                case ( 'H08IRB' )
+                  cycle ! do nothing
+                case default 
+                  if ( abs( obs(iof_prev)%lev(oidx_prev) - obs(iof)%lev(n) ) > DUPLICATE_MIN_PRS_DIFF ) cycle
+                end select
+              endif
+
+              ! do not allow observations with the same type, element, location, and time (slot)
+              obsda%qc(nn) = iqc_dup
+              exit
+
+            enddo
+
+          enddo ! [ nn = n1, n2 ]
+
+        endif
+
         write (timer_str, '(A30,I4,A7,I4,A2)') 'obsope_cal:obsope_step_2   (t=', it, ', slot=', islot, '):'
         call mpi_timer(trim(timer_str), 2)
       end do ! [ islot = SLOT_START, SLOT_END ]

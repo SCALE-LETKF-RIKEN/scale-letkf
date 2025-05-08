@@ -94,6 +94,12 @@ MODULE common_nml
   integer               :: SLOT_BASE = 1
   real(r_size)          :: SLOT_TINTERVAL = 3600.0d0
 
+  logical               :: DUPLICATE_OBS_DETECTION = .false.       ! detect duplicate observations
+  real(r_size)          :: DUPLICATE_MIN_GRID_DIFF =    1.0_r_size ! Minimum horizontal grid difference for duplicate observation detection
+  real(r_size)          :: DUPLICATE_MIN_PRS_DIFF  = 1000.0_r_size ! Minimum vertical (pressure, Pa) difference for duplicate observation detection
+  real(r_size)          :: DUPLICATE_MIN_Z_DIFF    =   10.0_r_size ! Minimum vertical (height, m) difference for duplicate observation detection
+  real(r_size)          :: DUPLICATE_MIN_TIME_DIFF = 1800.0_r_size ! Minimum time (s) difference for duplicate observation detection
+
   !--- PARAM_LETKF
   logical               :: OBSDA_IN = .false.
   character(filelenmax) :: OBSDA_IN_BASENAME = 'obsda.@@@@'
@@ -545,7 +551,12 @@ subroutine read_nml_obsope
     SLOT_START, &
     SLOT_END, &
     SLOT_BASE, &
-    SLOT_TINTERVAL
+    SLOT_TINTERVAL, &
+    DUPLICATE_OBS_DETECTION,  &
+    DUPLICATE_MIN_GRID_DIFF , &
+    DUPLICATE_MIN_PRS_DIFF,   &
+    DUPLICATE_MIN_Z_DIFF,     &
+    DUPLICATE_MIN_TIME_DIFF
 
   rewind(IO_FID_CONF)
   read(IO_FID_CONF,nml=PARAM_OBSOPE,iostat=ierr)
