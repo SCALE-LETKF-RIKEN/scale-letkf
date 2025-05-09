@@ -556,47 +556,9 @@ SUBROUTINE set_letkf_obs
 
   allocate (obsgrd(nctype))
 
-  ! Determine mesh size for bucket sort
-  !-----------------------------------------------------------------------------
+  
+  call initiate_obsgrd
 
-  do ictype = 1, nctype
-    ityp = typ_ctype(ictype)
-
-    if (OBS_SORT_GRID_SPACING(ityp) > 0) then
-      target_grdspc = OBS_SORT_GRID_SPACING(ityp)
-    else if (MAX_NOBS_PER_GRID(ityp) > 0) then
-      target_grdspc = 0.1d0 * sqrt(real(MAX_NOBS_PER_GRID(ityp), r_size)) * OBS_MIN_SPACING(ityp) ! need to be tuned
-    else
-      target_grdspc = hori_loc_ctype(ictype) * dist_zero_fac / 6.0d0                ! need to be tuned
-    end if
-    obsgrd(ictype)%ngrd_i = min(ceiling(DX * real(nlon,r_size) / target_grdspc), nlon)
-    obsgrd(ictype)%ngrd_j = min(ceiling(DY * real(nlat,r_size) / target_grdspc), nlat)
-    obsgrd(ictype)%grdspc_i = DX * real(nlon,r_size) / real(obsgrd(ictype)%ngrd_i,r_size)
-    obsgrd(ictype)%grdspc_j = DY * real(nlat,r_size) / real(obsgrd(ictype)%ngrd_j,r_size)
-    obsgrd(ictype)%ngrdsch_i = ceiling(hori_loc_ctype(ictype) * dist_zero_fac / obsgrd(ictype)%grdspc_i)
-    obsgrd(ictype)%ngrdsch_j = ceiling(hori_loc_ctype(ictype) * dist_zero_fac / obsgrd(ictype)%grdspc_j)
-    obsgrd(ictype)%ngrdext_i = obsgrd(ictype)%ngrd_i + obsgrd(ictype)%ngrdsch_i * 2
-    obsgrd(ictype)%ngrdext_j = obsgrd(ictype)%ngrd_j + obsgrd(ictype)%ngrdsch_j * 2
-
-    allocate (obsgrd(ictype)%n (  obsgrd(ictype)%ngrd_i, obsgrd(ictype)%ngrd_j, 0:nprocs_d-1))
-    allocate (obsgrd(ictype)%ac(0:obsgrd(ictype)%ngrd_i, obsgrd(ictype)%ngrd_j, 0:nprocs_d-1))
-    allocate (obsgrd(ictype)%tot(0:nprocs_d-1))
-    allocate (obsgrd(ictype)%n_ext (  obsgrd(ictype)%ngrdext_i, obsgrd(ictype)%ngrdext_j))
-    allocate (obsgrd(ictype)%ac_ext(0:obsgrd(ictype)%ngrdext_i, obsgrd(ictype)%ngrdext_j))
-
-    obsgrd(ictype)%n (:,:,:) = 0
-    obsgrd(ictype)%ac(:,:,:) = 0
-    obsgrd(ictype)%tot(:) = 0
-    obsgrd(ictype)%n_ext (:,:) = 0
-    obsgrd(ictype)%ac_ext(:,:) = 0
-    obsgrd(ictype)%tot_ext = 0
-    obsgrd(ictype)%tot_sub(:) = 0
-    obsgrd(ictype)%tot_g(:) = 0
-
-    allocate (obsgrd(ictype)%next(obsgrd(ictype)%ngrd_i, obsgrd(ictype)%ngrd_j))
-  end do
-
-  call mpi_timer('set_letkf_obs:bucket_sort_prepare:', 2)
 
   ! Print observation usage settings
   !-----------------------------------------------------------------------------
@@ -643,120 +605,9 @@ SUBROUTINE set_letkf_obs
     call mpi_timer('set_letkf_obs:obs_setting_print:', 2)
   end if
 
-  ! First scan: count the observation numbers in each mesh (in each subdomain)
-  !-----------------------------------------------------------------------------
 
-  do n = 1, obsda%nobs
-    iof = obsda%set(n)
-    iidx = obsda%idx(n)
-    ictype = ctype_elmtyp(uid_obs(obs(iof)%elm(iidx)), obs(iof)%typ(iidx))
+  call count_obsgrd(obsda,nobs_sub,nobs_g,efso_flag=.false.)
 
-    if (obsda%qc(n) == iqc_good) then
-      call ij_obsgrd(ictype, obs(iof)%ri(iidx), obs(iof)%rj(iidx), i, j)
-      if (i < 1) i = 1                                          ! Assume the process assignment was correct,
-      if (i > obsgrd(ictype)%ngrd_i) i = obsgrd(ictype)%ngrd_i  ! so this correction is only to remedy the round-off problem.
-      if (j < 1) j = 1                                          !
-      if (j > obsgrd(ictype)%ngrd_j) j = obsgrd(ictype)%ngrd_j  !
-
-      obsgrd(ictype)%n(i,j,myrank_d) = obsgrd(ictype)%n(i,j,myrank_d) + 1
-      obsgrd(ictype)%tot_sub(i_after_qc) = obsgrd(ictype)%tot_sub(i_after_qc) + 1 ! only used for diagnostic print (obs number after qc)
-    end if
-
-    obsgrd(ictype)%tot_sub(i_before_qc) = obsgrd(ictype)%tot_sub(i_before_qc) + 1 ! only used for diagnostic print (obs number before qc)
-  end do
-
-  ! Compute the accumulated numbers in each mesh
-  !-----------------------------------------------------------------------------
-
-  do ictype = 1, nctype
-    if (ictype > 1) then
-      obsgrd(ictype)%ac(0,1,myrank_d) = obsgrd(ictype-1)%ac(obsgrd(ictype-1)%ngrd_i,obsgrd(ictype-1)%ngrd_j,myrank_d)
-    end if
-    do j = 1, obsgrd(ictype)%ngrd_j
-      if (j > 1) then
-        obsgrd(ictype)%ac(0,j,myrank_d) = obsgrd(ictype)%ac(obsgrd(ictype)%ngrd_i,j-1,myrank_d)
-      end if
-      do i = 1, obsgrd(ictype)%ngrd_i
-        obsgrd(ictype)%ac(i,j,myrank_d) = obsgrd(ictype)%ac(i-1,j,myrank_d) + obsgrd(ictype)%n(i,j,myrank_d)
-!        obsgrd(ictype)%next(i,j) = obsgrd(ictype)%ac(i-1,j,myrank_d)
-      end do
-    end do
-    obsgrd(ictype)%next(1:obsgrd(ictype)%ngrd_i,:) = obsgrd(ictype)%ac(0:obsgrd(ictype)%ngrd_i-1,:,myrank_d)
-  end do
-
-  call mpi_timer('set_letkf_obs:bucket_sort_first_scan:', 2)
-
-  ! Second scan: save the indices of bucket-sorted observations in obsda%keys(:)
-  !-----------------------------------------------------------------------------
-
-  do n = 1, obsda%nobs
-    if (obsda%qc(n) == iqc_good) then
-      iof = obsda%set(n)
-      iidx = obsda%idx(n)
-      ictype = ctype_elmtyp(uid_obs(obs(iof)%elm(iidx)), obs(iof)%typ(iidx))
-
-      call ij_obsgrd(ictype, obs(iof)%ri(iidx), obs(iof)%rj(iidx), i, j)
-      if (i < 1) i = 1                                         ! Assume the process assignment was correct,
-      if (i > obsgrd(ictype)%ngrd_i) i = obsgrd(ictype)%ngrd_i ! so this correction is only to remedy the round-off problem.
-      if (j < 1) j = 1                                         !
-      if (j > obsgrd(ictype)%ngrd_j) j = obsgrd(ictype)%ngrd_j !
-
-      obsgrd(ictype)%next(i,j) = obsgrd(ictype)%next(i,j) + 1
-      obsda%key(obsgrd(ictype)%next(i,j)) = n
-    end if
-  end do
-
-
-  call mpi_timer('set_letkf_obs:bucket_sort_second_scan:', 2, barrier=MPI_COMM_d)
-
-  ! ALLREDUCE observation number information from subdomains, and compute total numbers
-  !-----------------------------------------------------------------------------
-
-  nobs_sub(:) = 0
-  nobs_g(:) = 0
-  do ictype = 1, nctype
-    if (nprocs_d > 1) then
-      call MPI_ALLREDUCE(MPI_IN_PLACE, obsgrd(ictype)%n, obsgrd(ictype)%ngrd_i*obsgrd(ictype)%ngrd_j*nprocs_d, &
-                         MPI_INTEGER, MPI_SUM, MPI_COMM_d, ierr)
-      call MPI_ALLREDUCE(MPI_IN_PLACE, obsgrd(ictype)%ac(0:obsgrd(ictype)%ngrd_i,:,:), (obsgrd(ictype)%ngrd_i+1)*obsgrd(ictype)%ngrd_j*nprocs_d, &
-                         MPI_INTEGER, MPI_SUM, MPI_COMM_d, ierr)
-    end if
-    call MPI_ALLREDUCE(obsgrd(ictype)%tot_sub, obsgrd(ictype)%tot_g, n_qc_steps, MPI_INTEGER, MPI_SUM, MPI_COMM_d, ierr)
-
-    if (ictype == 1) then
-      obsgrd(ictype)%tot(:) = obsgrd(ictype)%ac(obsgrd(ictype)%ngrd_i,obsgrd(ictype)%ngrd_j,:)
-    else
-      obsgrd(ictype)%tot(:) = obsgrd(ictype)%ac(obsgrd(ictype)%ngrd_i,obsgrd(ictype)%ngrd_j,:) &
-                            - obsgrd(ictype-1)%ac(obsgrd(ictype-1)%ngrd_i,obsgrd(ictype-1)%ngrd_j,:)
-    end if
-#ifdef LETKF_DEBUG
-    if (obsgrd(ictype)%tot(myrank_d) /= obsgrd(ictype)%tot_sub(i_after_qc)) then
-      write (6, '(A)') '[Error] Observation counts are inconsistent !!!'
-      stop 99
-    end if
-#endif
-
-    nobs_sub(:) = nobs_sub(:) + obsgrd(ictype)%tot_sub(:)
-    nobs_g(:) = nobs_g(:) + obsgrd(ictype)%tot_g(:)
-
-    deallocate (obsgrd(ictype)%next)
-  end do
-
-  call mpi_timer('set_letkf_obs:bucket_sort_info_allreduce:', 2)
-
-#ifdef LETKF_DEBUG
-  if (nctype > 0) then
-    if (obsgrd(nctype)%ac(obsgrd(nctype)%ngrd_i,obsgrd(nctype)%ngrd_j,myrank_d) /= nobs_sub(i_after_qc)) then
-      write (6, '(A)') '[Error] Observation counts are inconsistent !!!'
-      stop 99
-    end if
-    if (sum(obsgrd(nctype)%ac(obsgrd(nctype)%ngrd_i,obsgrd(nctype)%ngrd_j,:)) /= nobs_g(i_after_qc)) then
-      write (6, '(A)') '[Error] Observation counts are inconsistent !!!'
-      stop 99
-    end if
-  end if
-#endif
-  nobstotalg = nobs_g(i_after_qc) ! total obs number in the global domain (all types)
 
   ! Print observation counts for each types
   !-----------------------------------------------------------------------------
@@ -806,214 +657,22 @@ SUBROUTINE set_letkf_obs
     call mpi_timer('set_letkf_obs:obs_count_print_types:', 2)
   end if
 
-  ! Calculate observation numbers in the extended (localization) subdomain,
-  ! in preparation for communicating obsetvations in the extended subdomain
-  !-----------------------------------------------------------------------------
 
-  call rank_1d_2d(myrank_d, myp_i, myp_j)
+  call count_obsgrd_ext
 
-  do ictype = 1, nctype
-    imin1 = myp_i*obsgrd(ictype)%ngrd_i+1 - obsgrd(ictype)%ngrdsch_i
-    imax1 = (myp_i+1)*obsgrd(ictype)%ngrd_i + obsgrd(ictype)%ngrdsch_i
-    jmin1 = myp_j*obsgrd(ictype)%ngrd_j+1 - obsgrd(ictype)%ngrdsch_j
-    jmax1 = (myp_j+1)*obsgrd(ictype)%ngrd_j + obsgrd(ictype)%ngrdsch_j
 
-    do ip = 0, nprocs_d-1
-      call rank_1d_2d(ip, ip_i, ip_j)
-      imin2 = max(1, imin1 - ip_i*obsgrd(ictype)%ngrd_i)
-      imax2 = min(obsgrd(ictype)%ngrd_i, imax1 - ip_i*obsgrd(ictype)%ngrd_i)
-      jmin2 = max(1, jmin1 - ip_j*obsgrd(ictype)%ngrd_j)
-      jmax2 = min(obsgrd(ictype)%ngrd_j, jmax1 - ip_j*obsgrd(ictype)%ngrd_j)
-      if (imin2 > imax2 .or. jmin2 > jmax2) cycle
-
-      ishift = (ip_i - myp_i) * obsgrd(ictype)%ngrd_i + obsgrd(ictype)%ngrdsch_i
-      jshift = (ip_j - myp_j) * obsgrd(ictype)%ngrd_j + obsgrd(ictype)%ngrdsch_j
-      obsgrd(ictype)%n_ext(imin2+ishift:imax2+ishift, jmin2+jshift:jmax2+jshift) = obsgrd(ictype)%n(imin2:imax2, jmin2:jmax2, ip)
-    end do
-
-    if (ictype > 1) then
-      obsgrd(ictype)%ac_ext(0,1) = obsgrd(ictype-1)%ac_ext(obsgrd(ictype-1)%ngrdext_i,obsgrd(ictype-1)%ngrdext_j)
-    end if
-    do j = 1, obsgrd(ictype)%ngrdext_j
-      if (j > 1) then
-        obsgrd(ictype)%ac_ext(0,j) = obsgrd(ictype)%ac_ext(obsgrd(ictype)%ngrdext_i,j-1)
-      end if
-      do i = 1, obsgrd(ictype)%ngrdext_i
-        obsgrd(ictype)%ac_ext(i,j) = obsgrd(ictype)%ac_ext(i-1,j) + obsgrd(ictype)%n_ext(i,j)
-      end do
-    end do
-
-    if (ictype == 1) then
-      obsgrd(ictype)%tot_ext = obsgrd(ictype)%ac_ext(obsgrd(ictype)%ngrdext_i,obsgrd(ictype)%ngrdext_j)
-    else
-      obsgrd(ictype)%tot_ext = obsgrd(ictype)%ac_ext(obsgrd(ictype)%ngrdext_i,obsgrd(ictype)%ngrdext_j) &
-                             - obsgrd(ictype-1)%ac_ext(obsgrd(ictype-1)%ngrdext_i,obsgrd(ictype-1)%ngrdext_j)
-    end if
-  end do ! [ ictype = 1, nctype ]
-
+  ! update nobstotal (subdomain) to nobstotal (including extended domain) by using obsgrd
   if (nctype > 0) then
-    nobstotal = obsgrd(nctype)%ac_ext(obsgrd(nctype)%ngrdext_i,obsgrd(nctype)%ngrdext_j) ! total obs number in the extended subdomain (all types)
-
-!    maxnobs_sub_per_ctype = maxval(obsgrd(1)%tot(:))
-    maxnobs_per_ctype = obsgrd(1)%tot_ext
-    do ictype = 2, nctype
-!      maxnobs_sub_per_ctype = max(maxnobs_sub_per_ctype, maxval(obsgrd(ictype)%tot(:)))
-      maxnobs_per_ctype = max(maxnobs_per_ctype, obsgrd(ictype)%tot_ext)
-    end do
+    nobstotal = obsgrd(nctype)%ac_ext(obsgrd(nctype)%ngrdext_i,obsgrd(nctype)%ngrdext_j) 
   else
     nobstotal = 0
-!    maxnobs_sub_per_ctype = 0
-    maxnobs_per_ctype = 0
-  end if
-
-  call mpi_timer('set_letkf_obs:extdomain_obs_count_cal:', 2)
-
-  ! Construct sorted obsda_sort: 
-  !-----------------------------------------------------------------------------
-
-  ! 1) Copy the observation data in own subdomains to send buffer (obsbufs) with
-  ! sorted order
-  !-----------------------------------------------------------------------------
-  if (nctype > 0) then
-    cntr(:) = obsgrd(nctype)%ac(obsgrd(nctype)%ngrd_i,obsgrd(nctype)%ngrd_j,:)
-    cnts = cntr(myrank_d+1)
-    dspr(1) = 0
-    do ip = 2, nprocs_d
-      dspr(ip) = dspr(ip-1) + cntr(ip-1)
-    end do
-
-    nensobs_mod = mod(nensobs, nprocs_e)
-    nensobs_div = (nensobs - nensobs_mod) / nprocs_e
-    if (myrank_e < nensobs_mod) then
-      im_obs_1 = (nensobs_div+1) * myrank_e + 1
-      im_obs_2 = (nensobs_div+1) * (myrank_e+1)
-      nensobs_part = nensobs_div + 1
-    else
-      im_obs_1 = (nensobs_div+1) * nensobs_mod + nensobs_div * (myrank_e-nensobs_mod) + 1
-      im_obs_2 = (nensobs_div+1) * nensobs_mod + nensobs_div * (myrank_e-nensobs_mod+1)
-      nensobs_part = nensobs_div
-    end if
-
-    obsbufs%nobs = nobs_sub(i_after_qc)
-    call obs_da_value_allocate(obsbufs, nensobs_part)
-
-    do n = 1, nobs_sub(i_after_qc)
-      obsbufs%set(n) = obsda%set(obsda%key(n))
-      obsbufs%idx(n) = obsda%idx(obsda%key(n))
-      obsbufs%val(n) = obsda%val(obsda%key(n))
-      if (nensobs_part > 0) then
-        obsbufs%ensval(1:nensobs_part,n) = obsda%ensval(im_obs_1:im_obs_2,obsda%key(n))
-      end if
-      obsbufs%qc(n) = obsda%qc(obsda%key(n))
-    end do ! [ n = 1, nobs_sub(i_after_qc) ]
-
-    call mpi_timer('set_letkf_obs:copy_bufs:', 2, barrier=MPI_COMM_d)
-  end if ! [ nctype > 0 ]
-
-  call obs_da_value_deallocate(obsda)
-
-  ! 2) Communicate to get global observations;
-  !    for variables with an ensemble dimension (ensval),
-  !    only obtain data from partial members (nensobs_part) to save memory usage
-  !-----------------------------------------------------------------------------
-  if (nctype > 0) then
-    obsbufr%nobs = nobs_g(i_after_qc)
-    call obs_da_value_allocate(obsbufr, nensobs_part)
-
-    call MPI_ALLGATHERV(obsbufs%set, cnts, MPI_INTEGER, obsbufr%set, cntr, dspr, MPI_INTEGER, MPI_COMM_d, ierr)
-    call MPI_ALLGATHERV(obsbufs%idx, cnts, MPI_INTEGER, obsbufr%idx, cntr, dspr, MPI_INTEGER, MPI_COMM_d, ierr)
-    call MPI_ALLGATHERV(obsbufs%val, cnts, MPI_r_size, obsbufr%val, cntr, dspr, MPI_r_size, MPI_COMM_d, ierr)
-    if (nensobs_part > 0) then
-      call MPI_ALLGATHERV(obsbufs%ensval, cnts*nensobs_part, MPI_r_size, obsbufr%ensval, cntr*nensobs_part, dspr*nensobs_part, MPI_r_size, MPI_COMM_d, ierr)
-    end if
-    call MPI_ALLGATHERV(obsbufs%qc, cnts, MPI_INTEGER, obsbufr%qc, cntr, dspr, MPI_INTEGER, MPI_COMM_d, ierr)
-
-    call obs_da_value_deallocate(obsbufs)
-
-    call mpi_timer('set_letkf_obs:mpi_allgatherv:', 2)
-  end if ! [ nctype > 0 ]
-
-  ! 3) Copy observation data within the extended (localization) subdomains
-  !    from receive buffer (obsbufr) to obsda_sort; rearrange with sorted order
-  !-----------------------------------------------------------------------------
+  endif
   obsda_sort%nobs = nobstotal
   call obs_da_value_allocate(obsda_sort, nensobs)
 
-!$OMP PARALLEL DO SCHEDULE(STATIC) PRIVATE(ip,ip_i,ip_j,ictype,imin1,imax1,jmin1,jmax1,imin2,imax2,jmin2,jmax2,ishift,jshift,j,ns_ext,ne_ext,ns_bufr,ne_bufr)
-  do ip = 0, nprocs_d-1
-    call rank_1d_2d(ip, ip_i, ip_j)
 
-    do ictype = 1, nctype
-      imin1 = myp_i*obsgrd(ictype)%ngrd_i+1 - obsgrd(ictype)%ngrdsch_i
-      imax1 = (myp_i+1)*obsgrd(ictype)%ngrd_i + obsgrd(ictype)%ngrdsch_i
-      jmin1 = myp_j*obsgrd(ictype)%ngrd_j+1 - obsgrd(ictype)%ngrdsch_j
-      jmax1 = (myp_j+1)*obsgrd(ictype)%ngrd_j + obsgrd(ictype)%ngrdsch_j
+  call setup_obsda_sort(nobs_sub,nobs_g,obsda_sort,efso_flag=.false.)
 
-      imin2 = max(1, imin1 - ip_i*obsgrd(ictype)%ngrd_i)
-      imax2 = min(obsgrd(ictype)%ngrd_i, imax1 - ip_i*obsgrd(ictype)%ngrd_i)
-      jmin2 = max(1, jmin1 - ip_j*obsgrd(ictype)%ngrd_j)
-      jmax2 = min(obsgrd(ictype)%ngrd_j, jmax1 - ip_j*obsgrd(ictype)%ngrd_j)
-      if (imin2 > imax2 .or. jmin2 > jmax2) cycle
-
-      ishift = (ip_i - myp_i) * obsgrd(ictype)%ngrd_i + obsgrd(ictype)%ngrdsch_i
-      jshift = (ip_j - myp_j) * obsgrd(ictype)%ngrd_j + obsgrd(ictype)%ngrdsch_j
-      do j = jmin2, jmax2
-        ns_ext = obsgrd(ictype)%ac_ext(imin2+ishift-1,j+jshift) + 1
-        ne_ext = obsgrd(ictype)%ac_ext(imax2+ishift  ,j+jshift)
-        if (ns_ext > ne_ext) cycle
-
-        ns_bufr = dspr(ip+1) + obsgrd(ictype)%ac(imin2-1,j,ip) + 1
-        ne_bufr = dspr(ip+1) + obsgrd(ictype)%ac(imax2  ,j,ip)
-
-#ifdef LETKF_DEBUG
-        if (ne_ext - ns_ext /= ne_bufr - ns_bufr) then
-          write (6, '(A)') '[Error] observation grid indices have errors !!!'
-          write (6, *) ictype, ip, j, imin1, imax1, jmin1, jmax1, imin2, imax2, jmin2, jmax2, ishift, jshift, &
-                       obsgrd(ictype)%ngrd_i, obsgrd(ictype)%ngrd_j, obsgrd(ictype)%ngrdsch_i, obsgrd(ictype)%ngrdsch_j, ns_ext, ne_ext, ns_bufr, ne_bufr
-          stop 99
-        end if
-#endif
-
-        obsda_sort%set(ns_ext:ne_ext) = obsbufr%set(ns_bufr:ne_bufr)
-        obsda_sort%idx(ns_ext:ne_ext) = obsbufr%idx(ns_bufr:ne_bufr)
-        obsda_sort%val(ns_ext:ne_ext) = obsbufr%val(ns_bufr:ne_bufr)
-        if (nensobs_part > 0) then
-          obsda_sort%ensval(im_obs_1:im_obs_2,ns_ext:ne_ext) = obsbufr%ensval(1:nensobs_part,ns_bufr:ne_bufr)
-        end if
-        obsda_sort%qc(ns_ext:ne_ext) = obsbufr%qc(ns_bufr:ne_bufr)
-      end do
-    end do ! [ ictype = 1, nctype ]
-  end do ! [ ip = 0, nprocs_d-1 ]
-!$OMP END PARALLEL DO
-
-  ! Save the keys of observations within the subdomain (excluding the localization buffer area)
-  obsda_sort%nobs_in_key = 0
-  do ictype = 1, nctype
-    imin1 = obsgrd(ictype)%ngrdsch_i + 1
-    imax1 = obsgrd(ictype)%ngrdsch_i + obsgrd(ictype)%ngrd_i
-    jmin1 = obsgrd(ictype)%ngrdsch_j + 1
-    jmax1 = obsgrd(ictype)%ngrdsch_j + obsgrd(ictype)%ngrd_j
-    call obs_choose_ext(ictype, imin1, imax1, jmin1, jmax1, obsda_sort%nobs_in_key, obsda_sort%key)
-
-    deallocate (obsgrd(ictype)%n)
-    deallocate (obsgrd(ictype)%ac)
-    deallocate (obsgrd(ictype)%n_ext)
-  end do ! [ ictype = 1, nctype ]
-
-  if (nctype > 0) then
-    call obs_da_value_deallocate(obsbufr)
-
-    call mpi_timer('set_letkf_obs:extdomain_copy_bufr:', 2, barrier=MPI_COMM_e)
-  end if ! [ nctype > 0 ]
-
-  ! 4) For variables with an ensemble dimension (ensval),
-  !    ALLREDUCE among the ensemble dimension to obtain data of all members
-  !-----------------------------------------------------------------------------
-  if (nprocs_e > 1) then
-    call MPI_ALLREDUCE(MPI_IN_PLACE, obsda_sort%ensval, nensobs*nobstotal, MPI_r_size, MPI_SUM, MPI_COMM_e, ierr)
-
-    call mpi_timer('set_letkf_obs:extdomain_allreduce:', 2)
-  end if
 
   if ( LOG_LEVEL >= 3 .and. LOG_OUT ) then
     do n = 1, nobstotal
