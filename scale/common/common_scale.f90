@@ -1397,7 +1397,8 @@ subroutine state_trans(v3dg,rotate_flag,ps)
   use scale_atmos_grid_cartesc_real, only: &
      FZ => ATMOS_GRID_CARTESC_real_FZ
   use scale_atmos_grid_cartesC_index, only: &
-     IS, IE, JS, JE, KS, KE
+     IS, IE, JS, JE, KS, KE, &
+     IHALO, JHALO
   use scale_atmos_grid_cartesC_metric, only: &
      ROTC => ATMOS_GRID_CARTESC_METRIC_ROTC
 
@@ -1481,8 +1482,8 @@ subroutine state_trans(v3dg,rotate_flag,ps)
           utmp = v3dg(k,i,j,iv3d_u)
           vtmp = v3dg(k,i,j,iv3d_v)     
           
-          v3dg(k,i,j,iv3d_u) = utmp * ROTC(i,j,1) - vtmp * ROTC(i,j,2)
-          v3dg(k,i,j,iv3d_v) = utmp * ROTC(i,j,2) + vtmp * ROTC(i,j,1)
+          v3dg(k,i,j,iv3d_u) = utmp * ROTC(IHALO+i,JHALO+j,1) - vtmp * ROTC(IHALO+i,JHALO+j,2)
+          v3dg(k,i,j,iv3d_v) = utmp * ROTC(IHALO+i,JHALO+j,2) + vtmp * ROTC(IHALO+i,JHALO+j,1)
         
         enddo
       enddo
