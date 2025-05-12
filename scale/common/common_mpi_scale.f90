@@ -1424,15 +1424,21 @@ end subroutine read_ens_mpi_addiinfl
 !-------------------------------------------------------------------------------
 ! Write ensemble analysis data after collecting from processes
 !-------------------------------------------------------------------------------
-subroutine write_ens_mpi(v3d, v2d, monit_step)
+subroutine write_ens_mpi(v3d, v2d, monit_step, v3d_efso, v2d_efso)
   implicit none
 
   real(r_size), intent(in) :: v3d(nij1,nlev,nens,nv3d)
   real(r_size), intent(in) :: v2d(nij1,nens,nv2d)
   integer, intent(in), optional :: monit_step
+  real(r_size), intent(in), optional :: v3d_efso(nij1,nlev,nens,nv3d)
+  real(r_size), intent(in), optional :: v2d_efso(nij1,nens,nv2d)
+
   real(RP) :: v3dg(nlev,nlon,nlat,nv3d)
   real(RP) :: v2dg(nlon,nlat,nv2d)
+  real(RP), allocatable :: v3dg_efso(:,:,:,:)
+  real(RP), allocatable :: v2dg_efso(:,:,:)
   character(len=filelenmax) :: filename
+  character(len=filelenmax) :: filename_efso
   integer :: it, im, mstart, mend
   integer :: monit_step_
 
@@ -1458,6 +1464,11 @@ subroutine write_ens_mpi(v3d, v2d, monit_step)
     endif
   endif
 
+  if ( present(v3d_efso) .and. present(v2d_efso) ) then
+    allocate( v3dg_efso(nlev,nlon,nlat,nv3d) )
+    allocate( v2dg_efso(nlon,nlat,nv2d) )
+  end if
+
   do it = 1, nitmax
     call mpi_timer('', 2, barrier=MPI_COMM_e)
 
@@ -1467,12 +1478,19 @@ subroutine write_ens_mpi(v3d, v2d, monit_step)
     mend = min(it*nprocs_e, nens)
     if (mstart <= mend) then
       call gather_grd_mpi_alltoall(mstart, mend, nv3d, nv2d, v3d, v2d, v3dg, v2dg)
+      if ( present(v3d_efso) .and. present(v2d_efso) ) then
+        call gather_grd_mpi_alltoall(mstart, mend, nv3d, nv2d, v3d_efso, v2d_efso, v3dg_efso, v2dg_efso)
+      endif
     end if
 
     call mpi_timer('write_ens_mpi:gather_grd_mpi_alltoall:', 2)
 
     if ( OBSANAL_OUT .and. monit_step_ == 2 ) then
-      call monit_obs4efso_mpi(v3dg, v2dg, im, nobs, ya_local)
+      if ( present(v3d_efso) .and. present(v2d_efso) ) then
+        call monit_obs4efso_mpi(v3dg_efso, v2dg_efso, im, nobs, ya_local)
+      else
+        call monit_obs4efso_mpi(v3dg, v2dg, im, nobs, ya_local)
+      endif
     endif
 
     if (monit_step_ > 0 .and. mstart <= mmean .and. mmean <= mend) then
@@ -1497,7 +1515,15 @@ subroutine write_ens_mpi(v3d, v2d, monit_step)
 !      write (6,'(A,I6.6,3A,I6.6,A)') 'MYRANK ',myrank,' is writing a file ',filename,'.pe',myrank_d,'.nc'
       call state_trans_inv(v3dg)
 
+      if ( present(v3d_efso) .and. present(v2d_efso) ) then
+        call state_trans_inv(v3dg_efso)
+        filename_efso = trim(filename) // '_efso'
+        call copy_scale_file(filename, filename_efso)
+      endif
+
+
       call mpi_timer('write_ens_mpi:state_trans_inv:', 2)
+
 
 #ifdef PNETCDF
       if (FILE_AGGREGATE) then
@@ -1508,6 +1534,10 @@ subroutine write_ens_mpi(v3d, v2d, monit_step)
 #ifdef PNETCDF
       end if
 #endif
+
+      if ( present(v3d_efso) .and. present(v2d_efso) ) then
+        call write_restart(filename_efso, v3dg_efso, v2dg_efso)
+      endif
 
       call mpi_timer('write_ens_mpi:write_restart:', 2)
     end if

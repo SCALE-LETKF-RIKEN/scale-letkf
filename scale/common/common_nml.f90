@@ -125,6 +125,7 @@ MODULE common_nml
 
   logical :: FILL_BY_ZERO_MISSING_VARIABLES = .false.
 
+  logical :: DO_ANALISYS4EFSO      = .false.      ! Do additional analysis for EFSO
   logical :: EFSO_USE_MOIST_ENERGY = .true.
   logical :: EFSO_DIAGNOSE_PS      = .false.
   logical :: EFSO_UV_ROTATE        = .true.       ! Rotate U/V winds read from restart files in EFSO
@@ -622,6 +623,7 @@ subroutine read_nml_letkf
     EFSO_FCST_FROM_ANAL_BASENAME, &
     EFSO_EFCST_FROM_ANAL_BASENAME, &
     EFSO_PREVIOUS_GUES_BASENAME,   &
+    DO_ANALISYS4EFSO,        &
     EFSO_USE_MOIST_ENERGY,   &
     EFSO_UV_ROTATE,          &
     EFSO_FCST_LENGTH,        &
