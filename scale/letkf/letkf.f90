@@ -235,6 +235,10 @@ PROGRAM letkf
     deallocate (obs)
     deallocate (gues3d, gues2d, anal3d, anal2d)
 
+    if ( DO_ANALISYS4EFSO ) then
+      deallocate (anal3d_efso, anal2d_efso)
+    end if
+
     call unset_common_mpi_scale
 
   end if ! [ myrank_use ]

@@ -1516,9 +1516,12 @@ subroutine write_ens_mpi(v3d, v2d, monit_step, v3d_efso, v2d_efso)
       call state_trans_inv(v3dg)
 
       if ( present(v3d_efso) .and. present(v2d_efso) ) then
-        call state_trans_inv(v3dg_efso)
-        filename_efso = trim(filename) // '_efso'
-        call copy_scale_file(filename, filename_efso)
+        if ( im >= 1 .and. im <= MEMBER ) then
+          call state_trans_inv(v3dg_efso)
+          filename_efso = trim(filename) // '_efso'
+          call copy_scale_file(filename, filename_efso)
+          call write_restart(filename_efso, v3dg_efso, v2dg_efso)
+        endif
       endif
 
 
@@ -1535,13 +1538,14 @@ subroutine write_ens_mpi(v3d, v2d, monit_step, v3d_efso, v2d_efso)
       end if
 #endif
 
-      if ( present(v3d_efso) .and. present(v2d_efso) ) then
-        call write_restart(filename_efso, v3dg_efso, v2dg_efso)
-      endif
-
       call mpi_timer('write_ens_mpi:write_restart:', 2)
     end if
   end do ! [ it = 1, nitmax ]
+
+  if ( present(v3d_efso) .and. present(v2d_efso) ) then
+    deallocate( v3dg_efso )
+    deallocate( v2dg_efso )
+  endif
 
   if ( OBSANAL_OUT .and. monit_step_ == 2 ) then
     if ( nobs > 0 ) then
