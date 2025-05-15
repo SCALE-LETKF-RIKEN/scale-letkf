@@ -311,7 +311,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
   allocate (transmd(MEMBER,       var_local_n2nc_max))
   allocate (pa     (MEMBER,MEMBER,var_local_n2nc_max))
 
-  if ( DO_ANALISYS4EFSO ) then
+  if ( DO_ANALYSIS4EFSO ) then
     allocate (trans_efso  (MEMBER,MEMBER,var_local_n2nc_max))
     allocate (transm_dummy(MEMBER))
   endif
@@ -350,20 +350,26 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
           end do
         end if
 
-        if ( DO_ANALISYS4EFSO ) then
+        if ( DO_ANALYSIS4EFSO ) then
           do n = 1, nv3d
             do m = 1, MEMBER
               anal3d_efso(ij,ilev,m,n) = gues3d(ij,ilev,mmean,n) + gues3d(ij,ilev,m,n)
             end do
+            if (DET_RUN) then
+              anal3d_efso(ij,ilev,mmdet,n) = gues3d(ij,ilev,mmdet,n)
+            end if  
           end do
           if (ilev == 1) then
             do n = 1, nv2d
               do m = 1, MEMBER
                 anal2d_efso(ij,m,n) = gues2d(ij,mmean,n) + gues2d(ij,m,n)
               end do
+              if (DET_RUN) then
+                anal2d_efso(ij,mmdet,n) = gues2d(ij,mmdet,n)
+              end if  
             end do
           end if
-        endif ! DO_ANALISYS4EFSO
+        endif ! DO_ANALYSIS4EFSO
 
         cycle
       end if
@@ -383,11 +389,14 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
             anal3d(ij,ilev,mmdet,n) = gues3d(ij,ilev,mmdet,n)                          !GYL
           end if                                                                       !GYL
 
-          if ( DO_ANALISYS4EFSO ) then
+          if ( DO_ANALYSIS4EFSO ) then
             do m = 1, MEMBER                                                            
               anal3d_efso(ij,ilev,m,n) = gues3d(ij,ilev,mmean,n) + gues3d(ij,ilev,m,n)        
             end do                 
-          endif
+            if (DET_RUN) then                                                            
+              anal3d_efso(ij,ilev,mmdet,n) = gues3d(ij,ilev,mmdet,n)                          
+            end if                                                                       
+          endif ! [ DO_ANALYSIS4EFSO = T ]
 
           cycle                                                                        !GYL
         end if                                                                         !GYL
@@ -453,7 +462,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
             work3dn(nobtype+6,ij,ilev,n) = real(cutd_t(11,22),r_size)                  !GYL !!! CUTOFF_DIST: vr
           END IF                                                                       !GYL
 
-          if ( DO_ANALISYS4EFSO ) then
+          if ( DO_ANALYSIS4EFSO ) then
             if ( work3d(ij,ilev,n) == 1.0_r_size ) then
               ! Copy the weights from LETKF to EFSO if no multiplicative inflation
               trans_efso(:,:,n2nc) = trans(:,:,n2nc)
@@ -464,7 +473,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
                               rdiag_wloc=.true.)         
             
             endif 
-          endif ! [ DO_ANALISYS4EFSO = T ]
+          endif ! [ DO_ANALYSIS4EFSO = T ]
 
         END IF
 
@@ -500,26 +509,6 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
           END DO  
         END DO
 
-        if ( DO_ANALISYS4EFSO ) then
-          ! total weight matrix for EFSO's analysis 
-          do m = 1, MEMBER                                                                  
-            do k = 1, MEMBER                                                              
-              transrlx_efso(k,m) = ( trans_efso(k,m,n2nc) + transm(k,n2nc) ) * beta                   
-            enddo                                                                       
-            transrlx_efso(m,m) = transrlx_efso(m,m) + ( 1.0_r_size - beta )                                 
-          enddo               
-
-          ! analysis update of EFSO's analysis members 
-          do m = 1, MEMBER
-            anal3d_efso(ij,ilev,m,n) = gues3d(ij,ilev,mmean,n)                                
-            do k = 1, MEMBER
-              anal3d_efso(ij,ilev,m,n) = anal3d_efso(ij,ilev,m,n) &                                
-                                  + gues3d(ij,ilev,k,n) * transrlx_efso(k,m)                 
-            enddo  
-          enddo
-
-        endif ! [ DO_ANALISYS4EFSO = T ]
-
         ! analysis update of deterministic run
         if (DET_RUN) then                                                              !GYL
           anal3d(ij,ilev,mmdet,n) = 0.0d0                                              !GYL
@@ -549,6 +538,28 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
             END IF                                                                       !GYL
           endif
         END IF                                                                         !GYL
+
+        if ( DO_ANALYSIS4EFSO ) then
+          ! total weight matrix for EFSO's analysis 
+          do m = 1, MEMBER                                                                  
+            do k = 1, MEMBER                                                              
+              transrlx_efso(k,m) = ( trans_efso(k,m,n2nc) + transm(k,n2nc) ) * beta                   
+            enddo                                                                       
+            transrlx_efso(m,m) = transrlx_efso(m,m) + ( 1.0_r_size - beta )                                 
+          enddo               
+
+          ! analysis update of EFSO's analysis members 
+          do m = 1, MEMBER
+            anal3d_efso(ij,ilev,m,n) = gues3d(ij,ilev,mmean,n)                                
+            do k = 1, MEMBER
+              anal3d_efso(ij,ilev,m,n) = anal3d_efso(ij,ilev,m,n) &                                
+                                  + gues3d(ij,ilev,k,n) * transrlx_efso(k,m)                 
+            enddo  
+          enddo
+          ! deterministic member's analysis is not used in EFSO
+          anal3d_efso(ij,ilev,mmdet,n) = anal3d(ij,ilev,mmdet,n)
+
+        endif ! [ DO_ANALYSIS4EFSO = T ]
 
       END DO ! [ n=1,nv3d ]
 
@@ -622,7 +633,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
 
           END IF
 
-          if ( DO_ANALISYS4EFSO ) then
+          if ( DO_ANALYSIS4EFSO ) then
             if ( work2d(ij,n) == 1.0_r_size ) then
               ! Copy the weights from LETKF to EFSO if no multiplicative inflation
               trans_efso(:,:,n2nc) = trans(:,:,n2nc)
@@ -633,7 +644,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
                               rdiag_wloc=.true.)         
             
             endif 
-          endif ! [ DO_ANALISYS4EFSO = T ]
+          endif ! [ DO_ANALYSIS4EFSO = T ]
 
           ! relaxation via LETKF weight
           IF(RELAX_ALPHA /= 0.0d0) THEN                                              !GYL - RTPP method (Zhang et al. 2004)
@@ -679,7 +690,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
           end if                                                                     !GYL
 
 
-          if ( DO_ANALISYS4EFSO ) then
+          if ( DO_ANALYSIS4EFSO ) then
             ! total weight matrix for EFSO's analysis 
             do m = 1, MEMBER                                                                  
               do k = 1, MEMBER                                                              
@@ -696,8 +707,9 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
                                     + gues2d(ij,k,n) * transrlx_efso(k,m)                 
               enddo  
             enddo
+            anal2d_efso(ij,mmdet,n) = anal2d(ij,mmdet,n)
 
-          endif ! [ DO_ANALISYS4EFSO = T ]
+          endif ! [ DO_ANALYSIS4EFSO = T ]
 
         END DO ! [ n=1,nv2d ]
 
@@ -713,7 +725,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
     deallocate (depd)
   end if
   deallocate (trans,transm,transmd,pa)
-  if ( DO_ANALISYS4EFSO ) then
+  if ( DO_ANALYSIS4EFSO ) then
     deallocate( trans_efso )
     deallocate( transm_dummy )
   endif

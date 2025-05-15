@@ -2763,6 +2763,9 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
   real(r_sngl) :: lev_l(nobs), dat_l(nobs)
   real(r_sngl) :: dif_l(nobs), err_l(nobs)
   integer :: typ_l(nobs)
+  real(r_sngl) :: omb_l(nobs), oma_l(nobs)
+  real(r_sngl) :: omb_em_l(nobs), sprd_l(nobs)
+
 
   do n = 1, nobs
     nobs_l(n) = n
@@ -2776,7 +2779,10 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
     err_l(n) = real( obs(set(n))%err(idx(n)), r_sngl )
 
     typ_l(n) = int( obs(set(n))%typ(idx(n)) )
-    write(6,'(a,2f10.1,i10)') 'Check from write_obs_dep_nc: ', omb(n), omb_em(n), n
+    omb_l(n) = real( omb(n), r_sngl )
+    oma_l(n) = real( oma(n), r_sngl )
+    omb_em_l(n) = real( omb_em(n), r_sngl )
+    sprd_l(n) = real( sprd(n), r_sngl )
   enddo
 
   do n = 1, nrank
@@ -2858,13 +2864,13 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
   call ncio_check( nf90_put_var(ncid, typ_varid, typ_l, start=(/1/), &
                    count=(/nobs/) ) )
 
-  call ncio_check( nf90_put_var(ncid, omb_varid, omb,   start=(/1/), &
+  call ncio_check( nf90_put_var(ncid, omb_varid, omb_l,   start=(/1/), &
                    count=(/nobs/) ) )
-  call ncio_check( nf90_put_var(ncid, oma_varid, oma,   start=(/1/), &
+  call ncio_check( nf90_put_var(ncid, oma_varid, oma_l,   start=(/1/), &
                    count=(/nobs/) ) )
-  call ncio_check( nf90_put_var(ncid, omb_em_varid, omb_em, start=(/1/), &
+  call ncio_check( nf90_put_var(ncid, omb_em_varid, omb_em_l, start=(/1/), &
                    count=(/nobs/) ) )
-  call ncio_check( nf90_put_var(ncid, sprd_varid, sprd, start=(/1/), &
+  call ncio_check( nf90_put_var(ncid, sprd_varid, sprd_l, start=(/1/), &
                    count=(/nobs/) ) )
 
   call ncio_check( nf90_put_var(ncid, nobs_varid, cnt_rank, start=(/1/), &

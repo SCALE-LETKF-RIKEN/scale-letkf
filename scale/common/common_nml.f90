@@ -111,12 +111,14 @@ MODULE common_nml
   logical               :: GUES_SPRD_OUT = .true.
   character(filelenmax) :: GUES_SPRD_OUT_BASENAME = ''
   character(filelenmax) :: ANAL_OUT_BASENAME = 'anal.@@@@'
+  character(filelenmax) :: ANAL_OUT_BASENAME_EFSO = 'anal.@@@@'
   character(filelenmax) :: ANAL_MEAN_OUT_BASENAME = ''
   character(filelenmax) :: ANAL_MDET_OUT_BASENAME = ''
   logical               :: ANAL_SPRD_OUT = .true.
   character(filelenmax) :: ANAL_SPRD_OUT_BASENAME = ''
   character(filelenmax) :: LETKF_TOPOGRAPHY_IN_BASENAME = ''  !!!!!! -- directly use the SCALE namelist --???? !!!!!!
-  character(filelenmax) :: EFSO_ANAL_IN_BASENAME = 'anal.@@@@'
+  character(filelenmax) :: EFSO_ANAL_IN_BASENAME         = 'anal.@@@@'
+  character(filelenmax) :: GUES_MEAN_INOUT_BASENAME_EFSO = ''
   character(filelenmax) :: EFSO_FCST_FROM_GUES_BASENAME = 'anal.@@@@'
   character(filelenmax) :: EFSO_FCST_FROM_ANAL_BASENAME = 'anal.@@@@'
   character(filelenmax) :: EFSO_EFCST_FROM_ANAL_BASENAME = 'anal.@@@@'
@@ -125,7 +127,7 @@ MODULE common_nml
 
   logical :: FILL_BY_ZERO_MISSING_VARIABLES = .false.
 
-  logical :: DO_ANALISYS4EFSO      = .false.      ! Do additional analysis for EFSO
+  logical :: DO_ANALYSIS4EFSO      = .false.      ! Do additional analysis for EFSO
   logical :: EFSO_USE_MOIST_ENERGY = .true.
   logical :: EFSO_DIAGNOSE_PS      = .false.
   logical :: EFSO_UV_ROTATE        = .true.       ! Rotate U/V winds read from restart files in EFSO
@@ -608,10 +610,12 @@ subroutine read_nml_letkf
     OBSDA_MDET_IN_BASENAME, &
     GUES_IN_BASENAME, &
     GUES_MEAN_INOUT_BASENAME, &
+    GUES_MEAN_INOUT_BASENAME_EFSO, &
     GUES_MDET_IN_BASENAME, &
     GUES_SPRD_OUT, &
     GUES_SPRD_OUT_BASENAME, &
     ANAL_OUT_BASENAME, &
+    ANAL_OUT_BASENAME_EFSO, &
     ANAL_MEAN_OUT_BASENAME, &
     ANAL_MDET_OUT_BASENAME, &
     ANAL_SPRD_OUT, &
@@ -623,7 +627,7 @@ subroutine read_nml_letkf
     EFSO_FCST_FROM_ANAL_BASENAME, &
     EFSO_EFCST_FROM_ANAL_BASENAME, &
     EFSO_PREVIOUS_GUES_BASENAME,   &
-    DO_ANALISYS4EFSO,        &
+    DO_ANALYSIS4EFSO,        &
     EFSO_USE_MOIST_ENERGY,   &
     EFSO_UV_ROTATE,          &
     EFSO_FCST_LENGTH,        &

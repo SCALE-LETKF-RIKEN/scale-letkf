@@ -177,7 +177,7 @@ PROGRAM letkf
     !
     ! LETKF
     !
-    if ( DO_ANALISYS4EFSO ) then
+    if ( DO_ANALYSIS4EFSO ) then
       allocate (anal3d_efso(nij1,nlev,nens,nv3d))
       allocate (anal2d_efso(nij1,nens,nv2d))
 
@@ -199,7 +199,7 @@ PROGRAM letkf
     ! COMPUTE ENS MEAN and SPRD
     !
     call ensmean_grd(MEMBER, nens, nij1, nv3d, nv2d, anal3d, anal2d)
-    if ( DO_ANALISYS4EFSO ) then
+    if ( DO_ANALYSIS4EFSO ) then
       call ensmean_grd(MEMBER, nens, nij1, nv3d, nv2d, anal3d_efso, anal2d_efso)
     end if
     ! write analysis mean later in write_ens_mpi
@@ -214,7 +214,7 @@ PROGRAM letkf
     ! WRITE ANAL and ENS MEAN
     !
     if (DEPARTURE_STAT .and. LOG_LEVEL >= 1) then
-      if ( DO_ANALISYS4EFSO ) then
+      if ( DO_ANALYSIS4EFSO ) then
         call write_ens_mpi(anal3d, anal2d, monit_step=2, v3d_efso=anal3d_efso, v2d_efso=anal2d_efso)
       else
         call write_ens_mpi(anal3d, anal2d, monit_step=2)
@@ -235,7 +235,7 @@ PROGRAM letkf
     deallocate (obs)
     deallocate (gues3d, gues2d, anal3d, anal2d)
 
-    if ( DO_ANALISYS4EFSO ) then
+    if ( DO_ANALYSIS4EFSO ) then
       deallocate (anal3d_efso, anal2d_efso)
     end if
 

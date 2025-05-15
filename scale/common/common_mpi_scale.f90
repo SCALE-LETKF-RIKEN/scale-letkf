@@ -1303,9 +1303,6 @@ subroutine read_ens_mpi(v3d, v2d, v2d_diag, EFSO )
           filename = EFSO_EFCST_FROM_ANAL_BASENAME
         endif
         call filename_replace_mem(filename, im)
-        if ( EFSO_  ) then
-          write(6,'(a,x,a)') 'Check_EFSO_EFCST_FROM_ANAL_BASENAME', trim(filename)
-        endif
       else if (im == mmean) then
         filename = GUES_MEAN_INOUT_BASENAME
       else if (im == mmdet) then
@@ -1324,9 +1321,10 @@ subroutine read_ens_mpi(v3d, v2d, v2d_diag, EFSO )
 
       call mpi_timer('read_ens_mpi:read_restart:', 2)
 
-      if ( EFSO_RUN .and. .not. EFSO_ ) then
+      if ( EFSO_RUN .and. .not. EFSO_ .and. .not. DO_ANALYSIS4EFSO ) then
         ! copy the forecast data stored in "anal" directory to "fcst" directory for EFSO
         ! This process is called from LETKF (EFSO_ = F), not from EFSO
+        ! This process is not neccesary for DO_ANALYSIS4EFSO = T
 
         filename4copy = EFSO_EFCST_FROM_ANAL_BASENAME
         if ( im == 1 ) then 
@@ -1485,7 +1483,7 @@ subroutine write_ens_mpi(v3d, v2d, monit_step, v3d_efso, v2d_efso)
 
     call mpi_timer('write_ens_mpi:gather_grd_mpi_alltoall:', 2)
 
-    if ( OBSANAL_OUT .and. monit_step_ == 2 ) then
+    if ( OBSANAL_OUT .and. monit_step_ == 2 .and. im >= 1 .and. im <= MEMBER ) then
       if ( present(v3d_efso) .and. present(v2d_efso) ) then
         call monit_obs4efso_mpi(v3dg_efso, v2dg_efso, im, nobs, ya_local)
       else
@@ -1512,13 +1510,29 @@ subroutine write_ens_mpi(v3d, v2d, monit_step, v3d_efso, v2d_efso)
         filename = ANAL_MDET_OUT_BASENAME
       end if
 
-!      write (6,'(A,I6.6,3A,I6.6,A)') 'MYRANK ',myrank,' is writing a file ',filename,'.pe',myrank_d,'.nc'
       call state_trans_inv(v3dg)
 
       if ( present(v3d_efso) .and. present(v2d_efso) ) then
-        if ( im >= 1 .and. im <= MEMBER ) then
-          call state_trans_inv(v3dg_efso)
-          filename_efso = trim(filename) // '_efso'
+        call state_trans_inv(v3dg_efso)
+
+        filename_efso = ANAL_OUT_BASENAME_EFSO
+        if ( im == mmean ) then
+          call filename_replace_mem(filename_efso, 'mean')
+        elseif ( im == mmdet ) then
+          call filename_replace_mem(filename_efso, 'mdet')
+        else
+          call filename_replace_mem(filename_efso, im)
+        endif
+
+        call copy_scale_file(filename, filename_efso)
+        if ( LOG_OUT ) then
+          write(6,'(a,x,a)') 'write file for EFSO ', trim( filename_efso )
+        endif
+        call write_restart(filename_efso, v3dg_efso, v2dg_efso)
+
+        if ( im == mmean ) then
+          ! prepare restart files for a dummy forecast from the ensemble-mean guess
+          filename_efso = trim(GUES_MEAN_INOUT_BASENAME_EFSO)
           call copy_scale_file(filename, filename_efso)
           call write_restart(filename_efso, v3dg_efso, v2dg_efso)
         endif
