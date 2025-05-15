@@ -159,8 +159,8 @@ program efso
       endif
       call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d_diag,v3dg=real(work3dg,RP),v2dg=real(work2dg_diag,RP),&
                           v3d=work3d_ref,v2d=work2d_diag_ref)
-      uwind_a = work3d_ref(:,:,iv3d_u)
-      vwind_a = work3d_ref(:,:,iv3d_v)
+      uwind_a(:,:) = work3d_ref(:,:,iv3d_u)
+      vwind_a(:,:) = work3d_ref(:,:,iv3d_v)
 
       ! guess mean for full-level pressure computation
       if ( myrank_e == mmean_rank_e ) then  

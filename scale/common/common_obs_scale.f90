@@ -390,13 +390,8 @@ SUBROUTINE Trans_XtoY_radar(elm,radar_lon,radar_lat,radar_z,ri,rj,rk,lon,lat,lev
   REAL(r_size) :: qvr,qcr,qrr,qir,qsr,qgr,ur,vr,wr,tr,pr !,rhr
   REAL(r_size) :: dist , dlon , dlat , az , elev , radar_ref,radar_rv
 
-  real(r_size) :: utmp, vtmp
-
-  real(RP) :: lon_RP(1,1), lat_RP(1,1)
-  real(RP) :: rotc_RP(2)
-
   real(r_size) :: pert, mean, slope
-  integer :: iv3d, k
+  integer :: iv3d
 
   logical :: use_shift_ = .true.
 
@@ -3489,14 +3484,13 @@ subroutine get_nobs_efso( cfile, nrank, cnt_rank )
   return
 end subroutine get_nobs_efso
 !---------------------------
-subroutine get_obsdep_efso( cfile, nobs_local, nobs0, set, idx, qc, dep, ya )
+subroutine get_obsdep_efso( cfile, nobs_local, set, idx, qc, dep, ya )
   use netcdf
   use common_ncio
   implicit none
 
   character(*), intent(in) :: cfile
   integer, intent(in) :: nobs_local
-  integer, intent(in) :: nobs0
 
   integer, intent(out) :: set(nobs_local)
   integer, intent(out) :: idx(nobs_local)
@@ -3509,8 +3503,6 @@ subroutine get_obsdep_efso( cfile, nobs_local, nobs0, set, idx, qc, dep, ya )
   integer :: varid_dep
   integer :: varid_ya
   integer :: varid_qc
-
-  integer :: n
 
   ! Open the file. 
   call ncio_check( nf90_open( trim( cfile ), nf90_nowrite, ncid ) )

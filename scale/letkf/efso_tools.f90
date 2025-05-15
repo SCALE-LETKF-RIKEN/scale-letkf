@@ -22,7 +22,7 @@ MODULE efso_tools
   implicit none
 
   private
-  public init_obsense, destroy_obsense, write_efso_nc, print_obsense, get_total_impact!,loc_advection
+  public init_obsense, destroy_obsense, write_efso_nc, print_obsense, get_total_impact
   public obsense_global, lon2, lat2, nterm
 
   real(r_size), allocatable :: obsense_global(:,:)
@@ -101,48 +101,6 @@ subroutine get_total_impact(fcer3d,fcer2d,fcer3d_diff,fcer2d_diff,total_impact)
   return
 end subroutine get_total_impact
 
-subroutine loc_advection(ua,va,uf,vf)
-  implicit none
-
-  real(r_size), intent(in) :: ua(nij1,nlev)
-  real(r_size), intent(in) :: va(nij1,nlev)
-  real(r_size), intent(in) :: uf(nij1,nlev)
-  real(r_size), intent(in) :: vf(nij1,nlev)
-  real(r_size) :: rad2deg, deg2rad
-  real(r_size) :: coslat(nij1)
-  integer :: i,k
-  
-!  ALLOCATE(lon2(nij1,nlev))
-!  ALLOCATE(lat2(nij1,nlev))
-!  deg2rad = pi/180.0_r_size
-!  rad2deg = locadv_rate*eft*3600.0_r_size*180.0_r_size/(pi*re)
-!  DO i=1,nij1
-!    coslat(i) = 1.0_r_size/cos(lat1(i)*deg2rad)
-!  END DO
-!  DO k=1,nlev
-!    DO i=1,nij1
-!      lon2(i,k) = lon1(i) - 0.5_r_size * (ua(i,k) + uf(i,k)) &
-!           & * coslat(i) * rad2deg
-!      lat2(i,k) = lat1(i) - 0.5_r_size * (va(i,k) + vf(i,k)) &
-!           & * rad2deg
-!      IF(lat2(i,k) > 90.0_r_size) THEN
-!        lat2(i,k) = 180.0_r_size - lat2(i,k)
-!        lon2(i,k) = lon2(i,k) + 180.0_r_size
-!      ELSE IF(lat2(i,k) < -90.0_r_size) THEN
-!        lat2(i,k) = -180.0_r_size - lat2(i,k)
-!        lon2(i,k) = lon2(i,k) + 180.0_r_size
-!      END IF
-!      IF(lon2(i,k) > 360.0_r_size) THEN
-!        lon2(i,k) = MOD(lon2(i,k),360.0_r_size)
-!      ELSE IF(lon2(i,k) < 0.0_r_size) THEN
-!        lon2(i,k) = MOD(lon2(i,k),360.0_r_size) + 360.0_r_size
-!      END IF
-!    END DO
-!  END DO
-
-  return
-end subroutine loc_advection
-
 !OCL SERIAL
 subroutine print_obsense(nobs,set,qc,obsense_global,total_impact,print_dry)
   implicit none
@@ -161,7 +119,7 @@ subroutine print_obsense(nobs,set,qc,obsense_global,total_impact,print_dry)
   integer :: nobs_t
   real(r_size) :: sumsense_t, rate_t
   real(r_size) :: obsense
-  integer :: nob, oid, otype, iterm
+  integer :: nob, oid, otype
   logical :: print_dry_ = .true.
   real(r_size) :: total_impact_print
 

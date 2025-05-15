@@ -98,12 +98,9 @@ SUBROUTINE set_letkf_obs
   integer :: mem_ref
   real(r_size) :: qvs
 
-  integer :: it,ip
-  integer :: ityp,ielm,ielm_u,ictype
-  real(r_size) :: target_grdspc
+  integer :: it
+  integer :: ityp, ielm, ielm_u, ictype
 
-  integer :: myp_i,myp_j
-  integer :: ip_i,ip_j
 
   integer :: nobs_sub(n_qc_steps),nobs_g(n_qc_steps)
 
@@ -117,23 +114,10 @@ SUBROUTINE set_letkf_obs
   character(4) :: nstr
   
 
-
 !---
   integer :: cnts
-  integer :: cntr(nprocs_d)
-  integer :: dspr(nprocs_d)
-  integer :: nensobs_div, nensobs_mod
-  integer :: im_obs_1, im_obs_2, nensobs_part
-
-  integer :: ns_ext, ne_ext, ns_bufr, ne_bufr
-  integer :: ishift, jshift
 
   type(obs_da_value) :: obsbufs, obsbufr
-  integer :: imin1,imax1,jmin1,jmax1,imin2,imax2,jmin2,jmax2
-!---
-
-
-
 
   real(r_size),allocatable :: tmpelm(:)
   INTEGER :: monit_nobs(nid_obs)
@@ -350,7 +334,7 @@ SUBROUTINE set_letkf_obs
 
   allocate(tmpelm(obsda%nobs))
 
-!$OMP PARALLEL PRIVATE(n,i,iof,iidx,mem_ref)
+!$OMP PARALLEL PRIVATE(n,i,iof,iidx,mem_ref,qvs)
 !$OMP DO
   do n = 1, obsda%nobs
     IF(obsda%qc(n) > 0) CYCLE
@@ -1063,18 +1047,7 @@ subroutine set_efso_obs
   integer :: nobslocal_all, nobslocal_qcok
   integer :: nobs_qcok_global
 
-  integer :: nobs_max_per_file
-  integer :: nobs_max_per_file_sub
-
-  integer :: nsub, nmod
-  integer :: ip, ibufs 
   integer :: ierr
-
-  integer, allocatable :: obrank_bufs(:)
-  real(r_size), allocatable :: ri_bufs(:)
-  real(r_size), allocatable :: rj_bufs(:)
-
-  integer, allocatable :: cntr(:), dspr(:)
 
   real(r_size) :: sprd
   
@@ -1180,7 +1153,7 @@ subroutine set_efso_obs
   
   !(4) Reading background observation data and analysis ensemble observations
   
-    call get_obsdep_efso_mpi( nobslocal_all, nobs0, obsset, obsidx, obsqc, obsdep, obshdxf, nobslocal_qcok )
+    call get_obsdep_efso_mpi( nobslocal_all, obsset, obsidx, obsqc, obsdep, obshdxf, nobslocal_qcok )
 
   else
 

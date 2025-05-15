@@ -1237,20 +1237,14 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
   real(r_size), allocatable :: djdy_3d(:,:,:,:)
   real(r_size), allocatable :: work1(:,:)
   integer, allocatable :: vobsidx_l(:)
-  integer :: ij, iv3d, iv2d, ilev, m, n
+  integer :: ij, iv3d, iv2d, ilev, m
   integer :: nob, nobsl, iterm
   integer :: ierr
 
   integer :: ic, ic2
   integer :: iob
 
-  integer :: cnts
-  integer :: cntr(nprocs_d)
-  integer :: dspr(nprocs_d)
-  integer :: i, ip
-
   integer, allocatable :: obs_g_qc (:)
-  real(r_size), allocatable :: obs_g_val(:)
 
   integer :: iof, set
 
@@ -2283,8 +2277,7 @@ subroutine lnorm(fcst3d,fcst2d,fcer3d,fcer2d,fcer3d_diff,fcer2d_diff)
 
   real(r_size) :: ps_inv(nij1)
 
-  integer :: iret
-  integer :: i, j, k
+  integer :: k
   integer :: iv3d, iv2d, m
   integer :: ij
 

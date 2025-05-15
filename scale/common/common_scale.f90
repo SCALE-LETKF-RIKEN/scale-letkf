@@ -1361,8 +1361,6 @@ subroutine read_restart_trans_history(filename, v3dgh, v2dgh)
   real(RP) :: v3dg_RP(nlev,nlon,nlat,nv3d)
   real(RP) :: v2dg_RP(nlon,nlat,nv2d)
 
-  integer :: i, j, iv3d, iv2d
-
   ! Read gues files and transform to LETKF variables
   !-------------
 

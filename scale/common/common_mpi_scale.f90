@@ -231,9 +231,9 @@ subroutine set_common_mpi_scale
       call filename_replace_mem(filename, myrank_to_mem(1))
       call read_restart_coor( filename, lon2dtmp_RP, lat2dtmp_RP, height3dtmp_RP )
      
-      lon2dtmp = real(lon2dtmp_RP, kind=r_size)
-      lat2dtmp = real(lat2dtmp_RP, kind=r_size)
-      height3dtmp = real(height3dtmp_RP, kind=r_size)
+      lon2dtmp(:,:) = real(lon2dtmp_RP, kind=r_size)
+      lat2dtmp(:,:) = real(lat2dtmp_RP, kind=r_size)
+      height3dtmp(:,:,:) = real(height3dtmp_RP, kind=r_size)
 
       if (maxval(abs(lon2dtmp - lon2d)) > 1.0d-6 .or. maxval(abs(lat2dtmp - lat2d)) > 1.0d-6) then
         write (6, '(A,F15.7,A,F15.7)') '[Error] Map projection settings are incorrect! -- maxdiff(lon) = ', &
@@ -379,9 +379,9 @@ subroutine set_common_mpi_grid
 
   call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d,v3dg,v2dg,v3d,v2d)
 
-  rig1   = v3d(:,1,1)
-  rjg1   = v3d(:,1,2)
-  topo1  = v3d(:,1,3)
+  rig1(:)   = v3d(:,1,1)
+  rjg1(:)   = v3d(:,1,2)
+  topo1(:)  = v3d(:,1,3)
 
   call mpi_timer('set_common_mpi_grid:scatter:', 2)
 
@@ -716,8 +716,6 @@ subroutine set_scalelib(execname)
   character(len=7) :: execname_ = ''
 
   integer :: id
-  integer :: intercomm_parent ! not used
-  integer :: intercomm_child
 
   if (present(execname)) execname_ = execname
 
@@ -2558,8 +2556,6 @@ subroutine get_history_ensemble_mean_mpi( mv3dg, mv2dg, mdbz3dg )
   integer :: it, im
   integer :: islot, islot2
 
-  integer :: iv3d, k
-
   integer :: ierr
 
   mv3dg(:,:,:,:,:) = 0.0_r_size
@@ -2721,11 +2717,10 @@ subroutine get_nobs_efso_mpi( nobs, nobs_local, nobs0 )
   return
 end subroutine get_nobs_efso_mpi
 !---------------------------------
-subroutine get_obsdep_efso_mpi( nobslocal, nobs0, obsset, obsidx, obsqc, obsdep, obshdxf, nobslocal_qcok )
+subroutine get_obsdep_efso_mpi( nobslocal, obsset, obsidx, obsqc, obsdep, obshdxf, nobslocal_qcok )
   implicit none
 
   integer, intent(in) :: nobslocal
-  integer, intent(in) :: nobs0
   integer, intent(out) :: obsset(nobslocal)
   integer, intent(out) :: obsidx(nobslocal)
   integer, intent(out) :: obsqc (nobslocal)
@@ -2749,7 +2744,7 @@ subroutine get_obsdep_efso_mpi( nobslocal, nobs0, obsset, obsidx, obsqc, obsdep,
     write ( MYRANK_D6,'(I6.6)') myrank_d
     if ( LOG_OUT ) print *, trim( OBSANAL_IN_BASENAME ) // MYRANK_D6 // '.nc'
     call get_obsdep_efso( trim( OBSANAL_IN_BASENAME ) // MYRANK_D6 // '.nc', &
-                          nobslocal, nobs0, obsset, obsidx, obsqc, obsdep, obshdxf )
+                          nobslocal, obsset, obsidx, obsqc, obsdep, obshdxf )
 
     ! count the number of obs with qc=iqc_good
     nobslocal_qcok = 0
