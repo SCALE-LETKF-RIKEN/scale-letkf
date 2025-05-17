@@ -925,6 +925,12 @@ while ((time <= ETIME)); do
   if ((ADDINFL == 1)); then
     INFL_ADD=$INFL_ADD_FACT
   fi
+
+  GUES_STORE_MEMBER_TF='.false.'
+  if (( OUT_OPT <= 3 )); then
+    GUES_STORE_MEMBER_TF='.true.'
+  fi
+
  
   for d in $(seq $DOMNUM); do
     dfmt=$(printf $DOMAIN_FMT $d)
@@ -1000,6 +1006,7 @@ while ((time <= ETIME)); do
     else
 #      GUES_IN_BASENAME="${RESTART_OUT_PATH[$d]}/../gues/<member>/init_$(datetime_scale $atime)"
       GUES_IN_BASENAME="${RESTART_OUT_PATH[$d]}/../anal/<member>/init_$(datetime_scale $atime)"
+      GUES_OUT_BASENAME="${RESTART_OUT_PATH[$d]}/../gues/<member>/init_$(datetime_scale $atime)"
       GUES_MEAN_INOUT_BASENAME="${RESTART_OUT_PATH[$d]}/../gues/mean/init_$(datetime_scale $atime)"
       GUES_SPRD_OUT_BASENAME="${RESTART_OUT_PATH[$d]}/../gues/sprd/init_$(datetime_scale $atime)"
       ANAL_OUT_BASENAME="${RESTART_OUT_PATH[$d]}/<member>/init_$(datetime_scale $atime)"
@@ -1041,7 +1048,9 @@ while ((time <= ETIME)); do
             -e "/!--SLOT_BASE--/a SLOT_BASE = $slot_b," \
             -e "/!--SLOT_TINTERVAL--/a SLOT_TINTERVAL = ${LTIMESLOT}.D0," \
             -e "/!--OBSDA_IN--/a OBSDA_IN = .false.," \
+            -e "/!--GUES_STORE_MEMBER--/a GUES_STORE_MEMBER = ${GUES_STORE_MEMBER_TF}," \
             -e "/!--GUES_IN_BASENAME--/a GUES_IN_BASENAME = \"${GUES_IN_BASENAME}\"," \
+            -e "/!--GUES_OUT_BASENAME--/a GUES_OUT_BASENAME = \"${GUES_OUT_BASENAME}\"," \
             -e "/!--GUES_MEAN_INOUT_BASENAME--/a GUES_MEAN_INOUT_BASENAME = \"${GUES_MEAN_INOUT_BASENAME}\"," \
             -e "/!--GUES_MEAN_INOUT_BASENAME_EFSO--/a GUES_MEAN_INOUT_BASENAME_EFSO = \"${GUES_MEAN_INOUT_BASENAME_EFSO}\"," \
             -e "/!--GUES_SPRD_OUT_BASENAME--/a GUES_SPRD_OUT_BASENAME = \"${GUES_SPRD_OUT_BASENAME}\"," \

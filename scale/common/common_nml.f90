@@ -105,7 +105,9 @@ MODULE common_nml
   character(filelenmax) :: OBSDA_IN_BASENAME = 'obsda.@@@@'
   character(filelenmax) :: OBSDA_MEAN_IN_BASENAME = ''
   character(filelenmax) :: OBSDA_MDET_IN_BASENAME = ''
-  character(filelenmax) :: GUES_IN_BASENAME = 'gues.@@@@'
+  logical               :: GUES_STORE_MEMBER = .false.  ! store all ensemble members in guess
+  character(filelenmax) :: GUES_IN_BASENAME  = 'gues.@@@@'
+  character(filelenmax) :: GUES_OUT_BASENAME  = 'gues.@@@@'
   character(filelenmax) :: GUES_MEAN_INOUT_BASENAME = ''
   character(filelenmax) :: GUES_MDET_IN_BASENAME = ''
   logical               :: GUES_SPRD_OUT = .true.
@@ -608,7 +610,9 @@ subroutine read_nml_letkf
     OBSDA_IN_BASENAME, &
     OBSDA_MEAN_IN_BASENAME, &
     OBSDA_MDET_IN_BASENAME, &
-    GUES_IN_BASENAME, &
+    GUES_STORE_MEMBER,  &
+    GUES_IN_BASENAME,   &
+    GUES_OUT_BASENAME,  &
     GUES_MEAN_INOUT_BASENAME, &
     GUES_MEAN_INOUT_BASENAME_EFSO, &
     GUES_MDET_IN_BASENAME, &

@@ -1307,6 +1307,12 @@ subroutine read_ens_mpi(v3d, v2d, v2d_diag, EFSO )
         filename = GUES_MDET_IN_BASENAME
       end if
 
+      if ( GUES_STORE_MEMBER .and. ( im >= 1 .and. im <= MEMBER ) ) then
+        filename4copy = GUES_OUT_BASENAME
+        call filename_replace_mem(filename4copy, im)
+        call copy_scale_file(filename, filename4copy)
+      endif
+
 #ifdef PNETCDF
       if (FILE_AGGREGATE) then
         call read_restart_par(filename, v3dg, v2dg, MPI_COMM_d)
