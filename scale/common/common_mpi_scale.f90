@@ -2919,9 +2919,7 @@ subroutine copy_restart4mean_and_gues()
 
   return
 end subroutine copy_restart4mean_and_gues
-subroutine prep_Him8_mpi(tbb_l,tbb_lprep,qc_lprep)
-subroutine prep_Him_mpi(tbb_l,tbb_lprep,qc_lprep)
-subroutine prep_Him_mpi(tbb_l,tbb_lprep,qc_lprep,write_global,filename)
+
 subroutine prep_Him_mpi(tbb_l,tbb_lprep,qc_lprep,write_global,filename,tbb_l_clr)
   implicit none
 
@@ -2990,10 +2988,10 @@ subroutine prep_Him_mpi(tbb_l,tbb_lprep,qc_lprep,write_global,filename,tbb_l_clr
 
   if ( write_global_ ) then
     if ( myrank_d == 0 ) then
-      call write_Him_nc(trim(filename)//'.nc',      tbb_g     )
-      call write_Him_nc(trim(filename)//'_prep.nc', tbb_gprep )
+      call write_Him_nc(trim(filename)//'.nc',      real(tbb_g, kind=r_sngl) )    
+      call write_Him_nc(trim(filename)//'_prep.nc', real(tbb_gprep,kind=r_sngl) )
       if ( HIM_MEAN_WRITE_CLEAR ) then
-        call write_Him_nc(trim(filename)//'_clr.nc',  tbb_g_clr )
+        call write_Him_nc(trim(filename)//'_clr.nc',  real(tbb_g_clr, kind=r_sngl) )
       endif
     endif
   endif
@@ -3210,13 +3208,13 @@ subroutine gather_him_mpi(tbb_l,tbb_g,output,filename)
   do ch = 1, NIRB_HIM_USE
     bufs2d(1:nlong,1:nlatg) = 0.0_r_size
     bufs2d(1+ishift:nlon+ishift, 1+jshift:nlat+jshift) = tbb_l(ch,1:nlon,1:nlat)
-    call MPI_ALLREDUCE( MPI_IN_PLACE, bufs2d, nlong*nlatg, MPI_REAL, MPI_SUM, MPI_COMM_d, ierr)
+    call MPI_ALLREDUCE( MPI_IN_PLACE, bufs2d, nlong*nlatg, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
     tbb_g(ch,1:nlong,1:nlatg) = bufs2d(1:nlong,1:nlatg)
   enddo
 
   if ( output_ ) then
     if ( myrank_d == 0 ) then
-      call write_Him_nc(trim(filename), tbb_g)
+      call write_Him_nc(trim(filename), real(tbb_g, kind=r_sngl) )
     endif
   endif
 
