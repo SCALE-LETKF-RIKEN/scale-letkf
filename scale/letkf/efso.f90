@@ -15,33 +15,42 @@ program efso
   use common_scale
   use common_mpi_scale
   use efso_tools
-  use letkf_obs
+  use letkf_obs, only: &
+    set_efso_obs, &
+    nobstotalg
   use letkf_tools
 
   implicit none
 
   real(r_size), allocatable :: gues3d(:,:,:)
-  real(r_size), allocatable :: gues2d(:,:)
   real(r_size), allocatable :: fcst3d(:,:,:,:)
   real(r_size), allocatable :: fcst2d(:,:,:)
   real(r_size), allocatable :: fcer3d(:,:,:)
   real(r_size), allocatable :: fcer2d(:,:)
+  real(r_size), allocatable :: fcer3d_diff(:,:,:)
+  real(r_size), allocatable :: fcer2d_diff(:,:)
   real(r_size), allocatable :: work3d(:,:,:)
-  real(r_size), allocatable :: work2d(:,:)
+!   real(r_size), allocatable :: work2d(:,:)
   real(RP),     allocatable :: work3dg(:,:,:,:)
   real(RP),     allocatable :: work2dg(:,:,:)
-!  real(r_size), allocatable :: uadf(:,:), vadf(:,:)
-!  real(r_size), allocatable :: uada(:,:), vada(:,:)
 
-  real(r_sngl) :: rtimer00,rtimer
-  INTEGER :: n, ierr
-  CHARACTER(8) :: stdoutf='NOUT-000'
-  CHARACTER(4) :: fcstf='fc01'
-  CHARACTER(9) :: analf='anal0.grd'
-  CHARACTER(9) :: gmeanf='gmean.grd'
-  CHARACTER(9) :: fmean0='fme00.grd'
-  CHARACTER(9) :: fmean6='fme06.grd'
-  CHARACTER(9) :: ameanf='amean.grd'
+  ! for 2D variables diagnosed from 3D variables to calculate norm
+  real(r_size), allocatable :: work2d_diag(:,:)
+  real(RP),     allocatable :: work2dg_diag(:,:,:)
+
+  ! reference data
+  real(r_size), allocatable :: work3d_ref(:,:,:)
+  real(r_size), allocatable :: work2d_diag_ref(:,:)
+
+  ! analysis (reference) winds for localization advection
+  real(r_size), allocatable :: uwind_a(:,:)
+  real(r_size), allocatable :: vwind_a(:,:)
+
+  ! total observation impact (raw) 
+  real(r_size) :: total_impact(nterm)
+
+  integer :: iv3d, iv2d
+  integer :: ij, k
 
 !-----------------------------------------------------------------------
 ! Initial settings
@@ -76,118 +85,165 @@ program efso
 
     call mpi_timer('READ_OBS', 1, barrier=MPI_COMM_a)
 
-    !
-    ! EFSO GRID setup
-    !
-    call set_common_mpi_grid
-    call mpi_timer('SET_GRID', 1, barrier=MPI_COMM_a)
-
-    allocate( gues3d(nij1,nlev,nv3d) )
-    allocate( gues2d(nij1,nv2d) )
-    allocate( fcst3d(nij1,nlev,nens,nv3d) )
-    allocate( fcst2d(nij1,nens,nv2d) )
-    allocate( fcer3d(nij1,nlev,nv3d) )
-    allocate( fcer2d(nij1,nv2d) )
-    allocate( work3d(nij1,nlev,nv3d) )
-    allocate( work2d(nij1,nv2d) )
-    allocate( work3dg(nlev,nlon,nlat,nv3d) )
-    allocate( work2dg(nlon,nlat,nv2d) )
-
     !-----------------------------------------------------------------------
     ! Read observation diagnostics
     !-----------------------------------------------------------------------
 
     call set_efso_obs
     call mpi_timer('READ_OBSDIAG', 1, barrier=MPI_COMM_a)
+    
+    if ( nobstotalg > 0 ) then
+      !
+      ! EFSO GRID setup
+      !
+      call set_common_mpi_grid
+      call mpi_timer('SET_GRID', 1, barrier=MPI_COMM_a)
 
-    !-----------------------------------------------------------------------
-    ! Read model data
-    !-----------------------------------------------------------------------
-    !
-    ! Forecast ensemble
-    !
-    call read_ens_mpi(fcst3d, fcst2d, EFSO=.true.)
-    !!! fcst3d,fcst2d: (xmean+X)^f_t [Eq.(6), Ota et al. 2013]
+      allocate( gues3d(nij1,nlev,nv3d) )
+      allocate( fcst3d(nij1,nlev,nens,nv3d) )
+      allocate( fcst2d(nij1,nens,nv2d_diag) )
+      allocate( fcer3d(nij1,nlev,nv3d) )
+      allocate( fcer2d(nij1,nv2d_diag) )
+      allocate( fcer3d_diff(nij1,nlev,nv3d) )
+      allocate( fcer2d_diff(nij1,nv2d_diag) )
+      allocate( work3d(nij1,nlev,nv3d) )
+!       allocate( work2d(nij1,nv2d) )
+      allocate( work3dg(nlev,nlon,nlat,nv3d) )
+      allocate( work2dg(nlon,nlat,nv2d) )
 
-    !
-    ! Forecast error at evaluation time
-    !
-    ! forecast from the ensemble mean of first guess
-    if ( myrank_e == mmean_rank_e ) then  
-      call read_restart( trim(EFSO_FCST_FROM_GUES_BASENAME), work3dg, work2dg)
-      call state_trans(work3dg)
-    endif
-    call scatter_grd_mpi(mmean_rank_e,real(work3dg,RP),real(work2dg,RP),fcer3d,fcer2d)
+      allocate( work2d_diag(nij1,nv2d_diag) )
+      allocate( work2dg_diag(nlon,nlat,nv2d_diag) )
 
-    ! forecast from the analysis ensemble mean
-    if ( myrank_e == mmean_rank_e ) then  
-      call read_restart( trim(EFSO_FCST_FROM_ANAL_BASENAME), work3dg, work2dg)
-      call state_trans(work3dg)
-    endif
-    call scatter_grd_mpi(mmean_rank_e,real(work3dg,RP),real(work2dg,RP),work3d,work2d)
-    fcer3d(:,:,:) = 0.5_r_size * ( fcer3d(:,:,:) + work3d(:,:,:) )
-    fcer2d(:,:) = 0.5_r_size * ( fcer2d(:,:) + work2d(:,:) )
+      allocate( work3d_ref(nij1,nlev,nv3d) )
+      allocate( work2d_diag_ref(nij1,nv2d_diag) )
 
-    if ( myrank_a == 0 ) then
-do n = 1, nv3d
-  write(6,'(a,i7,2f10.1)')"DEBUG1 ", n, maxval( work3d(:,:,n) ), minval( work3d(:,:,n) )
-  write(6,'(a,i7,2f10.1)')"DEBUG2 ", n, maxval( fcer3d(:,:,n) ), minval( fcer3d(:,:,n) )
-enddo
-    endif
+      allocate( uwind_a(nij1,nlev) )
+      allocate( vwind_a(nij1,nlev) )
 
-    ! reference analysis ensemble mean
-    if ( myrank_e == mmean_rank_e ) then  
-      call read_restart( trim(EFSO_ANAL_IN_BASENAME), work3dg, work2dg)
-      call state_trans(work3dg)
-    endif
-    call scatter_grd_mpi(mmean_rank_e,real(work3dg,RP),real(work2dg,RP),work3d,work2d)
-    deallocate( work3dg, work2dg )
+      !-----------------------------------------------------------------------
+      ! Read model data
+      !-----------------------------------------------------------------------
+      !
+      ! Forecast ensemble
+      !
+      call read_ens_mpi(fcst3d, v2d_diag=fcst2d, EFSO=.true.)
 
-    if ( myrank_a == 0 ) then
-do n = 1, nv3d
-  write(6,'(a,i7,2f10.1)')"DEBUG3 ", n, maxval( work3d(:,:,n) ), minval( work3d(:,:,n) )
-enddo
-    endif
+      !!! fcst3d,fcst2d: (xmean+X)^f_t [Eq.(6), Ota et al. 2013]
 
-    !!! fcer3d,fcer2d: [1/2(K-1)](e^f_t+e^g_t) [Eq.(6), Ota et al. 2013]
-    fcer3d(:,:,:) = ( fcer3d(:,:,:) - work3d(:,:,:) ) / real( MEMBER-1, r_size )
-    fcer2d(:,:) = ( fcer2d(:,:) - work2d(:,:) ) / real( MEMBER-1, r_size )
+      !
+      ! Forecast error at evaluation time
+      !
+      ! forecast from analysis ensemble mean (x^f_t)
+      if ( myrank_e == mmean_rank_e ) then  
+        if ( LOG_OUT ) write(6,'(a)') 'Read forecast from analysis ensemble mean' 
+        call read_restart( trim(EFSO_FCST_FROM_ANAL_BASENAME), work3dg, work2dg)
+        call state_trans(work3dg,rotate_flag=EFSO_UV_ROTATE,ps=work2dg_diag(:,:,iv2d_diag_ps))
+      endif
+      call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d_diag,v3dg=real(work3dg,RP),v2dg=real(work2dg_diag,RP),&
+                          v3d=fcer3d,v2d=fcer2d)
 
-    deallocate( work3d, work2d )
+      ! forecast from the ensemble mean of first guess (x^g_t)
+      if ( myrank_e == mmean_rank_e ) then  
+        if ( LOG_OUT ) write(6,'(a)') 'Read forecast from guess ensemble mean' 
+        call read_restart( trim(EFSO_FCST_FROM_GUES_BASENAME), work3dg, work2dg)
+        call state_trans(work3dg,rotate_flag=EFSO_UV_ROTATE,ps=work2dg_diag(:,:,iv2d_diag_ps))
+      endif
+      call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d_diag,v3dg=real(work3dg,RP),v2dg=real(work2dg_diag,RP),&
+                          v3d=work3d,v2d=work2d_diag)
 
-    if ( myrank_a == 0 ) then
-do n = 1, nv3d
-  write(6,'(a,i7,2f10.1)')"DEBUG4 ", n, maxval( fcer3d(:,:,n) ), minval( fcer3d(:,:,n) )
-enddo
-    endif
-    !
-    ! Norm
-    !
-    call lnorm( fcst3d, fcst2d, fcer3d, fcer2d )
-    !! fcst3d,fcst2d: C^(1/2)*X^f_t
-    !! fcer3d,fcer2d: C^(1/2)*[1/2(K-1)](e^f_t+e^g_t)
+      ! reference analysis ensemble mean (x^a_t)
+      if ( myrank_e == mmean_rank_e ) then  
+        if ( LOG_OUT ) write(6,'(a)') 'Read reference (analysis ensemble mean)' 
+        call read_restart( trim(EFSO_ANAL_IN_BASENAME), work3dg, work2dg)
+        call state_trans(work3dg,rotate_flag=EFSO_UV_ROTATE,ps=work2dg_diag(:,:,iv2d_diag_ps))
+      endif
+      call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d_diag,v3dg=real(work3dg,RP),v2dg=real(work2dg_diag,RP),&
+                          v3d=work3d_ref,v2d=work2d_diag_ref)
+      uwind_a(:,:) = work3d_ref(:,:,iv3d_u)
+      vwind_a(:,:) = work3d_ref(:,:,iv3d_v)
 
-    !-----------------------------------------------------------------------
-    ! Winds for advection
-    !-----------------------------------------------------------------------
+      ! guess mean for full-level pressure computation
+      if ( myrank_e == mmean_rank_e ) then  
+        if ( LOG_OUT ) write(6,'(a)') 'Read guess ensemble mean' 
+        call read_restart( trim(EFSO_PREVIOUS_GUES_BASENAME), work3dg, work2dg)
+        call state_trans(work3dg,rotate_flag=EFSO_UV_ROTATE,ps=work2dg_diag(:,:,iv2d_diag_ps))
+      endif
+      call scatter_grd_mpi(mmean_rank_e,nv3d,0,v3dg=real(work3dg,RP),&
+                          v3d=gues3d)
 
-    !-----------------------------------------------------------------------
-    ! EFSO computation
-    !-----------------------------------------------------------------------
-    call init_obsense
-    call das_efso( gues3d, gues2d, fcst3d, fcst2d, fcer3d, fcer2d )
+      deallocate( work3dg )
+      deallocate( work2dg )
+      deallocate( work2dg_diag )
+                    
+      !-- Required data for EFSO --
+      ! gues3d:     x^g_0
+      ! fcer3d:     x^f_t
+      ! work3d:     x^g_t 
+      ! work3d_ref: x^a_t
 
-    deallocate( gues3d, gues2d )
-    deallocate( fcst3d, fcst2d )
-    deallocate( fcer3d, fcer2d )
+      ! e^f_t - e^g_t = x^f_t - x^g_t
+      do iv3d = 1, nv3d
+        do k = 1, nlev
+          do ij = 1, nij1
+            fcer3d_diff(ij,k,iv3d) = fcer3d(ij,k,iv3d) - work3d(ij,k,iv3d)
+          enddo
+        enddo
+      enddo 
 
-    !-----------------------------------------------------------------------
-    ! EFSO output
-    !-----------------------------------------------------------------------
-    !  IF(myrank == 0) CALL print_obsense()
-    call destroy_obsense()
-    !
+      do iv2d = 1, nv2d_diag
+        do ij = 1, nij1
+          fcer2d_diff(ij,iv2d) = fcer2d(ij,iv2d) - work2d_diag(ij,iv2d)
+        enddo
+      enddo   
+                      
+      !!! fcer3d,fcer2d: (e^f_t+e^g_t) [Eq.(6), Ota et al. 2013]
+      ! (e^f_t + e^g_t) = (x^f - x^a) + (x^g - x^a) = x^f + x^g - 2x^a
+      do iv3d = 1, nv3d
+        do k = 1, nlev
+          do ij = 1, nij1
+            fcer3d(ij,k,iv3d) = fcer3d(ij,k,iv3d) + work3d(ij,k,iv3d) - 2.0_r_size * work3d_ref(ij,k,iv3d) 
+          enddo
+        enddo
+      enddo
+      do iv2d = 1, nv2d_diag
+        do ij = 1, nij1
+          fcer2d(ij,iv2d) = fcer2d(ij,iv2d) + work2d_diag(ij,iv2d) - 2.0_r_size * work2d_diag_ref(ij,iv2d) 
+        enddo
+      enddo
 
+                      
+      deallocate( work3d )
+      deallocate( work3d_ref, work2d_diag_ref )
+
+      deallocate( work2d_diag )
+
+      !
+      ! Norm
+      !
+      call lnorm( fcst3d, fcst2d, fcer3d, fcer2d, fcer3d_diff, fcer2d_diff )
+      !! fcst3d,fcst2d: C^(1/2)*X^f_t
+      !! fcer3d,fcer2d: C^(1/2)*(e^f_t+e^g_t)
+      !! fcer3d_diff,fcer2d_diff: C^(1/2)*(e^f_t-e^g_t)
+
+      call get_total_impact(fcer3d,fcer2d,fcer3d_diff,fcer2d_diff,total_impact)
+      !! total_impact: 1/2*(e^f_t-e^g_t)*C*(e^f_t+e^g_t)
+
+      !-----------------------------------------------------------------------
+      ! Winds for advection
+      !-----------------------------------------------------------------------
+
+      !-----------------------------------------------------------------------
+      ! EFSO computation
+      !-----------------------------------------------------------------------
+      call das_efso( gues3d, fcst3d, fcst2d, fcer3d, fcer2d, uwind_a, vwind_a, total_impact )
+
+      deallocate( gues3d )
+      deallocate( fcst3d, fcst2d )
+      deallocate( fcer3d, fcer2d )
+      deallocate( fcer3d_diff, fcer2d_diff )
+      deallocate( uwind_a, vwind_a)
+
+    endif ! [ nobstotalg > 0 ]
   end if ! [ myrank_use ]
 
   call unset_scalelib
@@ -197,108 +253,12 @@ enddo
 !-----------------------------------------------------------------------
 ! Finalize
 !-----------------------------------------------------------------------
+  if ( myrank == 0 ) then
+    write(6,'(a)') 'efso finished successfully'
+  endif
 
   call finalize_mpi_scale
 
   stop
 
-  !
-  ! Forecast error at evaluation time
-  !
-  IF(myrank == 0) THEN
-    WRITE(6,'(A,I3.3,2A)') 'MYRANK ',myrank,' is reading.. ',fmean0
-    !CALL read_grd4(fmean0,work3dg,work2dg,1)
-  END IF
-  CALL scatter_grd_mpi(0,real(work3dg,RP),real(work2dg,RP),fcer3d,fcer2d)
-  IF(myrank == 0) THEN
-    WRITE(6,'(A,I3.3,2A)') 'MYRANK ',myrank,' is reading.. ',fmean6
-    !CALL read_grd4(fmean6,work3dg,work2dg,1)
-  END IF
-  CALL scatter_grd_mpi(0,real(work3dg,RP),real(work2dg,RP),work3d,work2d)
-  fcer3d(:,:,:) = 0.5_r_size * (fcer3d(:,:,:) + work3d(:,:,:))
-  fcer2d(:,:) = 0.5_r_size * (fcer2d(:,:) + work2d(:,:))
-  IF(myrank == 0) THEN
-    WRITE(6,'(A,I3.3,2A)') 'MYRANK ',myrank,' is reading.. ',ameanf
-    !CALL read_grd4(ameanf,work3dg,work2dg,1)
-  END IF
-  CALL scatter_grd_mpi(0,real(work3dg,RP),real(work2dg,RP),work3d,work2d)
-  fcer3d(:,:,:) = (fcer3d(:,:,:) - work3d(:,:,:)) / real(MEMBER-1,r_size)
-  fcer2d(:,:) = (fcer2d(:,:) - work2d(:,:)) / real(MEMBER-1,r_size)
-  !!! fcer3d,fcer2d: [1/2(K-1)](e^f_t+e^g_t) [Eq.(6), Ota et al. 2013]
-  !
-  ! Norm
-  !
-  !CALL lnorm(fcst3d,fcst2d,fcer3d,fcer2d)
-  !!! fcst3d,fcst2d: C^(1/2)*X^f_t
-  !!! fcer3d,fcer2d: C^(1/2)*[1/2(K-1)](e^f_t+e^g_t)
-  !
-  ! Guess mean for full-level pressure computation
-  !
-  IF(myrank == 0) THEN
-    WRITE(6,'(A,I3.3,2A)') 'MYRANK ',myrank,' is reading.. ',gmeanf
-   ! CALL read_grd4(gmeanf,work3dg,work2dg,0)
-  END IF
-  CALL scatter_grd_mpi(0,real(work3dg,RP),real(work2dg,RP),gues3d,gues2d)
-!
-  CALL CPU_TIME(rtimer)
-  WRITE(6,'(A,2F10.2)') '### TIMER(READ_FORECAST):',rtimer,rtimer-rtimer00
-  rtimer00=rtimer
-!-----------------------------------------------------------------------
-! Winds for advection
-!-----------------------------------------------------------------------
-!  IF(ABS(locadv_rate) > TINY(locadv_rate)) THEN
-!    ALLOCATE(uadf(nij1,nlev))
-!    ALLOCATE(vadf(nij1,nlev))
-!    ALLOCATE(uada(nij1,nlev))
-!    ALLOCATE(vada(nij1,nlev))
-!    uadf(:,:) = work3d(:,:,iv3d_u)
-!    vadf(:,:) = work3d(:,:,iv3d_v)
-!    IF(myrank == 0) THEN
-!      WRITE(6,'(A,I3.3,2A)') 'MYRANK ',myrank,' is reading.. ',analf
-!      CALL read_grd4(analf,work3dg,work2dg,0)
-!    END IF
-!    CALL scatter_grd_mpi(0,real(work3dg,r_size),real(work2dg,r_size),work3d,work2d)
-!    uada(:,:) = work3d(:,:,iv3d_u)
-!    vada(:,:) = work3d(:,:,iv3d_v)
-!    CALL loc_advection(uada,vada,uadf,vadf) ! ADVECTION for FSO
-!    DEALLOCATE(uadf,vadf,uada,vada)
-!!
-!    CALL CPU_TIME(rtimer)
-!    WRITE(6,'(A,2F10.2)') '### TIMER(WIND_ADVECTION):',rtimer,rtimer-rtimer00
-!    rtimer00=rtimer
-!  END IF
-!  DEALLOCATE(work3d,work2d)
-!-----------------------------------------------------------------------
-! EFSO computation
-!-----------------------------------------------------------------------
-  !CALL init_obsense()
-!
-  CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
-  !CALL das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d)
-  DEALLOCATE(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d)
-!
-  CALL CPU_TIME(rtimer)
-  WRITE(6,'(A,2F10.2)') '### TIMER(DAS_EFSO):',rtimer,rtimer-rtimer00
-  rtimer00=rtimer
-!-----------------------------------------------------------------------
-! EFSO output
-!-----------------------------------------------------------------------
-!  IF(myrank == 0) CALL print_obsense()
-!  CALL destroy_obsense()
-!
-  CALL CPU_TIME(rtimer)
-  WRITE(6,'(A,2F10.2)') '### TIMER(EFSO_OUTPUT):',rtimer,rtimer-rtimer00
-  rtimer00=rtimer
-!-----------------------------------------------------------------------
-! Finalize
-!-----------------------------------------------------------------------
-
-  if ( myrank == 0 ) then
-    write(6,'(a)') 'efso finished successfully'
-  endif
-
-  CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
-  CALL finalize_mpi
-
-  stop
 end program efso

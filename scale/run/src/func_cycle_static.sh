@@ -772,6 +772,9 @@ while ((time <= ETIME)); do
   #-----------------------------------------------------------------------------
 
   config_file_scale_launcher cycle scale-rm_ens "<member>/run" $mtot
+  if (( DO_ANALYSIS4EFSO == 1 )); then
+    config_file_scale_launcher cycle efso_scale-rm_ens "<member>/efso_run" $mtot
+  fi
 
   #-----------------------------------------------------------------------------
   # scale (each member)
@@ -790,12 +793,12 @@ while ((time <= ETIME)); do
       TOPO_PATH="${DATA_TOPO}/const"
       LANDUSE_PATH="${DATA_LANDUSE}/const"
       HISTORY_PATH[$d]=${OUTDIR[$d]}/$time/hist
-      HISTORY_ESFO_PATH=${OUTDIR[$d]}/$atime/anal
+      HISTORY_EFSO_PATH=${OUTDIR[$d]}/$atime/anal
       if [ $PRESET == 'FUGAKU' ] && (( HIST_LLIO_TMP == 1)) ; then
         HISTORY_PATH[$d]=/local/$time/hist
-        if (( atime <= ETIME ));then
-          HISTORY_EFSO_PATH=/local/${atime}/gues
-        fi
+        #if (( atime <= ETIME ));then
+        #  HISTORY_EFSO_PATH=/local/${atime}/gues
+        #fi
       fi
 
       loop_prev=$((loop-1))
@@ -832,6 +835,16 @@ while ((time <= ETIME)); do
 
       fi
 
+    fi
+
+
+    if (( loop == 1 && MAKEINIT != 1 )); then
+      if (( EFSO_RUN == 1 )); then
+        # check RESTART_IN_PATH[$d]/mgue exits or not
+        if [ ! -s "${RESTART_IN_PATH[$d]}/mgue/init_$(datetime_scale $time).pe000000.nc" ]; then
+          ln -s ${RESTART_IN_PATH[$d]}/mean/init_*.nc ${RESTART_IN_PATH[$d]}/mgue/
+        fi
+      fi
     fi
  
     ith=0
@@ -883,6 +896,11 @@ while ((time <= ETIME)); do
     EFSO_RUN_TF='.true.'
   fi
 
+  DO_ANALYSIS4EFSO_TF='.false.'
+  if (( EFSO_RUN == 1 && DO_ANALYSIS4EFSO == 1 )); then
+    DO_ANALYSIS4EFSO_TF='.true.'
+  fi
+
   OBSDA_OUT='.false.'
   if ((OBSOUT_OPT <= 2)); then
     OBSDA_OUT='.true.'
@@ -907,6 +925,12 @@ while ((time <= ETIME)); do
   if ((ADDINFL == 1)); then
     INFL_ADD=$INFL_ADD_FACT
   fi
+
+  GUES_STORE_MEMBER_TF='.false.'
+  if (( OUT_OPT <= 3 )); then
+    GUES_STORE_MEMBER_TF='.true.'
+  fi
+
  
   for d in $(seq $DOMNUM); do
     dfmt=$(printf $DOMAIN_FMT $d)
@@ -948,15 +972,25 @@ while ((time <= ETIME)); do
       OBSDEP_OUT_TF=".true."
       OBSDEP_OUT_BASENAME="${OUTDIR[$d]}/obsdep/obsdep_${atime}"
     fi
-    OBSDEP_IN_BASENAME="${OUTDIR[$d]}/obsdep/obs/obsdep_${time}" # EFSO
+    OBSDEP_IN_BASENAME="${OUTDIR[$d]}/obsdep/obsdep_${time}" # EFSO
     DEPARTURE_STAT_OUT_BASENAME="${OUTDIR[$d]}/score/score_${atime}"
     OBSNUM_OUT_NC_BASENAME="${OUTDIR[$d]}/score/obsnum_${atime}"
-    OBSANAL_IN_BASENAME="${OUTDIR[$d]}/${time}/obs"
-    OBSANAL_OUT_BASENAME="${OUTDIR[$d]}/${atime}/obs"
+    OBSANAL_IN_BASENAME="${OUTDIR[$d]}/${time}/aobs/obsanal_rank"
+    OBSANAL_OUT_BASENAME="${OUTDIR[$d]}/${atime}/aobs/obsanal_rank"
+
     if ((EFSO_RUN==1));then
       OBSDEP_OUT_NC_TF=".true."
       OBSANAL_OUT_TF=".true."
+      EFSO_OUTPUT_NC_BASENAME="${OUTDIR[$d]}/obsdep/efso_${time}" 
+
+      rm -rf ${OUTDIR[$d]}/${time}/aobs 
+      rm -rf ${OUTDIR[$d]}/${atime}/aobs
+
+      mkdir -p ${OUTDIR[$d]}/${time}/aobs 
+      mkdir -p ${OUTDIR[$d]}/${atime}/aobs
+
     fi
+    
     if ((DISK_MODE >= 1)) ;then
 #      GUES_IN_BASENAME="${RESTART_OUT_PATH[$d]}/<member>/gues_$(datetime_scale $atime)"
       GUES_IN_BASENAME="${RESTART_OUT_PATH[$d]}/<member>/anal_$(datetime_scale $atime)"
@@ -964,19 +998,30 @@ while ((time <= ETIME)); do
       GUES_SPRD_OUT_BASENAME="${RESTART_OUT_PATH[$d]}/sprd/gues_$(datetime_scale $atime)"
       ANAL_OUT_BASENAME="${RESTART_OUT_PATH[$d]}/<member>/anal_$(datetime_scale $atime)"
       EFSO_ANAL_IN_BASENAME="${RESTART_OUT_PATH[$d]}/mean/anal_$(datetime_scale $atime)"
+      EFSO_PREVIOUS_GUES_BASENAME="${RESTART_OUT_PATH[$d]}/mean/anal_$(datetime_scale $time)"
+
       RESTART_IN_BASENAME_SCALE="${RESTART_OUT_PATH[$d]}/<member>/gues"
 #      EFSO_FCST_FROM_GUES_BASENAME="${HISTORY_EFSO_PATH}/mgue/init_$(datetime_scale $atime)"
 #      EFSO_FCST_FROM_ANAL_BASENAME="${HISTORY_EFSO_PATH}/mean/init_$(datetime_scale $atime)"
     else
 #      GUES_IN_BASENAME="${RESTART_OUT_PATH[$d]}/../gues/<member>/init_$(datetime_scale $atime)"
       GUES_IN_BASENAME="${RESTART_OUT_PATH[$d]}/../anal/<member>/init_$(datetime_scale $atime)"
+      GUES_OUT_BASENAME="${RESTART_OUT_PATH[$d]}/../gues/<member>/init_$(datetime_scale $atime)"
       GUES_MEAN_INOUT_BASENAME="${RESTART_OUT_PATH[$d]}/../gues/mean/init_$(datetime_scale $atime)"
       GUES_SPRD_OUT_BASENAME="${RESTART_OUT_PATH[$d]}/../gues/sprd/init_$(datetime_scale $atime)"
       ANAL_OUT_BASENAME="${RESTART_OUT_PATH[$d]}/<member>/init_$(datetime_scale $atime)"
+      ANAL_OUT_BASENAME_EFSO="${RESTART_OUT_PATH[$d]}/<member>/init_efso_$(datetime_scale $atime)"
+      GUES_MEAN_INOUT_BASENAME_EFSO="${RESTART_OUT_PATH[$d]}/../gues/mean/init_efso_$(datetime_scale $atime)"
       EFSO_ANAL_IN_BASENAME="${RESTART_OUT_PATH[$d]}/mean/init_$(datetime_scale $atime)"
-      EFSO_FCST_FROM_GUES_BASENAME="${HISTORY_EFSO_PATH}/mgue/init_$(datetime_scale $atime)"
-      EFSO_FCST_FROM_ANAL_BASENAME="${HISTORY_EFSO_PATH}/mean/init_$(datetime_scale $atime)"
-      EFSO_EFCST_FROM_ANAL_BASENAME="${HISTORY_EFSO_PATH}/<member>/init_$(datetime_scale $atime)"
+      EFSO_FCST_FROM_GUES_BASENAME="${OUTDIR[$d]}/${time}/fcst/mgue/init_$(datetime_scale $atime)" 
+      EFSO_FCST_FROM_ANAL_BASENAME="${OUTDIR[$d]}/${time}/fcst/mean/init_$(datetime_scale $atime)" 
+      if (( DO_ANALYSIS4EFSO == 1 )); then
+        EFSO_EFCST_FROM_ANAL_BASENAME="${OUTDIR[$d]}/${time}/fcst/<member>/init_efso_$(datetime_scale $atime)"
+      else
+        EFSO_EFCST_FROM_ANAL_BASENAME="${OUTDIR[$d]}/${time}/fcst/<member>/init_$(datetime_scale $atime)"
+      fi
+#      EFSO_EFCST_FROM_ANAL_BASENAME="${HISTORY_EFSO_PATH}/<member>/init_$(datetime_scale $atime)"
+      EFSO_PREVIOUS_GUES_BASENAME="${RESTART_OUT_PATH[$d]}/../../${time}/gues/mean/init_$(datetime_scale $time)"
       RESTART_IN_BASENAME_SCALE="${RESTART_OUT_PATH[$d]}/../gues/<member>/init"
     fi
 
@@ -1003,17 +1048,25 @@ while ((time <= ETIME)); do
             -e "/!--SLOT_BASE--/a SLOT_BASE = $slot_b," \
             -e "/!--SLOT_TINTERVAL--/a SLOT_TINTERVAL = ${LTIMESLOT}.D0," \
             -e "/!--OBSDA_IN--/a OBSDA_IN = .false.," \
+            -e "/!--GUES_STORE_MEMBER--/a GUES_STORE_MEMBER = ${GUES_STORE_MEMBER_TF}," \
             -e "/!--GUES_IN_BASENAME--/a GUES_IN_BASENAME = \"${GUES_IN_BASENAME}\"," \
+            -e "/!--GUES_OUT_BASENAME--/a GUES_OUT_BASENAME = \"${GUES_OUT_BASENAME}\"," \
             -e "/!--GUES_MEAN_INOUT_BASENAME--/a GUES_MEAN_INOUT_BASENAME = \"${GUES_MEAN_INOUT_BASENAME}\"," \
+            -e "/!--GUES_MEAN_INOUT_BASENAME_EFSO--/a GUES_MEAN_INOUT_BASENAME_EFSO = \"${GUES_MEAN_INOUT_BASENAME_EFSO}\"," \
             -e "/!--GUES_SPRD_OUT_BASENAME--/a GUES_SPRD_OUT_BASENAME = \"${GUES_SPRD_OUT_BASENAME}\"," \
             -e "/!--GUES_SPRD_OUT--/a GUES_SPRD_OUT = ${SPRD_OUT_TF}," \
             -e "/!--ANAL_OUT_BASENAME--/a ANAL_OUT_BASENAME = \"${ANAL_OUT_BASENAME}\"," \
+            -e "/!--ANAL_OUT_BASENAME_EFSO--/a ANAL_OUT_BASENAME_EFSO = \"${ANAL_OUT_BASENAME_EFSO}\"," \
             -e "/!--ANAL_SPRD_OUT--/a ANAL_SPRD_OUT = ${SPRD_OUT_TF}," \
             -e "/!--LETKF_TOPOGRAPHY_IN_BASENAME--/a LETKF_TOPOGRAPHY_IN_BASENAME = \"${TOPO_PATH}/topo/topo\"," \
+            -e "/!--DO_ANALYSIS4EFSO--/a DO_ANALYSIS4EFSO = ${DO_ANALYSIS4EFSO_TF}," \
+            -e "/!--EFSO_FCST_LENGTH--/a EFSO_FCST_LENGTH = ${EFSO_FCST_LENGTH}.D0," \
             -e "/!--EFSO_ANAL_IN_BASENAME--/a EFSO_ANAL_IN_BASENAME = \"${EFSO_ANAL_IN_BASENAME}\"," \
             -e "/!--EFSO_FCST_FROM_GUES_BASENAME--/a EFSO_FCST_FROM_GUES_BASENAME = \"${EFSO_FCST_FROM_GUES_BASENAME}\"," \
             -e "/!--EFSO_FCST_FROM_ANAL_BASENAME--/a EFSO_FCST_FROM_ANAL_BASENAME = \"${EFSO_FCST_FROM_ANAL_BASENAME}\"," \
             -e "/!--EFSO_EFCST_FROM_ANAL_BASENAME--/a EFSO_EFCST_FROM_ANAL_BASENAME = \"${EFSO_EFCST_FROM_ANAL_BASENAME}\"," \
+            -e "/!--EFSO_PREVIOUS_GUES_BASENAME--/a EFSO_PREVIOUS_GUES_BASENAME = \"${EFSO_PREVIOUS_GUES_BASENAME}\"," \
+            -e "/!--EFSO_OUTPUT_NC_BASENAME--/a EFSO_OUTPUT_NC_BASENAME = \"${EFSO_OUTPUT_NC_BASENAME}\"," \
             -e "/!--INFL_ADD--/a INFL_ADD = ${INFL_ADD}," \
             -e "/!--INFL_ADD_IN_BASENAME--/a INFL_ADD_IN_BASENAME = \"${DATA_ADDINFL[$d]}/<member>${CONNECTOR}init${sfx}\"," \
             -e "/!--INFL_MUL_ADAPTIVE--/a INFL_MUL_ADAPTIVE = ${INFL_MUL_ADAPTIVE}," \
@@ -1229,9 +1282,17 @@ config_file_scale_core (){
 
       RESTART_OUTPUT_TF=".true."
 
-      mkdir -p ${OUTDIR[$d]}/$atime/anal/${name_m[$mlocal]}
-      mkdir -p ${OUTDIR[$d]}/$atime/gues/${name_m[$mlocal]}
+      # prepare directories
+      if (( mlocal != mmgue)); then
+        mkdir -p ${OUTDIR[$d]}/$atime/anal/${name_m[$mlocal]}
+        mkdir -p ${OUTDIR[$d]}/$atime/gues/${name_m[$mlocal]}
+      fi
+      if (( mlocal == mmean)); then
+        mkdir -p ${OUTDIR[$d]}/$atime/anal/sprd
+        mkdir -p ${OUTDIR[$d]}/$atime/gues/sprd
+      fi
       mkdir -p ${OUTDIR[$d]}/$time/hist/${name_m[$mlocal]}
+
 
       if ((DISK_MODE >= 1)) ;then
         RESTART_IN_BASENAME[$d]="${RESTART_IN_PATH[$d]}/${name_m[$mlocal]}/anal"
@@ -1244,6 +1305,31 @@ config_file_scale_core (){
         fi
         RESTART_OUT_BASENAME[$d]="${RESTART_OUT_PATH[$d]}/${name_m[$mlocal]}/init"
       fi
+
+
+      if (( EFSO_RUN == 1 && mlocal == mmgue)); then
+
+        if ((DISK_MODE >= 1)) ;then
+          RESTART_IN_BASENAME[$d]="${RESTART_IN_PATH[$d]}/mean/gues"
+        else
+          RESTART_IN_BASENAME[$d]="${RESTART_IN_PATH[$d]}/../../${time}/gues/mean/init"
+        fi
+        RESTART_OUT_BASENAME[$d]="${RESTART_IN_PATH[$d]}/../../${time}/fcst/mgue/init"
+        mkdir -p "${RESTART_IN_PATH[$d]}/../../${time}/fcst/mgue"
+        for m in $(seq 1 $mtot); do
+          mkdir -p "${RESTART_IN_PATH[$d]}/../../${time}/fcst/${name_m[$m]}"
+        done
+        
+        #"${RESTART_IN_BASENAME[$d]}"
+
+#        ln -fs ${OUTDIR[$d]}/${time}/gues/mean ${OUTDIR[$d]}/${time}/gues/${name_m[$mlocal]} # tentative
+#        mkdir -p ${OUTDIR[$d]}/${time}/gues/${name_m[$mlocal]}
+
+#        RESTART_IN_PATH[$d]="${RESTART_IN_PATH[$d]}/../../${time}/gues"
+#        RESTART_OUT_PATH[$d]="${RESTART_OUT_PATH[$d]}/../../${time}/gues"
+      fi
+
+
 
       if ((WINDOW_S == LCYCLE && WINDOW_E == LCYCLE));then
         HISTORY_OUT_WAIT=$((LCYCLE+LTIMESLOT)) ### 3D-LETKF : suppress history output
@@ -1300,6 +1386,19 @@ config_file_scale_core (){
 
       conf_file="$TMPS/${name_m[$mlocal]}/run.d${dfmt}_${time}.conf"
       echo "$conf" > ${conf_file}
+
+      if (( DO_ANALYSIS4EFSO == 1 )); then
+        conf_file4efso="$TMPS/${name_m[$mlocal]}/efso_run.d${dfmt}_${time}.conf"
+        RESTART_OUT_BASENAME_EFSO="${RESTART_OUT_PATH[$d]}/../../${time}/fcst/${name_m[$mlocal]}/init_efso"
+
+        sed \
+          -e "/^TIME_DURATION[[:space:]]*=/c TIME_DURATION = ${EFSO_FCST_LENGTH}.D0," \
+          -e "/^FILE_HISTORY_DEFAULT_BASENAME[[:space:]]*=/c FILE_HISTORY_DEFAULT_BASENAME = \"${HISTORY_PATH[$d]}/${name_m[$mlocal]}/efso_history\"," \
+          -e "/^RESTART_IN_BASENAME[[:space:]]*=/c RESTART_IN_BASENAME = \"${RESTART_IN_BASENAME[$d]}_efso\"," \
+          -e "/^RESTART_OUT_BASENAME[[:space:]]*=/c RESTART_OUT_BASENAME = \"${RESTART_OUT_BASENAME_EFSO}\"," \
+          "$conf_file" > "$conf_file4efso"
+
+      fi
 
       if ((ENABLE_PARAM_USER == 1)) && [ -e "$TMP/config.nml.scale_user" ]; then
         conf="$(cat $TMP/config.nml.scale_user)"
@@ -1484,9 +1583,9 @@ OUT_CYCLE_SKIP=${OUT_CYCLE_SKIP:-1}
 
 CYCLEFLEN=$WINDOW_E     # Model forecast length in a cycle (second)
 if (( EFSO_RUN > 0 )) ; then
-  EFSO_FCST_LENGTH=${EFSO_FCST_LENGTH:-$WINDOW_E}
-  if (( WINDOW_E < EFSO_FCST_LENGTH )) ; then
-    CYCLEFLEN=$EFSO_FCST_LENGTH
+  EFSO_FCST_LENGTH=${EFSO_FCST_LENGTH:-$LCYCLE}
+  if (( EFSO_FCST_LENGTH > CYCLEFLEN && DO_ANALYSIS4EFSO == 0 )); then 
+    CYCLEFLEN=$((EFSO_FCST_LENGTH))
   fi
 fi
 

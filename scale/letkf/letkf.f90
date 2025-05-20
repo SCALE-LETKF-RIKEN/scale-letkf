@@ -29,6 +29,9 @@ PROGRAM letkf
   REAL(r_size),ALLOCATABLE :: anal3d(:,:,:,:)
   REAL(r_size),ALLOCATABLE :: anal2d(:,:,:)
 
+  real(r_size), allocatable :: anal3d_efso(:,:,:,:)
+  real(r_size), allocatable :: anal2d_efso(:,:,:)
+
   integer :: iof
   character(len=7) :: stdoutf = '-000000'
   character(len=6400) :: icmd
@@ -141,7 +144,7 @@ PROGRAM letkf
     !
     ! READ GUES
     !
-    call read_ens_mpi(gues3d, gues2d)
+    call read_ens_mpi(gues3d, v2d=gues2d)
 
     if (DET_RUN .and. mmdetin /= mmdet) then
       gues3d(:,:,mmdet,:) = gues3d(:,:,mmdetin,:)
@@ -153,6 +156,8 @@ PROGRAM letkf
     !
     ! WRITE ENS MEAN and SPRD
     !
+    call copy_restart4mean_and_gues ! copy restart files for mean (guess) and spread (anal/gues)
+
     if (DEPARTURE_STAT .and. LOG_LEVEL >= 1) then
       call write_ensmean(GUES_MEAN_INOUT_BASENAME, gues3d, gues2d, calced=.false., monit_step=1)
     else
@@ -172,7 +177,17 @@ PROGRAM letkf
     !
     ! LETKF
     !
-    call das_letkf(gues3d,gues2d,anal3d,anal2d)
+    if ( DO_ANALYSIS4EFSO ) then
+      allocate (anal3d_efso(nij1,nlev,nens,nv3d))
+      allocate (anal2d_efso(nij1,nens,nv2d))
+
+      call das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso=anal3d_efso,anal2d_efso=anal2d_efso)
+
+    else
+
+      call das_letkf(gues3d,gues2d,anal3d,anal2d)
+
+    endif
 
     call mpi_timer('DAS_LETKF', 1, barrier=MPI_COMM_a)
 
@@ -183,7 +198,10 @@ PROGRAM letkf
     !
     ! COMPUTE ENS MEAN and SPRD
     !
-    call ensmean_grd(MEMBER, nens, nij1, anal3d, anal2d)
+    call ensmean_grd(MEMBER, nens, nij1, nv3d, nv2d, anal3d, anal2d)
+    if ( DO_ANALYSIS4EFSO ) then
+      call ensmean_grd(MEMBER, nens, nij1, nv3d, nv2d, anal3d_efso, anal2d_efso)
+    end if
     ! write analysis mean later in write_ens_mpi
 
     if (ANAL_SPRD_OUT) then
@@ -196,7 +214,11 @@ PROGRAM letkf
     ! WRITE ANAL and ENS MEAN
     !
     if (DEPARTURE_STAT .and. LOG_LEVEL >= 1) then
-      call write_ens_mpi(anal3d, anal2d, monit_step=2)
+      if ( DO_ANALYSIS4EFSO ) then
+        call write_ens_mpi(anal3d, anal2d, monit_step=2, v3d_efso=anal3d_efso, v2d_efso=anal2d_efso)
+      else
+        call write_ens_mpi(anal3d, anal2d, monit_step=2)
+      endif
     else
       call write_ens_mpi(anal3d, anal2d)
     end if
@@ -212,6 +234,10 @@ PROGRAM letkf
     end do
     deallocate (obs)
     deallocate (gues3d, gues2d, anal3d, anal2d)
+
+    if ( DO_ANALYSIS4EFSO ) then
+      deallocate (anal3d_efso, anal2d_efso)
+    end if
 
     call unset_common_mpi_scale
 
