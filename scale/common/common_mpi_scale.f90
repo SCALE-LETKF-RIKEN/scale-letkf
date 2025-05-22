@@ -2880,11 +2880,33 @@ subroutine monit_obs4efso_mpi(v3dg, v2dg, im, nobs, ya_local)
   real(r_size) :: rmse_dummy(nid_obs)
   logical :: monit_type_dummy(nid_obs)
 
+#ifdef RTTOV
+  real(r_size) :: v3dgh(nlevh,nlonh,nlath,nv3dd)
+  real(r_size) :: v2dgh(nlonh,nlath,nv2dd)
+
+  real(r_size) :: yobs_him(NIRB_HIM_USE,nlon,nlat)
+  real(r_size) :: yobs_him_prep(NIRB_HIM_USE,nlon,nlat)
+  integer      :: qc_him(NIRB_HIM_USE,nlon,nlat)
+  integer      :: qc_him_prep(NIRB_HIM_USE,nlon,nlat)
+#endif
+
+
   if ( LOG_OUT ) write(6,'(a)') 'Hello from monit_obs4efso_mpi'
 
   if ( im >= 1 .and. im <= MEMBER ) then
 
+#ifdef RTTOV
+    ! Prepare state variables for observation operator
+    call state_to_history(v3dg, v2dg, topo2d, v3dgh, v2dgh)
+    ! Observation operator (RTTOV) for Him
+    call Trans_XtoY_HIM_allg(v3dgh,v2dgh,yobs_him,qc_him)
+    ! preprocess for Him obs
+    call prep_Him_mpi(yobs_him,tbb_lprep=yobs_him_prep,qc_lprep=qc_him_prep)
+
+    call monit_obs(v3dg, v2dg, topo2d, nobs_dummy, bias_dummy, rmse_dummy, monit_type_dummy, .true., 2, efso=.true.,yobs_him=yobs_him_prep,qc_him=qc_him_prep)
+#else
     call monit_obs(v3dg, v2dg, topo2d, nobs_dummy, bias_dummy, rmse_dummy, monit_type_dummy, .true., 2, efso=.true.)
+#endif
     ! obsdep_oma contains obs-minus-analysis in obs space 
     if ( nobs > 0 ) then
       ya_local(im,1:nobs) = -obsdep_oma(1:nobs) ! analysis (each member) - observation

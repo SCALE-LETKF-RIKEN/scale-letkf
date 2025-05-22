@@ -119,7 +119,6 @@ MODULE common_nml
   logical               :: ANAL_SPRD_OUT = .true.
   character(filelenmax) :: ANAL_SPRD_OUT_BASENAME = ''
   character(filelenmax) :: LETKF_TOPOGRAPHY_IN_BASENAME = ''  !!!!!! -- directly use the SCALE namelist --???? !!!!!!
-  character(filelenmax) :: EFSO_ANAL_IN_BASENAME         = 'anal.@@@@'
   character(filelenmax) :: GUES_MEAN_INOUT_BASENAME_EFSO = ''
   logical               :: USE_HISTORY_3DLETKF = .false.
   character(filelenmax) :: EFSO_ANAL_IN_BASENAME = 'anal.@@@@'
