@@ -381,7 +381,7 @@ while ((time <= ETIME)); do
           grep 'finished successfully' ${logd_org}/0/NOUT_${conf_time}.${mpiexec_cnt}.0 >/dev/null || exit 1 
         fi
 
-        if ( EFSO_RUN == 1 ); then
+        if (( EFSO_RUN == 1 )); then
           if (( DO_ANALYSIS4EFSO == 1 && s == 3 && time > STIME )); then
             # Run additional ensemble forecast for EFSO
             # Initial conditions are obtained by LETKF w/o inflation
