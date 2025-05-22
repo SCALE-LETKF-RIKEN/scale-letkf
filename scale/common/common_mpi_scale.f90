@@ -2901,7 +2901,7 @@ subroutine monit_obs4efso_mpi(v3dg, v2dg, im, nobs, ya_local)
     ! Observation operator (RTTOV) for Him
     call Trans_XtoY_HIM_allg(v3dgh,v2dgh,yobs_him,qc_him)
     ! preprocess for Him obs
-    call prep_Him_mpi(yobs_him,tbb_lprep=yobs_him_prep,qc_lprep=qc_him_prep)
+    call prep_Him_mpi(yobs_him,tbb_lprep=yobs_him_prep,qc_lprep=qc_him_prep,write_global=.false.)
 
     call monit_obs(v3dg, v2dg, topo2d, nobs_dummy, bias_dummy, rmse_dummy, monit_type_dummy, .true., 2, efso=.true.,yobs_him=yobs_him_prep,qc_him=qc_him_prep)
 #else
@@ -3008,7 +3008,7 @@ subroutine prep_Him_mpi(tbb_l,tbb_lprep,qc_lprep,write_global,filename,tbb_l_clr
     enddo
   endif
 
-  if ( write_global_ ) then
+  if ( write_global_ .and. present(filename) ) then
     if ( myrank_d == 0 ) then
       call write_Him_nc(trim(filename)//'.nc',      real(tbb_g, kind=r_sngl) )    
       call write_Him_nc(trim(filename)//'_prep.nc', real(tbb_gprep,kind=r_sngl) )

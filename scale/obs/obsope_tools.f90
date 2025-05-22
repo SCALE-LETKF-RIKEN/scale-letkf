@@ -608,6 +608,8 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
             do nn2 = n1, nn-1
               iof_prev  = obsda%set(nn2)
               oidx_prev = obsda%idx(nn2)
+
+              if ( obtypelist(obs(iof)%typ(n)) == 'H08IRB' ) cycle
   
               if ( obs(iof_prev)%typ(oidx_prev) /= obs(iof)%typ(n) ) cycle
               if ( obs(iof_prev)%elm(oidx_prev) /= obs(iof)%elm(n) ) cycle
@@ -620,8 +622,6 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
                 select case (obtypelist(obs(iof)%typ(n)))
                 case ( 'PHARAD' )
                   if ( abs( obs(iof_prev)%lev(oidx_prev) - obs(iof)%lev(n) ) > DUPLICATE_MIN_Z_DIFF ) cycle
-                case ( 'H08IRB' )
-                  cycle ! do nothing
                 case default 
                   if ( abs( obs(iof_prev)%lev(oidx_prev) - obs(iof)%lev(n) ) > DUPLICATE_MIN_PRS_DIFF ) cycle
                 end select
