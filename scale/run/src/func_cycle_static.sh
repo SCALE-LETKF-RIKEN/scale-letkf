@@ -772,7 +772,7 @@ while ((time <= ETIME)); do
   #-----------------------------------------------------------------------------
 
   config_file_scale_launcher cycle scale-rm_ens "<member>/run" $mtot
-  if (( DO_ANALYSIS4EFSO == 1 )); then
+  if (( EFSO_RUN == 1 && DO_ANALYSIS4EFSO == 1 )); then
     config_file_scale_launcher cycle efso_scale-rm_ens "<member>/efso_run" $mtot
   fi
 
@@ -1387,7 +1387,7 @@ config_file_scale_core (){
       conf_file="$TMPS/${name_m[$mlocal]}/run.d${dfmt}_${time}.conf"
       echo "$conf" > ${conf_file}
 
-      if (( DO_ANALYSIS4EFSO == 1 )); then
+      if (( EFSO_RUN == 1 && DO_ANALYSIS4EFSO == 1 )); then
         conf_file4efso="$TMPS/${name_m[$mlocal]}/efso_run.d${dfmt}_${time}.conf"
         RESTART_OUT_BASENAME_EFSO="${RESTART_OUT_PATH[$d]}/../../${time}/fcst/${name_m[$mlocal]}/init_efso"
 
