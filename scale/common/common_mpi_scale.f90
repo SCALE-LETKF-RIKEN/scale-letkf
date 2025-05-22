@@ -3377,7 +3377,7 @@ subroutine allgHim2obs_mpi(tbb_allg,tbb_allg_prep,qc_allg_prep,nobs,obsdat,obslo
 
   call MPI_ALLREDUCE(MPI_IN_PLACE, tbb_allg_prep, NIRB_HIM_USE*nlong*nlatg, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
   if (present(qc_allg_prep)) then
-    call MPI_ALLREDUCE(MPI_IN_PLACE, qc_allg_prep, NIRB_HIM_USE*nlong*nlatg, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
+    call MPI_ALLREDUCE(MPI_IN_PLACE, qc_allg_prep, NIRB_HIM_USE*nlong*nlatg, MPI_INTEGER, MPI_SUM, MPI_COMM_d, ierr)
   endif
   if ( present(nobs) ) then
     R2D_RP = 1.0_RP / CONST_D2R
