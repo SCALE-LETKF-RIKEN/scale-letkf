@@ -381,13 +381,15 @@ while ((time <= ETIME)); do
           grep 'finished successfully' ${logd_org}/0/NOUT_${conf_time}.${mpiexec_cnt}.0 >/dev/null || exit 1 
         fi
 
-        if (( DO_ANALYSIS4EFSO == 1 && s == 3 && time > STIME )); then
-          # Run additional ensemble forecast for EFSO
-          # Initial conditions are obtained by LETKF w/o inflation
-          mpirunf ${nodestr} ${stepexecbin[$s]} $TMPROOT/config/efso_${stepexecname[$s]}_${conf_time}.conf ${logd}/NOUT_${conf_time}_EFSO || exit $?
-          if [ "$PRESET" = 'FUGAKU' ] ; then
-            mpiexec_cnt=$((mpiexec_cnt+1))
-            grep 'finished successfully' ${logd_org}/0/NOUT_${conf_time}_EFSO.${mpiexec_cnt}.0 >/dev/null || exit 1 
+        if ( EFSO_RUN == 1 ); then
+          if (( DO_ANALYSIS4EFSO == 1 && s == 3 && time > STIME )); then
+            # Run additional ensemble forecast for EFSO
+            # Initial conditions are obtained by LETKF w/o inflation
+            mpirunf ${nodestr} ${stepexecbin[$s]} $TMPROOT/config/efso_${stepexecname[$s]}_${conf_time}.conf ${logd}/NOUT_${conf_time}_EFSO || exit $?
+            if [ "$PRESET" = 'FUGAKU' ] ; then
+              mpiexec_cnt=$((mpiexec_cnt+1))
+              grep 'finished successfully' ${logd_org}/0/NOUT_${conf_time}_EFSO.${mpiexec_cnt}.0 >/dev/null || exit 1 
+            fi
           fi
         fi
 
