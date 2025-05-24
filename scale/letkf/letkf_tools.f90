@@ -1234,7 +1234,6 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
   real(r_size), allocatable :: nrloc(:)       ! normalized localization factor (not used)
   real(r_size), allocatable :: dep(:)
   real(r_size), allocatable :: djdy(:,:)
-  real(r_size), allocatable :: djdy_3d(:,:,:,:)
   real(r_size), allocatable :: work1(:,:)
   integer, allocatable :: vobsidx_l(:)
   integer :: ij, iv3d, iv2d, ilev, m
@@ -1292,8 +1291,6 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
 
   allocate( djdy(nterm,nobstotal) )
   djdy = 0.0_r_size
-  allocate( djdy_3d(nterm,nobstotal,nij1,nlev) )
-  djdy_3d = 0.0_r_size
   !
   ! MAIN ASSIMILATION LOOP
   !
@@ -1390,9 +1387,6 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
           do m = 1, MEMBER
             djdy(1:nterm,iob) = djdy(1:nterm,iob) + work1(1:nterm,m) * hdxa_rinv(nob,m) 
           enddo
-          do iterm = 1, nterm
-            djdy_3d(iterm,iob,ij,ilev) = djdy_3d(iterm,iob,ij,ilev) + dot_product(work1(iterm,1:MEMBER),hdxa_rinv(nob,1:MEMBER)) 
-          enddo
         enddo
         !!! djdy: [1/2(K-1)]rho*R^(-1)*Y^a_0*(X^f_t)^T*C*(e^f_t+e^g_t)
         deallocate( hdxa_rinv )
@@ -1419,7 +1413,7 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
 !!$omp do
   do nob = 1, nobstotal
     do iterm = 1, nterm
-      obsense(iterm,nob) = 0.5_r_size * sum(djdy_3d(iterm,nob,1:nij1,1:nlev)) * obsda_sort%val(nob) / real( MEMBER-1, r_size )
+      obsense(iterm,nob) = 0.5_r_size * djdy(iterm,nob) * obsda_sort%val(nob) / real( MEMBER-1, r_size )
     enddo
   enddo
   if ( LOG_OUT ) write(6,'(a)') 'Finish obsense computation'
@@ -1428,9 +1422,10 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
 !!$omp end parallel
 
   deallocate( djdy )
-  deallocate( djdy_3d )
 
 
+  ! All reduce the total impact
+  call MPI_ALLREDUCE( MPI_IN_PLACE, total_impact, nterm, MPI_r_size, MPI_SUM, MPI_COMM_a, ierr ) 
 
   do iof = 1, OBS_IN_NUM
     if ( obs(iof)%nobs == 0 ) cycle
@@ -1456,8 +1451,9 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
     if ( LOG_OUT ) write(6,'(a)') 'Finish constructing obsense_global'
     call MPI_ALLREDUCE( MPI_IN_PLACE, obsense_global, nterm*obs(iof)%nobs, MPI_r_size, MPI_SUM, MPI_COMM_a, ierr ) 
 
-    call MPI_ALLREDUCE( MPI_IN_PLACE, obs_g_qc,  obs(iof)%nobs, MPI_INTEGER, MPI_MAX, MPI_COMM_a, ierr )
-    call MPI_ALLREDUCE( MPI_IN_PLACE, total_impact, nterm, MPI_r_size, MPI_SUM, MPI_COMM_a, ierr ) 
+    ! All reduce QC flag
+    ! Pick up minimum values (MPI_MIN) because the default value was set to 1 (bad obs).
+    call MPI_ALLREDUCE( MPI_IN_PLACE, obs_g_qc,  obs(iof)%nobs, MPI_INTEGER, MPI_MIN, MPI_COMM_a, ierr )
 
     if ( LOG_OUT ) write(6,'(a)') 'Finish MPI comm for obsense_global, QC, and total_impact'
 
