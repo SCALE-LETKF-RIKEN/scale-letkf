@@ -79,6 +79,8 @@ MODULE letkf_obs
   integer, allocatable :: obstyp(:)
   real(r_size), allocatable :: obshdxf(:,:)
   real(r_size), allocatable :: obsdep(:)
+  real(r_size), allocatable :: obsval2(:)
+  real(r_size), allocatable :: obsdlev(:)
 
 
   real(r_size) :: sig_b ! sigma_b for AOEI
@@ -1277,9 +1279,13 @@ subroutine set_efso_obs
     allocate( obshdxf(MEMBER,nobslocal_all) )
   
   !(4) Reading background observation data and analysis ensemble observations
-  
+#ifdef RTTOV
+    allocate( obsval2(nobslocal_all) )
+    allocate( obsdlev(nobslocal_all) )
+    call get_obsdep_efso_mpi( nobslocal_all, obsset, obsidx, obsqc, obsdep, obshdxf, nobslocal_qcok, obsval2=obsval2, obsdlev=obsdlev)
+#else
     call get_obsdep_efso_mpi( nobslocal_all, obsset, obsidx, obsqc, obsdep, obshdxf, nobslocal_qcok )
-
+#endif
   else
 
     nobslocal_qcok = 0
@@ -1317,6 +1323,10 @@ subroutine set_efso_obs
         obsda%idx(i) = obsidx(n)
         obsda%qc (i) = obsqc(n)
         obsda%val(i) = obsdep(n)
+#ifdef RTTOV
+        obsda%lev (i) = obsdlev(n)
+        obsda%val2(i) = obsval2(n)
+#endif
         sprd = 0.0_r_size
         do m = 1, MEMBER
           obsda%ensval(m,i) = obshdxf(m,n)
@@ -1341,6 +1351,10 @@ subroutine set_efso_obs
     deallocate( obsqc  )
     deallocate( obsdep )
     deallocate( obshdxf)
+#ifdef RTTOV
+    deallocate( obsdlev )
+    deallocate( obsval2 )
+#endif
 
   endif
 

@@ -177,6 +177,7 @@ MODULE common_obs_scale
   real(r_size), allocatable, save :: obsdep_omb_emean(:) ! 
  #ifdef RTTOV
   real(r_size), allocatable, save :: obsdep_val2(:) ! cloud amount (CA) of Okamoto et al. (2014) 
+  real(r_size), allocatable, save :: obsdep_dlev(:) ! peak of the weightning function 
  #endif
 
   REAL(r_size),SAVE :: MIN_RADAR_REF
@@ -1648,6 +1649,7 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
     if ( .not. allocated( obsdep_omb_emean) ) allocate( obsdep_omb_emean(obsdep_nobs) )
 #ifdef RTTOV
     if ( .not. allocated( obsdep_val2 ) ) allocate( obsdep_val2(obsdep_nobs ))
+    if ( .not. allocated( obsdep_dlev ) ) allocate( obsdep_dlev(obsdep_nobs ))
 #endif
   end if
 
@@ -1800,6 +1802,7 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
 
 #ifdef RTTOV
       obsdep_val2(n) = obsda_sort%val2(nn)
+      obsdep_dlev(n) = obsda_sort%lev (nn)
 #endif
       if (LOG_LEVEL >= 3) then
         write (6, '(2I6,2F8.2,4F12.4,I3)') &
@@ -3398,6 +3401,8 @@ subroutine write_obs_anal_rank_nc( filename, ya )
   integer :: omb_varid, ombem_varid
   integer :: ya_varid
   integer :: typ_varid
+  integer :: val2_varid
+  integer :: dlev_varid
 
   character(len=*), parameter :: DIM_NAME = "number"
   character(len=*), parameter :: DIM_NAME_MEM = "member"
@@ -3415,6 +3420,8 @@ subroutine write_obs_anal_rank_nc( filename, ya )
   character(len=*), parameter :: TYP_NAME = "typ"
   character(len=*), parameter :: OMB_NAME = "omb"
   character(len=*), parameter :: OMBEM_NAME = "omb_emean"
+  character(len=*), parameter :: VAL2_NAME = "val2"
+  character(len=*), parameter :: DLEV_NAME = "dlev"
 
   character(len=*), parameter :: ELM_LONGNAME = "observation id"
   character(len=*), parameter :: SET_LONGNAME = "observation set"
@@ -3430,6 +3437,8 @@ subroutine write_obs_anal_rank_nc( filename, ya )
   character(len=*), parameter :: TYP_LONGNAME = "observation platform type"
   character(len=*), parameter :: OMB_LONGNAME = "observation-minus-background"
   character(len=*), parameter :: OMBEM_LONGNAME = "observation-minus-background-ensemble-mean"
+  character(len=*), parameter :: VAL2_LONGNAME  = "value 2 (cloud parameter, CA) for Him DA"
+  character(len=*), parameter :: DLEV_LONGNAME  = "obsda lev (derived from the weightning function) for Him DA"
 
   integer :: nobs_l(obsdep_nobs)
   integer :: mem_l(MEMBER)
@@ -3446,6 +3455,10 @@ subroutine write_obs_anal_rank_nc( filename, ya )
   real(r_sngl) :: omb_l(obsdep_nobs)
   real(r_sngl) :: omb_emean_l(obsdep_nobs)
   integer :: typ_l(obsdep_nobs)
+#ifdef RTTOV
+  real(r_sngl) :: val2_l(obsdep_nobs)
+  real(r_sngl) :: dlev_l(obsdep_nobs)
+#endif
 
   do n = 1, obsdep_nobs
     nobs_l(n) = n
@@ -3470,6 +3483,13 @@ subroutine write_obs_anal_rank_nc( filename, ya )
     ya_l(1:MEMBER,n) = real( ya(1:MEMBER,n), r_sngl )
 
     typ_l(n) = int( obs(obsdep_set(n))%typ(obsdep_idx(n)) )
+
+#ifdef RTTOV
+    val2_l(n) = real( obsdep_val2(n), r_sngl )
+
+    dlev_l(n) = real( obsdep_dlev(n),  r_sngl )
+#endif
+
   enddo
 
   do n = 1, MEMBER
@@ -3524,6 +3544,14 @@ subroutine write_obs_anal_rank_nc( filename, ya )
 
   call ncio_check( nf90_put_att(ncid, ya_varid, "long_name", YA_LONGNAME ) )
 
+#ifdef RTTOV
+  call ncio_check( nf90_def_var(ncid, VAL2_NAME, NF90_REAL, dimid, val2_varid) )
+  call ncio_check( nf90_put_att(ncid, val2_varid, "long_name", VAL2_LONGNAME ) )
+
+  call ncio_check( nf90_def_var(ncid, DLEV_NAME, NF90_REAL, dimid, dlev_varid) )
+  call ncio_check( nf90_put_att(ncid, dlev_varid, "long_name", DLEV_LONGNAME ) )
+#endif
+
   ! End define mode.
   call ncio_check( nf90_enddef(ncid) )
 
@@ -3561,6 +3589,13 @@ subroutine write_obs_anal_rank_nc( filename, ya )
 
   call ncio_check( nf90_put_var(ncid, ya_varid, ya_l, start=(/1,1/), &
                    count=(/MEMBER,obsdep_nobs/) ) )
+
+#ifdef RTTOV
+  call ncio_check( nf90_put_var(ncid, val2_varid, val2_l, start=(/1/), &
+                   count=(/obsdep_nobs/) ) )
+  call ncio_check( nf90_put_var(ncid, dlev_varid, dlev_l, start=(/1/), &
+                   count=(/obsdep_nobs/) ) )
+#endif
 
   ! Close the file. 
   call ncio_check( nf90_close(ncid) )
@@ -3601,7 +3636,7 @@ subroutine get_nobs_efso( cfile, nrank, cnt_rank )
   return
 end subroutine get_nobs_efso
 !---------------------------
-subroutine get_obsdep_efso( cfile, nobs_local, set, idx, qc, dep, ya )
+subroutine get_obsdep_efso( cfile, nobs_local, set, idx, qc, dep, ya, val2, dlev )
   use netcdf
   use common_ncio
   implicit none
@@ -3614,12 +3649,16 @@ subroutine get_obsdep_efso( cfile, nobs_local, set, idx, qc, dep, ya )
   integer, intent(out) :: qc(nobs_local)
   real(r_size), intent(out) :: dep(nobs_local)
   real(r_size), intent(out) :: ya(MEMBER,nobs_local)
+  real(r_size), intent(out), optional :: val2(nobs_local)
+  real(r_size), intent(out), optional :: dlev(nobs_local)
   integer :: ncid
 
   integer :: varid_set, varid_idx
   integer :: varid_dep
   integer :: varid_ya
   integer :: varid_qc
+  integer :: varid_val2
+  integer :: varid_dlev
 
   ! Open the file. 
   call ncio_check( nf90_open( trim( cfile ), nf90_nowrite, ncid ) )
@@ -3630,6 +3669,12 @@ subroutine get_obsdep_efso( cfile, nobs_local, set, idx, qc, dep, ya )
   call ncio_check( nf90_inq_varid( ncid, "omb_emean", varid_dep ) )
   call ncio_check( nf90_inq_varid( ncid, "ya", varid_ya ) )
   call ncio_check( nf90_inq_varid( ncid, "qc", varid_qc ) )
+  if ( present(val2) ) then
+    call ncio_check( nf90_inq_varid( ncid, "val2", varid_val2 ) )
+  endif
+  if ( present(dlev) ) then
+    call ncio_check( nf90_inq_varid( ncid, "dlev", varid_dlev ) )
+  endif
 
   ! Read variables
   call ncio_check( nf90_get_var( ncid, varid_set, set, &
@@ -3646,6 +3691,16 @@ subroutine get_obsdep_efso( cfile, nobs_local, set, idx, qc, dep, ya )
 
   call ncio_check( nf90_get_var( ncid, varid_ya, ya, &
                    start=(/1,1/), count=(/MEMBER,nobs_local/) ) )
+                   
+  if ( present(val2) ) then
+    call ncio_check( nf90_get_var( ncid, varid_val2, val2, &
+                     start=(/1/), count=(/nobs_local/) ) )
+  endif
+
+  if ( present(dlev) ) then
+    call ncio_check( nf90_get_var( ncid, varid_dlev, dlev, &
+                     start=(/1/), count=(/nobs_local/) ) )
+  endif
 
   ! Close the file. 
   call ncio_check( nf90_close(ncid) )

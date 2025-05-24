@@ -2814,7 +2814,7 @@ subroutine get_nobs_efso_mpi( nobs, nobs_local, nobs0 )
   return
 end subroutine get_nobs_efso_mpi
 !---------------------------------
-subroutine get_obsdep_efso_mpi( nobslocal, obsset, obsidx, obsqc, obsdep, obshdxf, nobslocal_qcok )
+subroutine get_obsdep_efso_mpi( nobslocal, obsset, obsidx, obsqc, obsdep, obshdxf, nobslocal_qcok, obsval2, obsdlev )
   implicit none
 
   integer, intent(in) :: nobslocal
@@ -2824,6 +2824,10 @@ subroutine get_obsdep_efso_mpi( nobslocal, obsset, obsidx, obsqc, obsdep, obshdx
   real(r_size), intent(out) :: obsdep(nobslocal)
   real(r_size), intent(out) :: obshdxf(MEMBER,nobslocal)
   integer, intent(out) :: nobslocal_qcok
+  ! additional information for HIM obs (cloud parameter)
+  real(r_size), intent(out), optional :: obsval2(nobslocal)
+  ! additional information for HIM obs (observation height derived from the weighting function) 
+  real(r_size), intent(out), optional :: obsdlev(nobslocal)
 
   character(6) :: MYRANK_D6
 
@@ -2840,8 +2844,13 @@ subroutine get_obsdep_efso_mpi( nobslocal, obsset, obsidx, obsqc, obsdep, obshdx
   if ( myrank_e == mmean_rank_e ) then
     write ( MYRANK_D6,'(I6.6)') myrank_d
     if ( LOG_OUT ) print *, trim( OBSANAL_IN_BASENAME ) // MYRANK_D6 // '.nc'
-    call get_obsdep_efso( trim( OBSANAL_IN_BASENAME ) // MYRANK_D6 // '.nc', &
-                          nobslocal, obsset, obsidx, obsqc, obsdep, obshdxf )
+    if ( present( obsval2 ) .and. present( obsdlev ) ) then
+      call get_obsdep_efso( trim( OBSANAL_IN_BASENAME ) // MYRANK_D6 // '.nc', &
+                            nobslocal, obsset, obsidx, obsqc, obsdep, obshdxf, val2=obsval2, dlev=obsdlev )
+    else
+      call get_obsdep_efso( trim( OBSANAL_IN_BASENAME ) // MYRANK_D6 // '.nc', &
+                            nobslocal, obsset, obsidx, obsqc, obsdep, obshdxf )
+    endif
 
     ! count the number of obs with qc=iqc_good
     nobslocal_qcok = 0
@@ -2856,7 +2865,13 @@ subroutine get_obsdep_efso_mpi( nobslocal, obsset, obsidx, obsqc, obsdep, obshdx
   call MPI_BCAST( obsdep, nobslocal, MPI_r_size,  mmean_rank_e, MPI_COMM_e, ierr )
   call MPI_BCAST( obshdxf, nobslocal*MEMBER, MPI_r_size, mmean_rank_e, MPI_COMM_e, ierr )
 
+  if ( present( obsval2 ) .and. present( obsdlev ) ) then
+    call MPI_BCAST( obsval2, nobslocal, MPI_r_size,  mmean_rank_e, MPI_COMM_e, ierr )
+    call MPI_BCAST( obsdlev, nobslocal, MPI_r_size,  mmean_rank_e, MPI_COMM_e, ierr )
+  endif
+
   call MPI_BCAST( nobslocal_qcok, 1, MPI_INTEGER, mmean_rank_e, MPI_COMM_e, ierr )
+
 
   return
 end subroutine get_obsdep_efso_mpi
