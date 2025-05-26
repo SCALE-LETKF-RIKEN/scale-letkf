@@ -841,8 +841,8 @@ while ((time <= ETIME)); do
     if (( loop == 1 && MAKEINIT != 1 )); then
       if (( EFSO_RUN == 1 )); then
         # check RESTART_IN_PATH[$d]/mgue exits or not
-        if [ ! -s "${RESTART_IN_PATH[$d]}/mgue/init_$(datetime_scale $time).pe000000.nc" ]; then
-          ln -s ${RESTART_IN_PATH[$d]}/mean/init_*.nc ${RESTART_IN_PATH[$d]}/mgue/
+        if [ ! -s "${OUTDIR[$d]}/$time/gues/mgue/init_$(datetime_scale $time).pe000000.nc" ]; then
+          ln -s ${OUTDIR[$d]}/$time/anal/mean/init_*.nc ${OUTDIR[$d]}/$time/anal/mgue/
         fi
       fi
     fi
@@ -993,7 +993,7 @@ while ((time <= ETIME)); do
     
     if ((DISK_MODE >= 1)) ;then
 #      GUES_IN_BASENAME="${RESTART_OUT_PATH[$d]}/<member>/gues_$(datetime_scale $atime)"
-      GUES_IN_BASENAME="${RESTART_OUT_PATH[$d]}/<member>/anal_$(datetime_scale $atime)"
+      GUES_IN_BASENAME="${OUTDIR[$d]}/<member>/anal_$(datetime_scale $atime)"
       GUES_MEAN_INOUT_BASENAME="${RESTART_OUT_PATH[$d]}/mean/gues_$(datetime_scale $atime)"
       GUES_SPRD_OUT_BASENAME="${RESTART_OUT_PATH[$d]}/sprd/gues_$(datetime_scale $atime)"
       ANAL_OUT_BASENAME="${RESTART_OUT_PATH[$d]}/<member>/anal_$(datetime_scale $atime)"
@@ -1005,13 +1005,12 @@ while ((time <= ETIME)); do
 #      EFSO_FCST_FROM_ANAL_BASENAME="${HISTORY_EFSO_PATH}/mean/init_$(datetime_scale $atime)"
     else
 #      GUES_IN_BASENAME="${RESTART_OUT_PATH[$d]}/../gues/<member>/init_$(datetime_scale $atime)"
-      GUES_IN_BASENAME="${RESTART_OUT_PATH[$d]}/../anal/<member>/init_$(datetime_scale $atime)"
-      GUES_OUT_BASENAME="${RESTART_OUT_PATH[$d]}/../gues/<member>/init_$(datetime_scale $atime)"
-      GUES_MEAN_INOUT_BASENAME="${RESTART_OUT_PATH[$d]}/../gues/mean/init_$(datetime_scale $atime)"
-      GUES_SPRD_OUT_BASENAME="${RESTART_OUT_PATH[$d]}/../gues/sprd/init_$(datetime_scale $atime)"
+      GUES_IN_BASENAME="${OUTDIR[$d]}/${atime}/anal/<member>/init_$(datetime_scale $atime)"
+      GUES_OUT_BASENAME="${OUTDIR[$d]}/${atime}/gues/<member>/init_$(datetime_scale $atime)"
+      GUES_MEAN_INOUT_BASENAME="${OUTDIR[$d]}/${atime}/gues/mean/init_$(datetime_scale $atime)"
+      GUES_SPRD_OUT_BASENAME="${OUTDIR[$d]}/${atime}/gues/sprd/init_$(datetime_scale $atime)"
       ANAL_OUT_BASENAME="${RESTART_OUT_PATH[$d]}/<member>/init_$(datetime_scale $atime)"
       ANAL_OUT_BASENAME_EFSO="${RESTART_OUT_PATH[$d]}/<member>/init_efso_$(datetime_scale $atime)"
-      GUES_MEAN_INOUT_BASENAME_EFSO="${RESTART_OUT_PATH[$d]}/../gues/mean/init_efso_$(datetime_scale $atime)"
       EFSO_ANAL_IN_BASENAME="${RESTART_OUT_PATH[$d]}/mean/init_$(datetime_scale $atime)"
       if (( DO_ANALYSIS4EFSO == 1 )); then
         EFSO_EFCST_FROM_ANAL_BASENAME="${OUTDIR[$d]}/${time}/fcst/<member>/init_efso_$(datetime_scale $atime)"
@@ -1023,7 +1022,7 @@ while ((time <= ETIME)); do
         EFSO_FCST_FROM_ANAL_BASENAME="${OUTDIR[$d]}/${time}/fcst/mean/init_$(datetime_scale $atime)" 
       fi
 #      EFSO_EFCST_FROM_ANAL_BASENAME="${HISTORY_EFSO_PATH}/<member>/init_$(datetime_scale $atime)"
-      EFSO_PREVIOUS_GUES_BASENAME="${RESTART_OUT_PATH[$d]}/../../${time}/gues/mean/init_$(datetime_scale $time)"
+      EFSO_PREVIOUS_GUES_BASENAME="${OUTDIR[$d]}/${time}/gues/mean/init_$(datetime_scale $time)"
       RESTART_IN_BASENAME_SCALE="${RESTART_OUT_PATH[$d]}/../gues/<member>/init"
     fi
 
@@ -1054,7 +1053,6 @@ while ((time <= ETIME)); do
             -e "/!--GUES_IN_BASENAME--/a GUES_IN_BASENAME = \"${GUES_IN_BASENAME}\"," \
             -e "/!--GUES_OUT_BASENAME--/a GUES_OUT_BASENAME = \"${GUES_OUT_BASENAME}\"," \
             -e "/!--GUES_MEAN_INOUT_BASENAME--/a GUES_MEAN_INOUT_BASENAME = \"${GUES_MEAN_INOUT_BASENAME}\"," \
-            -e "/!--GUES_MEAN_INOUT_BASENAME_EFSO--/a GUES_MEAN_INOUT_BASENAME_EFSO = \"${GUES_MEAN_INOUT_BASENAME_EFSO}\"," \
             -e "/!--GUES_SPRD_OUT_BASENAME--/a GUES_SPRD_OUT_BASENAME = \"${GUES_SPRD_OUT_BASENAME}\"," \
             -e "/!--GUES_SPRD_OUT--/a GUES_SPRD_OUT = ${SPRD_OUT_TF}," \
             -e "/!--ANAL_OUT_BASENAME--/a ANAL_OUT_BASENAME = \"${ANAL_OUT_BASENAME}\"," \
@@ -1314,12 +1312,12 @@ config_file_scale_core (){
         if ((DISK_MODE >= 1)) ;then
           RESTART_IN_BASENAME[$d]="${RESTART_IN_PATH[$d]}/mean/gues"
         else
-          RESTART_IN_BASENAME[$d]="${RESTART_IN_PATH[$d]}/../../${time}/gues/mean/init"
+          RESTART_IN_BASENAME[$d]="${OUTDIR[$d]}/$time/gues/mean/init"
         fi
-        RESTART_OUT_BASENAME[$d]="${RESTART_IN_PATH[$d]}/../../${time}/fcst/mgue/init"
-        mkdir -p "${RESTART_IN_PATH[$d]}/../../${time}/fcst/mgue"
+        RESTART_OUT_BASENAME[$d]="${OUTDIR[$d]}/$time/fcst/mgue/init"
+        mkdir -p "${OUTDIR[$d]}/$time/fcst/mgue"
         for m in $(seq 1 $mtot); do
-          mkdir -p "${RESTART_IN_PATH[$d]}/../../${time}/fcst/${name_m[$m]}"
+          mkdir -p "${OUTDIR[$d]}/$time/fcst/${name_m[$m]}"
         done
         
         #"${RESTART_IN_BASENAME[$d]}"
@@ -1391,12 +1389,18 @@ config_file_scale_core (){
 
       if (( EFSO_RUN == 1 && DO_ANALYSIS4EFSO == 1 )); then
         conf_file4efso="$TMPS/${name_m[$mlocal]}/efso_run.d${dfmt}_${time}.conf"
-        RESTART_OUT_BASENAME_EFSO="${RESTART_OUT_PATH[$d]}/../../${time}/fcst/${name_m[$mlocal]}/init_efso"
+        RESTART_OUT_BASENAME_EFSO="${OUTDIR[$d]}/${time}/fcst/${name_m[$mlocal]}/init_efso"
+
+        if [ "${name_m[$m]}" == 'mgue' ] ; then
+          RESTART_IN_BASENAME_EFSO="${RESTART_IN_BASENAME[$d]}"
+        else
+          RESTART_IN_BASENAME_EFSO="${RESTART_IN_BASENAME[$d]}_efso"
+        fi
 
         sed \
           -e "/^TIME_DURATION[[:space:]]*=/c TIME_DURATION = ${EFSO_FCST_LENGTH}.D0," \
           -e "/^FILE_HISTORY_DEFAULT_BASENAME[[:space:]]*=/c FILE_HISTORY_DEFAULT_BASENAME = \"${HISTORY_PATH[$d]}/${name_m[$mlocal]}/efso_history\"," \
-          -e "/^RESTART_IN_BASENAME[[:space:]]*=/c RESTART_IN_BASENAME = \"${RESTART_IN_BASENAME[$d]}_efso\"," \
+          -e "/^RESTART_IN_BASENAME[[:space:]]*=/c RESTART_IN_BASENAME = \"${RESTART_IN_BASENAME_EFSO}\"," \
           -e "/^RESTART_OUT_BASENAME[[:space:]]*=/c RESTART_OUT_BASENAME = \"${RESTART_OUT_BASENAME_EFSO}\"," \
           "$conf_file" > "$conf_file4efso"
 

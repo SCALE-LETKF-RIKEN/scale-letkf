@@ -1534,12 +1534,6 @@ subroutine write_ens_mpi(v3d, v2d, monit_step, v3d_efso, v2d_efso)
         endif
         call write_restart(filename_efso, v3dg_efso, v2dg_efso)
 
-        if ( im == mmean ) then
-          ! prepare restart files for a dummy forecast from the ensemble-mean guess
-          filename_efso = trim(GUES_MEAN_INOUT_BASENAME_EFSO)
-          call copy_scale_file(filename, filename_efso)
-          call write_restart(filename_efso, v3dg_efso, v2dg_efso)
-        endif
       endif
 
 
@@ -1581,9 +1575,6 @@ subroutine write_ens_mpi(v3d, v2d, monit_step, v3d_efso, v2d_efso)
         do m = 1, MEMBER
           ya_local(m,n) = ya_local(m,n) - ya_mean(n)
         enddo
-        ! if ( maxval(abs(ya_local(1:MEMBER,n))) > 1.e10_r_size ) then ! debug
-        !   write(6,'(a,e20.10)') 'Large_ya_local: ', maxval(abs(ya_local(1:MEMBER,n)))
-        ! endif
       enddo
       deallocate( ya_mean )
 
