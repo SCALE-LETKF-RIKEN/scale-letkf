@@ -1300,22 +1300,25 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
   allocate( dep(1:nobstotal)   )
   allocate( vobsidx_l(1:nobstotal) )
   allocate( work1(nterm,MEMBER))
-!--- For ILEV = 1 - NLEV
-!!$omp parallel private(ij,ilev,iv3d,iv2d,hdxf,nrdiag,nrloc,dep,nobsl,iterm,m,nob,iob)
-!!$omp do schedule(dynamic)
 
 
   if ( LOG_OUT ) write(6,'(a)') 'Calculate localization advection'
 
+!$omp parallel private(ilev,ij)
+!$omp do
   do ilev = 1, nlev
     do ij = 1, nij1
       dri_adv(ij,ilev) = -0.5_r_size * ( gues3d(ij,ilev,iv3d_u) + uwind_a(ij,ilev) ) * EFSO_FCST_LENGTH / DX * EFSO_LOC_ADV_RATE
       drj_adv(ij,ilev) = -0.5_r_size * ( gues3d(ij,ilev,iv3d_v) + vwind_a(ij,ilev) ) * EFSO_FCST_LENGTH / DY * EFSO_LOC_ADV_RATE
     enddo
   enddo
+!$omp end do
+!$omp end parallel
 
   if ( LOG_OUT ) write(6,'(a)') 'Start dj/dy computation'
 
+!$omp parallel private(ij,ilev,iv3d,iv2d,hdxf,nrdiag,nrloc,dep,nobsl,iterm,m,nob,iob,hdxa_rinv,work1,vobsidx_l)
+!$omp do schedule(dynamic)
   do ilev = 1, nlev
     do ij = 1, nij1
 
@@ -1393,8 +1396,8 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
       endif
     enddo ! ij
   enddo   ! ilev
-!!$omp end do
-!!$omp end parallel
+!$omp end do
+!$omp end parallel
   deallocate( hdxf )
   deallocate( nrdiag )
   deallocate( nrloc )
@@ -1409,17 +1412,17 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
   !
   allocate( obsense(nterm,nobstotal) )
   obsense(:,:) = 0.0_r_size
-!!$omp parallel private(nob)
-!!$omp do
+!$omp parallel private(nob,iterm)
+!$omp do
   do nob = 1, nobstotal
     do iterm = 1, nterm
       obsense(iterm,nob) = 0.5_r_size * djdy(iterm,nob) * obsda_sort%val(nob) / real( MEMBER-1, r_size )
     enddo
   enddo
+!$omp end do
+!$omp end parallel
   if ( LOG_OUT ) write(6,'(a)') 'Finish obsense computation'
   !!! obsense: delta e^{f-g}_t = [1/2(K-1)][y_o-H(xmean^b_0)]^T*rho*R^(-1)*Y^a_0*(X^f_t)^T*C*(e^f_t+e^g_t)
-!!$omp end do
-!!$omp end parallel
 
   deallocate( djdy )
 
@@ -1438,6 +1441,8 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
     if ( LOG_OUT ) write(6,'(a,i6)') 'init_obsense for file index', iof
 
     if ( nobstotal > 0 ) then
+!$omp parallel private(nob,set,iob)
+!$omp do
       do nob = 1, nobstotal
         set = obsda_sort%set(nob) ! set (file) index for obsevations
         if ( set /= iof ) cycle
@@ -1446,6 +1451,8 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
         obsense_global(:,iob) = obsense(:,nob)
         obs_g_qc (iob) = obsda_sort%qc (nob)
       end do
+!$omp end do
+!$omp end parallel
     endif
 
     if ( LOG_OUT ) write(6,'(a)') 'Finish constructing obsense_global'
@@ -1471,8 +1478,6 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
     call destroy_obsense
 
   enddo
-
-  ! endif ! [ myrank_e == 0 ]
 
   deallocate( obsense )
 
