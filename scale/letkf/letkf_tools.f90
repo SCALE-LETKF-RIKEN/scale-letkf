@@ -1243,6 +1243,7 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
   integer :: iob
 
   integer, allocatable :: obs_g_qc (:)
+  real(r_size), allocatable :: obs_g_val2(:)
 
   integer :: iof, set
 
@@ -1436,6 +1437,13 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
 
     obs_g_qc  = 1
 
+#ifdef RTTOV
+    if ( OBS_IN_FORMAT(iof) == obsfmt_HIM ) then
+      allocate( obs_g_val2(obs(iof)%nobs) )
+      obs_g_val2 = 0.0_r_size
+    endif
+#endif
+
     call init_obsense( obs(iof)%nobs )
     if ( LOG_OUT ) write(6,'(a,i6)') 'init_obsense for file index', iof
 
@@ -1449,6 +1457,12 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
         iob = obsda_sort%idx(nob) ! global index for obsevations
         obsense_global(:,iob) = obsense(:,nob)
         obs_g_qc (iob) = obsda_sort%qc (nob)
+#ifdef RTTOV
+        if ( OBS_IN_FORMAT(iof) == obsfmt_HIM ) then
+          obs_g_val2(iob) = obsda_sort%val2(nob)
+        endif
+#endif
+
       end do
 !$omp end do
 !$omp end parallel
@@ -1461,13 +1475,21 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
     ! Pick up minimum values (MPI_MIN) because the default value was set to 1 (bad obs).
     call MPI_ALLREDUCE( MPI_IN_PLACE, obs_g_qc,  obs(iof)%nobs, MPI_INTEGER, MPI_MIN, MPI_COMM_a, ierr )
 
+    if ( allocated( obs_g_val2 ) ) then
+      call MPI_ALLREDUCE( MPI_IN_PLACE, obs_g_val2,  obs(iof)%nobs, MPI_r_size, MPI_MAX, MPI_COMM_a, ierr )
+    endif
+
     if ( LOG_OUT ) write(6,'(a)') 'Finish MPI comm for obsense_global, QC, and total_impact'
 
     ! write out observation sensitivity
     if ( myrank_a == 0 ) then
       if ( LOG_OUT ) write(6,'(a)') 'Write obsense_global'
-      
-      call write_efso_nc(trim( EFSO_OUTPUT_NC_BASENAME ) // '_' // trim(OBS_IN_FORMAT(iof)) // '.nc', obs(iof)%nobs, iof, obs_g_qc, obsense_global, total_impact )
+      if ( allocated(obs_g_val2 ) ) then
+        call write_efso_nc(trim( EFSO_OUTPUT_NC_BASENAME ) // '_' // trim(OBS_IN_FORMAT(iof)) // '.nc', obs(iof)%nobs, iof, obs_g_qc, obsense_global, total_impact, val2=obs_g_val2 )
+      else
+        call write_efso_nc(trim( EFSO_OUTPUT_NC_BASENAME ) // '_' // trim(OBS_IN_FORMAT(iof)) // '.nc', obs(iof)%nobs, iof, obs_g_qc, obsense_global, total_impact )
+      endif
+
       call print_obsense(obs(iof)%nobs, iof, obs_g_qc, obsense_global, total_impact, print_dry=.true. )
       call print_obsense(obs(iof)%nobs, iof, obs_g_qc, obsense_global, total_impact, print_dry=.false. )
     endif
