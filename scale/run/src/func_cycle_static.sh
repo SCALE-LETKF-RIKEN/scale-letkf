@@ -972,16 +972,16 @@ while ((time <= ETIME)); do
       OBSDEP_OUT_TF=".true."
       OBSDEP_OUT_BASENAME="${OUTDIR[$d]}/obsdep/obsdep_${atime}"
     fi
-    OBSDEP_IN_BASENAME="${OUTDIR[$d]}/obsdep/obsdep_${time}" # EFSO
+    OBSDEP_IN_BASENAME="${OUTDIR[$d]}/obsdep/obsdep_${time_efso}" # EFSO
     DEPARTURE_STAT_OUT_BASENAME="${OUTDIR[$d]}/score/score_${atime}"
     OBSNUM_OUT_NC_BASENAME="${OUTDIR[$d]}/score/obsnum_${atime}"
-    OBSANAL_IN_BASENAME="${OUTDIR[$d]}/${time}/aobs/obsanal_rank"
+    OBSANAL_IN_BASENAME="${OUTDIR[$d]}/${time_efso}/aobs/obsanal_rank"
     OBSANAL_OUT_BASENAME="${OUTDIR[$d]}/${atime}/aobs/obsanal_rank"
 
     if ((EFSO_RUN==1));then
       OBSDEP_OUT_NC_TF=".true."
       OBSANAL_OUT_TF=".true."
-      EFSO_OUTPUT_NC_BASENAME="${OUTDIR[$d]}/obsdep/efso_${time}" 
+      EFSO_OUTPUT_NC_BASENAME="${OUTDIR[$d]}/obsdep/efso_${time_efso}" 
 
       rm -rf ${OUTDIR[$d]}/${time}/aobs 
       rm -rf ${OUTDIR[$d]}/${atime}/aobs
@@ -998,7 +998,7 @@ while ((time <= ETIME)); do
       GUES_SPRD_OUT_BASENAME="${RESTART_OUT_PATH[$d]}/sprd/gues_$(datetime_scale $atime)"
       ANAL_OUT_BASENAME="${RESTART_OUT_PATH[$d]}/<member>/anal_$(datetime_scale $atime)"
       EFSO_ANAL_IN_BASENAME="${RESTART_OUT_PATH[$d]}/mean/anal_$(datetime_scale $atime)"
-      EFSO_PREVIOUS_GUES_BASENAME="${RESTART_OUT_PATH[$d]}/mean/anal_$(datetime_scale $time)"
+      EFSO_PREVIOUS_GUES_BASENAME="${RESTART_OUT_PATH[$d]}/mean/anal_$(datetime_scale $time_efso)"
 
       RESTART_IN_BASENAME_SCALE="${RESTART_OUT_PATH[$d]}/<member>/gues"
 #      EFSO_FCST_FROM_GUES_BASENAME="${HISTORY_EFSO_PATH}/mgue/init_$(datetime_scale $atime)"
@@ -1013,16 +1013,16 @@ while ((time <= ETIME)); do
       ANAL_OUT_BASENAME_EFSO="${RESTART_OUT_PATH[$d]}/<member>/init_efso_$(datetime_scale $atime)"
       EFSO_ANAL_IN_BASENAME="${RESTART_OUT_PATH[$d]}/mean/init_$(datetime_scale $atime)"
       if (( DO_ANALYSIS4EFSO == 1 )); then
-        EFSO_EFCST_FROM_ANAL_BASENAME="${OUTDIR[$d]}/${time}/fcst/<member>/init_efso_$(datetime_scale $atime)"
-        EFSO_FCST_FROM_GUES_BASENAME="${OUTDIR[$d]}/${time}/fcst/mgue/init_efso_$(datetime_scale $atime)" 
-        EFSO_FCST_FROM_ANAL_BASENAME="${OUTDIR[$d]}/${time}/fcst/mean/init_efso_$(datetime_scale $atime)" 
+        EFSO_EFCST_FROM_ANAL_BASENAME="${OUTDIR[$d]}/${time_efso}/fcst/<member>/init_efso_$(datetime_scale $atime)"
+        EFSO_FCST_FROM_GUES_BASENAME="${OUTDIR[$d]}/${time_efso}/fcst/mgue/init_efso_$(datetime_scale $atime)" 
+        EFSO_FCST_FROM_ANAL_BASENAME="${OUTDIR[$d]}/${time_efso}/fcst/mean/init_efso_$(datetime_scale $atime)" 
       else
-        EFSO_EFCST_FROM_ANAL_BASENAME="${OUTDIR[$d]}/${time}/fcst/<member>/init_$(datetime_scale $atime)"
-        EFSO_FCST_FROM_GUES_BASENAME="${OUTDIR[$d]}/${time}/fcst/mgue/init_$(datetime_scale $atime)" 
-        EFSO_FCST_FROM_ANAL_BASENAME="${OUTDIR[$d]}/${time}/fcst/mean/init_$(datetime_scale $atime)" 
+        EFSO_EFCST_FROM_ANAL_BASENAME="${OUTDIR[$d]}/${time_efso}/fcst/<member>/init_$(datetime_scale $atime)"
+        EFSO_FCST_FROM_GUES_BASENAME="${OUTDIR[$d]}/${time_efso}/fcst/mgue/init_$(datetime_scale $atime)" 
+        EFSO_FCST_FROM_ANAL_BASENAME="${OUTDIR[$d]}/${time_efso}/fcst/mean/init_$(datetime_scale $atime)" 
       fi
 #      EFSO_EFCST_FROM_ANAL_BASENAME="${HISTORY_EFSO_PATH}/<member>/init_$(datetime_scale $atime)"
-      EFSO_PREVIOUS_GUES_BASENAME="${OUTDIR[$d]}/${time}/gues/mean/init_$(datetime_scale $time)"
+      EFSO_PREVIOUS_GUES_BASENAME="${OUTDIR[$d]}/${time_efso}/gues/mean/init_$(datetime_scale $time_efso)"
       RESTART_IN_BASENAME_SCALE="${RESTART_OUT_PATH[$d]}/../gues/<member>/init"
     fi
 
