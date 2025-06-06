@@ -3334,7 +3334,9 @@ subroutine write_obs_anal_rank_nc( filename, ya )
 
   do n = 1, obsdep_nobs
     nobs_l(n) = n
-    qc_l(n) = int(obsda_sort%qc(n))
+
+    ! These observations have passed QC in LETKF.
+    qc_l(n) = iqc_good ! int(obsda_sort%qc(n))
  
     set_l(n) = int( obsdep_set(n) )
     idx_l(n) = int( obsdep_idx(n) )
