@@ -842,7 +842,7 @@ while ((time <= ETIME)); do
       if (( EFSO_RUN == 1 )); then
         # check RESTART_IN_PATH[$d]/mgue exits or not
         if [ ! -s "${OUTDIR[$d]}/$time/gues/mgue/init_$(datetime_scale $time).pe000000.nc" ]; then
-          ln -s ${OUTDIR[$d]}/$time/anal/mean/init_*.nc ${OUTDIR[$d]}/$time/anal/mgue/
+          ln -sf ${OUTDIR[$d]}/$time/anal/mean/init_*.nc ${OUTDIR[$d]}/$time/anal/mgue/
         fi
       fi
     fi
@@ -983,7 +983,6 @@ while ((time <= ETIME)); do
       OBSANAL_OUT_TF=".true."
       EFSO_OUTPUT_NC_BASENAME="${OUTDIR[$d]}/obsdep/efso_${time_efso}" 
 
-      rm -rf ${OUTDIR[$d]}/${time}/aobs 
       rm -rf ${OUTDIR[$d]}/${atime}/aobs
 
       mkdir -p ${OUTDIR[$d]}/${time}/aobs 
