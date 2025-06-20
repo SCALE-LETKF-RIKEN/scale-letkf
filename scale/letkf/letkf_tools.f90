@@ -298,7 +298,9 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
 
   call mpi_timer('das_letkf:allocation_shared_vars:', 2)
 
-!$OMP PARALLEL PRIVATE(ilev,ij,n,m,k,hdxf,rdiag,rloc,dep,depd,nobsl,nobsl_t,cutd_t,parm,beta,n2n,n2nc,trans,transm,transmd,transrlx,pa,trans_done,tmpinfl,q_mean,q_sprd,q_anal,timer_str,trans_efso,transm_dummy,transrlx_efso)
+!$OMP PARALLEL PRIVATE(ilev,ij,n,m,k,hdxf,rdiag,rloc,dep,depd,nobsl,nobsl_t,cutd_t,&
+!$OMP & parm,beta,n2n,n2nc,trans,transm,transmd,transrlx,pa,trans_done,tmpinfl,&
+!$OMP & q_mean,q_sprd,q_anal,timer_str,trans_efso,transm_dummy,transrlx_efso,infl_dummy)
   allocate (hdxf (nobstotal,MEMBER))
   allocate (rdiag(nobstotal))
   allocate (rloc (nobstotal))
@@ -355,7 +357,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
             do m = 1, MEMBER
               anal3d_efso(ij,ilev,m,n) = gues3d(ij,ilev,mmean,n) + gues3d(ij,ilev,m,n)
             end do
-            if (DET_RUN) then
+            if ( DET_RUN ) then
               anal3d_efso(ij,ilev,mmdet,n) = gues3d(ij,ilev,mmdet,n)
             end if  
           end do
@@ -393,7 +395,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
             do m = 1, MEMBER                                                            
               anal3d_efso(ij,ilev,m,n) = gues3d(ij,ilev,mmean,n) + gues3d(ij,ilev,m,n)        
             end do                 
-            if (DET_RUN) then                                                            
+            if ( DET_RUN ) then                                                            
               anal3d_efso(ij,ilev,mmdet,n) = gues3d(ij,ilev,mmdet,n)                          
             end if                                                                       
           endif ! [ DO_ANALYSIS4EFSO = T ]
@@ -556,8 +558,10 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
                                   + gues3d(ij,ilev,k,n) * transrlx_efso(k,m)                 
             enddo  
           enddo
-          ! deterministic member's analysis is not used in EFSO
-          anal3d_efso(ij,ilev,mmdet,n) = anal3d(ij,ilev,mmdet,n)
+          if ( DET_RUN ) then
+            ! deterministic member's analysis is not used in EFSO
+            anal3d_efso(ij,ilev,mmdet,n) = anal3d(ij,ilev,mmdet,n)
+          endif
 
         endif ! [ DO_ANALYSIS4EFSO = T ]
 
@@ -707,7 +711,9 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
                                     + gues2d(ij,k,n) * transrlx_efso(k,m)                 
               enddo  
             enddo
-            anal2d_efso(ij,mmdet,n) = anal2d(ij,mmdet,n)
+            if ( DET_RUN ) then
+              anal2d_efso(ij,mmdet,n) = anal2d(ij,mmdet,n)
+            endif
 
           endif ! [ DO_ANALYSIS4EFSO = T ]
 
