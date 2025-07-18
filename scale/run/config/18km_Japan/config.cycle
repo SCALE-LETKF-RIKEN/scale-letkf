@@ -8,6 +8,8 @@
 
 STIME='20220101000000'
 ETIME='20220101060000'
+# STIME='20250621000000'
+# ETIME='20250621060000'
 TIME_LIMIT='00:30:00'
 
 
@@ -24,10 +26,14 @@ ADAPTINFL=0      # Adaptive inflation
                  #  1: ON
 
 #===============================================================================
+
 EFSO_RUN=0              # 0: Disable EFSO
                         # 1: Enable EFSO
 
 EFSO_FCST_LENGTH=21600
+DO_ANALYSIS4EFSO=1 # 0: Use LETKF anaysis (w/ inflation) and ensemble forecast for EFSO
+                   # 1: Do additional LETKF analysis (w/o inflation) and ensemble forecast for EFSO
+                   # DO_ANALYSIS4EFSO=1 is only available with INFL_MUL=1.0 in config.nml.letkf
 
 #===============================================================================
 

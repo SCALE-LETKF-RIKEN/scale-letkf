@@ -226,6 +226,47 @@ EOF
   job_end_check_PJM $jobid
   res=$?
 
+elif [ "$PRESET" = 'FX1000' ]; then
+
+  if [ -z "$RSCGRP" ]; then
+    RSCGRP="regular-o"
+  fi
+
+
+cat > $jobscrp << EOF
+#!/bin/bash 
+#
+#PJM -L "rscgrp=${RSCGRP}"
+#PJM -L "node=${NNODES}"
+#PJM --mpi proc=$((NNODES*PPN))
+#PJM -L "elapse=${TIME_LIMIT}"
+#PJM -g ${GROUP} 
+#PJM -j
+#PJM -S
+
+export OMP_NUM_THREADS=${THREADS}
+export FORT90L=-Wl,-T
+
+module load fj
+module load hdf5
+module load netcdf
+module load netcdf-fortran
+module load pnetcdf
+
+./${job}.sh "$STIME" "$ETIME" "$ISTEP" "$FSTEP" "$CONF_MODE" || exit \$?
+
+EOF
+
+  echo "[$(datetime_now)] Run ${job} job on PJM"
+  echo
+
+  job_submit_PJM $jobscrp
+  echo
+  
+  job_end_check_PJM $jobid
+  res=$?
+
+
 # qsub
 elif [ "$PRESET" = 'Linux_torque' ]; then
 

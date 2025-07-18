@@ -38,6 +38,8 @@ elif [ "$PRESET" = 'Linux_torque' ]; then
   NODELIST_TYPE='machinefile'
 elif [ "$PRESET" = 'FUGAKU' ]; then
   :
+elif [ "$PRESET" = 'FX1000' ]; then
+  :
 else
   echo "[Error] Preset '$PRESET' not found" 1>&2
   exit 1
@@ -53,6 +55,8 @@ else
   USE_LLIO_BIN=0
   USE_LLIO_DAT=0
   USE_LLIO_TMP=0
+  HIST_LLIO_TMP=0
+  BDY_LLIO_TMP=0
 fi
 
 #===============================================================================

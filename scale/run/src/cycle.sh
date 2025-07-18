@@ -367,7 +367,7 @@ while ((time <= ETIME)); do
       fi
 
       logd_org=${logd}
-      if [ "$PRESET" = 'FUGAKU' ] ; then
+      if [ "$PRESET" = 'FUGAKU' ] || [ "$PRESET" = 'FX1000' ] ; then
         logd=${logd}/%/200r
       fi
 

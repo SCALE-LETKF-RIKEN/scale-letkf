@@ -212,6 +212,15 @@ elif [ "$PRESET" == 'FUGAKU' ]; then
     exit $res
   fi
 
+elif [ "$PRESET" == 'FX1000' ]; then
+
+  mpiexec -std-proc $STDOUT -n $((NNODES*PPN)) $PROG $CONF $ARGS
+  res=$?
+  if ((res != 0)); then
+    echo "[Error] mpiexec  -std-proc $STDOUT -n $((NNODES*PPN)) $PROG $CONF $ARGS" >&2
+    echo "        Exit code: $res" >&2
+    exit $res
+  fi
 
 fi
 
