@@ -107,11 +107,10 @@ subroutine das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
 
   character(len=timer_name_width) :: timer_str
 
-  real(r_size), allocatable :: trans_efso(:,:,:)
-  real(r_size), allocatable :: transm_dummy(:)
+  real(r_size), allocatable :: trans_efso(:,:)
 
   real(r_size) :: transrlx_efso(MEMBER,MEMBER)
-  real(r_size) :: infl_dummy = 1.0_r_size
+  real(r_size) :: infl_dummy
 
 
   call mpi_timer('', 2)
@@ -299,7 +298,7 @@ subroutine das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
 
 !$omp parallel private(ilev,ij,n,m,k,hdxf,rdiag,rloc,dep,depd,nobsl,nobsl_t,cutd_t,&
 !$omp & parm,beta,n2n,n2nc,trans,transm,transmd,transrlx,pa,trans_done,tmpinfl,&
-!$omp & q_mean,q_sprd,q_anal,timer_str,trans_efso,transm_dummy,transrlx_efso,infl_dummy)
+!$omp & q_mean,q_sprd,q_anal,timer_str,trans_efso,transrlx_efso,infl_dummy)
   allocate(hdxf (nobstotal,MEMBER))
   allocate(rdiag(nobstotal))
   allocate(rloc (nobstotal))
@@ -311,8 +310,7 @@ subroutine das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
   allocate(pa     (MEMBER,MEMBER,var_local_n2nc_max))
 
   if ( DO_ANALYSIS4EFSO ) then
-    allocate(trans_efso  (MEMBER,MEMBER,var_local_n2nc_max))
-    allocate(transm_dummy(MEMBER))
+    allocate(trans_efso(MEMBER,MEMBER))
   endif
 
   !
@@ -439,14 +437,15 @@ subroutine das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
           end if                                                                       
 
           if ( DO_ANALYSIS4EFSO ) then
-            if ( work3d(ij,ilev,n) == 1.0_r_size ) then
+            if ( INFL_MUL == 1.0_r_size ) then
               ! Copy the weights from LETKF to EFSO if no multiplicative inflation
-              trans_efso(:,:,n2nc) = trans(:,:,n2nc)
+              trans_efso(:,:) = trans(:,:,n2nc)
             else
               ! Run LETKF without multiplicative inflation
+              infl_dummy = 1.0_r_size
               call letkf_core(MEMBER,nobstotal,nobsl,hdxf,rdiag,rloc,dep,infl_dummy, & 
-                              trans_efso(:,:,n2nc),transm=transm_dummy(:),           &
-                              rdiag_wloc=.true.)         
+                              trans_efso(:,:), &
+                              rdiag_wloc=.true.,infl_update=.false.)         
             
             endif 
           endif ! [ DO_ANALYSIS4EFSO = T ]
@@ -522,7 +521,7 @@ subroutine das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
           ! total weight matrix for EFSO's analysis 
           do m = 1, MEMBER                                                                  
             do k = 1, MEMBER                                                              
-              transrlx_efso(k,m) = ( trans_efso(k,m,n2nc) + transm(k,n2nc) ) * beta                   
+              transrlx_efso(k,m) = ( trans_efso(k,m) + transm(k,n2nc) ) * beta                   
             enddo                                                                       
             transrlx_efso(m,m) = transrlx_efso(m,m) + ( 1.0_r_size - beta )                                 
           enddo               
@@ -598,14 +597,15 @@ subroutine das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
     endif
 
     if ( DO_ANALYSIS4EFSO ) then
-      if ( work2d(ij,n) == 1.0_r_size ) then
+      if ( INFL_MUL == 1.0_r_size ) then
         ! Copy the weights from LETKF to EFSO if no multiplicative inflation
-        trans_efso(:,:,n2nc) = trans(:,:,n2nc)
+        trans_efso(:,:) = trans(:,:,n2nc)
       else
         ! Run LETKF without multiplicative inflation
+        infl_dummy = 1.0_r_size
         call letkf_core(MEMBER,nobstotal,nobsl,hdxf,rdiag,rloc,dep,infl_dummy, & 
-                        trans_efso(:,:,n2nc),transm=transm_dummy(:),           &
-                        rdiag_wloc=.true.)         
+                        trans_efso(:,:), &
+                        rdiag_wloc=.true.,infl_update=.false.)         
       
       endif 
     endif ! [ DO_ANALYSIS4EFSO = T ]
@@ -661,7 +661,7 @@ subroutine das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
       ! total weight matrix for EFSO's analysis 
       do m = 1, MEMBER                                                                  
         do k = 1, MEMBER                                                              
-          transrlx_efso(k,m) = ( trans_efso(k,m,n2nc) + transm(k,n2nc) ) * beta                   
+          transrlx_efso(k,m) = ( trans_efso(k,m) + transm(k,n2nc) ) * beta                   
         end do                                                                       
         transrlx_efso(m,m) = transrlx_efso(m,m) + ( 1.0_r_size - beta )                                 
       end do               
@@ -689,7 +689,6 @@ subroutine das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
   deallocate(trans,transm,transmd,pa)
   if ( DO_ANALYSIS4EFSO ) then
     deallocate( trans_efso )
-    deallocate( transm_dummy )
   endif
 !$omp END parallel
 
