@@ -567,10 +567,10 @@ subroutine das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
         ! if weights already computed for other variables can be re-used(no variable localization), do not need to compute again
         if (n2n <= nv3d) then
           if (INFL_MUL_ADAPTIVE) then
-            work2d(ij,n) = work3d(ij,ilev,n2n)
+            work2d(ij,n) = work3d(ij,1,n2n)
           end if
           if (NOBS_OUT) then
-            work2dn(:,ij,n) = work3dn(:,ij,ilev,n2n)
+            work2dn(:,ij,n) = work3dn(:,ij,1,n2n)
           end if
         else
           if (INFL_MUL_ADAPTIVE) then
@@ -584,7 +584,7 @@ subroutine das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
       else
 
         ! compute weights with localized observations
-        call obs_local(rig1(ij),rjg1(ij),gues3d(ij,ilev,mmean,iv3d_p),hgt1(ij,ilev),nv3d+n,hdxf,rdiag,rloc,dep,nobsl,depd=depd,nobsl_t=nobsl_t,cutd_t=cutd_t,srch_q0=search_q0(:,nv3d+1,ij,ilev))
+        call obs_local(rig1(ij),rjg1(ij),gues3d(ij,1,mmean,iv3d_p),hgt1(ij,1),nv3d+n,hdxf,rdiag,rloc,dep,nobsl,depd=depd,nobsl_t=nobsl_t,cutd_t=cutd_t,srch_q0=search_q0(:,nv3d+1,ij,1))
 
         call letkf_core(MEMBER,nobstotal,nobsl,hdxf,rdiag,rloc,dep,work2d(ij,n), & 
                         trans(:,:,n2nc),transm=transm(:,n2nc),pao=pa(:,:,n2nc), & 
