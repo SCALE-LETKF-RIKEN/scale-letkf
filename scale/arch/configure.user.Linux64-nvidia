@@ -1,0 +1,35 @@
+# Version flags
+SCALE_USER_VER = T
+
+# Precision of LETKF
+LETKF_SINGLE_FP = F
+
+# Precision of eigenvalue decomposition
+SINGLE_EVP = F
+
+# MP-PAWR decoder
+
+USE_PAWR_DECODER = F
+
+ENABLE_SAITAMA_MPW = F
+
+
+# Libraries
+#-----------------
+
+LAPACK_LIB = -llapack -lblas -cudalib=cublas,cusolver,cusparse
+
+USE_MTX_KEVD = F
+KEVD_LIB = 
+
+#BUFR_LIB   = -L/data/opt/bufrlib/10.1.0_intel/lib -lbufrlib
+
+
+# Compiler flags
+#-----------------
+
+FOPTS_SCALE = $(FFLAGS) $(ADDITIONAL_FFLAGS)
+
+FOPTS     = $(FOPTS_SCALE)
+
+
