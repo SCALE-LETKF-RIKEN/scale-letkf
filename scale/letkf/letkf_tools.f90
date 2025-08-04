@@ -112,6 +112,8 @@ subroutine das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
   real(r_size) :: transrlx_efso(MEMBER,MEMBER)
   real(r_size) :: infl_dummy
 
+  integer :: nobslmax !!! public
+  integer :: nobslin  !!! private
 
   call mpi_timer('', 2)
 
@@ -200,6 +202,22 @@ subroutine das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
     end if ! [ n_merge(ic) > 0 ]
   end do ! [ ic = 1, nctype ]
   n_merge_max = maxval(n_merge)
+  !
+  ! Determine allocation size for obs_local
+  !
+  if (maxval(MAX_NOBS_PER_GRID(:)) > 0) then
+    nobslmax = 0
+    do ic = 1, nctype
+    write(6,*) ic,typ_ctype(ic),MAX_NOBS_PER_GRID(typ_ctype(ic))
+    if (MAX_NOBS_PER_GRID(typ_ctype(ic)) > 0 .and. n_merge(ic) > 0) then
+        nobslmax = nobslmax + MAX_NOBS_PER_GRID(typ_ctype(ic))
+      end if
+    end do
+    WRITE(6,'(A,I8)') 'Max observation numbers assimilated at a grid: NOBS=',nobslmax
+  else
+    nobslmax = -1
+  end if
+
 
   allocate(search_q0(nctype,nv3d+1,nij1,nlev))
   search_q0(:,:,:,:) = 1
@@ -296,14 +314,16 @@ subroutine das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
 
   call mpi_timer('das_letkf:allocation_shared_vars:', 2)
 
-!$omp parallel private(ilev,ij,n,m,k,hdxf,rdiag,rloc,dep,depd,nobsl,nobsl_t,cutd_t,&
+!$omp parallel private(ilev,ij,n,m,k,hdxf,rdiag,rloc,dep,depd,nobsl,nobslin,nobsl_t,cutd_t,&
 !$omp & parm,beta,n2n,n2nc,trans,transm,transmd,transrlx,pa,trans_done,tmpinfl,&
 !$omp & q_mean,q_sprd,q_anal,timer_str,trans_efso,transrlx_efso,infl_dummy)
-  allocate(hdxf (nobstotal,MEMBER))
-  allocate(rdiag(nobstotal))
-  allocate(rloc (nobstotal))
-  allocate(dep  (nobstotal))
-  allocate(depd (nobstotal))
+  if (nobslmax /= -1) then
+    allocate (hdxf (nobslmax,MEMBER))
+    allocate (rdiag(nobslmax))
+    allocate (rloc (nobslmax))
+    allocate (dep  (nobslmax))
+    allocate (depd (nobslmax))
+  end if
   allocate(trans  (MEMBER,MEMBER,var_local_n2nc_max))
   allocate(transm (MEMBER,       var_local_n2nc_max))
   allocate(transmd(MEMBER,       var_local_n2nc_max))
@@ -416,11 +436,21 @@ subroutine das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
 
         else
 
+          if (nobslmax == -1) then
+            CALL obs_count(rig1(ij),rjg1(ij),gues3d(ij,ilev,mmean,iv3d_p),hgt1(ij,ilev),n,nobslin)
+            allocate (hdxf (nobslin,MEMBER))
+            allocate (rdiag(nobslin))
+            allocate (rloc (nobslin))
+            allocate (dep  (nobslin))
+            allocate (depd (nobslin))
+          else
+            nobslin=nobslmax
+          end if
+
           ! compute weights with localized observations
-          call obs_local(rig1(ij),rjg1(ij),gues3d(ij,ilev,mmean,iv3d_p),hgt1(ij,ilev),n, & 
+          call obs_local(nobslin,rig1(ij),rjg1(ij),gues3d(ij,ilev,mmean,iv3d_p),hgt1(ij,ilev),n, & 
                           hdxf,rdiag,rloc,dep,nobsl,depd=depd,nobsl_t=nobsl_t,cutd_t=cutd_t,srch_q0=search_q0(:,n,ij,ilev)) 
-                                                                       
-          call letkf_core(MEMBER,nobstotal,nobsl,hdxf,rdiag,rloc,dep,work3d(ij,ilev,n), & 
+          call letkf_core(MEMBER,nobslin,nobsl,hdxf,rdiag,rloc,dep,work3d(ij,ilev,n), & 
                           trans(:,:,n2nc),transm=transm(:,n2nc),pao=pa(:,:,n2nc), & 
                           rdiag_wloc=.true.,infl_update=INFL_MUL_ADAPTIVE, &       
                           depd=depd,transmd=transmd(:,n2nc))                       
@@ -443,7 +473,7 @@ subroutine das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
             else
               ! Run LETKF without multiplicative inflation
               infl_dummy = 1.0_r_size
-              call letkf_core(MEMBER,nobstotal,nobsl,hdxf,rdiag,rloc,dep,infl_dummy, & 
+              call letkf_core(MEMBER,nobslin,nobsl,hdxf,rdiag,rloc,dep,infl_dummy, & 
                               trans_efso(:,:), &
                               rdiag_wloc=.true.,infl_update=.false.)         
             
@@ -541,6 +571,14 @@ subroutine das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
 
         endif ! [ DO_ANALYSIS4EFSO = T ]
 
+        if (nobslmax == -1) then
+          if (allocated(hdxf)) deallocate (hdxf)
+          if (allocated(rdiag)) deallocate (rdiag)
+          if (allocated(rloc)) deallocate (rloc)
+          if (allocated(dep)) deallocate (dep) 
+          if (allocated(depd)) deallocate (depd)
+        end if
+
       end do ! [ n=1,nv3d ]
 
     end do ! [ ij=1,nij1 ]
@@ -583,10 +621,21 @@ subroutine das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
 
       else
 
-        ! compute weights with localized observations
-        call obs_local(rig1(ij),rjg1(ij),gues3d(ij,1,mmean,iv3d_p),hgt1(ij,1),nv3d+n,hdxf,rdiag,rloc,dep,nobsl,depd=depd,nobsl_t=nobsl_t,cutd_t=cutd_t,srch_q0=search_q0(:,nv3d+1,ij,1))
+        if (nobslmax == -1) then
+          CALL obs_count(rig1(ij),rjg1(ij),gues3d(ij,ilev,mmean,iv3d_p),hgt1(ij,ilev),n,nobslin)
+          allocate (hdxf (nobslin,MEMBER))
+          allocate (rdiag(nobslin))
+          allocate (rloc (nobslin))
+          allocate (dep  (nobslin))
+          allocate (depd (nobslin))
+        else
+          nobslin=nobslmax
+        end if
 
-        call letkf_core(MEMBER,nobstotal,nobsl,hdxf,rdiag,rloc,dep,work2d(ij,n), & 
+        ! compute weights with localized observations
+        call obs_local(nobslin,rig1(ij),rjg1(ij),gues3d(ij,1,mmean,iv3d_p),hgt1(ij,1),nv3d+n,hdxf,rdiag,rloc,dep,nobsl,depd=depd,nobsl_t=nobsl_t,cutd_t=cutd_t,srch_q0=search_q0(:,nv3d+1,ij,1))
+
+        call letkf_core(MEMBER,nobslin,nobsl,hdxf,rdiag,rloc,dep,work2d(ij,n), & 
                         trans(:,:,n2nc),transm=transm(:,n2nc),pao=pa(:,:,n2nc), & 
                         rdiag_wloc=.true.,infl_update=INFL_MUL_ADAPTIVE, &     
                         depd=depd,transmd=transmd(:,n2nc))                     
@@ -605,7 +654,7 @@ subroutine das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
         else
           ! Run LETKF without multiplicative inflation
           infl_dummy = 1.0_r_size
-          call letkf_core(MEMBER,nobstotal,nobsl,hdxf,rdiag,rloc,dep,infl_dummy, & 
+          call letkf_core(MEMBER,nobslin,nobsl,hdxf,rdiag,rloc,dep,infl_dummy, & 
                           trans_efso(:,:), &
                           rdiag_wloc=.true.,infl_update=.false.)         
         
@@ -682,13 +731,25 @@ subroutine das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
 
       endif ! [ DO_ANALYSIS4EFSO = T ]
 
+      if (nobslmax == -1) then
+        if (allocated(hdxf)) deallocate (hdxf)
+        if (allocated(rdiag)) deallocate (rdiag)
+        if (allocated(rloc)) deallocate (rloc)
+        if (allocated(dep)) deallocate (dep) 
+        if (allocated(depd)) deallocate (depd)
+      end if
+
     end do ! [ n=1,nv2d ]
   end do ! [ ij=1,nij1 ]
 !$omp end do
 
-
-  deallocate(hdxf,rdiag,rloc,dep)
-  deallocate(depd)
+  if (nobslmax /= -1) then
+    if (allocated(hdxf)) deallocate (hdxf)
+    if (allocated(rdiag)) deallocate (rdiag)
+    if (allocated(rloc)) deallocate (rloc)
+    if (allocated(dep)) deallocate (dep) 
+    if (allocated(depd)) deallocate (depd)
+  end if
   deallocate(trans,transm,transmd,pa)
   if ( DO_ANALYSIS4EFSO ) then
     deallocate( trans_efso )
@@ -987,6 +1048,9 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
 
   integer :: iof, set
 
+  integer :: nobslmax !!! public
+  integer :: nobslin  !!! private
+
   if ( LOG_OUT ) write(6,'(A)') 'Hello from das_efso'
 !  nobstotal = obsda_sort%nobs 
   if ( LOG_OUT ) write(6,'(A,I8)') 'Target observation numbers (global)    : NOBS=', nobstotalg
@@ -1028,19 +1092,34 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
     end if ! [ n_merge(ic) > 0 ]
   end do ! [ ic = 1, nctype ]
   n_merge_max = maxval(n_merge)
+  !
+  ! Determine allocation size for obs_local
+  !
+  if (maxval(MAX_NOBS_PER_GRID(:)) > 0) then
+    nobslmax = 0
+    do ic = 1, nctype
+      if (MAX_NOBS_PER_GRID(typ_ctype(ic)) > 0 .and. n_merge(ic) > 0) then
+        nobslmax = nobslmax + MAX_NOBS_PER_GRID(typ_ctype(ic))
+      end if
+    end do
+    WRITE(6,'(A,I8)') 'Max observation numbers assimilated at a grid: NOBS=',nobslmax
+  else
+    nobslmax = -1
+  end if
 
   allocate( djdy(nterm,nobstotal) )
   djdy = 0.0_r_size
   !
   ! MAIN ASSIMILATION LOOP
   !
-  allocate( hdxf(1:nobstotal,1:MEMBER) )
-  allocate( nrdiag(1:nobstotal) )
-  allocate( nrloc(1:nobstotal)  )
-  allocate( dep(1:nobstotal)   )
-  allocate( vobsidx_l(1:nobstotal) )
+  if (nobslmax /= -1) then
+    allocate( hdxf(1:nobslmax,1:MEMBER) )
+    allocate( nrdiag(1:nobslmax) )
+    allocate( nrloc(1:nobslmax)  )
+    allocate( dep(1:nobslmax)   )
+    allocate( vobsidx_l(1:nobslmax) )
+  end if
   allocate( work1(nterm,MEMBER))
-
 
   if ( LOG_OUT ) write(6,'(a)') 'Calculate localization advection'
 
@@ -1057,12 +1136,23 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
 
   if ( LOG_OUT ) write(6,'(a)') 'Start dj/dy computation'
 
-!$omp parallel private(ij,ilev,iv3d,iv2d,hdxf,nrdiag,nrloc,dep,nobsl,iterm,m,nob,iob,hdxa_rinv,work1,vobsidx_l)
+!$omp parallel private(ij,ilev,iv3d,iv2d,hdxf,nrdiag,nrloc,dep,nobsl,nobslin,iterm,m,nob,iob,hdxa_rinv,work1,vobsidx_l)
 !$omp do schedule(dynamic)
   do ilev = 1, nlev
     do ij = 1, nij1
 
-      call obs_local( rig1(ij)+dri_adv(ij,ilev), rjg1(ij)+drj_adv(ij,ilev), gues3d(ij,ilev,iv3d_p), hgt1(ij,ilev), &
+      if (nobslmax == -1) then
+        CALL obs_count(rig1(ij),rjg1(ij),gues3d(ij,ilev,iv3d_p),hgt1(ij,ilev),0,nobslin)
+        allocate (hdxf (1:nobslin,1:MEMBER))
+        allocate (nrdiag(1:nobslin))
+        allocate (nrloc (1:nobslin))
+        allocate (dep  (1:nobslin))
+        allocate (vobsidx_l(1:nobslin))
+      else
+        nobslin=nobslmax
+      end if
+
+      call obs_local( nobslin, rig1(ij)+dri_adv(ij,ilev), rjg1(ij)+drj_adv(ij,ilev), gues3d(ij,ilev,iv3d_p), hgt1(ij,ilev), &
                       0, & ! No variable localization
                       hdxf, nrdiag, nrloc, dep, nobsl, &
                       vobsidx_l=vobsidx_l ) 
@@ -1134,17 +1224,25 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
         !!! djdy: [1/2(K-1)]rho*R^(-1)*Y^a_0*(X^f_t)^T*C*(e^f_t+e^g_t)
         deallocate( hdxa_rinv )
       endif
+      if (nobslmax /= -1) then
+        deallocate( hdxf )
+        deallocate( nrdiag )
+        deallocate( nrloc )
+        deallocate( dep )
+        deallocate( vobsidx_l )
+      end if
     enddo ! ij
   enddo   ! ilev
 !$omp end do
 !$omp end parallel
-  deallocate( hdxf )
-  deallocate( nrdiag )
-  deallocate( nrloc )
-  deallocate( dep )
-  deallocate( vobsidx_l )
+  if (nobslmax /= -1) then
+    deallocate( hdxf )
+    deallocate( nrdiag )
+    deallocate( nrloc )
+    deallocate( dep )
+    deallocate( vobsidx_l )
+  end if
   deallocate( work1 )
-
   if ( LOG_OUT ) write(6,'(a)') 'Finish dj/dy computation'
 
   !
@@ -1225,6 +1323,93 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
 end subroutine das_efso
 
 !-------------------------------------------------------------------------------
+! Count local observations to be used for a targeted grid
+!-------------------------------------------------------------------------------
+! [INPUT]
+!   ri      : horizontal i-grid cooridnate of the targeted grid
+!   rj      : horizontal j-grid cooridnate of the targeted grid
+!   rlev    : vertical pressure of the targeted grid
+!   rz      : vertical height   of the targeted grid
+!   nvar    : variable index of the targeted grid
+! [OUT]
+!   nobsl   : number of valid observations (in hdxf, rdiag, rloc, dep)
+!-------------------------------------------------------------------------------
+!OCL SERIAL
+subroutine obs_count(ri, rj, rlev, rz, nvar, nobsl)
+  use common_sort
+  use scale_atmos_grid_cartesC, only: &
+    DX, DY
+  implicit none
+
+  real(r_size), intent(in) :: ri, rj, rlev, rz
+  integer, intent(in) :: nvar
+  integer, intent(out) :: nobsl
+
+  integer :: nobs_use(max(nobstotal,maxnobs_per_ctype))
+
+  real(r_size) :: nrloc, nrdiag
+  real(r_size) :: ndist_dummy
+  integer :: iob, ityp, ielm
+  integer :: imin, imax, jmin, jmax
+  integer :: ic, ic2, icm
+  integer :: n,nn
+
+  !-----------------------------------------------------------------------------
+  ! Initialize
+  !-----------------------------------------------------------------------------
+
+  nobsl = 0
+
+  if (nobstotal == 0) then
+    return
+  end if
+
+  !-----------------------------------------------------------------------------
+  ! For each observation type,
+  ! do rough data search by a rectangle using the sorting mesh, and then
+  ! do precise data search by normalized 3D distance and variable localization.
+  !-----------------------------------------------------------------------------
+
+  do ic = 1, nctype
+
+    !---------------------------------------------------------------------------
+    ! When obs number limit is not enabled,
+    ! directly prepare (hdxf, dep, depd, rdiag, rloc) output.
+    !---------------------------------------------------------------------------
+
+      do icm = 1, n_merge(ic)
+        ic2 = ic_merge(icm,ic)
+        ielm = elm_ctype(ic2)
+        ityp = typ_ctype(ic2)
+
+        if (obsgrd(ic2)%tot_ext > 0) then
+          nn = 0
+          call obs_local_range(ic2, ri, rj, imin, imax, jmin, jmax)
+          call obs_choose_ext(ic2, imin, imax, jmin, jmax, nn, nobs_use)
+          do n = 1, nn
+            iob = nobs_use(n)
+
+            call obs_local_cal(ri, rj, rlev, rz, nvar, iob, ic2, ndist_dummy, nrloc, nrdiag)
+            if (nrloc == 0.0_r_size) cycle
+
+            nobsl = nobsl + 1
+          end do ! [ n = 1, nn ]
+        end if ! [ obsgrd(ic2)%tot_ext > 0 ]
+
+      end do ! [ do icm = 1, n_merge(ic) ]
+
+    !---------------------------------------------------------------------------
+
+  end do ! [ ic = 1, nctype ]
+
+  !-----------------------------------------------------------------------------
+  ! Finalize
+  !-----------------------------------------------------------------------------
+
+  return
+end subroutine obs_count
+
+!-------------------------------------------------------------------------------
 ! Find local observations to be used for a targeted grid
 !-------------------------------------------------------------------------------
 ! [INPUT]
@@ -1247,20 +1432,21 @@ end subroutine das_efso
 !   vobsidx_l : (optional) list of valid obsevation indices
 !-------------------------------------------------------------------------------
 !OCL SERIAL
-subroutine obs_local(ri, rj, rlev, rz, nvar, hdxf, rdiag, rloc, dep, nobsl, depd, nobsl_t, cutd_t, srch_q0, vobsidx_l)
+subroutine obs_local(nobslmax, ri, rj, rlev, rz, nvar, hdxf, rdiag, rloc, dep, nobsl, depd, nobsl_t, cutd_t, srch_q0, vobsidx_l)
   use common_sort
   use scale_atmos_grid_cartesC, only: &
     DX, DY
   implicit none
 
+  integer, intent(in) :: nobslmax
   real(r_size), intent(in) :: ri, rj, rlev, rz
   integer, intent(in) :: nvar
-  real(r_size), intent(out) :: hdxf(nobstotal,MEMBER)
-  real(r_size), intent(out) :: rdiag(nobstotal)
-  real(r_size), intent(out) :: rloc(nobstotal)
-  real(r_size), intent(out) :: dep(nobstotal)
+  real(r_size), intent(out) :: hdxf(nobslmax,MEMBER)
+  real(r_size), intent(out) :: rdiag(nobslmax)
+  real(r_size), intent(out) :: rloc(nobslmax)
+  real(r_size), intent(out) :: dep(nobslmax)
   integer, intent(out) :: nobsl
-  real(r_size), intent(out), optional :: depd(nobstotal)
+  real(r_size), intent(out), optional :: depd(nobslmax)
   integer, intent(out), optional :: nobsl_t(nid_obs,nobtype)
   real(r_size), intent(out), optional :: cutd_t(nid_obs,nobtype)
   integer, intent(inout), optional :: srch_q0(nctype)
