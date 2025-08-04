@@ -208,8 +208,7 @@ subroutine das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
   if (maxval(MAX_NOBS_PER_GRID(:)) > 0) then
     nobslmax = 0
     do ic = 1, nctype
-    write(6,*) ic,typ_ctype(ic),MAX_NOBS_PER_GRID(typ_ctype(ic))
-    if (MAX_NOBS_PER_GRID(typ_ctype(ic)) > 0 .and. n_merge(ic) > 0) then
+      if (MAX_NOBS_PER_GRID(typ_ctype(ic)) > 0 .and. n_merge(ic) > 0) then
         nobslmax = nobslmax + MAX_NOBS_PER_GRID(typ_ctype(ic))
       end if
     end do
@@ -1224,7 +1223,7 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
         !!! djdy: [1/2(K-1)]rho*R^(-1)*Y^a_0*(X^f_t)^T*C*(e^f_t+e^g_t)
         deallocate( hdxa_rinv )
       endif
-      if (nobslmax /= -1) then
+      if (nobslmax == -1) then
         deallocate( hdxf )
         deallocate( nrdiag )
         deallocate( nrloc )
