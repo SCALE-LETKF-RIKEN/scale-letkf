@@ -40,6 +40,8 @@ elif [ "$PRESET" = 'FUGAKU' ]; then
   :
 elif [ "$PRESET" = 'FX1000' ]; then
   :
+elif [ "$PRESET" = 'Linux64-nvidia' ]; then
+  :
 else
   echo "[Error] Preset '$PRESET' not found" 1>&2
   exit 1

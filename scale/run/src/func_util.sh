@@ -222,6 +222,16 @@ elif [ "$PRESET" == 'FX1000' ]; then
     exit $res
   fi
 
+elif [ "$PRESET" == 'Linux64-nvidia' ]; then
+  export LOG_SCALE_LETKF=$STDOUT
+  mpirun -n $((NNODES*PPN)) ./wrapper.sh ./$PROG $CONF $ARGS
+  res=$?
+  if ((res != 0)); then
+    echo "[Error]     mpirun -n $((NNODES*PPN)) ./wrapper.sh ./$PROG $CONF $ARGS" >&2
+    echo "        Exit code: $res" >&2
+    exit $res
+  fi
+
 fi
 
 #-------------------------------------------------------------------------------

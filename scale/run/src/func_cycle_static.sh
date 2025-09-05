@@ -735,7 +735,7 @@ while ((time <= ETIME)); do
 
       CONSTDB_PATH=$SCALEDIR/scale-rm/test/data
 
-      if [ $PRESET = 'FUGAKU' ] || [ $PRESET = 'FX1000' ] ; then
+      if [ $PRESET = 'FUGAKU' ] || [ $PRESET = 'FX1000' ] || [ $PRESET = 'Linux64-nvidia' ]; then
 
         CONSTDB_PATH=$TMPROOT_CONSTDB/dat
 
@@ -822,7 +822,7 @@ while ((time <= ETIME)); do
       BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time/bdy
 
       CONSTDB_PATH=$SCALEDIR/scale-rm/test/data
-      if [ $PRESET = 'FUGAKU' ] || [ $PRESET = 'FX1000' ] ; then
+      if [ $PRESET = 'FUGAKU' ] || [ $PRESET = 'FX1000' ] || [ $PRESET = 'Linux64-nvidia' ]; then
 
         CONSTDB_PATH=$TMPROOT_CONSTDB/dat
         if (( BDY_LLIO_TMP == 1 )) ; then

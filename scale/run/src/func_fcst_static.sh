@@ -642,7 +642,7 @@ while ((time_s <= ETIME)); do
           RESTART_IN_PATH[$d]=${INDIR[$d]}/$time/anal
           BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time/bdy
           CONSTDB_PATH=$SCALEDIR/data
-          if [ $PRESET = 'FUGAKU' ] || [ $PRESET = 'FX1000' ] ; then
+          if [ $PRESET = 'FUGAKU' ] || [ $PRESET = 'FX1000' ] || [ $PRESET = 'Linux64-nvidia' ]; then
             CONSTDB_PATH=$TMPROOT_CONSTDB/dat
           fi
         fi
@@ -704,7 +704,7 @@ while ((time_s <= ETIME)); do
     RESTART_OUT_PATH[$d]=${OUTDIR[$d]}/$time/fcst
     BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time/bdy
     CONSTDB_PATH=$SCALEDIR/scale-rm/test/data
-    if [ $PRESET = 'FUGAKU' ] || [ $PRESET = 'FX1000' ] ; then
+    if [ $PRESET = 'FUGAKU' ] || [ $PRESET = 'FX1000' ] || [ $PRESET = 'Linux64-nvidia' ]; then
       CONSTDB_PATH=$TMPROOT_CONSTDB/dat
     fi
   fi
