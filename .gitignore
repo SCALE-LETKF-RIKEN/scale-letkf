@@ -32,6 +32,13 @@ log*
 /scale/run/make_obsin
 /scale/run/obsmake_run.sh
 /scale/run/exp
+/scale/run/get_data_ext/ncepgfs/*log
+/scale/run/get_data_ext/ncepobs/*log
+/scale/run/get_data_ext/ncepobs/*out
+/scale/run/get_data_ext/ncepobs/*stats
+/scale/run/get_data_ext/ncepobs/dec_prepbufr
+/scale/run/get_data_ext/ncepobs/prepbufr.in
+/scale/run/get_data_ext/msm/*log
 /scale/letkf/letkf
 /scale/letkf/efso
 /scale/obs/obsmake
