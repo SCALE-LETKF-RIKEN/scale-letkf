@@ -9,7 +9,7 @@ myname="$(basename "$0")"
 ######
 LETKFDIR=${mydir}/..
 SCALEDIR=${mydir}/../../..
-DATADIR="/share/hp150019/scale_database/scale-letkf-test-suite"
+DATADIR="/share/ra000007/u10335/scale_database/scale-letkf-test-suite"
 #DATADIR="${HOME}/scale_database/scale-letkf-test-suite"
 copy="cp" ### tentative for Fugaku
 #copy="ln -s"

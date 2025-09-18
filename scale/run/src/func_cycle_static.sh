@@ -1128,13 +1128,6 @@ while ((time <= ETIME)); do
   atime=$(datetime $time $LCYCLE s)
 done
 
-echo
-
-#
-echo "backup"
-cp $TMPS/config/*.conf $OUTDIR/config/
-echo
-
 #-------------------------------------------------------------------------------
 }
 

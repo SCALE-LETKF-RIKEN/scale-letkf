@@ -389,6 +389,8 @@ echo
 
 backup_exp_setting $job $TMP $jobid ${job}_job.sh 'o e'
 
+config_file_save $TMPS/config || exit $?
+
 archive_log
 
 if ((CLEAR_TMP == 1)); then
