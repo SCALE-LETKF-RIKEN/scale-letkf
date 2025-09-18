@@ -1,0 +1,204 @@
+\chapter{Customize your experiment}
+
+\section{Structure of the script}
+
+The scripts in the directory \verb|scale/run| help you execute data assimilation and ensemble forecast tasks for your experiment in a consistent and efficient manner.  
+
+The main shell scripts for executing the computation are \verb|cycle_run.sh| and \verb|fcst_run.sh|. Those scripts are used with the configuration files \verb|config.xxxxx|, which you are supposed to prepare for your own experiment. The example of configuration files for various experiments can be found in \verb|scale/run/config|. Table 4.1 shows the list of configuration files. 
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|l|l|l|l|l|}
+        \hline
+        File name & Description & File type & cycle & fcst \\ \hline\hline
+        \verb|config.rc| & Common configuration & shell & yes & yes \\ \hline
+        \verb|config.main| & Main configuration file & shell & yes & yes \\ \hline
+        \verb|config.cycle| & Configurations for cycle jobs & shell & yes & no \\ \hline
+        \verb|config.fcst| & Configurations for fcst jobs & shell & no & yes \\ \hline
+        \verb|config.nml.ensmodel| & Common namelist for \verb|*_ens|& fortran & yes & yes \\ \hline
+        \verb|config.nml.scale_pp| & Namelist for \verb|scale-rm_pp| & fortran & (yes) & (yes) \\ \hline
+        \verb|config.nml.scale_init| & Namelist for \verb|scale-rm_init| & fortran & yes & yes \\ \hline
+        \verb|config.nml.grads_boundary| & Namelist for \verb|scale-rm_init|  & fortran & (yes) & (yes) \\ \hline
+        \verb|config.nml.scale|    & Namelist for \verb|scale-rm| & fortran & yes & yes \\ \hline
+        \verb|config.nml.scale_user| & Namelist for \verb|scale-rm| & fortran & (yes) & (yes) \\ \hline
+        \verb|config.nml.obsmake|  & Namelist for \verb|obsmake| & fortran & (yes) & no \\ \hline
+        \verb|config.nml.letkf|    & Namelist for \verb|letkf| & fortran & yes & no \\ \hline
+    \end{tabular}
+    \caption{Configuration files}
+    \label{tab:config-files}
+\end{table}
+
+The script \verb|fcst_run.sh| does the following tasks.  
+
+\begin{itemize}
+\item Create a runtime directory and prepare necessary executable files, input files, and configuration files. 
+\item  Create namelist files for each executable, using parameters specified in the configuration files. 
+\item  Create a batch job script for the supercomputer job management system and submit it.
+\item  Call the executable files \verb|scale-rm_pp_ens|, \verb|scale-rm_init_ens|, and \verb|scale-rm_ens| in the batch job script with the appropriate order. 
+\end{itemize}
+
+The script for a data assimilation cycle \verb|cycle_run.sh| works similarly, but it also calls \verb|scale-rm_init_ens|, \verb|scale-rm_ens|, and \verb|letkf| repeatedly for the period of the experiment described in the configuration file. 
+
+\section{Plan your experiment}
+
+Data assimilation experiments can be classified into real and ideal experiments. Real experiments use actual observation data to calculate analysis of the real world, whereas ideal experiments use synthetic observation, which is hypothetical observation data generated from some other simulation data. In both cases, you are supposed to design your experiment to meet your research purpose. Some of the basic features to consider are listed below. 
+
+\begin{itemize}
+    \item Available observation variable, temporal and spatial resolution
+    \item Observation error standard deviation
+    \item Model domain and spatial resolution
+    \item Parent data for initial and boundary condition
+    \item Data assimilation interval
+    \item Ensemble size
+    \item Ensemble perturbation initialization 
+    \item Spatial localization
+    \item Ensemble spread control, such as covariance inflation and relaxation-to-prior-perturbation (RTPP)
+\end{itemize}
+
+\section{Experiments with real-world observation}
+
+\subsection{Observation data}
+
+First, prepare your observation data in the \hyperref[sec:obs-file-format]{SCALE-LETKF observation format}. The current public SCALE-LETKF code supports conventional observations included in NCEP PREPBUFR, and radar observations. If you use other observation types such as satellite, you need additional code modification.  
+
+If you assimilate PREPBUFR, you can use the fortran decoder \verb|scale/obs/dec_prepbufr.f90| along with \verb|bufrlib| to convert an original BUFR file to a SCALE-LETKF observation file. 
+
+Otherwise, you need to manually convert your observation data from the original format to the SCALE-LETKF observation format. You need to put observation element and type indices and specify observation error standard deviation and relative time difference from the target assimilation time for each observation record. 
+
+If you assimilate radar observation data, you need to regrid it to a longitude-latitude-z coordinate and specify observation error accordingly. Also, you need to be careful with the choice of radar observation operator (the parameter \verb|METHOD_REF_CALC|), which is supposed to be consistent with your data.  
+
+\subsection{SCALE-RM setting}
+
+Next, define your model. Setting up the SCALE-RM for your experiment includes the design of the computational domain, the horizontal and vertical grid configuration, domain decomposition for MPI parallelization, the methods and parameters of physics schemes, choice of parent model data for downscaling, and so on. The parent model data  can be forecast or reanalysis data of a global or regional model with a larger domain.   
+
+If you are not familiar with these settings, it is recommendable to refer to "Part 4 : Various settings" of the SCALE user's guide. 
+
+In this document, it is assumed that these SCALE-RM settings and testing are already performed, including the generation of topography and landuse files by \verb|scale-rm_pp| and the namelist parameters for \verb|scale-rm_init| and \verb|scale-rm|. 
+
+\subsection{Prepare ensemble initial and boundary condition}
+
+In order to launch a data assimilation experiment, you need initial and boundary condition data. The boundary condition could be common for all ensemble members, whereas initial condition data must be an ensemble of members having different states. In a real-world experiment, both initial and boundary data need to be generated by downscaling its parent model data. When the parent model data is an ensemble, the ensemble generation is straightforward. However, when the parent model data is a deterministic forecast, or has less number of members than desired for the SCALE-LETKF experiment, you need to generate ensemble perturbation. Current SCALE-LETKF code offers a python script and its wrapper by shell script to create an ensemble of restart files with structured random perturbation added on a reference data. 
+
+Modify the header part of the python script \verb|init_perturb/init_perturb.py| to set up random ensemble perturbation.  
+\begin{Verbatim}[fontsize=\scriptsize, frame=lines, framesep=2mm, label=init\_perturb.py]
+wavel1 =  8000.   ### short-wave cutoff wavelength
+wavel2 = 32000.   ### long-wave  cutoff wavelength
+dx = 2000.        ### horizontal grid spacing
+zheight = 16000.  ### top height for perturbation 
+taper_width = 10  ### number of grid points to suppress perturbation near the lateral boundary
+taper_mtop = 10   ### number of grid points to suppress perturbation near the top level
+
+pert_std = 0.2    ### STANDARD DEVIATION (in Kelvin) of potential temperature perturbation
+halo = 2          ### number of grid points for HALO
+\end{Verbatim}
+
+You can create the perturbed ensemble by running \verb|init_perturb/init_perturb.sh| with initial time and reference data path. The script reads \verb|config.main| and generate ensemble initial flies in \verb|OUTPUT/<atime>/anal/<member>| for all members specified by \verb|MEMBER|. 
+
+\subsection{Set up DA cycle with LETKF}
+
+The basic settings of a DA cycle experiment are in \verb|config.main| and \verb|config.cycle|. 
+
+\subsubsection{DA step interval and window}
+
+The interval and window of the data assimilation is defined in the following part of \verb|config.main|. In this example, a 4-D LETKF experiment with an interval of 6 hours and a window from 3-h to 9-h forecast time is described. 
+
+\begin{Verbatim}[fontsize=\scriptsize, frame=lines, framesep=2mm, label=config.main]
+# Cycling settings
+
+WINDOW_S=10800     # SCALE forecast time when the assimilation window starts (second)
+WINDOW_E=32400     # SCALE forecast time when the assimilation window ends (second)
+LCYCLE=21600       # Length of a DA cycle (second)
+LTIMESLOT=3600     # Timeslot interval for 4D-LETKF (second)
+\end{Verbatim}
+
+In the case of a 3-D LETKF experiment, they have all the same value. 
+\begin{Verbatim}[fontsize=\scriptsize, frame=lines, label=config.main]
+# Cycling settings
+
+LCYCLE=3600       # Length of a DA cycle (second)
+WINDOW_S=$LCYCLE     # SCALE forecast time when the assimilation window starts (second)
+WINDOW_E=$LCYCLE     # SCALE forecast time when the assimilation window ends (second)
+LTIMESLOT=$LCYCLE     # Timeslot interval for 4D-LETKF (second)
+\end{Verbatim}
+
+\subsubsection{Ensemble size and node usage}
+
+Ensemble size is set by \verb|MEMBER| in config.main as follows. \verb|PPN=4| and \verb|THREADS=12| are the specific recommended settings for Fugaku. \verb|SCALE_NP_X| and \verb|SCALE_NP_Y| must be consistent with \verb|NPROCS_X| and \verb|NPROCS_Y| in config.nml.scale respectively.
+
+\begin{Verbatim}[fontsize=\scriptsize, frame=lines, framesep=2mm, label=config.main]
+MEMBER=50           # Ensemble size
+
+PPN=4               # Number of processes per node
+
+THREADS=12          # Number of threads per process
+
+SCALE_NP_X=4          # (= PRC_NUM_X)
+SCALE_NP_Y=2          # (= PRC_NUM_Y)
+SCALE_NP=$(( SCALE_NP_X  * SCALE_NP_Y ))
+\end{Verbatim}
+
+\subsubsection{DA cycle period}
+
+A DA cycle experiment consists of multiple DA steps of the interval defined by \verb|$LCYCLE|. The time of the first and last DA steps are defined as \verb|STIME| and \verb|ETIME| in \verb|config.cycle|. Note that those are the initial times of the corresponding DA steps of the length \verb|$LCYCLE|. Therefore, in the following example with \verb|LCYCLE=21600|, the two DA steps are performed and the final analysis time is \verb|20220101120000|.  
+\verb|TIME_LIMIT| stands for the estimated elapse time of the DA cycle experiment. 
+
+\begin{Verbatim}[fontsize=\scriptsize, frame=lines, framesep=2mm, label=config.cycle]
+  STIME='20220101000000'
+  ETIME='20220101060000'
+  TIME_LIMIT='00:30:00'
+\end{Verbatim}
+
+\subsubsection{Other DA settings}
+
+Some settings of the DA experiment, such as analysis and first guess members to output, can be controlled by parameters in \verb|config.cycle|. Others can be modified by directly editing \verb|config.nml.letkf|.
+  
+\section{Ideal experiments with synthetic observation}
+
+Ideal experiments with synthetic observation data can be done with either real or ideal meteorological conditions. In both cases, we first assume the time series of 'nature run', which is considered as the true evolution of the state variables. Then we generate synthetic observation from the nature run, which is used in the data assimilation experiment. We can set the details of the experiment as we like, such as observation coverage, variables, accuracy, as well as forecast model imperfections compared to the nature run.  
+
+\subsection{SCALE-RM setting and nature run}
+
+First, you need to set up the SCALE-RM to create the nature run. The complexity of the model varies depending on the type of the experiment. We can use some real atmospheric data for the nature run, such as a downscaled forecast from the global forecast obtained by an operational center. Or we can also use an idealized setup without topography and land data. We can also use cyclic boundary conditions and run the model without external boundary data.   
+
+Note that the model setup for the calculation of first guess in data assimilation can be different from that of the nature run. For example, we can use coarser grid spacing or different version of physical parameterization scheme. We can also set different initial or boundary condition from the nature run, to investigate the impact of those imperfect information.  
+
+\subsection{Synthetic observation}
+
+Once the nature run time series data is created, the synthetic observation can be generated from it using \verb|obsmake| executable. It requires the input file, which has the same format with SCALE-LETKF observation data format, to specify observation type, location, and random error.  
+The sample fortran files to create input files for dynamical and radar observation cases can be found in the directory \verb|config/supercell/make_obsin/|. You can modify it or make your own script to generate the observation input file for your purpose. 
+
+The launcher of \verb|obsmake| is \verb|obsmake_run.sh|, which can be found in \verb|config/supercell| or \verb|config/barocwave|. You are supposed to edit \verb|config.obsmake| and the part of \verb|obsmake_run.sh| to make it accord with your experiment. The necessary input data along with an observation input file is the set of both restart and history files of the nature run. 
+
+\begin{Verbatim}[fontsize=\scriptsize, frame=lines, framesep=2mm, label=obsmake\_run.sh]
+conf_file=$TMP/config/obsmake_${time}.conf
+cat $SCRP_DIR/config.nml.obsmake | sed \
+    -e "/!--PPN--/a PPN=$PPN,"  \
+    -e "/!--PRC_DOMAINS--/a PRC_DOMAINS=$SCALE_NP,"  \
+    -e "/!--OBS_IN_NAME--/a OBS_IN_NAME=\"$TMP/obsin/obsin.dat\","  \
+    -e "/!--OBS_IN_FORMAT--/a OBS_IN_FORMAT=\"${OBS_IN_FORMAT}\","  \
+    -e "/!--LETKF_TOPOGRAPHY_IN_BASENAME--/a LETKF_TOPOGRAPHY_IN_BASENAME=\"$OUTDIR/const/topo/topo\"," \
+    -e "/!--HISTORY_IN_BASENAME--/a HISTORY_IN_BASENAME=\"$OUTDIR/nature/hist/history\"," \
+    -e "/!--GUES_IN_BASENAME--/a GUES_IN_BASENAME=\"$OUTDIR/nature/init/init_$(datetime_scale $time)\"," \
+    -e "/!--SLOT_START--/a SLOT_START=$nslot,"  \
+    -e "/!--SLOT_END--/a SLOT_END=$nslot,"  \
+    -e "/!--SLOT_BASE--/a SLOT_BASE=$nslot,"  \
+    -e "/!--SLOT_TINTERVAL--/a SLOT_TINTERVAL=$FCSTOUT,"  \
+> $conf_file
+\end{Verbatim}
+
+\subsection{Initial and boundary condition}
+
+To initialize the ensemble data assimilation with LETKF, you need the ensemble of initial data. The design of ensemble initial perturbation (and boundary data perturbation as well in some cases) is important for the performance of the DA cycle. The common way to generate an ensemble of initial condition is to add random perturbation to the nature run data at that time step. In the case of atmospheric state variables, the perturbation should have spatial structure, with a dominant spatial scale much larger than grid spacing. 
+The SCALE-LETKF code includes a sample python program to generate structured random perturbation using Fourier transform and add it to the restart files. You can generate a set of ensemble initial restart files by using a shell script \verb|init_perturb/init_perturb.sh|. The amplitude, location and spatial scale of the perturbation can be set in \verb|init_perturb/init_perturb.py| as follows. 
+
+\begin{Verbatim}[fontsize=\scriptsize, frame=lines, framesep=2mm, label=init\_perturb.py]
+wavel1 =  500000.  ### short-wave cutoff wavelength
+wavel2 = 2000000.  ### long-wave  cutoff wavelength
+dx = 200000.       ### horizontal grid spacing
+zheight = 16000.   ### top height for perturbation (can be below the model top)
+taper_width = 10  ### number of grid points to suppress perturbation near the lateral boundary
+taper_mtop = 10   ### number of grid points to suppress perturbation near the top level
+
+pert_std = 1.0    ### STANDARD DEVIATION (in Kelvin) of temperature perturbation
+halo = 2          ### number of grid points for HALO
+\end{Verbatim}

@@ -1,0 +1,131 @@
+\section{Preparation of NCEP GFS data}
+\label{sec:ncep-gfs}
+\subsection{Data source}
+
+\hyperlink{https://www.emc.ncep.noaa.gov/emc/pages/numerical_forecast_systems/gfs.php}{NCEP Global Forecast System (GFS)} is a global numerical prediction model developed and used in NOAA NCEP, the US national organization. The GFS forecast data is distributed online and used worldwide in a real time manner. 
+
+NCEP provides various products based on the GFS model. In SCALE user's guide, the use of NCEP Final (FNL) operational analysis data for the boundary condition of SCALE real-world experiment is explained. Here, this section explains the use of the operational forecast data, which enables a real-time data assimilation cycle.  
+
+The example script uses the forecast data with a 0.5 degree grid spacing downloaded from the following addresses. 
+
+\begin{Verbatim}
+### archive data
+ https://www.ncei.noaa.gov/data/global-forecast-system/access/grid-004-0.5-degree/forecast/
+### realtime data
+ https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/
+\end{Verbatim}
+
+\subsection{Download and convert}
+
+Use the script \verb|scale-letkf-dev/scale/run/get_data_ext/ncepgfs/get_ncep_gfs.sh| with the initial time of the forecast. 
+
+\begin{Verbatim}
+./get_ncep_gfs.sh 20250801000000
+\end{Verbatim}
+
+Note that the script requires \hyperlink{https://www.cpc.ncep.noaa.gov/products/wesley/wgrib2/}{wgrib2} for data conversion from grib2 format to GrADS binary format. 
+After you run the script, you will have the raw and converted data in the directories as follows. 
+
+\begin{Verbatim}[fontsize=\scriptsize]
+### raw data
+$ ls (your directory where scale is located)/external/ncepgfs/2025080100/ 
+gfs.20250801000000  gfs.20250801060000  gfs.20250801120000  gfs.20250801180000
+gfs.20250801030000  gfs.20250801090000  gfs.20250801150000
+### GrADS binary data
+$ ls (your directory where scale is located)/external/ncepgfs_grads/2025080100/
+atm_20250801000000.grd   land_20250801090000.grd  reg_20250801180000.grd
+atm_20250801030000.grd   land_20250801120000.grd  reg.ctl
+atm_20250801060000.grd   land_20250801150000.grd  sfc_20250801000000.grd
+atm_20250801090000.grd   land_20250801180000.grd  sfc_20250801030000.grd
+atm_20250801120000.grd   land.ctl                 sfc_20250801060000.grd
+atm_20250801150000.grd   reg_20250801000000.grd   sfc_20250801090000.grd
+atm_20250801180000.grd   reg_20250801030000.grd   sfc_20250801120000.grd
+atm.ctl                  reg_20250801060000.grd   sfc_20250801150000.grd
+land_20250801000000.grd  reg_20250801090000.grd   sfc_20250801180000.grd
+land_20250801030000.grd  reg_20250801120000.grd   sfc.ctl
+land_20250801060000.grd  reg_20250801150000.grd
+\end{Verbatim}
+
+You can use GrADS to quickly look into binary format data, with control files such as \verb|atm.ctl|. 
+
+\subsection{Namelist file for scale-rm\_init}
+
+When you use NCEP GFS binary data as parent model data for initial and boundary conditions, \verb|scale-rm_init| (and its wrapper \verb|scale-rm_init_ens|) needs a corresponding namelist parameters, which are provided by the file \verb|config.nml.grads_boundary| in \verb|scale/run|. 
+
+\begin{Verbatim}[frame=lines, framesep=3mm, label=scale/common/common\_obs\_scale.f90]
+#
+# Dimension
+#
+&GrADS_DIMS
+ nx     = 720
+ ny     = 361
+ nz     = 41
+/
+
+#
+# Variables
+#
+&GrADS_ITEM  name='lon',   dtype='linear',  swpoint=0.0d0,   dd=0.5d0 /
+&GrADS_ITEM  name='lat',   dtype='linear',  swpoint=-90.0d0, dd=0.5d0 /
+&GrADS_ITEM  name='plev',  dtype='levels',  lnum=41,
+lvars=100000,97500,95000,92500,90000,85000,80000,75000,70000,65000,60000,
+    55000,50000,45000,40000,35000,30000,25000,20000,15000,10000,7000,
+    5000,4000,3000,2000,1500,1000,700,500,300,200,100,70,40,20,10,7,4,2,1, /
+&GrADS_ITEM  name='MSLP',  dtype='map',   fname='--DIR--/bdysfc', startrec=1,  totalrec=7  /
+&GrADS_ITEM  name='PSFC',  dtype='map',   fname='--DIR--/bdysfc', startrec=2,  totalrec=7  /
+&GrADS_ITEM  name='U10',   dtype='map',   fname='--DIR--/bdysfc', startrec=3,  totalrec=7  /
+&GrADS_ITEM  name='V10',   dtype='map',   fname='--DIR--/bdysfc', startrec=4,  totalrec=7  /
+&GrADS_ITEM  name='T2',    dtype='map',   fname='--DIR--/bdysfc', startrec=5,  totalrec=7  /
+&GrADS_ITEM  name='RH2',   dtype='map',   fname='--DIR--/bdysfc', startrec=6,  totalrec=7  /
+&GrADS_ITEM  name='topo',  dtype='map',   fname='--DIR--/bdysfc', startrec=7,  totalrec=7  /
+&GrADS_ITEM  name='HGT',   dtype='map',   fname='--DIR--/bdyatm', startrec=1,  totalrec=205/
+&GrADS_ITEM  name='U',     dtype='map',   fname='--DIR--/bdyatm', startrec=42, totalrec=205/
+&GrADS_ITEM  name='V',     dtype='map',   fname='--DIR--/bdyatm', startrec=83, totalrec=205/
+&GrADS_ITEM  name='T',     dtype='map',   fname='--DIR--/bdyatm', startrec=124,totalrec=205/
+&GrADS_ITEM  name='RH',    dtype='map',   fname='--DIR--/bdyatm', startrec=165,totalrec=205/
+&GrADS_ITEM  name='llev',  dtype='levels',lnum=4, lvars=0.05,0.25,0.70,1.50, /
+&GrADS_ITEM  name='lsmask',dtype='map',   fname='--DIR--/bdyland', startrec=1, totalrec=10 /
+&GrADS_ITEM  name='SKINT', dtype='map',   fname='--DIR--/bdyland', startrec=2, totalrec=10 /
+&GrADS_ITEM  name='STEMP', dtype='map',   fname='--DIR--/bdyland', nz=4, startrec=3, totalrec=10, missval=9.999e+20 /
+&GrADS_ITEM  name='SMOISVC', dtype='map',   fname='--DIR--/bdyland', nz=4, startrec=7, totalrec=10, missval=9.999e+20 /
+\end{Verbatim}
+
+For the details of these parameter settings, see the part "Input from binary format data" in Section "4.1.2 How to prepare initial and boundary data" of the SCALE user's guide. 
+
+\section{Preparation of NCEP PREPBUFR data}
+\label{sec:ncep-obs}
+
+\subsection{Data source}
+
+\hyperlink{https://www.emc.ncep.noaa.gov/emc/pages/numerical_forecast_systems/gfs.php}{PREPBUFR} is a final post-processed product of observation data used for NCEP global data assimilation system (GDAS). The data is provided in Binary Universal Form for the Representation of meteorological data (BUFR) format. The PREPBUFR is provided every 6 hours, which is the interval of GDAS. The data includes various observation types within 6-hour window centered at the assimilation time.  
+
+The near real-time PREPBUFR data can be downloaded from the following address. 
+\begin{Verbatim}[fontsize=\scriptsize]
+https://nomads.ncep.noaa.gov/pub/data/nccf/com/obsproc/prod/
+\end{Verbatim}
+
+\subsection{Download and convert}
+
+You need to convert PREPBUFR data from BUFR format to \hyperref[sec:obs-file-format]{LETKF observation file format}. You can use the script \verb|scale-letkf-dev/scale/run/get_data_ext/ncepgfs/get_ncep_gfs.sh| to download and convert the data. 
+
+Before use it, you need to prepare the binary file of the BUFR decoder. First, install the library \hyperlink{https://github.com/NOAA-EMC/NCEPLIBS-bufr}{bufrlib} provided by NCEP to your environment. Then specify the path as \verb|BUFR_LIB| in \verb|arch/configure.user.FUGAKU| and compile the program  \verb|dec_prepbufr|.
+ 
+\begin{Verbatim}[fontsize=\scriptsize]
+  cd scale/obs
+  make dec_prepbufr
+\end{Verbatim}
+
+Once you have a binary file \verb|scale/obs/dec_prepbufr|, run the script \verb|scale-letkf-dev/scale/run/get_data_ext/ncepobs/get_ncep_obs.sh| with the assimilation time. 
+\begin{Verbatim}
+./get_ncep_obs.sh 20250801000000
+\end{Verbatim}
+
+and you have observation data in the SCALE-LETKF format.
+\begin{Verbatim}
+### raw data
+$ ls (your directory where scale is located)/external/ncepobs_gdas/2025080100/
+prepbufr.2025080100
+### LETKF format data
+$ ls (your directory where scale is located)/external/ncepobs_gdas_letkf/2025080100/
+obs_20250801000000.dat
+\end{Verbatim}

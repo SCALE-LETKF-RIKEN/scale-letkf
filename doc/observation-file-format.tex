@@ -1,0 +1,115 @@
+\section{Observation file format}
+\label{sec:obs-file-format}
+Observation data is processed in the format specific to the SCALE-LETKF. Currently, different formats are used for radar and other observation types. The parameter \verb|OBS_IN_FORMAT| needs to be properly set in order to read the data.  
+
+\subsection{Common format} 
+
+The common observation format used in SCALE-LETKF consists of 8-record elements of 4-byte floating-point value for each observation. Note that the access type is \textit{sequential} and not \textit{direct}. The following is a part of the subroutine \verb|write_obs| in \verb|scale/common/common_obs_scale.f90| (simplified for brevity). 
+
+\begin{Verbatim}[frame=lines, framesep=3mm, label=scale/common/common\_obs\_scale.f90]
+  OPEN(iunit,FILE=cfile,FORM='unformatted',ACCESS='sequential')
+  DO n=1,obs%nobs
+      wk(1) = REAL(obs%elm(n),r_sngl)
+      wk(2) = REAL(obs%lon(n),r_sngl)
+      wk(3) = REAL(obs%lat(n),r_sngl)
+      wk(4) = REAL(obs%lev(n),r_sngl)
+      wk(5) = REAL(obs%dat(n),r_sngl)
+      wk(6) = REAL(obs%err(n),r_sngl)
+      wk(7) = REAL(obs%typ(n),r_sngl)
+      wk(8) = REAL(obs%dif(n),r_sngl)
+      WRITE(iunit) wk
+  END DO    
+\end{Verbatim}
+
+The 8 elements of the observation data array are as follows. 
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|l|l|}
+        \hline
+        Record \# & Description \\ \hline\hline
+        1 & Observation variable (integer code defined in \verb|common_obs_scale.f90|)\\ \hline
+        2 & Longitude (degree) \\ \hline
+        3 & Latitude (degree)  \\ \hline
+        4 & Vertical level (hPa or meter, see below) \\ \hline
+        5  & Observed value \\ \hline
+        6 & Observation error standard deviation \\ \hline
+        7 & Observation type (integer code defined in \verb|common_obs_scale.f90|) \\ \hline
+        8 & Difference of observation time from the target time of data assimilation (second) \\ \hline
+    \end{tabular}
+    \caption{Observation data elements}
+    \label{tab:obs-data-elements}
+\end{table}
+
+\subsection{Radar observation format} 
+
+For the radar observation, there is a slight modification in the data format. First, the location of the radar is recorded at the beginning of the file. Second, as it is common to use 3D-LETKF for radar data, the last record describing a time gap is omitted unless the parameter \verb|RADAR_OBS_4D| is not set. See the part of the subroutine \verb|write_obs_radar| (again simplified).
+
+\begin{Verbatim}[frame=lines, framesep=3mm, label=scale/common/common\_obs\_scale.f90]
+IF(RADAR_OBS_4D) THEN
+    nrec = 8
+  ELSE
+    nrec = 7
+  END IF
+
+  OPEN(iunit,FILE=cfile,FORM='unformatted',ACCESS='sequential')
+
+  WRITE(iunit) REAL(obs%meta(1),r_sngl)
+  WRITE(iunit) REAL(obs%meta(2),r_sngl)
+  WRITE(iunit) REAL(obs%meta(3),r_sngl)
+
+  DO n=1,obs%nobs
+      wk(1) = REAL(obs%elm(n),r_sngl)
+      wk(2) = REAL(obs%lon(n),r_sngl)
+      wk(3) = REAL(obs%lat(n),r_sngl)
+      wk(4) = REAL(obs%lev(n),r_sngl)
+      wk(5) = REAL(obs%dat(n),r_sngl)
+      wk(6) = REAL(obs%err(n),r_sngl)
+      wk(7) = REAL(obs%typ(n),r_sngl)
+      IF(RADAR_OBS_4D) THEN
+        wk(8) = REAL(obs%dif(n),r_sngl)
+      END IF
+      WRITE(iunit) wk(1:nrec)
+    end if
+  END DO
+
+\end{Verbatim}
+
+At the beginning of the file, three 4-byte floating point real values are recorded. They are longtitude, latitude, elevation (m) of the radar location, respectively.  
+
+\subsection{Note on vertical coordinate}
+\label{section:vertical-coordinate}
+Some settings in LETKF about vertical location or length implicitly assume a specific unit. It might be confusing and cause errors that are difficult to track down. 
+This note serves to help users avoid errors by the inconsistency of vertical unit.  
+
+In the LETKF observation data format, vertical location of the observation is indicated in the 4-th element of each record. The coordinate unit depends on the observation data type and element as follows.
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|l|l|l|l|l|}
+        \hline
+        type \# & type name & element \# & element name & unit \\ \hline\hline
+        22 & 'PHARAD' & 4001-4004& 'REF', 'Vr', 'PRH', 'RE0' 
+ & meter \\ \hline
+        1 & 'ADPUPA' & 14593 & 'PS' & meter\\  \hline
+        else & - & else & - & hPa \\ \hline
+    \end{tabular}
+    \caption{Vertical coordinate of observation data}
+    \label{tab:vcoord-obs}
+\end{table}
+
+Vertical localization length scales are defined for each observation type in the parameter \verb|VERT_LOCAL| of the namelist \verb|PARAM_LETKF_OBS|.
+The unit is assumed depending on the observation type as follows. 
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|l|l|l|}
+        \hline
+        type \# & type name & unit \\ \hline\hline
+        22 & 'PHARAD' & meter \\ \hline
+        else & - & log-pressure \\ \hline
+    \end{tabular}
+    \caption{Vertical coordinate in localization}
+    \label{tab:vcoord-obs}
+\end{table}
+Therefore, in the array \verb|vert_local|, the 22-th element corresponding to 'PHARAD' is interpreted as 'm' and the rest of the elements are as 'log-p'. Currently, the LETKF code supports only observation type 1 ('ADPUPA') and 22 ('PHARAD'). In the case if you modify the code to include other type of observation, be sure to set consistent vertical unit in the observation data file and the localization parameter. 

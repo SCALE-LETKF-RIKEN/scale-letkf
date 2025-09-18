@@ -1,0 +1,59 @@
+\documentclass[a4paper]{report}
+\usepackage{graphicx} % Required for inserting images
+
+\title{SCALE-LETKF User's Guide}
+\author{Data Assimilation Research Team, R-CCS}
+
+\date{September 2025}
+
+\usepackage[dvipdfmx]{graphicx}
+\usepackage{hyperref}
+\usepackage{fancyvrb}
+\usepackage{fvextra}
+\usepackage{amsmath}
+\usepackage{siunitx}
+\usepackage[round]{natbib}
+\usepackage{bm}
+\usepackage{url}
+\usepackage{pxjahyper}
+\hypersetup{% options for hyperref
+ bookmarksopen=true,
+ bookmarksnumbered=true,
+ colorlinks=true,
+% linkcolor=red,
+ linkcolor=cyan,
+ citecolor=cyan,
+ urlcolor=cyan,
+}
+
+
+\fvset{frame=single,framerule=0.1mm}
+\fvset{fontsize=\scriptsize}
+\fvset{breaklines=true}
+\fvset{samepage=true}
+\DefineShortVerb{\|}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+\input{introduction}
+
+\input{getting-started}
+
+\input{run-from-scripts}
+
+\input{customize-your-experiment}
+
+\input{monitoring}
+
+\input{auxilirary}
+
+%\input{LETKF configurations}
+
+\bibliographystyle{plainnat}
+\bibliography{./biblist}
+
+\end{document}
+

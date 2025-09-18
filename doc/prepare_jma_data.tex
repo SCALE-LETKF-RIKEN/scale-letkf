@@ -1,0 +1,32 @@
+\section{Preparation of JMA MSM data}
+\label{sec:jma-msm}
+
+\subsection{Data source}
+You have an option to use Japan Meteorological Agency (JMA) mesoscale model (MSM) data as a parent model data for your real-world experiment with the SCALE-LETKF. The real-time data is provided by Japan Meteorological Busuiness Support Center (JMBSC) for contracted users. With several more hours of latency, the near-real-time and past data can be downloaded from \hyperlink{https://database.rish.kyoto-u.ac.jp/arch/jmadata/gpv-original.html}{RISH data server} of Kyoto Univ. 
+
+You can find the documentation of JMA models from \hyperlink{https://www.jma.go.jp/jma/jma-eng/jma-center/nwp/outline2025-nwp/index.htm}{JMA web page}. 
+
+\subsection{Download and convert}
+
+Similarly as in the case of NCEP GFS, use the script to download and convert the JMA MSM data. 
+
+\begin{Verbatim}
+./get_msm.sh 20250801000000
+\end{Verbatim}
+
+Check the converted data in the directory specified in the script. 
+
+\begin{Verbatim}[fontsize=\scriptsize]
+### GrADS binary data
+$ ls (your directory where scale is located)/external/jma/msm/2025080100/
+atm_20250801000000.grd  atm_20250801150000.grd  sfc_20250801090000.grd
+atm_20250801030000.grd  atm.ctl                 sfc_20250801120000.grd
+atm_20250801060000.grd  sfc_20250801000000.grd  sfc_20250801150000.grd
+atm_20250801090000.grd  sfc_20250801030000.grd  sfc.ctl
+atm_20250801120000.grd  sfc_20250801060000.grd
+\end{Verbatim}
+
+
+Importantly, note that the JMA MSM data obtained in this manner does not cover all the necessary variables for \verb|scale-rm_init|. Specifically, at least surface topography and soil temperature and moisture data are missing. You need to consider using some additional data source for these variables or getting more complete JMA data in some other ways.
+
+%\section{Preparation of JMA radar CAPPI data}

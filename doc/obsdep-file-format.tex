@@ -1,0 +1,48 @@
+\section{Observation departure file format}
+\label{sec:obsdep-file-format}
+Observation departure statistics output is enabled when the namelist parameter \verb|OBSDEP_OUT| of \verb|PARAM_LETKF_MONITOR| is set.   
+
+The common obsdep file format used in SCALE-LETKF consists of 12-record elements of 4-byte floating-point value for each observation. Note that the access type is \textit{sequential} and not \textit{direct}. The following is a part of the subroutine \verb|write_obs_dep| in \verb|scale/common/common_obs_scale.f90| (simplified for brevity). 
+
+\begin{Verbatim}[frame=lines, framesep=3mm, label=scale/common/common\_obs\_scale.f90]
+  OPEN(iunit,FILE=cfile,FORM='unformatted',ACCESS='sequential')
+  DO n=1,obs%nobs
+    wk(1) = real(obs(set(n))%elm(idx(n)), r_sngl)
+    wk(2) = real(obs(set(n))%lon(idx(n)), r_sngl)
+    wk(3) = real(obs(set(n))%lat(idx(n)), r_sngl)
+    wk(4) = real(obs(set(n))%lev(idx(n)), r_sngl)
+    wk(5) = real(obs(set(n))%dat(idx(n)), r_sngl)
+    wk(6) = real(obs(set(n))%err(idx(n)), r_sngl)
+    wk(7) = real(obs(set(n))%typ(idx(n)), r_sngl)
+    wk(8) = real(obs(set(n))%dif(idx(n)), r_sngl)
+    wk(9) = real(qc(n), r_sngl)
+    wk(10) = real(omb(n), r_sngl)
+    wk(11) = real(oma(n), r_sngl)
+    wk(12) = real(spr(n), r_sngl)
+    WRITE(iunit) wk
+  END DO
+\end{Verbatim}
+
+The 12 elements of the observation departure data array are as follows. 
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|l|l|}
+        \hline
+        Record \# & Description \\ \hline\hline
+        1 & Observation variable (integer code defined in \verb|common_obs_scale.f90|)\\ \hline
+        2 & Longitude (degree) \\ \hline
+        3 & Latitude (degree)  \\ \hline
+        4 & Vertical level (hPa or meter, see \hyperref[sec:vertical-coordinate]{Notes on vertical coordinate}) \\ \hline
+        5 & Observed value \\ \hline
+        6 & Observation error standard deviation \\ \hline
+        7 & Observation type (integer code defined in \verb|common_obs_scale.f90|) \\ \hline
+        8 & Difference of observation time from the target time of data assimilation (second) \\ \hline
+        9 & QC flag (integer code defined in \verb|common_obs_scale.f90|) \\ \hline
+        10 & O-B \\ \hline
+        11 & O-A \\ \hline
+        12 & First guess ensemble spread in the observation space \\ \hline
+    \end{tabular}
+    \caption{Observation departure data elements}
+    \label{tab:obsdep-data-elements}
+\end{table}
