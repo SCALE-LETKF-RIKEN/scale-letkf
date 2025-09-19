@@ -1,0 +1,266 @@
+\chapter{Getting started}
+
+\section{Code structure}
+
+SCALE-LETKF is designed to be used with the library \href{https://scale.riken.jp/}{Scalable Computing for Advanced Library and Environment} (SCALE) developed in RIKEN. The main code of SCALE-LETKF is almost entirely written in Fortran, as well as SCALE. 
+The main compiled binaries include \verb|letkf|, which is the main code for data assimilation with LETKF, and a group of ensemble wrappers of SCALE regional model (SCALE-RM), which are \verb|scale-rm_ens|, \verb|scale-rm_init_ens|, and \verb|scale-rm_pp_ens|. The code also includes other tools such as ensemble forecast sensitivity to observation (EFSO), and observation data decoders. 
+
+\section{Sources} 
+\subsection{SCALE} 
+
+Obtain the source code from \href{https://scale.riken.jp/download/}{SCALE web page} or \href{https://github.com/scale-met/scale/}{github repository}. The model description and user guide can be found in the \href{http://scale.riken.jp/doc/}{documentation page}.
+
+The current SCALE-LETKF code only supports the latest public version of SCALE (version 5.5.5 as of September 2025). 
+
+\subsection{SCALE-LETKF} 
+
+The public version of SCALE-LETKF can be downloaded from \href{https://github.com/SCALE-LETKF-RIKEN/scale-letkf}{github}.
+
+\subsection{Database} 
+
+The topography and landuse dataset for SCALE-RM can be obtained from the \href{https://scale.riken.jp/download/#datasets}{SCALE web page}. The SCALE-LETKF observation and boundary condition data for the tutorial can be found in the following path.
+
+\begin{Verbatim}
+Fugaku:/share/ra000007/u10335/scale_database
+\end{Verbatim}
+
+If you are a Fugaku user, copy the database to your own directory under \verb|/vol0003| or \verb|/vol0004|, as \verb|/share| is not accessible directly from the compute node. Set the environmental variable \verb|SCALE_DB| to the \verb|scale_database| path copied to your directory.
+
+\section{Compilation}
+
+\subsection{Environmental variables}
+
+Before the compilation of SCALE and SCALE-LETKF, set environmental variables as follows.
+
+\begin{Verbatim}
+export GROUP=<your group number> ### not Fugaku but hpXXXXXX or raXXXXXX
+export SCALE_SYS="FUGAKU"
+export SCALE_DB=<path to your directory>/scale_database ### your own directory
+export SCALE_ENABLE_OPENMP=T
+export SCALE_ENABLE_PNETCDF=F
+\end{Verbatim}
+
+The following environmental variables are not necessary but optional.
+
+\begin{Verbatim}
+export SCALE_USE_SINGLEFP=T
+export SCALE_QUICKDEBUG=T
+export SCALE_DEBUG=T
+\end{Verbatim}
+
+On Fugaku, some libraries such as NetCDF need to be loaded and linked from \href{https://www.fugaku.r-ccs.riken.jp/doc_root/ja/user_guides/FugakuSpackGuide/}{spack}. The sample can be found in the database directory.
+
+\begin{Verbatim}
+source <your $SCALE_DB>/setup-scale-compile.sh
+\end{Verbatim}
+
+\subsection{Compile SCALE-RM}
+
+\begin{Verbatim}
+git clone https://github.com/scale-met/scale.git
+cd scale/scale-rm/src
+make -j
+\end{Verbatim}
+
+For more information, please refer to the \href{https://scale.riken.jp/documents/}{SCALE user's guide}.
+
+\subsection{Compile SCALE-LETKF}
+
+\begin{Verbatim}
+git clone https://github.com/SCALE-LETKF-RIKEN/scale-letkf.git
+cd scale-letkf/scale
+make -j
+\end{Verbatim}
+
+The compile options are in 
+\verb|arch/configure.${SCALE_SYS}|.
+
+After the compilation, check if all the binary files are created.
+
+\begin{Verbatim}
+ensmodel/scale-rm_pp_ens
+ensmodel/scale-rm_init_ens
+ensmodel/scale-rm_ens
+letkf/letkf
+letkf/efso
+\end{Verbatim}
+
+\section{Run a test script}
+
+The directory \verb|scale-letkf/scale/run_light| provides a set of simple scripts to test the SCALE-LETKF code on Fugaku.
+
+First, enter the directory and specify the path of the database in \verb|prep.sh|.
+
+\begin{Verbatim}[frame=lines, framesep=2mm, label=prep.sh]
+LETKFDIR=${mydir}/..
+SCALEDIR=${mydir}/../../..
+### path to your directory
+DATADIR="/data/$(id -ng)/$(id -nu)/scale_database/scale-letkf-test-suite" 
+\end{Verbatim}
+
+\sloppy Execute prep.sh and you will have symbolic links to the binary files \verb|scale-rm_init_ens|, \verb|scale-rm_ens|, and \verb|letkf| in the directory. You can also find the input data files in the directories \verb|0001-0005| and \verb|mean|.
+
+First, let's just run the script.
+
+\begin{Verbatim}
+### Fugaku interactive job 
+pjsub --interact --sparam "wait-time=300" exec_pjsub.sh 
+\end{Verbatim}
+
+In the batch job script \verb|exec_pjsub.sh|, three binaries are executed.
+
+\begin{Verbatim}
+echo "scale-rm_init_ens"
+mpiexec -std-proc log/scale_init/NOUT -n 48 \
+./scale-rm_init_ens config/scale-rm_init_ens_20220101000000.conf
+echo "scale-rm_ens"
+mpiexec -std-proc log/scale/NOUT -n 48 \
+./scale-rm_ens config/scale-rm_ens_20220101000000.conf
+echo "letkf"
+mpiexec -std-proc log/letkf/NOUT -n 48 \
+./letkf config/letkf_20220101060000.conf
+echo "done."
+\end{Verbatim}
+
+When the job starts running, the log file of the job script \verb|exec_pjsub.sh.<jobid>.out| appears. When the job is completed successfully, the following text appears in the log file.
+
+\begin{Verbatim}[frame=lines, framesep=2mm, label=exec\_pjsub.sh.<jobid>.out]
+scale-rm_init_ens
+scale-rm_ens
+letkf
+done.
+\end{Verbatim}
+
+You can also find a pair of analysis and first guess data of each ensemble member and ensemble mean at 2022/01/01 06:00:00.
+
+\begin{Verbatim}
+$ ls */*/init*pe000000.nc
+0001/anal/init_20220101-000000.000.pe000000.nc  
+0001/anal/init_20220101-060000.000.pe000000.nc 
+0001/gues/init_20220101-060000.000.pe000000.nc  
+0002/anal/init_20220101-000000.000.pe000000.nc  
+...
+mean/anal/init_20220101-000000.000.pe000000.nc
+mean/anal/init_20220101-060000.000.pe000000.nc
+mean/gues/init_20220101-060000.000.pe000000.nc
+\end{Verbatim}
+
+\section{Run a test script (step by step)}
+
+After you confirm that the script works, let's do it again step by step and see the necessary settings and input data at each step. First, run the script \verb|clean.sh| to remove the output files and temporary log files in the directory \verb|run_light|, then execute \verb|prep.sh| again. 
+
+In this test case, the target domain is the area around Japan with a horizontal grid spacing of 18 km. 
+
+\begin{figure*}[h]
+\includegraphics[width=12cm]{img/18km_Japan_topo.jpg}
+	\caption{Topography}
+\label{fig:fig1}
+\end{figure*}
+
+\subsection{scale-rm\_init\_ens}
+
+A binary \verb|scale-rm_init_ens| is a wrapper of \verb|scale-rm_init| with multiple ensemble members. It calls the core program of \verb|scale-rm_init| for each member inside, reading corresponding separate namelist files. For example, the first member uses the file \verb|0001/init.d01_20220101000000.conf|.
+
+The necessary input data includes
+\begin{itemize}
+    \item namelist file for the entire program \\ (\verb|config/scale-rm_init_ens_20220101000000.conf|)
+    \item namelist file for each member (\verb|0001/init.d01_20220101000000.conf|)
+    \item topography/landuse data (\verb|const/topo|, \verb|const/landuse|)
+    \item parent model data for boundary condition (\verb|mean/bdyorg*.grd|)
+    \item namelist file for parent model input (\verb|mean/gradsbdy.conf|)
+    \item output directory for log file (\verb|log/scale_init|)
+\end{itemize}
+
+The output data includes
+
+\begin{itemize}
+    \item boundary data (\verb|mean/boundary*.nc|)
+    \item log files
+\end{itemize}
+
+In this testcase, the initial conditions are already prepared and copied from \verb|DATADIR| for each member. The boundary conditions are created by \verb|scale-rm_init_ens|. All the members share the same boundary condition generated from the parent model forecast. Therefore, \verb|scale-rm_init_ens| only creates boundary conditions for the first member \verb|0001|. This is set by the parameter \verb|MEMBER_RUN| in the namelist \verb|config/scale-rm_init_ens_20220101000000.conf|.
+
+\begin{Verbatim}[frame=lines, framesep=2mm, label=scale-rm\_init\_ens\_20220101000000.conf]
+&PARAM_ENSEMBLE
+MEMBER = 5,
+MEMBER_RUN = 1,
+CONF_FILES = "<member>/init.d<domain>_20220101000000.conf",
+CONF_FILES_SEQNUM = .false.,
+DET_RUN = .false.,
+DET_RUN_CYCLED = .true.,
+/
+\end{Verbatim}
+
+The initial condition for each member in this tutorial is already prepared. They are made by adding random perturbations to \verb|RHOT| and \verb|DENS| with a selected wavelength range to the background analysis of NCEP GDAS. The example of \verb|RHOT| fields of the first two members are shown below.
+
+\begin{figure*}[h]
+\includegraphics[width=12cm]{img/map_rhot.png}
+	\caption{RHOT of member 1 and 2}
+\label{fig:fig2}
+\end{figure*}
+
+\subsection{scale-rm\_ens}
+Next, a binary \verb|scale-rm_ens| is a wrapper of \verb|scale-rm| with multiple ensemble members. It calls the core program of \verb|scale-rm| for each member inside, reading corresponding separate namelist files. The namelist for the first member is \verb|0001/run.d01_20220101000000.conf|.
+
+The necessary input data includes
+\begin{itemize}
+    \item namelist file for the entire program \\ (\verb|config/scale-rm_ens_20220101000000.conf|)
+    \item namelist file for each member (\verb|0001/run.d01_20220101000000.conf|)
+    \item topography/landuse data (\verb|const/topo|, \verb|const/landuse|)
+    \item initial condition files (\verb|<member>/anal/init_20220101-000000.000.*.nc|)
+    \item boundary files (\verb|mean/boundary*.nc|)
+    \item output directory for log file (\verb|log/scale|)
+\end{itemize}
+
+The output data includes
+\begin{itemize}
+    \item restart files (\verb|<member>/gues/init_20220101-060000.000.*.nc|)
+    \item history files (\verb|<member>/hist/history*.nc|)
+    \item log files
+\end{itemize}
+
+Both restart and history files are necessary in this testcase, as it performs 4-D LETKF. Note that the ensemble forecast is performed from 2022-01-01 00:00:00 to 2022-01-01 09:00:00 to cover the 6-hour assimilation window from 03:00:00, whereas the restart files are created at 2022-01-01 06:00:00.
+
+Also note that the original restart files \\ \verb|<member>/gues/init_20220101-060000.000.*.nc| are copied to \verb|<member>/anal/init_20220101-060000.000.*.nc|. This is prerequisite for LETKF which does not create but overwrite NetCDF files.
+
+\subsection{letkf}
+
+The necessary input data includes 
+\begin{itemize}
+    \item namelist file for the program (\verb|config/letkf_20220101060000.conf|)
+    \item topography/landuse data (\verb|const/topo|, \verb|const/landuse|)
+    \item restart files to overwrite (\verb|<member>/anal/init_20220101-060000.000.*.nc|)
+    \item history files (\verb|<member>/hist/history*.nc|)
+    \item observation files (\verb|obs/obs_20220101060000.nc|)
+    \item output directory for log file (\verb|log/letkf|)
+\end{itemize}
+ 
+The output data includes
+\begin{itemize}
+    \item restart files (overwrite) (\verb|<member>/gues/init_20220101-060000.000.*.nc|)
+    \item log files
+\end{itemize}
+
+The observation data in this case is the PREPBUFR which is used in the NCEP Global Data Assimilation System (GDAS). The assimilation time window is 6 hours from "2022-01-01 03:00:00" to "2022-01-01 09:00:00". The time series of background ensemble forecast data is loaded from history files and transformed to an observation space. The resultant analysis mean and each member fields are overwritten to \verb|<member>/anal/init_20220101-060000.000.*.nc|.
+
+To quickly check if the LETKF works, see the log file \verb|log/letkf/NOUT.3.0|. The observation departure statistics before and after the LETKF indicates how the misfit between the background (forecast ensemble mean) and the observation is reduced by the data assimilation.
+
+\begin{Verbatim}[frame=lines, framesep=2mm, label=log/letkf/NOUT.3.0]
+OBSERVATIONAL DEPARTURE STATISTICS [GUESS] (GLOBAL):
+==================================================================
+                 U           V           T           Q          PS
+------------------------------------------------------------------
+BIAS     2.317E-02   7.718E-01   1.208E-02   2.321E-05  -1.346E+02
+RMSE     3.009E+00   2.762E+00   1.717E+00   4.158E-04   2.145E+02
+NUMBER       14652       14654          93          36        1379
+==================================================================
+
+OBSERVATIONAL DEPARTURE STATISTICS [ANALYSIS] (GLOBAL):
+==================================================================
+                 U           V           T           Q          PS
+------------------------------------------------------------------
+BIAS    -2.040E-02   7.287E-01   1.227E-02   2.174E-05  -1.137E+02
+RMSE     2.821E+00   2.636E+00   1.634E+00   4.204E-04   1.955E+02
+NUMBER       14652       14654          93          36        1379
+==================================================================
+\end{Verbatim}

@@ -38,6 +38,10 @@ elif [ "$PRESET" = 'Linux_torque' ]; then
   NODELIST_TYPE='machinefile'
 elif [ "$PRESET" = 'FUGAKU' ]; then
   :
+elif [ "$PRESET" = 'FX1000' ]; then
+  :
+elif [ "$PRESET" = 'Linux64-nvidia' ]; then
+  :
 else
   echo "[Error] Preset '$PRESET' not found" 1>&2
   exit 1
@@ -53,6 +57,8 @@ else
   USE_LLIO_BIN=0
   USE_LLIO_DAT=0
   USE_LLIO_TMP=0
+  HIST_LLIO_TMP=0
+  BDY_LLIO_TMP=0
 fi
 
 #===============================================================================
@@ -111,6 +117,7 @@ DET_RUN="${DET_RUN:-0}"
 
 EFSO_RUN="${EFSO_RUN:-0}"
 EFSO_FCST_LENGTH=${EFSO_FCST_LENGTH:-$LCYCLE}
+DO_ANALYSIS4EFSO="${DO_ANALYSIS4EFSO:-0}"
 
 BDY_SINGLE_FILE="${BDY_SINGLE_FILE:-0}"
 if ((BDY_SINGLE_FILE == 1 && BDY_ROTATING != 1)); then

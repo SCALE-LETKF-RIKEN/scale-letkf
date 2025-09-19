@@ -1,7 +1,7 @@
 #!/bin/bash 
 #
-#PJM -g hp150019
-#PJM -x PJM_LLIO_GFSCACHE=/vol0003:/vol0004
+#PJM -g ra000007
+#PJM -x PJM_LLIO_GFSCACHE=/vol0004
 #PJM -L "rscgrp=int"
 #PJM -L "node=12"
 #PJM -L "elapse=00:20:00"

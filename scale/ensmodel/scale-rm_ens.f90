@@ -29,6 +29,9 @@ program scaleles_ens
      PRC_UNIVERSAL_myrank, &
      PRC_DOMAIN_nlim
   use mod_rm_driver
+#ifdef _OPENACC
+    use openacc
+#endif
 
   implicit none
 
@@ -65,6 +68,18 @@ program scaleles_ens
   myrank = universal_myrank
 
   call set_common_conf( myrank )
+
+#ifdef _OPENACC
+    block
+      integer :: ngpus, gpuid
+      ngpus = acc_get_num_devices(acc_device_nvidia)
+      if( universal_master ) write(*,*) "*** Number of GPUs: ", min(ngpus, universal_nprocs)
+      if ( ngpus > 0 ) then
+         gpuid = mod(universal_myrank, ngpus)
+         call acc_set_device_num(gpuid, acc_device_nvidia)
+      end if
+    end block
+#endif
 
 !-----------------------------------------------------------------------
 

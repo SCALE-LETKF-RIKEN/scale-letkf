@@ -90,7 +90,8 @@ safe_init_tmpdir $STAGING_DIR || exit $?
 staging_list_static || exit $?
 config_file_list $TMPS/config || exit $?
 
-NNODES_USE=$(( fmember * ( SCALE_NP / PPN ) ))
+# NNODES_USE=$(( fmember * ( SCALE_NP / PPN ) ))
+NNODES_USE=$NNODES
 echo "NNODES=$NNODES_USE" >> $TMP/config.main
 
 #-------------------------------------------------------------------------------
@@ -232,6 +233,104 @@ EOF
   job_end_check_PJM $jobid
   res=$?
 
+elif [ "$PRESET" = 'FX1000' ]; then
+
+  if [ -z "$RSCGRP" ]; then
+    RSCGRP="regular-o"
+  fi
+
+
+cat > $jobscrp << EOF
+#!/bin/bash 
+#
+#PJM -L "rscgrp=${RSCGRP}"
+#PJM -L "node=${NNODES}"
+#PJM --mpi proc=$((NNODES*PPN))
+#PJM -L "elapse=${TIME_LIMIT}"
+#PJM -g ${GROUP} 
+#PJM -j
+#PJM -S
+
+export OMP_NUM_THREADS=${THREADS}
+export FORT90L=-Wl,-T
+
+module load fj
+module load hdf5
+module load netcdf
+module load netcdf-fortran
+module load pnetcdf
+
+./${job}.sh "$STIME" "$ETIME" "$MEMBERS" "$CYCLE" "$CYCLE_SKIP" "$IF_VERF" "$IF_EFSO" "$ISTEP" "$FSTEP" "$CONF_MODE" || exit \$?
+
+EOF
+
+  echo "[$(datetime_now)] Run ${job} job on PJM"
+  echo
+
+  job_submit_PJM $jobscrp
+  echo
+  
+  job_end_check_PJM $jobid
+  res=$?
+
+elif [ "$PRESET" = 'Linux64-nvidia' ]; then
+  # Wisteria Aquarius
+
+  if [ -z "$RSCGRP" ]; then
+    RSCGRP="regular-a"
+  fi
+
+
+cat > $jobscrp << EOF
+#!/bin/bash 
+#
+#PJM -L "rscgrp=${RSCGRP}"
+#PJM --mpi proc=$((NNODES*PPN))
+#PJM -L "elapse=${TIME_LIMIT}"
+#PJM -g ${GROUP} 
+#PJM -S
+#PJM -L gpu=${NNODES}
+#PJM -j
+
+export LD_LIBRARY_PATH=${NETCDF_F_DIR}/lib:${NETCDF_DIR}/lib
+
+
+# Load NVIDIA and CUDA modules used for compilation
+module purge
+module load nvidia/24.11
+module load cuda/12.6 nvmpi/24.11 
+
+export UCX_TLS=^gdr_copy
+
+export FORT_FMT_RECL=500
+# export NVCOMPILER_ACC_NOTIFY=31
+# export NVCOMPILER_ACC_NOTIFY=16
+# export NVCOMPILER_ACC_TIME=1
+
+./${job}.sh "$STIME" "$ETIME" "$MEMBERS" "$CYCLE" "$CYCLE_SKIP" "$IF_VERF" "$IF_EFSO" "$ISTEP" "$FSTEP" "$CONF_MODE" || exit \$?
+
+EOF
+
+  wrapper="$TMP/wrapper.sh"
+cat > $wrapper << EOF
+#!/bin/sh
+
+GPU_UUID=(\${CUDA_VISIBLE_DEVICES//,/ })
+export CUDA_VISIBLE_DEVICES=\$OMPI_COMM_WORLD_LOCAL_RANK
+exec "\$@" > "\$LOG_SCALE_LETKF.\${OMPI_COMM_WORLD_RANK:-0}" 2>&1
+EOF
+  chmod +x $wrapper
+
+  echo "[$(datetime_now)] Run ${job} job on PJM"
+  echo
+
+  job_submit_PJM $jobscrp
+  echo
+  
+  job_end_check_PJM $jobid
+  res=$?
+
+
 # qsub
 elif [ "$PRESET" = 'Linux_torque' ]; then
 
@@ -346,6 +445,8 @@ echo "[$(datetime_now)] Finalization"
 echo
 
 backup_exp_setting $job $TMP $jobid ${job}_job.sh 'o e'
+
+config_file_save $TMPS/config || exit $?
 
 archive_log
 

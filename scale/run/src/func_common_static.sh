@@ -209,6 +209,8 @@ while ((time <= ETIME)); do
           if ((BDY_ENS == 1)); then
             if ((m == mmean)); then
               mem_bdy="$BDY_MEAN"
+            elif (( m == mmgue && EFSO_RUN == 1 )); then
+                mem_bdy="$BDY_MEAN"
             else
               mem_bdy="${name_m[$m]}"
             fi

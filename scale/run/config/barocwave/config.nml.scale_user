@@ -1,7 +1,7 @@
 
 &PARAM_USER
  USER_do = .true.,
- REFSTATE_IN_BASENAME = "/home/amemiya/test_scale/result/barocwave/refstate/refstate",
+ REFSTATE_IN_BASENAME = "/home/myname/test_scale/result/barocwave/refstate/refstate",
  NUDGE_UV_DAY_TOP = -999.9, 
  NUDGE_UV_DAY_BOT = 10.0, 
  NUDGE_UV_TRANS_HEIGHT = 3.0D3,

@@ -8,7 +8,6 @@
 !--IO_LOG_BASENAME--
 /
 
-
 &PARAM_PRC_CARTESC
  PRC_NUM_X = 4,
  PRC_NUM_Y = 4,
@@ -77,6 +76,10 @@
  ATMOS_REFSTATE_TYPE = "INIT",
 /
 
+&PARAM_MAPPROJECTION
+ MAPPROJECTION_type="MER",
+/
+
 !!! Modified to avoid numerical instability !!!
 &PARAM_ATMOS_DYN
  ATMOS_DYN_TINTEG_SHORT_TYPE          = "RK4",
@@ -128,28 +131,4 @@
 &HISTORY_ITEM name='RAIN' /
 &HISTORY_ITEM name='SNOW' /
 
-&HISTORY_ITEM name='Vterm_QR' /
-&HISTORY_ITEM name='Vterm_QI' /
-&HISTORY_ITEM name='Vterm_QS' /
-&HISTORY_ITEM name='Vterm_QG' /
 
-&PARAM_MONITOR
- MONITOR_STEP_INTERVAL = 15,
-/
-
-&MONITOR_ITEM name='QDRY' /
-&MONITOR_ITEM name='QTOT' /
-&MONITOR_ITEM name='EVAP' /
-&MONITOR_ITEM name='PREC' /
-
-&MONITOR_ITEM name='ENGT' /
-&MONITOR_ITEM name='ENGP' /
-&MONITOR_ITEM name='ENGK' /
-&MONITOR_ITEM name='ENGI' /
-
-&MONITOR_ITEM name='QV'   /
-&MONITOR_ITEM name='QC'   /
-&MONITOR_ITEM name='QR'   /
-&MONITOR_ITEM name='QI'   /
-&MONITOR_ITEM name='QS'   /
-&MONITOR_ITEM name='QG'   /

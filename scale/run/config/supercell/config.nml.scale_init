@@ -56,6 +56,10 @@
  MKINIT_initname = "SUPERCELL",
 /
 
+&PARAM_MAPPROJECTION
+ MAPPROJECTION_type="MER",
+/
+
 &PARAM_MKINIT_SOUNDING
  ENV_IN_SOUNDING_file = "dat/supercell.txt",
 /

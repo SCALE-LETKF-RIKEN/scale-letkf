@@ -7,7 +7,7 @@ real(4),allocatable::axlon(:,:),axlat(:,:),axz(:),pres(:,:,:)
 integer,parameter::nelm=3
 integer,parameter::elms(nelm)=(/4001,4002,4004/) !! ze, vr, ze(zero)
 real(4),parameter::errs(nelm)=(/5.0,3.0,5.0/)     
-real(4),parameter::vdist_limit = 80.0e3
+real(4),parameter::vdist_limit = 99999.0e3 !!! all the domain
 
 real(4),parameter::er=6400.0e3
 real(4),parameter::drad=3.141592/180.0

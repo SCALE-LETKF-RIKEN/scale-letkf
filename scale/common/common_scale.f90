@@ -54,6 +54,8 @@ MODULE common_scale
        'QV        ', 'QC        ', 'QR        ', 'QI        ', 'QS        ', 'QG        '/)
   CHARACTER(vname_max) :: v2d_name(nv2d)
 
+  integer, parameter :: iv2d_diag_ps = 1
+
   ! 
   !--- 3D, 2D diagnostic variables (in SCALE history files)
   ! 
@@ -1359,8 +1361,6 @@ subroutine read_restart_trans_history(filename, v3dgh, v2dgh)
   real(RP) :: v3dg_RP(nlev,nlon,nlat,nv3d)
   real(RP) :: v2dg_RP(nlon,nlat,nv2d)
 
-  integer :: i, j, iv3d, iv2d
-
   ! Read gues files and transform to LETKF variables
   !-------------
 
@@ -1383,19 +1383,47 @@ end subroutine read_restart_trans_history
 !-------------------------------------------------------------------------------
 ! Transform the SCALE restart variables to the LETKF state variables
 !-------------------------------------------------------------------------------
-subroutine state_trans(v3dg)
+subroutine state_trans(v3dg,rotate_flag,ps)
   use scale_tracer, only: TRACER_CV
   use scale_const, only: &
      Rdry   => CONST_Rdry, &
      Rvap   => CONST_Rvap, &
      CVdry  => CONST_CVdry, &
      PRE00 => CONST_PRE00
+  use scale_atmos_bottom, only: &
+     ATMOS_BOTTOM_estimate
+  use scale_atmos_grid_cartesc_real, only: &
+     FZ => ATMOS_GRID_CARTESC_real_FZ
+  use scale_atmos_grid_cartesC_index, only: &
+     IS, IE, JS, JE, KS, KE, &
+     IHALO, JHALO
+  use scale_atmos_grid_cartesC_metric, only: &
+     ROTC => ATMOS_GRID_CARTESC_METRIC_ROTC
+
   implicit none
 
   real(RP), intent(inout) :: v3dg(nlev,nlon,nlat,nv3d)
+  logical,  intent(in),  optional :: rotate_flag
+  real(RP), intent(out), optional :: ps(nlon,nlat)
   real(RP) :: rho,pres,temp
   real(RP) :: qdry,CVtot,Rtot,CPovCV
   integer :: i,j,k,iv3d
+
+  real(RP), allocatable :: rho_tmp(:,:,:)
+  real(RP), allocatable :: dummy2d(:,:)
+
+  real(RP) :: utmp, vtmp
+
+  logical :: rotate_flag_ = .false.
+
+  if ( present( rotate_flag ) ) then
+    rotate_flag_ = rotate_flag
+  end if
+
+  if ( present(ps) ) then
+    allocate(rho_tmp(nlev,nlon,nlat))
+    allocate(dummy2d(nlon,nlat))
+  endif
 
 !$OMP PARALLEL DO PRIVATE(i,j,k,iv3d,qdry,CVtot,Rtot,CPovCV,rho,pres,temp) COLLAPSE(2)
   do j = 1, nlat
@@ -1412,6 +1440,10 @@ subroutine state_trans(v3dg)
        CPovCV = ( CVtot + Rtot ) / CVtot
 
        rho = v3dg(k,i,j,iv3d_rho)
+       if ( present(ps) ) then
+         rho_tmp(k,i,j) = rho
+       end if
+
        pres = PRE00 * ( v3dg(k,i,j,iv3d_rhot) * Rtot / PRE00 )**CPovCV
        temp = pres / ( rho * Rtot )
 
@@ -1424,6 +1456,38 @@ subroutine state_trans(v3dg)
     enddo
   enddo
 !$OMP END PARALLEL DO
+
+  if ( present(ps) ) then
+    if ( EFSO_DIAGNOSE_PS ) then
+      call ATMOS_BOTTOM_estimate(nlev,1,nlev,nlon,1,nlon,nlat,1,nlat,          &
+                                rho_tmp,v3dg(:,:,:,iv3d_p),v3dg(:,:,:,iv3d_q),&
+                                ! dummy !surface temperature is not used to calculate surface pressure 
+                                v3dg(1,:,:,iv3d_t),                           & 
+                                FZ(KS-1:KE,IS:IE,JS:JE),dummy2d,ps )
+    else
+      ps = v3dg(1,:,:,iv3d_p)
+    endif
+    
+    deallocate(rho_tmp)
+    deallocate(dummy2d)
+  endif
+
+  if ( rotate_flag_ ) then
+    !$omp parallel do private(i,j,k,utmp,vtmp) collapse(2)
+    do j = 1, nlat
+      do i = 1, nlon
+        do k = 1, nlev
+          utmp = v3dg(k,i,j,iv3d_u)
+          vtmp = v3dg(k,i,j,iv3d_v)     
+          
+          v3dg(k,i,j,iv3d_u) = utmp * ROTC(IHALO+i,JHALO+j,1) - vtmp * ROTC(IHALO+i,JHALO+j,2)
+          v3dg(k,i,j,iv3d_v) = utmp * ROTC(IHALO+i,JHALO+j,2) + vtmp * ROTC(IHALO+i,JHALO+j,1)
+        
+        enddo
+      enddo
+    enddo
+    !$omp end parallel do
+  endif
 
   return
 end subroutine state_trans
@@ -1502,10 +1566,17 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
       COMM_wait
   use scale_atmos_grid_cartesC_metric, only: &
       ROTC => ATMOS_GRID_CARTESC_METRIC_ROTC
-!  use scale_const, only: &
-!      UNDEF => CONST_UNDEF,&
-!      Rdry   => CONST_Rdry, &
-!      Rvap   => CONST_Rvap
+  use scale_const, only: &
+      Rdry   => CONST_Rdry, &
+      Rvap   => CONST_Rvap, &
+      CVdry  => CONST_CVdry, &
+      PRE00 => CONST_PRE00
+  use scale_tracer, only: TRACER_CV
+  use scale_atmos_grid_cartesc_real, only: &
+     FZ => ATMOS_GRID_CARTESC_real_FZ
+  use scale_atmos_bottom, only: &
+     ATMOS_BOTTOM_estimate
+ 
 !  use scale_atmos_saturation, only: &
 !      ATMOS_SATURATION_psat_all
 
@@ -1523,7 +1594,9 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
   integer :: i, j, k, iv3d, iv2d
 
   real(RP) :: utmp, vtmp
-!  real(RP) :: qdry, Rtot
+  real(RP) :: qdry, Rtot
+  real(RP) :: rho_RP(nlevh,nlonh,nlath)
+  real(RP) :: dummy2d(nlon,nlat)
 !  real(RP) :: psat(nlevh,nlonh,nlath)
 
   ! Variables that can be directly copied
@@ -1543,9 +1616,11 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
   v3dgh_RP(KS:KE,IS:IE,JS:JE,iv3dd_qs) = v3dg(:,:,:,iv3d_qs)
   v3dgh_RP(KS:KE,IS:IE,JS:JE,iv3dd_qg) = v3dg(:,:,:,iv3d_qg)
 
+
   ! Rotate U/V (model coord. wind) and obtain Umet/Vmet (true zonal/meridional wind)
   !-------------
-!$omp parallel do private(k,i,j,utmp,vtmp) schedule(static) collapse(2)
+
+!$omp parallel do private(k,i,j,utmp,vtmp,iv3d,qdry,Rtot) schedule(static) collapse(2)
   do j = JS, JE
   do i = IS, IE
     do k = KS, KE
@@ -1554,6 +1629,16 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
     
       v3dgh_RP(k,i,j,iv3d_u) = utmp * ROTC(i,j,1) - vtmp * ROTC(i,j,2)
       v3dgh_RP(k,i,j,iv3d_v) = utmp * ROTC(i,j,2) + vtmp * ROTC(i,j,1)
+
+
+      qdry  = 1.0_RP
+      do iv3d = iv3d_q, nv3d ! loop over all moisture variables
+        qdry  = qdry - v3dgh_RP(k,i,j,iv3d)
+      enddo
+      Rtot  = Rdry  * qdry + Rvap * v3dgh_RP(k,i,j,iv3d_q)
+
+      rho_RP(k,i,j) = v3dgh_RP(k,i,j,iv3d_p) / (Rtot * v3dgh_RP(k,i,j,iv3d_t))
+
     enddo
   enddo
   enddo
@@ -1588,6 +1673,7 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
   !---------------------------------------------------------
 
   call scale_calc_z(topo, height)
+
   v3dgh_RP(KS:KE,IS:IE,JS:JE,iv3dd_hgt) = height(1:nlev,1:nlon,1:nlat)
 
   ! Surface variables: use the 1st level as the surface (although it is not)
@@ -1602,6 +1688,12 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
   v2dgh_RP(IS:IE,JS:JE,iv2dd_q2m)  = v3dg(1,1:nlon,1:nlat,iv3d_q)
 
 !  v2dgh_RP(IS:IE,JS:JE,iv2dd_rain) = [[No way]]
+
+  call ATMOS_BOTTOM_estimate(nlev,1,nlev,nlon,1,nlon,nlat,1,nlat,          &
+                              rho_RP(KS:KE,IS:IE,JS:JE),v3dgh_RP(KS:KE,IS:IE,JS:JE,iv3d_p),v3dgh_RP(KS:KE,IS:IE,JS:JE,iv3d_q),&
+                              ! dummy !surface temperature is not used to calculate surface pressure 
+                              v3dgh_RP(KS,IS:IE,JS:JE,iv3d_t),                           & 
+                              FZ(KS-1:KE,IS:IE,JS:JE),dummy2d(1:nlon,1:nlat),v2dgh_RP(IS:IE,JS:JE,iv2dd_ps) )
 
   ! Pad the upper and lower halo areas
   !---------------------------------------------------------
@@ -1623,6 +1715,7 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
   do iv3d = 1, nv3dd
     call COMM_vars8( v3dgh_RP(:,:,:,iv3d), iv3d )
   end do
+
   do iv3d = 1, nv3dd
     call COMM_wait ( v3dgh_RP(:,:,:,iv3d), iv3d )
   end do
@@ -1750,22 +1843,24 @@ end subroutine scale_calc_z_grd
 ! [OUTPUT]
 !   v3d(nij,nlev,nens,nv3d) : ensemble mean of 3D state variables (on scattered grids)
 !                             outputted by (:,:,mem+1,:)
-!   v2d(nij,     nens,nv3d) : ensemble mean of 2D state variables (on scattered grids)
+!   v2d(nij,     nens,nv2d) : ensemble mean of 2D state variables (on scattered grids)
 !                             outputted by (:  ,mem+1,:)
 !-------------------------------------------------------------------------------
-subroutine ensmean_grd(mem, nens, nij, v3d, v2d)
+subroutine ensmean_grd(mem, nens, nij, nv3d, nv2d, v3d, v2d)
   implicit none
+
   integer, intent(in) :: mem
   integer, intent(in) :: nens
   integer, intent(in) :: nij
+  integer, intent(in) :: nv3d, nv2d
   real(r_size), intent(inout) :: v3d(nij,nlev,nens,nv3d)
   real(r_size), intent(inout) :: v2d(nij,nens,nv2d)
   integer :: i, k, m, n, mmean
 
   mmean = mem + 1
 
-!$OMP PARALLEL PRIVATE(i,k,m,n)
-!$OMP DO SCHEDULE(STATIC) COLLAPSE(2)
+!$omp parallel private(i,k,m,n)
+!$omp do schedule(static) collapse(2)
   do n = 1, nv3d
     do k = 1, nlev
       do i = 1, nij
@@ -1777,8 +1872,8 @@ subroutine ensmean_grd(mem, nens, nij, v3d, v2d)
       end do
     end do
   end do
-!$OMP END DO 
-!$OMP DO SCHEDULE(STATIC) 
+!$omp end do 
+!$omp do schedule(static) 
   do n = 1, nv2d
     do i = 1, nij
       v2d(i,mmean,n) = v2d(i,1,n)
@@ -1788,8 +1883,8 @@ subroutine ensmean_grd(mem, nens, nij, v3d, v2d)
       v2d(i,mmean,n) = v2d(i,mmean,n) / real(mem, r_size)
     end do
   end do
-!$OMP END DO
-!$OMP END PARALLEL
+!$omp end do
+!$omp end parallel
 
   return
 end subroutine ensmean_grd
@@ -2096,5 +2191,34 @@ subroutine rij_rank_g2l(ig, jg, rank, il, jl)
 
   return
 end subroutine rij_rank_g2l
+
+subroutine copy_scale_file(filename_in, filename_out)
+  use scale_prc, only: &
+    PRC_myrank
+  implicit none
+
+  character(len=*), intent(in) :: filename_in
+  character(len=*), intent(in) :: filename_out
+
+  character(len=12) :: filesuffix = '.pe000000.nc'
+
+  integer :: status
+
+  write (filesuffix(4:9),'(I6.6)') PRC_myrank
+
+  if ( LOG_LEVEL >= 3 .and. LOG_OUT ) then
+    write(6,'(a,x,a,x,a,x,a)') 'Copying ', trim(filename_in)//filesuffix, ' to ', trim(filename_out)//filesuffix
+  endif
+
+  call execute_command_line("cp " // trim(filename_in) // filesuffix // " " // trim(filename_out) // filesuffix, exitstat=status)
+
+  if (status /= 0) then
+    print *, "Error copying file, exit status: ", status
+    stop
+  endif
+
+  return
+end subroutine copy_scale_file
+
 !===============================================================================
 END MODULE common_scale

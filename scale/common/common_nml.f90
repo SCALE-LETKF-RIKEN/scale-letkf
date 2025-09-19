@@ -16,8 +16,9 @@ MODULE common_nml
   public
 
   !----
-  integer, parameter :: nv3d = 11    ! number of 3D state variables (in SCALE restart files)
-  integer, parameter :: nv2d = 0     ! number of 2D state variables (in SCALE restart files)
+  integer, parameter :: nv3d = 11     ! number of 3D state variables (in SCALE restart files)
+  integer, parameter :: nv2d = 0      ! number of 2D state variables (in SCALE restart files)
+  integer, parameter :: nv2d_diag = 1 ! number of 2D variables diagnosed from 3D state variables 
   integer, parameter :: nid_obs = 16 ! number of variable types
   integer, parameter :: nobtype = 24 ! number of observation report types
 
@@ -93,30 +94,46 @@ MODULE common_nml
   integer               :: SLOT_BASE = 1
   real(r_size)          :: SLOT_TINTERVAL = 3600.0d0
 
+  logical               :: DUPLICATE_OBS_DETECTION = .false.       ! detect duplicate observations
+  real(r_size)          :: DUPLICATE_MIN_GRID_DIFF =    1.0_r_size ! Minimum horizontal grid difference for duplicate observation detection
+  real(r_size)          :: DUPLICATE_MIN_PRS_DIFF  = 1000.0_r_size ! Minimum vertical (pressure, Pa) difference for duplicate observation detection
+  real(r_size)          :: DUPLICATE_MIN_Z_DIFF    =   10.0_r_size ! Minimum vertical (height, m) difference for duplicate observation detection
+  real(r_size)          :: DUPLICATE_MIN_TIME_DIFF = 1800.0_r_size ! Minimum time (s) difference for duplicate observation detection
+
   !--- PARAM_LETKF
   logical               :: OBSDA_IN = .false.
   character(filelenmax) :: OBSDA_IN_BASENAME = 'obsda.@@@@'
   character(filelenmax) :: OBSDA_MEAN_IN_BASENAME = ''
   character(filelenmax) :: OBSDA_MDET_IN_BASENAME = ''
-  character(filelenmax) :: GUES_IN_BASENAME = 'gues.@@@@'
+  logical               :: GUES_STORE_MEMBER = .false.  ! store all ensemble members in guess
+  character(filelenmax) :: GUES_IN_BASENAME  = 'gues.@@@@'
+  character(filelenmax) :: GUES_OUT_BASENAME  = 'gues.@@@@'
   character(filelenmax) :: GUES_MEAN_INOUT_BASENAME = ''
   character(filelenmax) :: GUES_MDET_IN_BASENAME = ''
   logical               :: GUES_SPRD_OUT = .true.
   character(filelenmax) :: GUES_SPRD_OUT_BASENAME = ''
   character(filelenmax) :: ANAL_OUT_BASENAME = 'anal.@@@@'
+  character(filelenmax) :: ANAL_OUT_BASENAME_EFSO = 'anal.@@@@'
   character(filelenmax) :: ANAL_MEAN_OUT_BASENAME = ''
   character(filelenmax) :: ANAL_MDET_OUT_BASENAME = ''
   logical               :: ANAL_SPRD_OUT = .true.
   character(filelenmax) :: ANAL_SPRD_OUT_BASENAME = ''
   character(filelenmax) :: LETKF_TOPOGRAPHY_IN_BASENAME = ''  !!!!!! -- directly use the SCALE namelist --???? !!!!!!
-  character(filelenmax) :: EFSO_ANAL_IN_BASENAME = 'anal.@@@@'
+  character(filelenmax) :: EFSO_ANAL_IN_BASENAME         = 'anal.@@@@'
   character(filelenmax) :: EFSO_FCST_FROM_GUES_BASENAME = 'anal.@@@@'
   character(filelenmax) :: EFSO_FCST_FROM_ANAL_BASENAME = 'anal.@@@@'
   character(filelenmax) :: EFSO_EFCST_FROM_ANAL_BASENAME = 'anal.@@@@'
+  character(filelenmax) :: EFSO_PREVIOUS_GUES_BASENAME   = 'anal.@@@@'
+  character(filelenmax) :: EFSO_OUTPUT_NC_BASENAME       = 'efso.nc'
 
   logical :: FILL_BY_ZERO_MISSING_VARIABLES = .false.
 
+  logical :: DO_ANALYSIS4EFSO      = .false.      ! Do additional analysis for EFSO
   logical :: EFSO_USE_MOIST_ENERGY = .true.
+  logical :: EFSO_DIAGNOSE_PS      = .false.
+  logical :: EFSO_UV_ROTATE        = .true.       ! Rotate U/V winds read from restart files in EFSO
+  real(r_size) :: EFSO_FCST_LENGTH = 0.0_r_size   ! EFSO forecast length (seconds)
+  real(r_size) :: EFSO_LOC_ADV_RATE = 0.75_r_size ! EFSO localization advection rate 
 
   real(r_size) :: INFL_MUL = 1.0d0           ! >  0: globally constant covariance inflation
                                              ! <= 0: use 3D inflation field from 'INFL_MUL_IN_BASENAME' file
@@ -264,6 +281,7 @@ MODULE common_nml
   LOGICAL               :: OBSANAL_OUT = .false.
   character(filelenmax) :: OBSANAL_IN_BASENAME = 'obsanal.@@@@'
   character(filelenmax) :: OBSANAL_OUT_BASENAME = 'obsanal.@@@@'
+
 
   !--- PARAM_LETKF_RADAR
   logical :: USE_RADAR_REF       = .true.
@@ -537,7 +555,12 @@ subroutine read_nml_obsope
     SLOT_START, &
     SLOT_END, &
     SLOT_BASE, &
-    SLOT_TINTERVAL
+    SLOT_TINTERVAL, &
+    DUPLICATE_OBS_DETECTION,  &
+    DUPLICATE_MIN_GRID_DIFF , &
+    DUPLICATE_MIN_PRS_DIFF,   &
+    DUPLICATE_MIN_Z_DIFF,     &
+    DUPLICATE_MIN_TIME_DIFF
 
   rewind(IO_FID_CONF)
   read(IO_FID_CONF,nml=PARAM_OBSOPE,iostat=ierr)
@@ -586,22 +609,32 @@ subroutine read_nml_letkf
     OBSDA_IN_BASENAME, &
     OBSDA_MEAN_IN_BASENAME, &
     OBSDA_MDET_IN_BASENAME, &
-    GUES_IN_BASENAME, &
+    GUES_STORE_MEMBER,  &
+    GUES_IN_BASENAME,   &
+    GUES_OUT_BASENAME,  &
     GUES_MEAN_INOUT_BASENAME, &
     GUES_MDET_IN_BASENAME, &
     GUES_SPRD_OUT, &
     GUES_SPRD_OUT_BASENAME, &
     ANAL_OUT_BASENAME, &
+    ANAL_OUT_BASENAME_EFSO, &
     ANAL_MEAN_OUT_BASENAME, &
     ANAL_MDET_OUT_BASENAME, &
     ANAL_SPRD_OUT, &
     ANAL_SPRD_OUT_BASENAME, &
     LETKF_TOPOGRAPHY_IN_BASENAME, &
+    EFSO_DIAGNOSE_PS,        &
     EFSO_ANAL_IN_BASENAME, &
     EFSO_FCST_FROM_GUES_BASENAME, &
     EFSO_FCST_FROM_ANAL_BASENAME, &
     EFSO_EFCST_FROM_ANAL_BASENAME, &
-    EFSO_USE_MOIST_ENERGY, &
+    EFSO_PREVIOUS_GUES_BASENAME,   &
+    DO_ANALYSIS4EFSO,        &
+    EFSO_USE_MOIST_ENERGY,   &
+    EFSO_UV_ROTATE,          &
+    EFSO_FCST_LENGTH,        &
+    EFSO_LOC_ADV_RATE,       &
+    EFSO_OUTPUT_NC_BASENAME, &
     INFL_MUL, &
     INFL_MUL_MIN, &
     INFL_MUL_ADAPTIVE, &

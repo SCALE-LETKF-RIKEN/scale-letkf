@@ -1,0 +1,157 @@
+\chapter{Performance monitoring of LETKF}
+\section{Quicklook}
+The quick summary of observation data in the input file is shown in the log file of LETKF in various forms.  
+\subsection{Observation counts}
+The summary of observation counts before and after QC for each observation type and variable is shown in tables as follows (partially omitted). 
+
+\begin{Verbatim}[fontsize=\scriptsize, frame=lines, framesep=3mm, label=log/letkf/NOUT.3.0]
+OBSERVATION COUNTS BEFORE QC (GLOBAL):
+================================================================~=========
+TYPE          U       V       T      Tv       Q      RH      PS ~    TOTAL
+----------------------------------------------------------------~---------
+ADPUPA      614     614       0     100      36       0       0 ~     1364
+AIRCAR        0       0       0       0       0       0       0 ~        0
+AIRCFT        0       0       0       0       0       0       0 ~        0
+SATWND    69485   69485       0       0       0       0       0 ~   138970
+PROFLR       11      11       0       0       0       0       0 ~       22
+VADWND        7       7       0       0       0       0       0 ~       14
+SATEMP        0       0       0       0       0       0       0 ~        0
+ADPSFC        0       0       0       0       0       0    5062 ~     5062
+SFCSHP      515     515     275     213     213       0     938 ~     2669
+SFCBOG        0       0       0       0       0       0       0 ~        0
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+WDSATR        0       0       0       0       0       0       0 ~        0
+ASCATW     2575    2575       0       0       0       0       0 ~     5150
+TMPAPR        0       0       0       0       0       0       0 ~        0
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+----------------------------------------------------------------~---------
+TOTAL     73207   73207     275     313     249       0    6000 ~   153251
+================================================================~=========
+ 
+OBSERVATION COUNTS AFTER QC (GLOBAL):
+================================================================~=========
+TYPE          U       V       T      Tv       Q      RH      PS ~    TOTAL
+----------------------------------------------------------------~---------
+ADPUPA      146     147       0      89      32       0       0 ~      414
+AIRCAR        0       0       0       0       0       0       0 ~        0
+AIRCFT        0       0       0       0       0       0       0 ~        0
+SATWND    14496   14496       0       0       0       0       0 ~    28992
+PROFLR        0       0       0       0       0       0       0 ~        0
+VADWND        7       7       0       0       0       0       0 ~       14
+SATEMP        0       0       0       0       0       0       0 ~        0
+ADPSFC        0       0       0       0       0       0    1631 ~     1631
+SFCSHP        4       4       0       4       4       0     362 ~      378
+SFCBOG        0       0       0       0       0       0       0 ~        0
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+WDSATR        0       0       0       0       0       0       0 ~        0
+ASCATW        0       0       0       0       0       0       0 ~        0
+TMPAPR        0       0       0       0       0       0       0 ~        0
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+----------------------------------------------------------------~---------
+TOTAL     14653   14654       0      93      36       0    1993 ~    31429
+================================================================~=========
+\end{Verbatim}
+
+Another table of the observation counts including numbers for a specific subdomain is provided in the following format. 
+
+\begin{Verbatim}[fontsize=\scriptsize, frame=lines, framesep=3mm, label=log/letkf/NOUT.3.0]
+OBSERVATION COUNTS (GLOBAL AND IN THIS SUBDOMAIN #     0):
+=====================================================================
+TYPE   VAR      GLOBAL     GLOBAL  SUBDOMAIN  SUBDOMAIN EXT_SUBDOMAIN
+             before QC   after QC  before QC   after QC      after QC
+---------------------------------------------------------------------
+ADPUPA   U         614        146        429          0           146
+ADPUPA   V         614        147        429          0           147
+ADPUPA  Tv         100         89          0          0            89
+ADPUPA   Q          36         32          0          0            32
+SATWND   U       69485      14496      56194       1205          6730
+SATWND   V       69485      14496      56194       1205          6730
+PROFLR   U          11          0         11          0             0
+PROFLR   V          11          0         11          0             0
+VADWND   U           7          7          0          0             7
+VADWND   V           7          7          0          0             7
+ADPSFC  PS        5062       1631       2944        179          1203
+SFCSHP   U         515          4        329          0             2
+SFCSHP   V         515          4        329          0             2
+SFCSHP   T         275          0        145          0             0
+SFCSHP  Tv         213          4        138          0             2
+SFCSHP   Q         213          4        138          0             2
+SFCSHP  PS         938        362        581         26           227
+ASCATW   U        2575          0       2575          0             0
+ASCATW   V        2575          0       2575          0             0
+---------------------------------------------------------------------
+TOTAL           153251      31429     123022       2615         15326
+=====================================================================
+\end{Verbatim}
+
+These tables serve for quick check of the observation data input. 
+
+\subsection{Observation departure}
+The following tables summarize the observation departure statistics. It only shows the tables for first guess, but the same output for analysis follows as well. It shows the number of observation and BIAS (mean of O-B/O-A) and RMSE (root mean of O-B/O-A squared) averaged over them for each variable. Note that they are calculated over all the observation regardless of location. Therefore, for example, the statistics of wind observation may take average including lower and upper atmosphere, and the statistics of radar reflectivity may take average over the areas of heavy rain and weak rain. More detailed analysis can be performed using the observation departure output file described in the following.  
+
+\begin{Verbatim}[fontsize=\scriptsize, frame=lines, framesep=3mm, label=log/letkf/NOUT.3.0]
+OBSERVATIONAL DEPARTURE STATISTICS [GUESS] (IN THIS SUBDOMAIN):
+==================================================================
+                 U           V           T           Q          PS
+------------------------------------------------------------------
+BIAS     8.085E-01   3.820E-01         N/A         N/A  -1.987E+02
+RMSE     2.066E+00   2.409E+00         N/A         N/A   2.354E+02
+NUMBER        1205        1205           0           0         182
+==================================================================
+OBSERVATIONAL DEPARTURE STATISTICS [GUESS] (GLOBAL):
+==================================================================
+                 U           V           T           Q          PS
+------------------------------------------------------------------
+BIAS     7.833E-02   7.777E-01   3.025E-03   3.890E-05  -1.303E+02
+RMSE     2.892E+00   2.725E+00   1.708E+00   4.731E-04   2.111E+02
+NUMBER       14653       14654          93          36        1378
+==================================================================
+\end{Verbatim}
+
+
+\section{Observation statistics file}
+Detailed information of observation statistics can obtained from the additional output file in a binary format, by setting the namelist parameter \verb|OBSDEP_OUT = 1| in \verb|config.cycle|. By default, LETKF generates a file \verb|$OUTDIR/<analysis time>/obsdep/obsdep.dat| for each data assimilation step. It contains the information of the differences between observation and analysis, the difference between observation and first guess, and ensemble spread of first guess, for each assimilated observation, along with other information such as location and observation error standard deviation. The file format is described in \hyperref[sec:obsdep-file-format]{Observation departure file format} section.
+
+\section{First guess and analysis ensemble statistics}
+
+LETKF output files include ensemble mean of analysis and first guess. The analysis increment can be obtained simply by taking the difference between the analysis and first guess mean. Note that an analysis file takes the SCALE restart file format, which has a specific set of variables such as \verb|MOMX| (x-component of wind multiplied by density) and \verb|RHOT| (potential temperature multiplied by density). The common variables such as U, V, and T must be manually derived from them for each member.  
+
+\subsection{Ensemble spread file format}
+
+When \verb|SPRD_OUT=1| is set in \verb|config.cycle|, the ensemble spread files in \verb|gues/sprd| and \verb|anal/sprd| are generated by \verb|letkf| by overwriting existing files. The spread file has the similar restart file format, but has a different list of variables. As the current LETKF program does not have a function to edit NetCDF metadata, note that the variable set \textbf{does not correspond} to the variable name list in a NetCDF file.
+
+The actual variables in a spread file are as follows. 
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|l|l|}
+        \hline
+        variable name in NetCDF file  & actual variable in sprd file \\ \hline\hline
+        DENS & ensemble spread of U\\ \hline
+        MOMX & ensemble spread of V\\ \hline
+        MOMY & ensemble spread of W\\ \hline
+        MOMZ & ensemble spread of T\\ \hline
+        RHOT & ensemble spread of P\\ \hline
+        Q\* & ensemble spread of Q\*\\ \hline
+    \end{tabular}
+    \caption{Variables in spread NetCDF file}
+    \label{tab:spread-file}
+\end{table}
+
+\section{Elapse time monitoring}
+
+LETKF log file has the record of elapse time taken by each component of the program. You can easily see it by \verb|grep| command. The first and second values correspond to the elapse time on a chosen process and the total elapse time for all the processes including waiting time, respectively. 
+\begin{Verbatim}
+$ grep -e "##### TIMER" NOUT.3.0
+##### TIMER # INITIALIZE        0.277521      0.277727
+##### TIMER # READ_OBS          0.155641      0.155646
+##### TIMER # OBS_OPERATOR      5.124453      5.126911
+##### TIMER # PROCESS_OBS       0.043350      0.043997
+##### TIMER # SET_GRID          0.073217      0.077331
+##### TIMER # READ_GUES         0.478075      0.490939
+##### TIMER # GUES_MEAN         0.074179      2.824000
+##### TIMER # DAS_LETKF         7.158692     15.069771
+##### TIMER # ANAL_MEAN         0.000805      0.000818
+##### TIMER # WRITE_ANAL        2.773918      3.054343
+##### TIMER # FINALIZE          0.047013      0.047026
+\end{Verbatim}
