@@ -3443,6 +3443,57 @@ subroutine allgHim2obs_mpi(tbb_allg,tbb_allg_prep,qc_allg_prep,nobs,obsdat,obslo
   return
 end subroutine allgHim2obs_mpi
 
+subroutine calculate_tc_center_mpi(v2dg, mslp_min_CX, mslp_min_CY, mslp_min)
+  use scale_atmos_grid_cartesC_index, only: &
+    IHALO, JHALO
+  use scale_atmos_grid_cartesC, only: &
+    CX => ATMOS_GRID_CARTESC_CX, &
+    CY => ATMOS_GRID_CARTESC_CY
+  implicit none
+
+  real(r_size), intent(in) :: v2dg(nlonh,nlath,nv2dd)
+  real(r_size), intent(out) :: mslp_min_CX, mslp_min_CY, mslp_min
+
+  integer :: i, j
+
+  real(r_size) :: mslp_local_min
+  real(r_size), allocatable :: mslp_local_min_all(:)
+  integer :: mslp_min_rank
+
+  integer :: ierr
+
+  mslp_local_min = 2000.e2_r_size
+
+  ! calculate local minimum
+  do j = JHALO+1, JHALO+nlat
+    do i = IHALO+1, IHALO+nlon
+      if ( v2dg(i,j,iv2dd_mslp) < mslp_local_min ) then
+        mslp_local_min = v2dg(i,j,iv2dd_mslp)
+        mslp_min_CX = real( CX(i), kind=r_size )
+        mslp_min_CY = real( CY(j), kind=r_size )
+      endif
+    enddo
+  enddo
+
+  allocate( mslp_local_min_all(nprocs_d) )
+  call MPI_ALLGATHER(mslp_local_min, 1, MPI_r_size, &
+                     mslp_local_min_all, 1, MPI_r_size, MPI_COMM_d, ierr)
+
+  mslp_min_rank = minloc(mslp_local_min_all,dim=1) - 1
+  ! do i = 1, nprocs_d
+  !   write(6,'(a,i7,f6.1,i7)') 'Debug_TCmin', i-1, mslp_local_min_all(i)*0.01, mslp_min_rank
+  ! enddo
+
+  call MPI_BCAST( mslp_min_CX, 1, MPI_r_size, mslp_min_rank, MPI_COMM_d, ierr )
+  call MPI_BCAST( mslp_min_CY, 1, MPI_r_size, mslp_min_rank, MPI_COMM_d, ierr )
+  mslp_min = mslp_local_min_all(mslp_min_rank+1)
+
+
+  deallocate( mslp_local_min_all )
+
+  return
+end subroutine calculate_tc_center_mpi
+
 #ifdef RTTOV
 subroutine get_history_ensemble_mean_mpi_him( mv3dg, mv2dg, mhim2dg, cloudy_mem2dg )
   implicit none

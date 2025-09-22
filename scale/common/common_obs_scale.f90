@@ -145,6 +145,7 @@ MODULE common_obs_scale
   character(obsformatlenmax), parameter :: obsfmt_radar    = 'RADAR'
   character(obsformatlenmax), parameter :: obsfmt_HIM      = 'HIMAWARI'
   character(obsformatlenmax), parameter :: obsfmt_radar_nc = 'RADAR-NC'
+  character(obsformatlenmax), parameter :: obsfmt_tcvital  = 'TCVITAL'
 !  integer, parameter :: nobsformats = 3
 !  character(obsformatlenmax), parameter :: obsformat(nobsformats) = &
 !    (/obsfmt_prepbufr, obsfmt_radar, obsfmt_HIM/)
@@ -2263,13 +2264,18 @@ SUBROUTINE read_obs(cfile,obs)
       wk(4) = wk(4) * 100.0 ! hPa -> Pa
       wk(5) = wk(5) * 100.0 ! hPa -> Pa
       wk(6) = real(OBSERR_TCP,kind=r_sngl)
-    CASE(id_tclon_obs)
+    CASE(id_tclon_obs, id_tclat_obs)
       call MAPPROJECTION_lonlat2xy( real(REAL(wk(2),kind=r_size)*pi/180.0_r_size, kind=RP),&
                                     real(REAL(wk(3),kind=r_size)*pi/180.0_r_size, kind=RP),&
                                     x_RP, y_RP )
       wk(4) = wk(4) * 100.0 ! hPa -> Pa
-      wk(5) = real(x_RP, kind=r_sngl)
-      wk(6) = real(OBSERR_TCX, kind=r_sngl)
+      if (NINT(wk(1)) == id_tclon_obs) then
+        wk(5) = real( x_RP, kind=r_sngl)
+        wk(6) = real(OBSERR_TCX, kind=r_sngl)
+      else
+        wk(5) = real( y_RP, kind=r_sngl)
+        wk(6) = real(OBSERR_TCY, kind=r_sngl)
+      end if
     CASE(id_tclat_obs)
       call MAPPROJECTION_lonlat2xy( real(REAL(wk(2),kind=r_size)*pi/180.0_r_size, kind=RP),&
                                     real(REAL(wk(3),kind=r_size)*pi/180.0_r_size, kind=RP),&
@@ -2692,7 +2698,7 @@ subroutine read_obs_all(obs)
     end if
 
     select case (OBS_IN_FORMAT(iof))
-    case (obsfmt_prepbufr)
+    case (obsfmt_prepbufr, obsfmt_tcvital)
       call get_nobs(trim(OBS_IN_NAME(iof)),8,obs(iof)%nobs)
     case (obsfmt_radar)
       call get_nobs_radar(trim(OBS_IN_NAME(iof)), obs(iof)%nobs, obs(iof)%meta(1), obs(iof)%meta(2), obs(iof)%meta(3))
@@ -2712,7 +2718,7 @@ subroutine read_obs_all(obs)
     call obs_info_allocate(obs(iof), extended=.true.)
 
     select case (OBS_IN_FORMAT(iof))
-    case (obsfmt_prepbufr)
+    case (obsfmt_prepbufr, obsfmt_tcvital)
       call read_obs(trim(OBS_IN_NAME(iof)),obs(iof))
     case (obsfmt_radar)
       call read_obs_radar(trim(OBS_IN_NAME(iof)),obs(iof))

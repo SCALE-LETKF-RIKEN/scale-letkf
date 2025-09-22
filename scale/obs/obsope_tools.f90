@@ -30,6 +30,9 @@ CONTAINS
 ! Observation operator calculation
 !-----------------------------------------------------------------------
 SUBROUTINE obsope_cal(obsda_return, nobs_extern)
+  use scale_atmos_grid_cartesC, only: &
+      CX => ATMOS_GRID_CARTESC_CX, &
+      CY => ATMOS_GRID_CARTESC_CY
   IMPLICIT NONE
 
   type(obs_da_value), optional, intent(out) :: obsda_return
@@ -79,11 +82,15 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
   character(len=4) :: nstr
   character(len=timer_name_width) :: timer_str
 
+  ! TC vital
+  logical :: use_tcvital = .false.
+  real(r_size) :: mslp_min_CX, mslp_min_CY, mslp_min
+
   ! Dupilication detection
   integer :: nn2, oidx_prev
   integer :: iof_prev
-! -- for Himawari-8 obs --
-! -- for Himawari obs --
+
+  ! -- for Himawari obs --
   real(r_size), allocatable :: yobs_him(:,:,:), plev_obs_him(:,:,:)
   real(r_size), allocatable :: yobs_him_clr(:,:,:)
   real(r_size), allocatable :: yobs_him_prep(:,:,:)
@@ -120,12 +127,6 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
     end if
   end do
 
-!  obs_set_TCX = -1
-!  obs_set_TCY = -1
-!  obs_set_TCP = -1
-!  obs_idx_TCX = -1
-!  obs_idx_TCY = -1
-!  obs_idx_TCP = -1
 
   nobs_max_per_file_sub = (nobs_max_per_file - 1) / nprocs_a + 1
   allocate (obrank_bufs(nobs_max_per_file_sub))
@@ -171,24 +172,15 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
 
       endif
 
+      if ( OBS_IN_FORMAT(iof) == obsfmt_tcvital ) then
+        use_tcvital = .true.
+      endif
+
+
       obrank_bufs(:) = -1
 !$OMP PARALLEL DO PRIVATE(ibufs,n) SCHEDULE(STATIC)
       do ibufs = 1, cntr(myrank_a+1)
         n = dspr(myrank_a+1) + ibufs
-!        select case (obs(iof)%elm(n))
-!        case (id_tclon_obs)
-!          obs_set_TCX = iof
-!          obs_idx_TCX = n
-!          cycle
-!        case (id_tclat_obs)
-!          obs_set_TCY = iof
-!          obs_idx_TCY = n
-!          cycle
-!        case (id_tcmip_obs)
-!          obs_set_TCP = iof
-!          obs_idx_TCP = n
-!          cycle
-!        end select
 
         call phys2ij(obs(iof)%lon(n), obs(iof)%lat(n), ri_bufs(ibufs), rj_bufs(ibufs))
         call rij_rank(ri_bufs(ibufs), rj_bufs(ibufs), obrank_bufs(ibufs))
@@ -477,7 +469,11 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
         write (timer_str, '(A30,I4,A7,I4,A2)') 'obsope_cal:read_ens_history(t=', it, ', slot=', islot, '):'
         call mpi_timer(trim(timer_str), 2)
 
-#IFDEF RTTOV
+        if ( use_tcvital ) then
+          call calculate_tc_center_mpi(v2dg, mslp_min_CX, mslp_min_CY, mslp_min)
+        endif
+
+#ifdef RTTOV
         if ( use_him .or. HIM_OUT_ETBB_NC .and. NIRB_HIM_USE > 0 ) then
 
           if ( HIM_ADDITIVE_Y18 ) then
@@ -500,13 +496,9 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
           call prep_Him_mpi(yobs_him_clr, tbb_lprep=yobs_him_clr_prep)
 
         endif
-#ENDIF
+#endif
 
-#IFDEF RTTOV
-  !$omp parallel do private(nn,n,iof,ril,rjl,rk,rkz,i,j,ch)
-#ELSE
-  !$omp parallel do private(nn,n,iof,ril,rjl,rk,rkz)
-#ENDIF
+        !$omp parallel do private(nn,n,iof,ril,rjl,rk,rkz,i,j,ch)
         do nn = n1, n2
           iof = obsda%set(nn)
           n = obsda%idx(nn)
@@ -567,7 +559,21 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
               !end if
               !!!!!!
             end if
-#IFDEF RTTOV
+          case (obsfmt_tcvital)
+          !---------------------------------------------------------------------
+            select case(obs(iof)%elm(n))
+            case(id_tclon_obs)
+              obsda%val(nn) = mslp_min_CX
+            case(id_tclat_obs)
+              obsda%val(nn) = mslp_min_CY
+            case(id_tcmip_obs)
+              obsda%val(nn) = mslp_min
+            end select
+
+            obsda%qc(nn) = iqc_good
+
+          !=====================================================================
+#ifdef RTTOV
           !=====================================================================
           case (obsfmt_him)
           !---------------------------------------------------------------------
@@ -588,12 +594,12 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
             if ( HIM_ADDITIVE_Y18 ) then
               obsda%pert(nn) = him_add2d(ch,i,j)
             endif
-#ENDIF
+#endif
           end select
 
 
         end do ! [ nn = n1, n2 ]
-!$omp end parallel do
+        !$omp end parallel do
  
         ! Detect duplicated observations
         !
@@ -610,6 +616,7 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
               oidx_prev = obsda%idx(nn2)
 
               if ( obtypelist(obs(iof)%typ(n)) == 'H08IRB' ) cycle
+              if ( obtypelist(obs(iof)%typ(n)) == 'TCVITL' ) cycle
   
               if ( obs(iof_prev)%typ(oidx_prev) /= obs(iof)%typ(n) ) cycle
               if ( obs(iof_prev)%elm(oidx_prev) /= obs(iof)%elm(n) ) cycle

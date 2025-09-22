@@ -60,7 +60,7 @@ MODULE common_scale
   !--- 3D, 2D diagnostic variables (in SCALE history files)
   ! 
   INTEGER,PARAMETER :: nv3dd=12
-  INTEGER,PARAMETER :: nv2dd = 10
+  INTEGER,PARAMETER :: nv2dd = 11
   INTEGER,PARAMETER :: iv3dd_u=1
   INTEGER,PARAMETER :: iv3dd_v=2
   INTEGER,PARAMETER :: iv3dd_w=3
@@ -83,6 +83,7 @@ MODULE common_scale
   INTEGER,PARAMETER :: iv2dd_lsmask = 8
   INTEGER,PARAMETER :: iv2dd_skint  = 9
   integer, parameter :: iv2dd_pw  = 10
+  integer, parameter :: iv2dd_mslp = 11
   CHARACTER(vname_max),PARAMETER :: v3dd_name(nv3dd) = &
      (/'Umet      ', 'Vmet      ', 'W         ', 'T         ', 'PRES      ', &
        'QV        ', 'QC        ', 'QR        ', 'QI        ', 'QS        ', 'QG        ', 'height    '/)
@@ -90,9 +91,9 @@ MODULE common_scale
      (/.true., .true., .true., .true., .true., &
        .true., .true., .true., .true., .true., .true., .false./)
   CHARACTER(vname_max),PARAMETER :: v2dd_name(nv2dd) = &
-     (/'topo      ', 'SFC_PRES  ', 'PREC      ', 'U10m      ', 'V10m      ', 'T2        ', 'Q2        ', 'lsmask    ', 'SFC_TEMP  ', 'PW        '/)
+     (/'topo      ', 'SFC_PRES  ', 'PREC      ', 'U10m      ', 'V10m      ', 'T2        ', 'Q2        ', 'lsmask    ', 'SFC_TEMP  ', 'PW        ', 'MSLP      '/)
   LOGICAL,PARAMETER :: v2dd_hastime(nv2dd) = &
-     (/.false., .true., .true., .true., .true., .true., .true., .false., .true., .true./)
+     (/.false., .true., .true., .true., .true., .true., .true., .false., .true., .true., .true./)
 
   INTEGER,SAVE :: nv2dd_use = 9
 
