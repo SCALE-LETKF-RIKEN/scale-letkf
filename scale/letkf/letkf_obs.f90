@@ -79,7 +79,12 @@ MODULE letkf_obs
   integer, allocatable :: obstyp(:)
   real(r_size), allocatable :: obshdxf(:,:)
   real(r_size), allocatable :: obsdep(:)
+  real(r_size), allocatable :: obsval2(:)
+  real(r_size), allocatable :: obsdlev(:)
 
+
+  real(r_size) :: sig_b ! sigma_b for AOEI
+  real(r_size) :: sig_o ! sigma_o derived from AOEI
 
 CONTAINS
 !-----------------------------------------------------------------------
@@ -213,10 +218,16 @@ SUBROUTINE set_letkf_obs
           call obs_da_value_partial_reduce_iter(obsda, it, n1, n2, obsda_ext%val, obsda_ext%qc, qv=obsda_ext%qv, tm=obsda_ext%tm, pm=obsda_ext%pm )
         elseif ( RADAR_ADDITIVE_Y18 ) then
           call obs_da_value_partial_reduce_iter(obsda, it, n1, n2, obsda_ext%val, obsda_ext%qc, pert=obsda_ext%pert)
+#ifdef RTTOV
+        elseif (HIM_ADDITIVE_Y18) then
+          call obs_da_value_partial_reduce_iter(obsda, it, n1, n2, obsda_ext%val, obsda_ext%qc, lev=obsda_ext%lev, val2=obsda_ext%val2, pert=obsda_ext%pert)
+        else
+          call obs_da_value_partial_reduce_iter(obsda, it, n1, n2, obsda_ext%val, obsda_ext%qc, lev=obsda_ext%lev, val2=obsda_ext%val2)
+#else
         else
           call obs_da_value_partial_reduce_iter(obsda, it, n1, n2, obsda_ext%val, obsda_ext%qc )
+#endif
         endif
-
       end if ! [ (im >= 1 .and. im <= MEMBER) .or. im == mmdetin ]
     end do ! [ it = 1, nitmax ]
 
@@ -422,6 +433,84 @@ SUBROUTINE set_letkf_obs
 !    end if
 !!!###### end RADAR assimilation ######
 
+!!!###### Himawari-8 assimilation ###### ! HIM
+#ifdef RTTOV
+    if (obs(iof)%elm(iidx) == id_HIMIR_obs) then
+      ! This tentative assignment is valid only within this subroutine
+      obs(iof)%err(iidx) = OBSERR_HIM(nint(obs(iof)%lev(iidx)))
+
+      ! -- Detect NaN in the original Himawari-8 observations
+      if (obs(iof)%dat(iidx) /= obs(iof)%dat(iidx)) then
+        obsda%qc(n) = iqc_obs_bad
+        cycle
+      end if
+
+      if (obs(iof)%dat(iidx) == undef) then
+        obsda%qc(n) = iqc_obs_bad
+        cycle
+      end if
+
+      if (HIM_IR_BAND_DA_LIST(nint(obs(iof)%lev(iidx))) < 1) then
+        obsda%qc(n) = iqc_obs_bad
+        cycle
+      end if
+
+      ! -- Reject Himawari-8 obs sensitivie above HIM_LIMIT_LEV (Pa) ! HIM --
+      if (obsda%lev(n) < HIM_LIMIT_LEV) then
+        obsda%qc(n) = iqc_obs_bad
+        cycle
+      endif
+
+      mem_ref = 0
+      do i = 1, MEMBER
+        ! count the number of cloudy members having BT < threshold
+        if ( obsda%ensval(i,n) < HIM_CLD_THRS( nint(obs(iof)%lev(iidx)) ) ) then
+          mem_ref = mem_ref + 1
+        endif
+      enddo
+
+
+      if ( HIM_ADDITIVE_Y18 ) then
+        if ( mem_ref < HIM_ADDITIVE_Y18_MINMEM .and. obs(iof)%dat(iidx) < HIM_CLD_THRS( nint(obs(iof)%lev(iidx)) ) ) then
+          obsda%val(n) = obsda%ensval(1,n)
+          do i=2,MEMBER
+            obsda%val(n) = obsda%val(n) + obsda%ensval(i,n)
+          enddo
+          obsda%val(n) = obsda%val(n) / real(MEMBER,r_size)
+
+          if ( HIM_ADDITIVE_Y18_NORMALIZE_SPRD ) then
+            ! Calculate the ensemble spread from Y18
+            !! By design, the ensemble mean of obsda%pert should be zero
+            obsda%sprd(n) = 0.0_r_size
+            do i = 1, MEMBER
+              obsda%sprd(n) = obsda%sprd(n) + obsda%epert(i,n)**2
+            enddo
+            obsda%sprd(n) = dsqrt( obsda%sprd(n) / real(MEMBER - 1, r_size ) )
+
+            !! Normalize the projected ensemble perturbations (epert) with HIM_ADDITIVE_Y18_NORMALIZE_SPRD_VALUE
+            do i = 1, MEMBER
+              obsda%epert(i,n) = obsda%epert(i,n) / obsda%sprd(n) * HIM_ADDITIVE_Y18_NORMALIZE_SPRD_VALUE
+            enddo
+
+          endif
+      
+          ! *Ensemble mean of obsda%epert should be zero
+          obsda%ensval(1:MEMBER,n) = obsda%epert(1:MEMBER,n) + obsda%val(n)
+          obsda%qc(n) = iqc_good
+
+          if ( HIM_ADDITIVE_Y18_VLOC_PLEV >= 0.0_r_size ) then
+            ! set the center of the vertical localization function
+            obsda%lev(n) = HIM_ADDITIVE_Y18_VLOC_PLEV
+          endif
+
+        endif
+      endif
+
+    endif
+#endif
+!!!###### end Himawari-8 assimilation ###### ! HIM
+
+
     obsda%val(n) = obsda%ensval(1,n)
     DO i=2,MEMBER
       obsda%val(n) = obsda%val(n) + obsda%ensval(i,n)
@@ -436,6 +525,28 @@ SUBROUTINE set_letkf_obs
       obsda%ensval(mmdetobs,n) = obs(iof)%dat(iidx) - obsda%ensval(mmdetobs,n) ! y-Hx for deterministic run
     end if
 
+!   AOEI: compute sprd in obs space (sigma_b for AOEI) ! HIM
+!   sig_o will be used in letkf_tools.f90
+
+    sig_b = 0.0d0 !HIM
+    do i = 1, MEMBER
+      sig_b = sig_b + obsda%ensval(i,n) * obsda%ensval(i,n)
+    enddo
+    sig_b = dsqrt(sig_b / REAL(MEMBER-1,r_size))
+
+#IFDEF RTTOV
+    ! AOEI
+    sig_o = dsqrt(max(obs(iof)%err(iidx)**2,obsda%val(n)**2 - obsda%val2(n)**2))
+
+    obsda%sprd(n) = sig_b ! Store background tbb spread for additive inflation
+    if ( HIM_AOEI ) then
+      obsda%val2(n) = sig_o
+    else
+      sig_o = obsda%val(n)
+      ! if AOEI is not used,
+      ! obsda%val2 stores the ensemble mean of CA (Okamoto 2017QJRMS)
+    endif
+#ENDIF
 
     select case (obs(iof)%elm(iidx)) !gross error
     case (id_rain_obs)
@@ -485,6 +596,21 @@ SUBROUTINE set_letkf_obs
       IF(ABS(obsda%val(n)) > GROSS_ERROR_RADAR_PRH * obs(iof)%err(iidx)) THEN
         obsda%qc(n) = iqc_gross_err
       END IF
+    case (id_HIMIR_obs)
+      if ( ( HIM_AOEI .and. HIM_AOEI_QC == 0 ) .or. HIM_ADDITIVE_Y18 ) then
+        ! No Gross-error QC
+      elseif ( HIM_AOEI .and. HIM_AOEI_QC == 1 ) then
+        if ( abs(obsda%val(n)) > GROSS_ERROR_HIM * OBSERR_HIM(nint(obs(iof)%lev(iidx))) ) then
+          obsda%qc(n) = iqc_gross_err
+        endif
+      else
+        if ( abs( obsda%val(n) ) > GROSS_ERROR_HIM * OBSERR_HIM(nint(obs(iof)%lev(iidx)))) then
+          obsda%qc(n) = iqc_gross_err
+        endif
+      endif
+      if ( obs(iof)%dat(iidx) < HIM_BT_MIN ) then
+        obsda%qc(n) = iqc_gross_err
+      endif
     case default
       IF(ABS(obsda%val(n)) > GROSS_ERROR * obs(iof)%err(iidx)) THEN
         obsda%qc(n) = iqc_gross_err
@@ -651,6 +777,7 @@ SUBROUTINE set_letkf_obs
   else
     nobstotal = 0
   endif
+  
   obsda_sort%nobs = nobstotal
   call obs_da_value_allocate(obsda_sort, nensobs)
 
@@ -1152,9 +1279,13 @@ subroutine set_efso_obs
     allocate( obshdxf(MEMBER,nobslocal_all) )
   
   !(4) Reading background observation data and analysis ensemble observations
-  
+#ifdef RTTOV
+    allocate( obsval2(nobslocal_all) )
+    allocate( obsdlev(nobslocal_all) )
+    call get_obsdep_efso_mpi( nobslocal_all, obsset, obsidx, obsqc, obsdep, obshdxf, nobslocal_qcok, obsval2=obsval2, obsdlev=obsdlev)
+#else
     call get_obsdep_efso_mpi( nobslocal_all, obsset, obsidx, obsqc, obsdep, obshdxf, nobslocal_qcok )
-
+#endif
   else
 
     nobslocal_qcok = 0
@@ -1192,6 +1323,10 @@ subroutine set_efso_obs
         obsda%idx(i) = obsidx(n)
         obsda%qc (i) = obsqc(n)
         obsda%val(i) = obsdep(n)
+#ifdef RTTOV
+        obsda%lev (i) = obsdlev(n)
+        obsda%val2(i) = obsval2(n)
+#endif
         sprd = 0.0_r_size
         do m = 1, MEMBER
           obsda%ensval(m,i) = obshdxf(m,n)
@@ -1216,6 +1351,10 @@ subroutine set_efso_obs
     deallocate( obsqc  )
     deallocate( obsdep )
     deallocate( obshdxf)
+#ifdef RTTOV
+    deallocate( obsdlev )
+    deallocate( obsval2 )
+#endif
 
   endif
 
@@ -1594,6 +1733,11 @@ subroutine setup_obsda_sort(nobs_sub,nobs_g,obsda_sort,efso_flag)
         obsbufs%ensval(1:nensobs_part,n) = obsda%ensval(im_obs_1:im_obs_2,obsda%key(n))
       end if
       obsbufs%qc(n) = obsda%qc(obsda%key(n))
+#IFDEF RTTOV
+      obsbufs%lev(n)  = obsda%lev(obsda%key(n))   
+      obsbufs%val2(n) = obsda%val2(obsda%key(n)) 
+      obsbufs%sprd(n) = obsda%sprd(obsda%key(n))  
+#ENDIF
     end do ! [ n = 1, nobs_sub(i_after_qc) ]
 
     if ( efso_flag_) then
@@ -1626,6 +1770,12 @@ subroutine setup_obsda_sort(nobs_sub,nobs_g,obsda_sort,efso_flag)
       call MPI_ALLGATHERV(obsbufs%ensval, cnts*nensobs_part, MPI_r_size, obsbufr%ensval, cntr*nensobs_part, dspr*nensobs_part, MPI_r_size, MPI_COMM_d, ierr)
     end if
     call MPI_ALLGATHERV(obsbufs%qc, cnts, MPI_INTEGER, obsbufr%qc, cntr, dspr, MPI_INTEGER, MPI_COMM_d, ierr)
+
+#IFDEF RTTOV
+    call MPI_ALLGATHERV(obsbufs%lev,  cnts, MPI_r_size, obsbufr%lev,  cntr, dspr, MPI_r_size, MPI_COMM_d, ierr)
+    call MPI_ALLGATHERV(obsbufs%val2, cnts, MPI_r_size, obsbufr%val2, cntr, dspr, MPI_r_size, MPI_COMM_d, ierr)
+    call MPI_ALLGATHERV(obsbufs%sprd, cnts, MPI_r_size, obsbufr%sprd, cntr, dspr, MPI_r_size, MPI_COMM_d, ierr)
+#ENDIF
 
     if ( efso_flag_ ) then
       call MPI_ALLGATHERV(obsbufs%qv, cnts, MPI_r_size, obsbufr%qv, cntr, dspr, MPI_r_size, MPI_COMM_d, ierr)
@@ -1684,6 +1834,12 @@ subroutine setup_obsda_sort(nobs_sub,nobs_g,obsda_sort,efso_flag)
           obsda_sort%ensval(im_obs_1:im_obs_2,ns_ext:ne_ext) = obsbufr%ensval(1:nensobs_part,ns_bufr:ne_bufr)
         end if
         obsda_sort%qc(ns_ext:ne_ext) = obsbufr%qc(ns_bufr:ne_bufr)
+
+#IFDEF RTTOV
+        obsda_sort%lev(ns_ext:ne_ext)  = obsbufr%lev(ns_bufr:ne_bufr)   
+        obsda_sort%val2(ns_ext:ne_ext) = obsbufr%val2(ns_bufr:ne_bufr) 
+        obsda_sort%sprd(ns_ext:ne_ext) = obsbufr%sprd(ns_bufr:ne_bufr)
+#ENDIF
 
         if ( efso_flag_ ) then
           obsda_sort%qv(ns_ext:ne_ext) = obsbufr%qv(ns_bufr:ne_bufr)

@@ -144,8 +144,7 @@ subroutine das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
   var_local(:,6) = VAR_LOCAL_TC(:)
   var_local(:,7) = VAR_LOCAL_RADAR_REF(:)
   var_local(:,8) = VAR_LOCAL_RADAR_VR(:)
-!  var_local(:,9) = VAR_LOCAL_H08(:)
-
+  var_local(:,9) = VAR_LOCAL_HIM(:)
   var_local_n2nc_max = 1
   var_local_n2nc(1) = 1
   var_local_n2n(1) = 1
@@ -1044,6 +1043,7 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
   integer :: iob
 
   integer, allocatable :: obs_g_qc (:)
+  real(r_size), allocatable :: obs_g_val2(:)
 
   integer :: iof, set
 
@@ -1274,6 +1274,13 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
 
     obs_g_qc  = 1
 
+#ifdef RTTOV
+    if ( OBS_IN_FORMAT(iof) == obsfmt_HIM ) then
+      allocate( obs_g_val2(obs(iof)%nobs) )
+      obs_g_val2 = 0.0_r_size
+    endif
+#endif
+
     call init_obsense( obs(iof)%nobs )
     if ( LOG_OUT ) write(6,'(a,i6)') 'init_obsense for file index', iof
 
@@ -1287,6 +1294,12 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
         iob = obsda_sort%idx(nob) ! global index for obsevations
         obsense_global(:,iob) = obsense(:,nob)
         obs_g_qc (iob) = obsda_sort%qc (nob)
+#ifdef RTTOV
+        if ( OBS_IN_FORMAT(iof) == obsfmt_HIM ) then
+          obs_g_val2(iob) = obsda_sort%val2(nob)
+        endif
+#endif
+
       end do
 !$omp end do
 !$omp end parallel
@@ -1299,13 +1312,21 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
     ! Pick up minimum values (MPI_MIN) because the default value was set to 1 (bad obs).
     call MPI_ALLREDUCE( MPI_IN_PLACE, obs_g_qc,  obs(iof)%nobs, MPI_INTEGER, MPI_MIN, MPI_COMM_a, ierr )
 
+    if ( allocated( obs_g_val2 ) ) then
+      call MPI_ALLREDUCE( MPI_IN_PLACE, obs_g_val2,  obs(iof)%nobs, MPI_r_size, MPI_MAX, MPI_COMM_a, ierr )
+    endif
+
     if ( LOG_OUT ) write(6,'(a)') 'Finish MPI comm for obsense_global, QC, and total_impact'
 
     ! write out observation sensitivity
     if ( myrank_a == 0 ) then
       if ( LOG_OUT ) write(6,'(a)') 'Write obsense_global'
-      
-      call write_efso_nc(trim( EFSO_OUTPUT_NC_BASENAME ) // '_' // trim(OBS_IN_FORMAT(iof)) // '.nc', obs(iof)%nobs, iof, obs_g_qc, obsense_global, total_impact )
+      if ( allocated(obs_g_val2 ) ) then
+        call write_efso_nc(trim( EFSO_OUTPUT_NC_BASENAME ) // '_' // trim(OBS_IN_FORMAT(iof)) // '.nc', obs(iof)%nobs, iof, obs_g_qc, obsense_global, total_impact, val2=obs_g_val2 )
+      else
+        call write_efso_nc(trim( EFSO_OUTPUT_NC_BASENAME ) // '_' // trim(OBS_IN_FORMAT(iof)) // '.nc', obs(iof)%nobs, iof, obs_g_qc, obsense_global, total_impact )
+      endif
+
       call print_obsense(obs(iof)%nobs, iof, obs_g_qc, obsense_global, total_impact, print_dry=.true. )
       call print_obsense(obs(iof)%nobs, iof, obs_g_qc, obsense_global, total_impact, print_dry=.false. )
     endif
@@ -1932,6 +1953,11 @@ subroutine obs_local_cal(ri, rj, rlev, rz, nvar, iob, ic, ndist, nrloc, nrdiag)
   real(r_size) :: nd_h, nd_v ! normalized horizontal/vertical distances
 
   integer :: di, dj, dk
+  integer :: ch_num
+
+#ifdef RTTOV
+  real(r_size) :: ca ! cloud parameter
+#endif
 
   nrloc = 1.0_r_size
   nrdiag = -1.0_r_size
@@ -1980,6 +2006,10 @@ subroutine obs_local_cal(ri, rj, rlev, rz, nvar, iob, ic, ndist, nrloc, nrdiag)
     nd_v = ABS(LOG(VERT_LOCAL_RAIN_BASE) - LOG(rlev)) / vert_loc_ctype(ic)  ! for rain, use VERT_LOCAL_RAIN_BASE for the base of vertical localization
   else if (obtyp == 22) then ! obtypelist(obtyp) == 'PHARAD'
     nd_v = ABS(obs(obset)%lev(obidx) - rz) / vert_loc_ctype(ic)             ! for PHARAD, use z-coordinate for vertical localization
+#IFDEF RTTOV
+  else if (obtyp == 23) then ! obtypelist(obtyp) == 'HIMIRB'                ! HIM
+    nd_v = abs( log( obsda_sort%lev(iob) ) - log( rlev ) ) / vert_loc_ctype(ic)   ! HIM for HIMIRB, use obsda_sort%lev(iob) for vertical localization
+#ENDIF
   else
     nd_v = ABS(LOG(obs(obset)%lev(obidx)) - LOG(rlev)) / vert_loc_ctype(ic)
   end if
@@ -2071,9 +2101,31 @@ subroutine obs_local_cal(ri, rj, rlev, rz, nvar, iob, ic, ndist, nrloc, nrdiag)
     end if
   endif
 
-  ! if ( obtyp == 1 .and. nrdiag < 0.0000001_r_size ) then
-  !   write(6,'(a,4e10.2,i7)') 'Debug obs_local_cal', nrdiag, obs(obset)%err(obidx), hori_loc_ctype(ic), vert_loc_ctype(ic), obs(obset)%elm(obidx)
-  ! endif
+#IFDEF RTTOV
+  ca = obsda_sort%val2(iob)
+  if (obtyp == 23) then ! obtypelist(obtyp) == 'HIMIRB'
+    ch_num = nint(obs(obset)%lev(obidx))
+    if ( HIM_AOEI .and. INFL_ADD == 0.0d0 ) then 
+    ! obs%err: sigma_ot/true (not inflated) obs error 
+    ! obsda%val: O–B (innovation)
+    ! obsda%val2: sigma_o (inflated obs error)
+    ! nrdiag = max(obs(obset)%err(obidx)**2, obsda_sort%val(iob)**2 - obsda_sort%val2(iob)**2)**2 / nrloc 
+      nrdiag = obsda_sort%val2(iob)**2 / nrloc 
+
+    elseif ( HIM_CLDERR_SIMPLE ) then ! simple cloud-dependent obs err (Honda et al. 2017MWR)
+      if( ca > HIM_CA_THRES )then
+        nrdiag = HIM_CLDERR_CLOUD(ch_num) * HIM_CLDERR_CLOUD(ch_num) / nrloc
+      else
+        nrdiag = HIM_CLDERR_CLEAR(ch_num) * HIM_CLDERR_CLEAR(ch_num) / nrloc
+      endif
+      !if (LOG_LEVEL > 3) then
+      !  write(6,'(a,2f6.1,i3)')'Debug, HIMIRB obs error for HIM_CLDERR_SIMPLE: ', obsda_sort%val2(iob), HIM_CLDERR_CLOUD(ch_num), ch_num
+      !endif
+    else
+      nrdiag = OBSERR_HIM(ch_num) * OBSERR_HIM(ch_num) / nrloc ! constant everywhere
+    endif
+  endif
+#ENDIF
 
   return
 end subroutine obs_local_cal

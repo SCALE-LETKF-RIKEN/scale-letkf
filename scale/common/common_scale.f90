@@ -60,7 +60,7 @@ MODULE common_scale
   !--- 3D, 2D diagnostic variables (in SCALE history files)
   ! 
   INTEGER,PARAMETER :: nv3dd=12
-  INTEGER,PARAMETER :: nv2dd=7
+  INTEGER,PARAMETER :: nv2dd = 11
   INTEGER,PARAMETER :: iv3dd_u=1
   INTEGER,PARAMETER :: iv3dd_v=2
   INTEGER,PARAMETER :: iv3dd_w=3
@@ -80,6 +80,10 @@ MODULE common_scale
   INTEGER,PARAMETER :: iv2dd_v10m=5
   INTEGER,PARAMETER :: iv2dd_t2m=6
   INTEGER,PARAMETER :: iv2dd_q2m=7
+  INTEGER,PARAMETER :: iv2dd_lsmask = 8
+  INTEGER,PARAMETER :: iv2dd_skint  = 9
+  integer, parameter :: iv2dd_pw  = 10
+  integer, parameter :: iv2dd_mslp = 11
   CHARACTER(vname_max),PARAMETER :: v3dd_name(nv3dd) = &
      (/'Umet      ', 'Vmet      ', 'W         ', 'T         ', 'PRES      ', &
        'QV        ', 'QC        ', 'QR        ', 'QI        ', 'QS        ', 'QG        ', 'height    '/)
@@ -87,11 +91,11 @@ MODULE common_scale
      (/.true., .true., .true., .true., .true., &
        .true., .true., .true., .true., .true., .true., .false./)
   CHARACTER(vname_max),PARAMETER :: v2dd_name(nv2dd) = &
-     (/'topo      ', 'SFC_PRES  ', 'PREC      ', 'U10m      ', 'V10m      ', 'T2        ', 'Q2        '/)
+     (/'topo      ', 'SFC_PRES  ', 'PREC      ', 'U10m      ', 'V10m      ', 'T2        ', 'Q2        ', 'lsmask    ', 'SFC_TEMP  ', 'PW        ', 'MSLP      '/)
   LOGICAL,PARAMETER :: v2dd_hastime(nv2dd) = &
-     (/.false., .true., .true., .true., .true., .true., .true./)
+     (/.false., .true., .true., .true., .true., .true., .true., .false., .true., .true., .true./)
 
-  INTEGER,SAVE :: nv2dd_use=7
+  INTEGER,SAVE :: nv2dd_use = 9
 
   ! 
   !--- Variables for model coordinates
@@ -213,7 +217,7 @@ SUBROUTINE set_common_scale
   ngpv  = nij0 * nlevall
   ngpvd = nij0 * nlevalld
 
-  if (ATMOS_sw_phy_sf) then
+  if ( ATMOS_sw_phy_sf .or. USE_HISTORY_WO_SFC_IDEAL ) then
     nv2dd_use=nv2dd
   else
     nv2dd_use=1 !!! read TOPO only 
@@ -1070,6 +1074,11 @@ subroutine read_history(filename,step,v3dg,v2dg)
                     var2D,                 & ! [OUT]
                     rankid=PRC_myrank,     & ! [IN]
                     step=step_             ) ! [IN]
+        v2dg_RP(IS:IE,JS:JE,iv2d) = var2D(:,:)
+
+    elseif ( USE_HISTORY_WO_SFC_IDEAL ) then
+      call used_history3d_to_history2d_ideal(v3dg_RP,iv2d,v2dg_RP(:,:,iv2d))
+
     else
       write(6,'(A,A15,A)') " 2D var ", trim(v2dd_name(iv2d))," not found."
       if ( FILL_BY_ZERO_MISSING_VARIABLES ) then
@@ -1560,6 +1569,7 @@ end subroutine state_trans_inv
 !-------------------------------------------------------------------------------
 subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
   use scale_atmos_grid_cartesC_index, only: &
+      IHALO, JHALO, &
       IA, IS, IE, JA, JS, JE, KS, KE, KA
   use scale_comm_cartesC, only: &
       COMM_vars8, &
@@ -1688,6 +1698,17 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
   v2dgh_RP(IS:IE,JS:JE,iv2dd_q2m)  = v3dg(1,1:nlon,1:nlat,iv3d_q)
 
 !  v2dgh_RP(IS:IE,JS:JE,iv2dd_rain) = [[No way]]
+!$omp parallel do private(i,j) schedule(static) collapse(1)
+  do j = 1, nlat
+    do i = 1, nlon
+      v2dgh_RP(i+IHALO,j+JHALO,iv2dd_skint)  = v3dg(KS,i,j,iv3d_t)
+      if ( v2dgh_RP(i,j,iv2dd_topo) > 0.0_RP ) then
+        v2dgh_RP(i+IHALO,j+JHALO,iv2dd_lsmask) = 1.0_RP
+      else
+        v2dgh_RP(i+IHALO,j+JHALO,iv2dd_lsmask) = 0.0_RP
+      endif
+    enddo
+  enddo
 
   call ATMOS_BOTTOM_estimate(nlev,1,nlev,nlon,1,nlon,nlat,1,nlat,          &
                               rho_RP(KS:KE,IS:IE,JS:JE),v3dgh_RP(KS:KE,IS:IE,JS:JE,iv3d_p),v3dgh_RP(KS:KE,IS:IE,JS:JE,iv3d_q),&
@@ -2220,5 +2241,392 @@ subroutine copy_scale_file(filename_in, filename_out)
   return
 end subroutine copy_scale_file
 
+subroutine write_Him_nc(filename, tbb )
+  use netcdf
+  use common_ncio
+  use scale_atmos_grid_cartesC, only: &
+      GRID_CXG => ATMOS_GRID_CARTESC_CXG, &
+      GRID_CYG => ATMOS_GRID_CARTESC_CYG
+  use scale_atmos_grid_cartesC_index, only: &
+      IHALO, JHALO
+  use scale_mapprojection, only: &
+      MAPPROJECTION_xy2lonlat
+  use scale_mapprojection, only: &
+      MAPPROJECTION_xy2lonlat
+  use scale_const, only: &
+      CONST_D2R
+  implicit none
+
+  character(len=*), intent(in) :: filename
+  real, intent(in) :: tbb(NIRB_HIM_USE, nlong, nlatg) 
+
+  character(len=*), parameter :: TBB_NAME = "tbb"
+
+  character(len=*), parameter :: BAND_NAME = "band"
+
+  character(len=*), parameter :: X_NAME = "x"
+  character(len=*), parameter :: Y_NAME = "y"
+
+  character(len=*), parameter :: LAT_NAME = "lat"
+  character(len=*), parameter :: LON_NAME = "lon"
+
+  integer :: ncid
+  integer :: x_dimid, y_dimid, band_dimid
+  integer :: x_varid, y_varid, band_varid
+
+  integer :: lon_varid, lat_varid
+  integer :: tbb_varid
+
+  real(RP) :: lon2d(nlong, nlatg), lat2d(nlong,nlatg)
+  real(RP) :: r2d
+  integer ::  bands(NIRB_HIM_USE)
+  integer :: i, j, ch
+
+  integer :: dimids(3)
+  integer :: start(3), count(3)
+
+  integer :: dimids2d(2)
+  integer :: start2d(2), count2d(2)
+
+  r2d = 1.0_RP / CONST_D2R
+
+  do j = 1, nlatg
+  do i = 1, nlong
+    call MAPPROJECTION_xy2lonlat( GRID_CXG(IHALO+i), GRID_CYG(JHALO+j), &
+                       lon2d(i,j), lat2d(i,j) )
+    lon2d(i,j) = lon2d(i,j) * r2d
+    lat2d(i,j) = lat2d(i,j) * r2d
+  enddo
+  enddo
+
+  do ch = 1, NIRB_HIM_USE
+    bands(ch) = HIM_IR_BAND_RTTOV_LIST(ch) 
+  enddo
+
+  ! Create the file. 
+  call ncio_check( nf90_create(trim(filename), nf90_clobber, ncid) )
+
+  ! Define the dimensions. 
+  call ncio_check( nf90_def_dim(ncid, BAND_NAME, NIRB_HIM_USE, band_dimid) )
+  call ncio_check( nf90_def_dim(ncid, X_NAME, nlong, x_dimid) )
+  call ncio_check( nf90_def_dim(ncid, Y_NAME, nlatg, y_dimid) )
+
+  ! Define the coordinate variables. 
+  call ncio_check( nf90_def_var(ncid, BAND_NAME, NF90_REAL, band_dimid, band_varid) )
+  call ncio_check( nf90_def_var(ncid, X_NAME, NF90_REAL, x_dimid, x_varid) )
+  call ncio_check( nf90_def_var(ncid, Y_NAME, NF90_REAL, y_dimid, y_varid) )
+
+  ! Assign units attributes to coordinate variables.
+  call ncio_check( nf90_put_att( ncid, x_varid, "units", "m") )
+  call ncio_check( nf90_put_att( ncid, y_varid, "units", "m") )
+
+  dimids = (/ band_dimid, x_dimid, y_dimid /)
+  dimids2d = (/ x_dimid, y_dimid /)
+
+  ! Define the netCDF variables
+  call ncio_check( nf90_def_var( ncid, TBB_NAME, NF90_REAL, dimids,   tbb_varid) )
+  call ncio_check( nf90_def_var( ncid, LON_NAME, NF90_REAL, dimids2d, lon_varid) )
+  call ncio_check( nf90_def_var( ncid, LAT_NAME, NF90_REAL, dimids2d, lat_varid) )
+
+  call ncio_check( nf90_put_att( ncid, tbb_varid, "units", "K" ) )
+  call ncio_check( nf90_put_att( ncid, lon_varid, "units", "degrees_east"  ) )
+  call ncio_check( nf90_put_att( ncid, lat_varid, "units", "degrees_north" ) )
+
+  ! End define mode.
+  call ncio_check( nf90_enddef(ncid) )
+
+  ! Write the coordinate variable data. 
+  call ncio_check( nf90_put_var( ncid, y_varid, real( GRID_CYG(1+JHALO:nlatg+JHALO), kind=r_sngl) ) )
+  call ncio_check( nf90_put_var( ncid, x_varid, real( GRID_CXG(1+IHALO:nlong+IHALO), kind=r_sngl) ) )
+  call ncio_check( nf90_put_var( ncid, band_varid, bands ) )
+
+  count2d = (/ nlong, nlatg /)
+  start2d = (/ 1, 1 /)
+  call ncio_check( nf90_put_var( ncid, lat_varid, real( lat2d, kind=r_sngl), start=start2d, &
+                   count=count2d ) )
+  call ncio_check( nf90_put_var( ncid, lon_varid, real( lon2d, kind=r_sngl), start=start2d, &
+                   count=count2d ) )
+
+  count = (/ NIRB_HIM_USE, nlong, nlatg /)
+  start = (/ 1, 1, 1 /)
+
+  ! Write the data.
+  call ncio_check( nf90_put_var(ncid, tbb_varid, tbb, start = start, &
+                   count = count) )
+
+  ! Close the file. 
+  call ncio_check( nf90_close(ncid) )
+
+  return
+end subroutine write_Him_nc
+
+!-------------------------------------------------------------------------------
+subroutine write_cov_nc( filename, cov3d, cov2d, var3d, var2d, var, cnt )
+  use netcdf
+  use common_ncio
+  use scale_atmos_grid_cartesC, only: &
+     CZ => ATMOS_GRID_CARTESC_CZ
+  use scale_atmos_grid_cartesC_index, only: &
+     KS, KE, KHALO
+  implicit none
+
+  character(len=*), intent(in) :: filename
+  real, intent(in) :: cov3d(NIRB_HIM_USE,nlev,nv3dd)
+  real, intent(in) :: cov2d(NIRB_HIM_USE,     nv2dd)
+  real, intent(in) :: var3d(             nlev,nv3dd)
+  real, intent(in) :: var2d(                  nv2dd)
+  real, intent(in) :: var  (NIRB_HIM_USE)
+  integer, intent(in) :: cnt
+
+  integer :: n, k, ch
+  character(2) :: cband2
+
+  integer :: ncid
+  character(len=*), parameter :: HGT_NAME  = "height"
+
+  integer :: hgt_dimid
+  integer :: hgt_varid
+
+  integer :: cov3d_varid(NIRB_HIM_USE,nv3dd)
+  integer :: var3d_varid(nv3dd)
+
+  integer :: start(1), count(1)
+  integer :: dimids(1)
+
+  ! Create the file. 
+  call ncio_check( nf90_create(trim(filename), nf90_clobber, ncid) )
+
+  ! Define the dimensions. 
+  call ncio_check( nf90_def_dim(ncid, HGT_NAME, nlev, hgt_dimid) ) 
+ 
+  ! Define the coordinate variables. 
+  call ncio_check( nf90_def_var(ncid, HGT_NAME, NF90_REAL, hgt_dimid, hgt_varid) )
+ 
+  ! Assign units attributes to coordinate variables.
+  call ncio_check( nf90_put_att(ncid, hgt_varid, "units", "m") )
+ 
+  dimids = (/ hgt_dimid /)
+
+  ! Define the netCDF variables
+
+  do n = 1, nv3dd
+
+    call ncio_check( nf90_def_var( ncid, "VAR_"//trim( v3dd_name(n) ), &
+                     NF90_REAL, dimids, var3d_varid(n) ) )
+    call ncio_check( nf90_put_att( ncid, var3d_varid(n), "long_name", &
+                     "variance of " // trim( v3dd_name(n) )) )
+
+    do ch = 1, NIRB_HIM_USE
+      write(cband2,'(I2.2)') HIM_IR_BAND_RTTOV_LIST(ch)
+      call ncio_check( nf90_def_var( ncid, "COV_"//trim( v3dd_name(n) )//"_B"//cband2, &
+                       NF90_REAL, dimids, cov3d_varid(ch,n) ) )
+      call ncio_check( nf90_put_att( ncid, cov3d_varid(ch,n), "long_name", &
+                       "covariance btw Himawari B"//cband2//" & " // trim( v3dd_name(n) )) )
+    enddo
+  enddo
+
+  ! Add attribute
+  do ch = 1, NIRB_HIM_USE
+    write(cband2,'(I2.2)') HIM_IR_BAND_RTTOV_LIST(ch)
+    call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'variance_B'//cband2,        var(ch)          ) )
+    call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'cloud_threshold_B'//cband2, HIM_CLD_THRS(ch) ) )
+  enddo
+  
+  call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'total_number_of_sample', cnt            ) )
+  call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'slot_interval_sec',      SLOT_TINTERVAL ) )
+!  call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'lightning_max_distance_meters', LT_MAX_CORR_DIST ) )
+  
+  call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'ensemble_size',          MEMBER         ) )
+  call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'cloudy_mem_threshold',   HIM_ADDITIVE_Y18_MINMEM4COR ) )
+  call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'max_height_meters',      HIM_ADDITIVE_Y18_ZMAX ) )
+  call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'min_height_meters',      HIM_ADDITIVE_Y18_ZMIN ) )
+  call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, 'min_correlation_abs',    HIM_ADDITIVE_Y18_CORR_MIN ) )
+
+  do n = 1, nv2dd
+    call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, "VAR_"//trim( v2dd_name(n) ),  var2d(n) ) )
+
+    do ch = 1, NIRB_HIM_USE
+      write(cband2,'(I2.2)') HIM_IR_BAND_RTTOV_LIST(ch)
+      call ncio_check( nf90_put_att( ncid, NF90_GLOBAL, "COV_"//trim( v2dd_name(n) )//"_B"//cband2,  cov2d(ch,n) ) )
+
+    enddo
+  enddo
+
+  ! End define mode.
+  call ncio_check( nf90_enddef(ncid) )
+
+  ! Write the coordinate variable data. 
+  call ncio_check( nf90_put_var(ncid, hgt_varid, real( CZ(KS:KE), kind=r_sngl) ) )
+
+  count = (/ nlev /)
+  start = (/ 1 /)
+
+  ! Write the data.
+  do n = 1, nv3dd
+    call ncio_check( nf90_put_var( ncid, var3d_varid(n), var3d(1:nlev,n), start=start, &
+                     count=count) )
+
+    do ch = 1, NIRB_HIM_USE
+      call ncio_check( nf90_put_var( ncid, cov3d_varid(ch,n), cov3d(ch,1:nlev,n), start=start, &
+                      count=count) )
+    enddo
+
+  enddo
+  
+  ! Close the file. 
+  call ncio_check( nf90_close(ncid) )
+  
+  return
+end subroutine write_cov_nc
+
+subroutine write_Him_cloudy_mem(filename, cloudymem )
+  use netcdf
+  use common_ncio
+  use scale_atmos_grid_cartesC, only: &
+      GRID_CXG => ATMOS_GRID_CARTESC_CXG, &
+      GRID_CYG => ATMOS_GRID_CARTESC_CYG
+  use scale_atmos_grid_cartesC_index, only: &
+      IHALO, JHALO
+  use scale_mapprojection, only: &
+      MAPPROJECTION_xy2lonlat
+  use scale_mapprojection, only: &
+      MAPPROJECTION_xy2lonlat
+  use scale_const, only: &
+      CONST_D2R
+  implicit none
+
+  character(len=*), intent(in) :: filename
+  integer, intent(in) :: cloudymem(NIRB_HIM_USE, nlong, nlatg) 
+
+  character(len=*), parameter :: CMEM_NAME = "cloudymem"
+
+  character(len=*), parameter :: BAND_NAME = "band"
+
+  character(len=*), parameter :: X_NAME = "x"
+  character(len=*), parameter :: Y_NAME = "y"
+
+  character(len=*), parameter :: LAT_NAME = "lat"
+  character(len=*), parameter :: LON_NAME = "lon"
+
+  integer :: ncid
+  integer :: x_dimid, y_dimid, band_dimid
+  integer :: x_varid, y_varid, band_varid
+
+  integer :: lon_varid, lat_varid
+  integer :: cmem_varid
+
+  real(RP) :: lon2d(nlong, nlatg), lat2d(nlong,nlatg)
+  real(RP) :: r2d
+  integer ::  bands(NIRB_HIM_USE)
+  integer :: i, j, ch
+
+  integer :: dimids(3)
+  integer :: start(3), count(3)
+
+  integer :: dimids2d(2)
+  integer :: start2d(2), count2d(2)
+
+  r2d = 1.0_RP / CONST_D2R
+
+  do j = 1, nlatg
+  do i = 1, nlong
+    call MAPPROJECTION_xy2lonlat( GRID_CXG(IHALO+i), GRID_CYG(JHALO+j), &
+                       lon2d(i,j), lat2d(i,j) )
+    lon2d(i,j) = lon2d(i,j) * r2d
+    lat2d(i,j) = lat2d(i,j) * r2d
+  enddo
+  enddo
+
+  do ch = 1, NIRB_HIM_USE
+    bands(ch) = HIM_IR_BAND_RTTOV_LIST(ch) 
+  enddo
+
+  ! Create the file. 
+  call ncio_check( nf90_create(trim(filename), nf90_clobber, ncid) )
+
+  ! Define the dimensions. 
+  call ncio_check( nf90_def_dim(ncid, BAND_NAME, NIRB_HIM_USE, band_dimid) )
+  call ncio_check( nf90_def_dim(ncid, X_NAME, nlong, x_dimid) )
+  call ncio_check( nf90_def_dim(ncid, Y_NAME, nlatg, y_dimid) )
+
+  ! Define the coordinate variables. 
+  call ncio_check( nf90_def_var(ncid, BAND_NAME, NF90_REAL, band_dimid, band_varid) )
+  call ncio_check( nf90_def_var(ncid, X_NAME, NF90_REAL, x_dimid, x_varid) )
+  call ncio_check( nf90_def_var(ncid, Y_NAME, NF90_REAL, y_dimid, y_varid) )
+
+  ! Assign units attributes to coordinate variables.
+  call ncio_check( nf90_put_att( ncid, x_varid, "units", "m") )
+  call ncio_check( nf90_put_att( ncid, y_varid, "units", "m") )
+
+  dimids = (/ band_dimid, x_dimid, y_dimid /)
+  dimids2d = (/ x_dimid, y_dimid /)
+
+  ! Define the netCDF variables
+  call ncio_check( nf90_def_var( ncid, CMEM_NAME, NF90_REAL, dimids,   cmem_varid) )
+  call ncio_check( nf90_def_var( ncid, LON_NAME,  NF90_REAL, dimids2d, lon_varid ) )
+  call ncio_check( nf90_def_var( ncid, LAT_NAME,  NF90_REAL, dimids2d, lat_varid ) )
+
+  call ncio_check( nf90_put_att( ncid, cmem_varid, "units", "" ) )
+  call ncio_check( nf90_put_att( ncid, lon_varid,  "units", "degrees_east"  ) )
+  call ncio_check( nf90_put_att( ncid, lat_varid,  "units", "degrees_north" ) )
+
+  ! End define mode.
+  call ncio_check( nf90_enddef(ncid) )
+
+  ! Write the coordinate variable data. 
+  call ncio_check( nf90_put_var( ncid, y_varid, real( GRID_CYG(1+JHALO:nlatg+JHALO), kind=r_sngl) ) )
+  call ncio_check( nf90_put_var( ncid, x_varid, real( GRID_CXG(1+IHALO:nlong+IHALO), kind=r_sngl) ) )
+  call ncio_check( nf90_put_var( ncid, band_varid, bands ) )
+
+  count2d = (/ nlong, nlatg /)
+  start2d = (/ 1, 1 /)
+  call ncio_check( nf90_put_var( ncid, lat_varid, real( lat2d, kind=r_sngl), start=start2d, &
+                   count=count2d ) )
+  call ncio_check( nf90_put_var( ncid, lon_varid, real( lon2d, kind=r_sngl), start=start2d, &
+                   count=count2d ) )
+
+  count = (/ NIRB_HIM_USE, nlong, nlatg /)
+  start = (/ 1, 1, 1 /)
+
+  ! Write the data.
+  call ncio_check( nf90_put_var(ncid, cmem_varid, cloudymem, start = start, &
+                   count = count) )
+
+  ! Close the file. 
+  call ncio_check( nf90_close(ncid) )
+
+  return
+end subroutine write_Him_cloudy_mem
+
+subroutine used_history3d_to_history2d_ideal(v3dg_RP,iv2d,v2dg_RP)
+  use scale_atmos_grid_cartesC_index, only: &
+    KS
+  implicit none
+
+  real(RP), intent(in)  :: v3dg_RP(nlevh,nlonh,nlath,nv3dd)
+  integer,  intent(in)  :: iv2d
+  real(RP), intent(out) :: v2dg_RP(nlonh,nlath)
+
+   select case(iv2d)
+   case( iv2dd_ps )
+     v2dg_RP(1:nlonh,1:nlath) = v3dg_RP(KS,1:nlonh,1:nlath,iv3dd_p)
+   case( iv2dd_u10m )
+     v2dg_RP(1:nlonh,1:nlath) = v3dg_RP(KS,1:nlonh,1:nlath,iv3dd_u)
+   case( iv2dd_v10m )
+     v2dg_RP(1:nlonh,1:nlath) = v3dg_RP(KS,1:nlonh,1:nlath,iv3dd_v)
+   case( iv2dd_t2m )
+     v2dg_RP(1:nlonh,1:nlath) = v3dg_RP(KS,1:nlonh,1:nlath,iv3dd_t)
+   case( iv2dd_q2m )
+     v2dg_RP(1:nlonh,1:nlath) = v3dg_RP(KS,1:nlonh,1:nlath,iv3dd_q)
+   case( iv2dd_lsmask )
+     v2dg_RP(1:nlonh,1:nlath) = 0.0_RP ! ocean
+   case( iv2dd_skint )
+     v2dg_RP(1:nlonh,1:nlath) = v3dg_RP(KS,1:nlonh,1:nlath,iv3dd_t) 
+   case default
+   end select
+
+  return
+end subroutine used_history3d_to_history2d_ideal
+  
 !===============================================================================
 END MODULE common_scale

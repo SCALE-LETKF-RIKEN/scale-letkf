@@ -212,7 +212,7 @@ subroutine destroy_obsense
 end subroutine destroy_obsense
 
 !OCL SERIAL
-subroutine write_efso_nc( filename, nobsall, set, qc, obsense_global, total_impact )
+subroutine write_efso_nc( filename, nobsall, set, qc, obsense_global, total_impact, val2 )
   use netcdf
   use common_ncio
   implicit none
@@ -223,6 +223,7 @@ subroutine write_efso_nc( filename, nobsall, set, qc, obsense_global, total_impa
   integer, intent(in) :: qc (nobsall)
   real(r_size), intent(in) :: obsense_global(nterm,nobsall)
   real(r_size), intent(in) :: total_impact(nterm)
+  real(r_size), intent(in), optional :: val2(nobsall)
 
   integer :: ncid
   integer :: dimid, dimid_norm
@@ -233,6 +234,7 @@ subroutine write_efso_nc( filename, nobsall, set, qc, obsense_global, total_impa
   integer :: dif_varid, err_varid
   integer :: typ_varid
   integer :: efso_varid, efso_total_varid
+  integer :: val2_varid
 
   character(len=*), parameter :: DIM_NAME = "number"
   character(len=*), parameter :: DIM_NAME_NORM = "norm"
@@ -244,6 +246,7 @@ subroutine write_efso_nc( filename, nobsall, set, qc, obsense_global, total_impa
   character(len=*), parameter :: DIF_NAME = "dif"
   character(len=*), parameter :: ERR_NAME = "err"
   character(len=*), parameter :: TYP_NAME = "typ"
+  character(len=*), parameter :: VAL2_NAME = "val2"
 
   character(len=*), parameter :: EFSO_NAME = "efso"
   character(len=*), parameter :: EFSO_TOTAL_NAME = "efso_total"
@@ -256,6 +259,7 @@ subroutine write_efso_nc( filename, nobsall, set, qc, obsense_global, total_impa
   character(len=*), parameter :: DIF_LONGNAME = "time difference"
   character(len=*), parameter :: ERR_LONGNAME = "observation error"
   character(len=*), parameter :: TYP_LONGNAME = "observation platform type"
+  character(len=*), parameter :: VAL2_LONGNAME = "obsda value 2 (cloud parameter (Ca) for Him obs)"
 
   character(len=*), parameter :: EFSO_LONGNAME = "EFSO (observation impact)"
   character(len=*), parameter :: EFSO_TOTAL_LONGNAME = "Total EFSO (observation impact)"
@@ -269,6 +273,7 @@ subroutine write_efso_nc( filename, nobsall, set, qc, obsense_global, total_impa
   real(r_sngl), allocatable :: lev_l(:), dat_l(:)
   real(r_sngl), allocatable :: dif_l(:), err_l(:)
   integer, allocatable :: typ_l(:)
+  real(r_sngl), allocatable :: val2_l(:)
 
   real(r_sngl), allocatable :: obsense_global_l(:,:)
 
@@ -299,6 +304,10 @@ subroutine write_efso_nc( filename, nobsall, set, qc, obsense_global, total_impa
 
   allocate( obsense_global_l(nterm,nobs) )
 
+  if ( present(val2) ) then
+    allocate( val2_l(nobs) )
+  endif
+
   ! Construct the arrays
   nn = 0
   do n = 1, nobsall
@@ -321,6 +330,10 @@ subroutine write_efso_nc( filename, nobsall, set, qc, obsense_global, total_impa
     typ_l(nn) = int( obs(set)%typ(n) )
 
     obsense_global_l(:,nn) = real( obsense_global(:,n), r_sngl )
+
+    if ( present(val2) ) then
+      val2_l(nn) = real( val2(n), r_sngl )
+    endif
   enddo
 
   do n = 1, nterm
@@ -364,6 +377,11 @@ subroutine write_efso_nc( filename, nobsall, set, qc, obsense_global, total_impa
   call ncio_check( nf90_put_att(ncid, efso_varid, "long_name", EFSO_LONGNAME ) )
   call ncio_check( nf90_put_att(ncid, efso_total_varid, "long_name", EFSO_TOTAL_LONGNAME ) )
 
+  if ( present(val2) ) then
+    call ncio_check( nf90_def_var(ncid, VAL2_NAME, NF90_REAL,  dimid, val2_varid) )
+    call ncio_check( nf90_put_att(ncid, val2_varid, "long_name", VAL2_LONGNAME ) )
+  endif
+
 
   ! End define mode.
   call ncio_check( nf90_enddef(ncid) )
@@ -395,6 +413,11 @@ subroutine write_efso_nc( filename, nobsall, set, qc, obsense_global, total_impa
   call ncio_check( nf90_put_var(ncid, efso_total_varid, real(total_impact, kind=r_sngl), start=(/1/), &
                    count=(/nterm/) ) )
 
+  if ( present(val2) ) then
+    call ncio_check( nf90_put_var(ncid, val2_varid, val2_l, start=(/1/), &
+                     count=(/nobs/) ) )
+  endif
+
   ! Close the file. 
   call ncio_check( nf90_close(ncid) )
 
@@ -409,6 +432,10 @@ subroutine write_efso_nc( filename, nobsall, set, qc, obsense_global, total_impa
   deallocate( typ_l )
 
   deallocate( obsense_global_l )
+
+  if ( present(val2) ) then
+    deallocate( val2_l )
+  endif
 
   return
 end subroutine write_efso_nc

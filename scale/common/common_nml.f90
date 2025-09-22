@@ -119,7 +119,9 @@ MODULE common_nml
   logical               :: ANAL_SPRD_OUT = .true.
   character(filelenmax) :: ANAL_SPRD_OUT_BASENAME = ''
   character(filelenmax) :: LETKF_TOPOGRAPHY_IN_BASENAME = ''  !!!!!! -- directly use the SCALE namelist --???? !!!!!!
-  character(filelenmax) :: EFSO_ANAL_IN_BASENAME         = 'anal.@@@@'
+  character(filelenmax) :: GUES_MEAN_INOUT_BASENAME_EFSO = ''
+  logical               :: USE_HISTORY_3DLETKF = .false.
+  character(filelenmax) :: EFSO_ANAL_IN_BASENAME = 'anal.@@@@'
   character(filelenmax) :: EFSO_FCST_FROM_GUES_BASENAME = 'anal.@@@@'
   character(filelenmax) :: EFSO_FCST_FROM_ANAL_BASENAME = 'anal.@@@@'
   character(filelenmax) :: EFSO_EFCST_FROM_ANAL_BASENAME = 'anal.@@@@'
@@ -160,6 +162,7 @@ MODULE common_nml
   real(r_size) :: GROSS_ERROR_RADAR_REF = -1.0d0 ! < 0: same as GROSS_ERROR
   real(r_size) :: GROSS_ERROR_RADAR_VR = -1.0d0  ! < 0: same as GROSS_ERROR
   real(r_size) :: GROSS_ERROR_RADAR_PRH = -1.0d0 ! < 0: same as GROSS_ERROR
+  real(r_size) :: GROSS_ERROR_HIM = -1.0_r_size  ! < 0: same as GROSS_ERROR
   real(r_size) :: GROSS_ERROR_TCX = -1.0d0 ! debug ! < 0: same as GROSS_ERROR 
   real(r_size) :: GROSS_ERROR_TCY = -1.0d0 ! debug ! < 0: same as GROSS_ERROR
   real(r_size) :: GROSS_ERROR_TCP = -1.0d0 ! debug ! < 0: same as GROSS_ERROR
@@ -180,6 +183,9 @@ MODULE common_nml
   character(filelenmax) :: NOBS_OUT_BASENAME = 'nobs'
 
   logical :: REJECT_ADPSFC_EXCEPT_PS = .false.
+
+  logical :: USE_HISTORY_WO_SFC_IDEAL = .false. ! Use history files without surface variables (ideal cases)
+                                                !  (some history variables at the surface are approximated by the lowest model variables)
 
   !*** for backward compatibility ***
   real(r_size) :: COV_INFL_MUL = 1.0d0
@@ -257,11 +263,12 @@ MODULE common_nml
   real(r_size) :: VAR_LOCAL_TC(nv3d+nv2d)        = 1.0d0
   real(r_size) :: VAR_LOCAL_RADAR_REF(nv3d+nv2d) = 1.0d0
   real(r_size) :: VAR_LOCAL_RADAR_VR(nv3d+nv2d)  = 1.0d0
-!  real(r_size) :: VAR_LOCAL_H08(nv3d+nv2d)       = 1.0d0
+  real(r_size) :: VAR_LOCAL_HIM(nv3d+nv2d)       = 1.0_r_size
 
   !--- PARAM_LETKF_MONITOR
   logical :: DEPARTURE_STAT = .true.
   logical :: DEPARTURE_STAT_RADAR = .false.
+  logical :: DEPARTURE_STAT_HIM   = .false.
   real(r_size) :: DEPARTURE_STAT_T_RANGE = 0.0d0   ! time range within which observations are considered in the departure statistics.
                                                    ! 0: no limit
   logical :: DEPARTURE_STAT_ALL_PROCESSES = .true. ! print the departure statistics by all processes?
@@ -274,6 +281,7 @@ MODULE common_nml
   character(filelenmax) :: OBSDEP_OUT_BASENAME = 'obsdep'
   LOGICAL               :: OBSDEP_OUT_NC = .false.
   logical               :: OBSDEP_OUT_NOQC = .false.
+  logical               :: OBSDEP_OUT_XY = .false.
   logical               :: OBSNUM_OUT_NC = .false.
   character(filelenmax) :: OBSNUM_OUT_NC_BASENAME = 'obsnum'
   LOGICAL               :: OBSGUES_OUT = .false.                  !XXX not implemented yet...
@@ -342,6 +350,128 @@ MODULE common_nml
   logical :: RADAR_ADDITIVE_Y18 = .false.        ! switch of additive inflation for radar reflectivity obs 
   integer :: RADAR_ADDITIVE_Y18_MINMEM = 0 ! If the number of precipitating members is smaller than this threshold, use Y18 method
 
+  !---PARAM_LETKF_HIM
+  integer, parameter :: NIRB_HIM  = 10     ! HIM Num of Himawari-8/9 (IR) bands
+  integer, parameter :: NVISB_HIM =  6     ! HIM Num of Himawari-8/9 (VIS/NIR) bands
+  integer :: NIRB_HIM_USE = 0 ! set in read_nml_letkf_him
+  real(r_size) :: HIM_LON = 140.7_r_size
+
+  integer :: HIM_IR_BAND_RTTOV_LIST(NIRB_HIM) = (/0,0,0,0,0,0,0,0,0,0/)
+  integer :: HIM_IR_BAND_DA_LIST(NIRB_HIM)    = (/0,0,0,0,0,0,0,0,0,0/)
+
+  logical :: HIM_RTTOV_CLD = .true. ! true: all-sky, false: CSR in RTTOV fwd model
+  integer :: HIM_RTTOV_THREADS = 1
+  integer :: HIM_RTTOV_ITMAX = 1
+  logical :: HIM_REJECT_LAND = .false. ! true: reject Himawari-8 radiance over the land
+
+  integer :: HIM_RTTOV_CFRAC =  1 ! cloud fraction diagnosis 
+  ! 1: using HIM_RTTOV_CFRAC_CNST following Honda et al. (2018a,b)
+  ! 2: SCALE method as of 11/15/2017 with a minor modification (excluding qr)
+  ! 3: Tompkins and Janiskova (2004QJRMS) method (as in Okamoto 2017QJRMS)
+  real(r_size) :: HIM_RTTOV_CFRAC_CNST = 0.10d0 ! Denominator constant for diagnosing SEQUENTIAL(0-1) cloud fraction (g m-3)
+  real(r_size) :: HIM_RTTOV_MINQ_CTOP = 0.10d0 ! Threshold of water/ice contents for diagnosing the cloud top (g m-3)
+  logical :: HIM_RTTOV_SZ_IDEAL = .false. ! true: set satellite zenith angle to 0.0 for idealized cases
+
+  ! How to prepare Himawari-8 obs using that "superobs"ed into the model grid
+  character(10) :: HIM_OBS_METHOD = 'SIMPLE' 
+                                ! SIMPLE : Simple thinning
+                                ! AVERAGE: Use area-averaged obs 
+                                ! MAX    : Use maximum value in a local area
+                                ! MIN    : Use minimum value in a local area 
+  integer :: HIM_OBS_AVE_NG = 0 ! # of grids for averaging adjacent grids (HIM_OBS_METHOD=2)
+  logical :: HIM_OBS_AVE_OVERLAP = .false.
+  integer :: HIM_OBS_THIN_LEV = 1 ! thinning level (1: no thinning)
+  logical :: HIM_OBS_IDEAL = .false. ! true: use him obs in idealized exps (w/o map projection)
+  real(r_size) :: HIM_OBS_IDEAL_STD = 1.0_r_size ! standard deviation of the observatin errors of him obs in idealized exps
+
+  logical :: HIM_VLOCAL_CTOP = .true.
+
+  logical :: HIM_MEAN_WRITE = .true.       ! write anal/gues simulated him obs
+  logical :: HIM_MEAN_WRITE_CLEAR = .true. ! write anal/gues simulated clear-sky him obs
+
+  logical :: HIM_CLDERR_SIMPLE = .false. ! Simple cloud dependent obs 
+  !! Sky condition is diagnosed by CA (Okamoto et al. 2014 for each band)
+  !! CA > HIM_CA_THRES: Cloudy
+  !! CA <= HIM_CA_THRES: Clear
+  !!
+  ! Constant values for band 9 are based on Honda et al. (2017 submitted to MWR)
+  real(r_size) :: HIM_CA_THRES = 1.0d0 ! Threshhold of CA
+  real(r_size) :: HIM_CLDERR_CLEAR(NIRB_HIM) =  (/3.0d0, 3.0d0, 3.0d0, 3.0d0, 3.0d0, &
+                                           3.0d0, 3.0d0, 3.0d0, 3.0d0, 3.0d0/) ! Constant obs err for clear sky conditions
+  real(r_size) :: HIM_CLDERR_CLOUD(NIRB_HIM) = (/3.0d0, 3.0d0, 3.0d0, 3.0d0, 3.0d0, &
+                                          3.0d0, 3.0d0, 3.0d0, 3.0d0, 3.0d0/) ! Constant obs err for cloudy sky conditions
+
+  !Yokota et al.(2018JGRA, Y18) additive inflation method for Him radiance obs
+  logical :: HIM_ADDITIVE_Y18 = .false.      ! switch of additive inflation for Him radiance obs 
+  integer :: HIM_ADDITIVE_Y18_MINMEM = 0     ! If the number of cloudy members is smaller than this threshold, use Y18 method
+  integer :: HIM_ADDITIVE_Y18_MINMEM4COR = 0 ! Use the grid point with the number of cloudy members >= this threshold for calculating correlations in Y18
+  real(r_size) :: HIM_ADDITIVE_Y18_ZMAX  = 2000000.0_r_size ! Additive inflation is applied with the perturbations below this height (m)
+  real(r_size) :: HIM_ADDITIVE_Y18_ZMIN  =       0.0_r_size ! Additive inflation is applied with the perturbations above this height (m)
+  character(filelenmax) :: HIM_ADDITIVE_Y18_COV_BASENAME = 'cov'
+  logical :: HIM_ADDITIVE_Y18_COV_SUBDOMAIN = .false. ! calculate covariance (slope) in each SCALE subdomain
+  logical :: HIM_OUT_CLOUDYMEM = .false.              ! output the number of cloudy members
+  logical :: HIM_ADDITIVE_Y18_USE_U = .true. ! Use U-wind for Y18's additive inflation  
+  logical :: HIM_ADDITIVE_Y18_USE_V = .true. ! Use V-wind for Y18's additive inflation  
+  logical :: HIM_ADDITIVE_Y18_USE_W = .true. ! Use W-wind for Y18's additive inflation  
+  logical :: HIM_ADDITIVE_Y18_USE_T = .true. ! Use the temperature for Y18's additive inflation  
+  logical :: HIM_ADDITIVE_Y18_USE_P = .true. ! Use the pressure    for Y18's additive inflation  
+  logical :: HIM_ADDITIVE_Y18_USE_Q = .true. ! Use Q (water vapor) for Y18's additive inflation  
+  logical :: HIM_ADDITIVE_Y18_USE_SFC_PRES = .false. ! Use SFC_PRES (surface pressure) for Y18's additive inflation  
+  logical :: HIM_ADDITIVE_Y18_USE_PW   = .false.       ! Use PW   (precipitabe water) for Y18's additive inflation  
+  logical :: HIM_ADDITIVE_Y18_USE_PREC = .false.       ! Use PREC (precipitation amount) for Y18's additive inflation  
+  real(r_size) :: HIM_ADDITIVE_Y18_VLOC_PLEV = -1.0_r_size ! Pressure level (Pa) for vertical localization
+                                                           ! > 0.0: Use namelist value instead of the peak of the weighting function
+                                                           ! <=0.0: Do not use namelist value
+  logical :: HIM_ADDITIVE_Y18_NORMALIZE_SPRD            = .false.    ! Normalize the ensemble spread calculated by Y18
+  real(r_size) :: HIM_ADDITIVE_Y18_NORMALIZE_SPRD_VALUE = 0.1_r_size ! Normalized value of the ensemble spread 
+  real(r_size) :: HIM_ADDITIVE_Y18_CORR_MIN = -1.0_r_size
+
+  logical :: HIM_OUT_TBB_NC = .true.
+  logical :: HIM_OUT_ETBB_NC = .false.
+  character(filelenmax) :: RTTOV_COEF_PATH     = '.'
+  character(filelenmax) :: RTTOV_COEF_FILE     = ''
+  character(filelenmax) :: RTTOV_COEF_FILE_CLD = ''
+  character(filelenmax) :: HIM_VBC_PATH = '.'
+  character(filelenmax) :: HIM_OUTFILE_BASENAME = 'him'
+  logical :: HIM_SIM_ALLG = .true. ! Him8 sim by using ensemble mean
+  logical :: HIM_OBS_4D = .false.
+  integer :: HIM_OBS_RECL = 4 + NIRB_HIM ! obstype, obsid, lon, lat, + dat(NIRB_HIM8)
+  integer :: HIM_NOWDATE(6) = (/0,1,1,0,0,0/)
+  real(r_size) :: HIM_LIMIT_LEV = 20000.0d0 ! (Pa) Upper limit level of the sensitive height for Himawari-8 IR
+  real(r_size) :: HIM_BT_MIN = 0.0d0 ! Lower limit of the BT for Himawari-8 IR
+                                           ! Negative values: turn off
+  logical :: HIM_VBC_USE = .false. ! Turn on adaptive bias correction for Him8?
+
+  logical :: HIM_AOEI = .false. ! Use AOEI (Zhang et al. 2016; Minamide and Zhang 2017)?
+  integer :: HIM_AOEI_QC = 0 !  0: AOEI w/o any QC
+                             !  1: AOEI w/ a standard QC based on the ratio btw O-B and obs err
+                             !  Not yet 2: AOEI w/ a QC method based on the ratio defind by O-B, obs err, and variances (Aksoy et al. 2017AMS annual meeting)
+
+  integer :: HIM_NPRED = 1 ! number of predirctors for Him8
+
+  logical :: HIM_BIAS_SIMPLE = .false. ! Simple bias correction (just subtract prescribed constant (clear/cloudy))
+  logical :: HIM_BIAS_SIMPLE_CLR = .false. ! Simple bias correction (just subtract prescribed constant (only clear sky value))
+  real(r_size) :: HIM_BIAS_CLEAR(NIRB_HIM) =  (/0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0, &
+                                           0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0/) ! Constant bias for clear sky conditions
+  real(r_size) :: HIM_BIAS_CLOUD(NIRB_HIM) = (/0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0, &
+                                          0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0/) ! Constant bias for cloudy sky conditions
+  
+
+  integer :: HIM_BAND_USE(NIRB_HIM) = (/0,0,1,0,0,0,0,0,0,0/)
+                        !! ch = (1,2,3,4,5,6,7,8,9,10)
+                        !! (B07,B08,B09,B10,B11,B12,B13,B14,B15,B16)
+                        !! ==1: Assimilate
+                        !! ==0: NOT assimilate (rejected by QC in trans_XtoY_HIM)
+                        !! It is better to reject B11(ch=5) & B12(ch=6) obs because these bands are 
+                        !! sensitive to chemicals.
+ 
+  integer :: HIM_OBS_SWD_B= 8
+  integer :: HIM_OBS_BUF_GRID = 20 ! Lateral # of grids where Him8 obs are not used
+
+  real(r_size) :: HIM_CLD_THRS(NIRB_HIM) = (/300.0d0, 232.5d0, 243.5d0, 256.5d0, 300.0d0, &
+                                              300.0d0, 295.5d0, 300.0d0, 300.0d0, 300.0d0/) ! Threshold tbb btw clear & cloudy skies
+ 
+
   !--- PARAM_OBS_ERROR
   real(r_size) :: OBSERR_U = 1.0d0
   real(r_size) :: OBSERR_V = 1.0d0
@@ -355,6 +485,8 @@ MODULE common_nml
   real(r_size) :: OBSERR_TCY = 50.0d3 ! (m)
   real(r_size) :: OBSERR_TCP = 5.0d2 ! (Pa)
   real(r_size) :: OBSERR_PQ = 0.001d0
+  real(r_size) :: OBSERR_HIM(NIRB_HIM) = (/3.0d0,3.0d0,3.0d0,3.0d0,3.0d0,&
+                                            3.0d0,3.0d0,3.0d0,3.0d0,3.0d0/) 
 
   !--- PARAM_OBSSIM
   character(filelenmax) :: OBSSIM_IN_TYPE = 'history'
@@ -363,7 +495,9 @@ MODULE common_nml
   character(filelenmax) :: OBSSIM_TOPOGRAPHY_IN_BASENAME = 'topo'
   integer               :: OBSSIM_TIME_START = 1
   integer               :: OBSSIM_TIME_END = 1
-  character(filelenmax) :: OBSSIM_GRADS_OUT_NAME = ''
+  integer               :: OBSSIM_TIME_INTERVAL_SEC = 1
+  character(filelenmax) :: OBSSIM_GRADS_OUT_NAME  = ''
+  character(filelenmax) :: OBSSIM_NC_OUT_BASENAME = ''
   integer               :: OBSSIM_NUM_3D_VARS = 0
   integer               :: OBSSIM_3D_VARS_LIST(nid_obs) = 0
   integer               :: OBSSIM_NUM_2D_VARS = 0
@@ -371,6 +505,7 @@ MODULE common_nml
   real(r_size)          :: OBSSIM_RADAR_LON = 0.0d0
   real(r_size)          :: OBSSIM_RADAR_LAT = 0.0d0
   real(r_size)          :: OBSSIM_RADAR_Z = 0.0d0
+  logical               :: OBSSIM_HIM = .false.
 
   interface filename_replace_mem
     module procedure filename_replace_mem_int
@@ -623,8 +758,9 @@ subroutine read_nml_letkf
     ANAL_SPRD_OUT, &
     ANAL_SPRD_OUT_BASENAME, &
     LETKF_TOPOGRAPHY_IN_BASENAME, &
-    EFSO_DIAGNOSE_PS,        &
-    EFSO_ANAL_IN_BASENAME, &
+    EFSO_DIAGNOSE_PS,             &
+    USE_HISTORY_3DLETKF,          &
+    EFSO_ANAL_IN_BASENAME,        &
     EFSO_FCST_FROM_GUES_BASENAME, &
     EFSO_FCST_FROM_ANAL_BASENAME, &
     EFSO_EFCST_FROM_ANAL_BASENAME, &
@@ -655,6 +791,7 @@ subroutine read_nml_letkf
     GROSS_ERROR_RADAR_REF, &
     GROSS_ERROR_RADAR_VR, &
     GROSS_ERROR_RADAR_PRH, &
+    GROSS_ERROR_HIM, &
     GROSS_ERROR_TCX, &
     GROSS_ERROR_TCY, &
     GROSS_ERROR_TCP, &
@@ -670,6 +807,7 @@ subroutine read_nml_letkf
     NOBS_OUT_BASENAME, &
     FILL_BY_ZERO_MISSING_VARIABLES, &
     REJECT_ADPSFC_EXCEPT_PS, &
+    USE_HISTORY_WO_SFC_IDEAL, &
     !*** for backward compatibility ***
     COV_INFL_MUL, &
     MIN_INFL_MUL, &
@@ -697,6 +835,9 @@ subroutine read_nml_letkf
   end if
   if (GROSS_ERROR_RADAR_PRH < 0.0d0) then
     GROSS_ERROR_RADAR_PRH = GROSS_ERROR
+  end if
+  if ( GROSS_ERROR_HIM < 0.0_r_size ) then
+    GROSS_ERROR_HIM = GROSS_ERROR
   end if
   if (GROSS_ERROR_TCX < 0.0d0) then
     GROSS_ERROR_TCX = GROSS_ERROR
@@ -870,7 +1011,8 @@ subroutine read_nml_letkf_var_local
     VAR_LOCAL_RAIN, &
     VAR_LOCAL_TC, &
     VAR_LOCAL_RADAR_REF, &
-    VAR_LOCAL_RADAR_VR
+    VAR_LOCAL_RADAR_VR, &
+    VAR_LOCAL_HIM
 
   rewind(IO_FID_CONF)
   read(IO_FID_CONF,nml=PARAM_LETKF_VAR_LOCAL,iostat=ierr)
@@ -899,6 +1041,7 @@ subroutine read_nml_letkf_monitor
   namelist /PARAM_LETKF_MONITOR/ &
     DEPARTURE_STAT, &
     DEPARTURE_STAT_RADAR, &
+    DEPARTURE_STAT_HIM,   &
     DEPARTURE_STAT_T_RANGE, &
     DEPARTURE_STAT_ALL_PROCESSES, &
     DEPARTURE_STAT_OUT_NC,        &
@@ -908,6 +1051,7 @@ subroutine read_nml_letkf_monitor
     OBSDEP_OUT_BASENAME, &
     OBSDEP_OUT_NC, &
     OBSDEP_OUT_NOQC, &
+    OBSDEP_OUT_XY,   &
     OBSNUM_OUT_NC, &
     OBSNUM_OUT_NC_BASENAME, &
     OBSGUES_OUT, &
@@ -1018,7 +1162,9 @@ subroutine read_nml_obs_error
     OBSERR_TCX, &
     OBSERR_TCY, &
     OBSERR_TCP, &
-    OBSERR_PQ
+    OBSERR_PQ,  &
+    OBSERR_Q,   &
+    OBSERR_HIM
 
   rewind(IO_FID_CONF)
   read(IO_FID_CONF,nml=PARAM_OBS_ERROR,iostat=ierr)
@@ -1051,14 +1197,17 @@ subroutine read_nml_obssim
     OBSSIM_TOPOGRAPHY_IN_BASENAME, &
     OBSSIM_TIME_START, &
     OBSSIM_TIME_END, &
+    OBSSIM_TIME_INTERVAL_SEC, &
     OBSSIM_GRADS_OUT_NAME, &
+    OBSSIM_NC_OUT_BASENAME,&
     OBSSIM_NUM_3D_VARS, &
     OBSSIM_3D_VARS_LIST, &
     OBSSIM_NUM_2D_VARS, &
     OBSSIM_2D_VARS_LIST, &
     OBSSIM_RADAR_LON, &
     OBSSIM_RADAR_LAT, &
-    OBSSIM_RADAR_Z
+    OBSSIM_RADAR_Z, &
+    OBSSIM_HIM
 
   rewind(IO_FID_CONF)
   read(IO_FID_CONF,nml=PARAM_OBSSIM,iostat=ierr)
@@ -1084,6 +1233,152 @@ subroutine read_nml_obssim
 
   return
 end subroutine read_nml_obssim
+
+!-------------------------------------------------------------------------------
+! PARAM_LETKF_HIM
+!-------------------------------------------------------------------------------
+subroutine read_nml_letkf_him
+  implicit none
+
+  integer :: ierr
+  integer :: ch
+
+  namelist /PARAM_LETKF_HIM/ &
+    HIM_IR_BAND_RTTOV_LIST, &
+    HIM_IR_BAND_DA_LIST,    &
+    HIM_LON,                &
+    ! RTTOV related parameters
+    HIM_RTTOV_THREADS,      &
+    HIM_RTTOV_ITMAX,        &
+    HIM_NOWDATE,            &
+    RTTOV_COEF_PATH,        &
+    RTTOV_COEF_FILE,        &
+    RTTOV_COEF_FILE_CLD,    &
+    HIM_RTTOV_CLD,          &
+    HIM_LIMIT_LEV,          &
+    HIM_RTTOV_CFRAC_CNST,   &
+    HIM_RTTOV_MINQ_CTOP,    &
+    HIM_RTTOV_CFRAC,        &
+    HIM_RTTOV_SZ_IDEAL,     &
+    !
+    ! Superob & thinning parameters 
+    HIM_OBS_METHOD,         &
+    HIM_OBS_THIN_LEV,       &
+    HIM_OBS_AVE_NG,         &
+    HIM_OBS_AVE_OVERLAP,    &
+    HIM_OBS_BUF_GRID,       &
+    HIM_OBS_IDEAL,          &
+    HIM_OBS_IDEAL_STD,      &
+    ! 
+    HIM_MEAN_WRITE,         &
+    HIM_MEAN_WRITE_CLEAR,   &
+    !
+    ! Adaptive obs error
+    HIM_CLDERR_SIMPLE,      &
+    HIM_CA_THRES,           &
+    HIM_CLDERR_CLEAR,       &
+    HIM_CLDERR_CLOUD,       &
+    !
+    HIM_VLOCAL_CTOP,        &
+    !
+    HIM_ADDITIVE_Y18,       &
+    HIM_ADDITIVE_Y18_MINMEM,&
+    HIM_ADDITIVE_Y18_MINMEM4COR,   &
+    HIM_ADDITIVE_Y18_ZMAX,  &
+    HIM_ADDITIVE_Y18_ZMIN,  &
+    HIM_ADDITIVE_Y18_COV_BASENAME,  &
+    HIM_ADDITIVE_Y18_COV_SUBDOMAIN, &
+    HIM_ADDITIVE_Y18_USE_U, &
+    HIM_ADDITIVE_Y18_USE_V, &
+    HIM_ADDITIVE_Y18_USE_W, &
+    HIM_ADDITIVE_Y18_USE_T, &
+    HIM_ADDITIVE_Y18_USE_P, &
+    HIM_ADDITIVE_Y18_USE_Q, &
+    HIM_ADDITIVE_Y18_USE_SFC_PRES, &
+    HIM_ADDITIVE_Y18_USE_PW,   &
+    HIM_ADDITIVE_Y18_USE_PREC, &
+    HIM_ADDITIVE_Y18_VLOC_PLEV, &
+    HIM_ADDITIVE_Y18_NORMALIZE_SPRD, &
+    HIM_ADDITIVE_Y18_NORMALIZE_SPRD_VALUE, &
+    HIM_ADDITIVE_Y18_CORR_MIN, &
+    HIM_OUT_CLOUDYMEM, &
+    !
+    HIM_OUT_TBB_NC, &
+    HIM_OUT_ETBB_NC, &
+    HIM_SIM_ALLG, &
+    HIM_REJECT_LAND, &
+    HIM_OUTFILE_BASENAME,&
+    HIM_OBS_4D, &
+    HIM_OBS_RECL, &
+    HIM_BT_MIN, &
+    HIM_BAND_USE, &
+    HIM_AOEI, &
+    HIM_AOEI_QC,&
+    HIM_NPRED,&
+    HIM_BIAS_SIMPLE, &
+    HIM_BIAS_SIMPLE_CLR, &
+    HIM_BIAS_CLEAR, &
+    HIM_BIAS_CLOUD, &
+    HIM_VBC_PATH,&
+    HIM_VBC_USE,&
+    HIM_OBS_SWD_B,&
+    HIM_CLD_THRS
+
+  rewind(IO_FID_CONF)
+  read(IO_FID_CONF,nml=PARAM_LETKF_HIM,iostat=ierr)
+  if (ierr < 0) then !--- missing
+    write(6,*) '[Warning] /PARAM_LETKF_HIM/ is not found in namelist.'
+!    stop
+  elseif (ierr > 0) then !--- fatal error
+    write(6,*) '[Error] xxx Not appropriate names in namelist PARAM_LETKF_HIM. Check!'
+    stop
+  endif
+
+  if(HIM_OBS_4D)then
+    HIM_OBS_RECL = HIM_OBS_RECL + 1 ! obs%dif for 4D LETKF
+  endif
+
+  if(HIM_OBS_THIN_LEV < 1) then
+    HIM_OBS_THIN_LEV = 1
+  endif
+
+  if ( trim(HIM_OBS_METHOD) == 'SIMPLE' ) then
+    HIM_OBS_AVE_NG = 0
+  else
+    if ( HIM_OBS_AVE_NG < 1 ) then
+      write(6,'(a)')  'Invalid HIM_OBS_AVE_NG'
+      write(6,'(2a)') 'HIM_OBS_AVE_NG should be > 0 for HIM_OBS_METHOD of ', trim(HIM_OBS_METHOD)
+      stop
+    endif
+  endif
+
+  if ( (.not. HIM_OBS_AVE_OVERLAP) .and. ( trim(HIM_OBS_METHOD) /= 'SIMPLE' ) ) then
+    write(6,'(a)') 'HIM_OBS_THIN_LEV is overwritten because HIM_OBS_AVE_OVERLAP=T'
+    HIM_OBS_THIN_LEV = max(HIM_OBS_THIN_LEV, 2*HIM_OBS_AVE_NG+1)
+  endif
+
+  NIRB_HIM_USE = 0
+  do ch = 1, NIRB_HIM
+    if ( HIM_IR_BAND_DA_LIST(ch) > 0 ) then
+
+      if ( minval( abs( HIM_IR_BAND_RTTOV_LIST(:) - HIM_IR_BAND_DA_LIST(ch) ) ) /= 0 ) then
+        write(6,*) '[Error] HIM_IR_BAND_DA_LIST and HIM_IR_BAND_RTTOV_LIST are inconsistent!'
+        stop
+      endif
+
+    endif
+    if ( HIM_IR_BAND_RTTOV_LIST(ch) > 0 ) then
+      NIRB_HIM_USE = NIRB_HIM_USE + 1
+    endif
+
+  enddo
+
+  if (LOG_LEVEL >= 2 .or. LOG_OUT ) then
+    write(6, nml=PARAM_LETKF_HIM)
+  end if
+  
+  return
+end subroutine read_nml_letkf_him
 
 !-------------------------------------------------------------------------------
 ! Replace the member notation in 'filename' with 'mem' (as an integer)

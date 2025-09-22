@@ -22,9 +22,13 @@ COMMON_OBJS = $(COMMON_DIR)/SFMT.o           \
               $(COMMON_DIR)/common_mpi_scale.o \
               $(COMMON_DIR)/common_nml.o
 
-INCS    = $(SCALE_INC) $(NETCDF_INC) -I$(SCALE_RM_OBJDIR)
+ifeq ($(RTTOV),T)
+COMMON_OBJS    += $(COMMON_DIR)/common_scale_rttov13.o 
+endif
 
-LIBS    = $(SCALE_LIB) $(NETCDF_LIB) $(LAPACK_LIB)
+INCS    = $(SCALE_INC) $(NETCDF_INC) -I$(SCALE_RM_OBJDIR) $(RT_INCLUDE)
+ 
+LIBS    = $(SCALE_LIB) $(NETCDF_LIB) $(LAPACK_LIB) $(RT_LDFLAGS)
 
 .PHONY:	all clean FORCE
 

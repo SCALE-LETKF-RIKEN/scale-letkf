@@ -140,6 +140,12 @@ if [ "${SOUNDING}" != "" ] ; then
   cp ${SOUNDING} ${TMPROOT}/dat/
 fi
 
+  if [ -n "${RTTOV_COEF_PATH}" ] && [ -n "${RTTOV_COEF_FILE}" ] ; then
+    mkdir -p ${TMPROOT}/dat/rttov
+    cp -r ${RTTOV_COEF_PATH}/${RTTOV_COEF_FILE} ${TMPROOT}/dat/rttov/
+    cp -r ${RTTOV_COEF_PATH}/${RTTOV_COEF_FILE_CLD} ${TMPROOT}/dat/rttov/
+  fi
+
 fi ### DISK_MODE >= 1
 
 #-------------------------------------------------------------------------------
@@ -964,6 +970,7 @@ while ((time <= ETIME)); do
     rm -rf ${OUTDIR[$d]}/$atime/log/efso
     mkdir -p ${OUTDIR[$d]}/$atime/log/letkf
     mkdir -p ${OUTDIR[$d]}/$atime/log/efso
+    mkdir -p ${OUTDIR[$d]}/$atime/obs
 
     OBSDEP_OUT_TF=".false."
     OBSDEP_OUT_NC_TF=".false."
@@ -1072,6 +1079,13 @@ while ((time <= ETIME)); do
             -e "/!--INFL_MUL_OUT_BASENAME--/a INFL_MUL_OUT_BASENAME = \"infl.d${dfmt}_$(datetime_scale $atime)\"," \
             -e "/!--RELAX_SPREAD_OUT--/a RELAX_SPREAD_OUT = ${RTPS_INFL_OUT_TF}," \
             -e "/!--RELAX_SPREAD_OUT_BASENAME--/a RELAX_SPREAD_OUT_BASENAME = \"rtpsinfl.d${dfmt}_$(datetime_scale $atime)\"," \
+            -e "/!--HIM_OUTFILE_BASENAME--/a HIM_OUTFILE_BASENAME =  \"${OUTDIR[$d]}/$atime/obs/Him_${atime}\"," \
+            -e "/!--HIM_RTTOV_THREADS--/a HIM_RTTOV_THREADS = ${THREADS}," \
+            -e "/!--HIM_NOWDATE--/a HIM_NOWDATE = ${atime:0:4}, ${atime:4:2}, ${atime:6:2}, ${atime:8:2}, ${atime:10:2}, ${atime:12:2}," \
+            -e "/!--HIM_ADDITIVE_Y18_COV_BASENAME--/a HIM_ADDITIVE_Y18_COV_BASENAME =  \"${OUTDIR[$d]}/$atime/obs/cov_Y18_him_${atime}\"," \
+            -e "/!--RTTOV_COEF_PATH--/a RTTOV_COEF_PATH = \"${TMPROOT}/dat/rttov\"," \
+            -e "/!--RTTOV_COEF_FILE--/a RTTOV_COEF_FILE = \"${RTTOV_COEF_FILE##*/}\"," \
+            -e "/!--RTTOV_COEF_FILE_CLD--/a RTTOV_COEF_FILE_CLD = \"${RTTOV_COEF_FILE_CLD##*/}\"," \
             -e "/!--NOBS_OUT--/a NOBS_OUT = ${NOBS_OUT_TF}," \
             -e "/!--NOBS_OUT_BASENAME--/a NOBS_OUT_BASENAME = \"nobs.d${dfmt}_$(datetime_scale $atime)\"," \
             -e "/!--IO_LOG_BASENAME--/a IO_LOG_BASENAME =  \"${OUTDIR[$d]}/$atime/log/letkf/${name_m[$m]}_LOG\"," \

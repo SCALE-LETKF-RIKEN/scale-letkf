@@ -696,6 +696,24 @@ subroutine set_scalelib(execname)
   use mod_user, only: &
     USER_tracer_setup,  &
     USER_setup
+  use scale_io, only: &
+    IO_setup, &
+    IO_LOG_setup, &
+    H_LONG
+  use scale_prc, only: &
+!    PRC_MPIstart, &
+!    PRC_UNIVERSAL_setup, &
+!    PRC_MPIsplit_letkf, &
+    PRC_MPIsplit_nest, &
+    PRC_GLOBAL_setup, &
+    PRC_LOCAL_setup, &
+    PRC_UNIVERSAL_IsMaster, &
+    PRC_nprocs, &
+    PRC_myrank, &
+    PRC_masterrank, &
+    PRC_DOMAIN_nlim
+  use scale_atmos_phy_rd_profile, only: &
+    ATMOS_PHY_RD_PROFILE_setup
 
   implicit none
 
@@ -833,6 +851,7 @@ subroutine set_scalelib(execname)
     call read_nml_letkf_var_local
     call read_nml_letkf_monitor
     call read_nml_letkf_radar
+    call read_nml_letkf_him
   case ('OBSOPE ', 'OBSMAKE')
     call read_nml_obs_error
     call read_nml_obsope
@@ -840,8 +859,10 @@ subroutine set_scalelib(execname)
     call read_nml_letkf_radar
     force_use_hist = .true.
   case ('OBSSIM ')
+    call read_nml_letkf
     call read_nml_obssim
     call read_nml_letkf_radar
+    call read_nml_letkf_him
     force_use_hist = .true.
   end select
 
@@ -928,6 +949,9 @@ subroutine set_scalelib(execname)
   call ATMOS_HYDROMETEOR_setup
   call ATMOS_driver_tracer_setup
   call USER_tracer_setup
+
+  ! setup climatological profile for radiation
+  call ATMOS_PHY_RD_PROFILE_setup
 
   ! setup file I/O
   call FILE_CARTESC_setup
@@ -1234,7 +1258,7 @@ subroutine read_ens_history_iter(iter, step, v3dg, v2dg)
       filename = HISTORY_MDET_IN_BASENAME
     end if
 
-    if ( (.not. force_use_hist) .and. (SLOT_START == SLOT_END .and. SLOT_START == SLOT_BASE) ) then !!! 3D-LETKF without history files 
+    if ( (.not. force_use_hist) .and. (.not. USE_HISTORY_3DLETKF) .and. (SLOT_START == SLOT_END .and. SLOT_START == SLOT_BASE) ) then !!! 3D-LETKF without history files 
 
       if (im >= 1 .and. im <= nens) then
         if (im <= MEMBER) then
@@ -1864,10 +1888,23 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
   real(r_size), allocatable :: obsdep_g_oma(:)
   real(r_size), allocatable :: obsdep_g_sprd(:)
   real(r_size), allocatable :: obsdep_g_omb_emean(:)
+#ifdef RTTOV
+  real(r_size), allocatable :: obsdep_g_val2(:)
+#endif
   integer :: cnts
   integer :: cntr(nprocs_d)
   integer :: dspr(nprocs_d)
   integer :: i, ip, ierr
+
+#IFDEF RTTOV
+  real(r_size) :: v3dgh(nlevh,nlonh,nlath,nv3dd)
+  real(r_size) :: v2dgh(nlonh,nlath,nv2dd)
+
+  real(r_size) :: yobs_him    (NIRB_HIM_USE,nlon,nlat)
+  real(r_size) :: yobs_him_clr(NIRB_HIM_USE,nlon,nlat)
+  integer      :: qc_him  (NIRB_HIM_USE,nlon,nlat)
+  character(256) :: filename_him 
+#ENDIF
 
   call mpi_timer('', 2)
 
@@ -1875,7 +1912,26 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
   !       because only these processes have read topo files in 'topo2d'
   ! 
   if (myrank_e == mmean_rank_e) then
+#IFDEF RTTOV
+
+    call state_to_history(v3dg, v2dg, topo2d, v3dgh, v2dgh)
+
+    call Trans_XtoY_HIM_allg(v3dgh,v2dgh,yobs_him,qc_him,yobs_clr=yobs_him_clr)
+    if ( HIM_MEAN_WRITE ) then 
+      if ( monit_step == 1) then
+        filename_him = trim(HIM_OUTFILE_BASENAME) // '_gues'
+      else
+        filename_him = trim(HIM_OUTFILE_BASENAME) // '_anal'
+      endif
+      call prep_Him_mpi(yobs_him,write_global=.true.,filename=filename_him,tbb_l_clr=yobs_him_clr)
+    endif
+
+    call monit_obs(v3dg, v2dg, topo2d, nobs, bias, rmse, monit_type, .true., monit_step, efso=.false.,&
+                 yobs_him=yobs_him,qc_him=qc_him)
+#ELSE
     call monit_obs(v3dg, v2dg, topo2d, nobs, bias, rmse, monit_type, .true., monit_step, efso=.false.)
+
+#ENDIF
 
     call mpi_timer('monit_obs_mpi:monit_obs:', 2)
     do i = 1, nid_obs
@@ -1933,6 +1989,9 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
       allocate (obsdep_g_oma(obsdep_g_nobs))
       allocate (obsdep_g_sprd(obsdep_g_nobs))
       allocate (obsdep_g_omb_emean(obsdep_g_nobs))
+#ifdef RTTOV
+      allocate (obsdep_g_val2(obsdep_g_nobs))
+#endif
 
       if (obsdep_g_nobs > 0) then
         call MPI_GATHERV(obsdep_set, cnts, MPI_INTEGER, obsdep_g_set, cntr, dspr, MPI_INTEGER, 0, MPI_COMM_d, ierr)
@@ -1942,6 +2001,9 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
         call MPI_GATHERV(obsdep_oma, cnts, MPI_r_size,  obsdep_g_oma, cntr, dspr, MPI_r_size,  0, MPI_COMM_d, ierr)
         call MPI_GATHERV(obsdep_sprd, cnts, MPI_r_size,  obsdep_g_sprd, cntr, dspr, MPI_r_size,  0, MPI_COMM_d, ierr)
         call MPI_GATHERV(obsdep_omb_emean, cnts, MPI_r_size,  obsdep_g_omb_emean, cntr, dspr, MPI_r_size,  0, MPI_COMM_d, ierr)
+#ifdef RTTOV
+        call MPI_GATHERV(obsdep_val2, cnts, MPI_r_size,  obsdep_g_val2, cntr, dspr, MPI_r_size,  0, MPI_COMM_d, ierr)
+#endif
       end if
 
       if (myrank_d == 0) then
@@ -1952,7 +2014,11 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
                                  obsdep_g_idx, obsdep_g_qc,   &
                                  obsdep_g_omb, obsdep_g_oma,  &
                                  obsdep_g_omb_emean, obsdep_g_sprd, &
+#ifdef RTTOV
+                                 nprocs_d, cntr, val2=obsdep_g_val2 )
+#else
                                  nprocs_d, cntr )
+#endif
         else
           if ( LOG_OUT ) write (6,'(A,I6.6,2A)') 'MYRANK ', myrank,' is writing an obsda file ', trim(OBSDEP_OUT_BASENAME)//'.dat'
           call write_obs_dep( trim(OBSDEP_OUT_BASENAME)//'.dat', &
@@ -2157,6 +2223,12 @@ subroutine read_obs_all_mpi(obs)
       call obs_info_allocate(obs(iof), extended=.true.)
     end if
 
+    if((OBS_IN_FORMAT(iof) == obsfmt_him) .and. obs(iof)%nobs > 0) then
+      if (myrank_e == 0) then ! this should include myrank_a=0
+        call read_Him_mpi( OBS_IN_NAME(iof), obs=obs(iof) )
+      endif
+    endif
+
     call MPI_BCAST(obs(iof)%elm, obs(iof)%nobs, MPI_INTEGER, 0, MPI_COMM_a, ierr)
     call MPI_BCAST(obs(iof)%lon, obs(iof)%nobs, MPI_r_size, 0, MPI_COMM_a, ierr)
     call MPI_BCAST(obs(iof)%lat, obs(iof)%nobs, MPI_r_size, 0, MPI_COMM_a, ierr)
@@ -2217,7 +2289,7 @@ end subroutine get_nobs_da_mpi
 !-------------------------------------------------------------------------------
 ! Partially reduce observations processed in the same processes in the iteration
 !-------------------------------------------------------------------------------
-subroutine obs_da_value_partial_reduce_iter(obsda, iter, nstart, nobs, ensval, qc, qv, tm, pm, pert)
+subroutine obs_da_value_partial_reduce_iter(obsda, iter, nstart, nobs, ensval, qc, qv, tm, pm, pert, lev, val2)
   implicit none
 
   type(obs_da_value), intent(inout) :: obsda
@@ -2226,10 +2298,12 @@ subroutine obs_da_value_partial_reduce_iter(obsda, iter, nstart, nobs, ensval, q
   integer, intent(in)      :: nobs
   real(r_size), intent(in) :: ensval(nobs)
   integer, intent(in)      :: qc(nobs)
-  real(r_size), intent(in), optional :: qv(nobs)  ! additional ensemble perturbation ! PQV
+  real(r_size), intent(in), optional :: qv(nobs)   ! additional ensemble perturbation ! PQV
   real(r_size), intent(in), optional :: tm(nobs)   ! additional ensemble perturbation ! PQV
   real(r_size), intent(in), optional :: pm(nobs)   ! additional ensemble perturbation ! PQV
   real(r_size), intent(in), optional :: pert(nobs) ! additional ensemble perturbation ! Y18
+  real(r_size), intent(in), optional :: lev(nobs)  ! additional information for HIM obs
+  real(r_size), intent(in), optional :: val2(nobs) ! additional information for HIM obs
   integer :: nend
   integer :: im
 
@@ -2250,9 +2324,12 @@ subroutine obs_da_value_partial_reduce_iter(obsda, iter, nstart, nobs, ensval, q
   if (im <= MEMBER) then
     if ( present( tm ) ) obsda%tm(nstart:nend) = obsda%tm(nstart:nend) + tm
     if ( present( pm ) ) obsda%pm(nstart:nend) = obsda%pm(nstart:nend) + pm
+#ifdef RTTOV
+    if ( present( lev  ) ) obsda%lev (nstart:nend) = obsda%lev (nstart:nend) + lev 
+    if ( present( val2 ) ) obsda%val2(nstart:nend) = obsda%val2(nstart:nend) + val2
+#endif
   end if
-
-
+ 
   ! variables without an ensemble dimension
   obsda%qc(nstart:nend) = max(obsda%qc(nstart:nend), qc)
 
@@ -2302,15 +2379,22 @@ subroutine obs_da_value_allreduce(obsda)
     allocate (eqv_bufr(obsda%nobs, nensobs))
   endif
 
-  if ( RADAR_ADDITIVE_Y18 ) then
-    allocate (epert_bufs(obsda%nobs, cntr(myrank_e+1)))
-    allocate (epert_bufr(obsda%nobs, nensobs))
+  if ( RADAR_ADDITIVE_Y18 .or. HIM_ADDITIVE_Y18 ) then
+    allocate (eqv_bufs(obsda%nobs, cntr(myrank_e+1)))
+    allocate (eqv_bufr(obsda%nobs, nensobs))
   endif
 
   do im = 1, cntr(myrank_e+1)
     ensval_bufs(:,im) = obsda%ensval(im,:)
-    if ( RADAR_PQV ) eqv_bufs(:,im)    = obsda%eqv   (im,:)
-    if ( RADAR_ADDITIVE_Y18 ) epert_bufs(:,im) = obsda%epert(im,:)
+    if ( RADAR_PQV ) then
+      eqv_bufs(:,im) = obsda%eqv(im,:)
+    endif
+    if ( RADAR_ADDITIVE_Y18 ) then
+      epert_bufs(:,im) = obsda%epert(im,:)
+    endif
+    if ( RADAR_ADDITIVE_Y18 .or. HIM_ADDITIVE_Y18 ) then
+      epert_bufs(:,im) = obsda%epert(im,:)
+    endif
   end do
 
   cntr(:) = cntr(:) * obsda%nobs
@@ -2326,7 +2410,7 @@ subroutine obs_da_value_allreduce(obsda)
   if ( RADAR_PQV ) then
     call MPI_ALLGATHERV(eqv_bufs, cnts, MPI_r_size, eqv_bufr, cntr, dspr, MPI_r_size, MPI_COMM_e, ierr)
   endif
-  if ( RADAR_ADDITIVE_Y18 ) then
+  if ( RADAR_ADDITIVE_Y18 .or. HIM_ADDITIVE_Y18 ) then
     call MPI_ALLGATHERV(epert_bufs, cnts, MPI_r_size, epert_bufr, cntr, dspr, MPI_r_size, MPI_COMM_e, ierr)
   endif
 
@@ -2342,7 +2426,12 @@ subroutine obs_da_value_allreduce(obsda)
       allocate (obsda%eqv(nensobs, obsda%nobs))
     endif
 
-    if ( RADAR_ADDITIVE_Y18 ) then
+    if ( RADAR_PQV ) then
+      deallocate (obsda%eqv)
+      allocate (obsda%eqv(nensobs, obsda%nobs))
+    endif
+
+    if ( RADAR_ADDITIVE_Y18 .or. HIM_ADDITIVE_Y18 ) then
       deallocate (obsda%epert)
       allocate (obsda%epert(nensobs, obsda%nobs))
     end if
@@ -2356,12 +2445,23 @@ subroutine obs_da_value_allreduce(obsda)
         imb = imb + 1
         if (im == mmdetin) then
           obsda%ensval(mmdetobs,:) = ensval_bufr(:,imb)
-          if ( RADAR_PQV ) obsda%eqv(mmdetobs,:) = eqv_bufr(:,imb)
-          if ( RADAR_ADDITIVE_Y18 ) obsda%epert(mmdetobs,:) = epert_bufr(:,imb)
+          if ( RADAR_PQV ) then
+            obsda%eqv(mmdetobs,:) = eqv_bufr(:,imb)
+          endif
+          if ( RADAR_ADDITIVE_Y18 ) then
+            obsda%epert(mmdetobs,:) = epert_bufr(:,imb)
+          endif
         else
           obsda%ensval(im,:) = ensval_bufr(:,imb)
-          if ( RADAR_PQV ) obsda%eqv(im,:) = eqv_bufr(:,imb)
-          if ( RADAR_ADDITIVE_Y18 ) obsda%epert(im,:) = epert_bufr(:,imb)
+          if ( RADAR_PQV ) then
+            obsda%eqv(im,:) = eqv_bufr(:,imb)
+          endif
+          if ( RADAR_ADDITIVE_Y18 ) then
+            obsda%epert(im,:) = epert_bufr(:,imb)
+          endif
+          if ( RADAR_ADDITIVE_Y18 .or. HIM_ADDITIVE_Y18 ) then
+            obsda%epert(im,:) = epert_bufr(:,imb)
+          endif
         end if
       end if
     end do
@@ -2371,7 +2471,7 @@ subroutine obs_da_value_allreduce(obsda)
     deallocate(eqv_bufs, eqv_bufr)
   endif
 
-  if ( RADAR_ADDITIVE_Y18 ) then
+  if ( RADAR_ADDITIVE_Y18 .or. HIM_ADDITIVE_Y18 ) then
     deallocate( epert_bufs, epert_bufr)
   endif
 
@@ -2390,7 +2490,7 @@ subroutine obs_da_value_allreduce(obsda)
       obsda%pm(:) = obsda%pm(:) / real(MEMBER, r_size) ! use if RADAR_PQV=T
     endif
 
-    if ( RADAR_ADDITIVE_Y18 ) then
+    if ( RADAR_ADDITIVE_Y18 .or. HIM_ADDITIVE_Y18 ) then
       call MPI_ALLREDUCE(MPI_IN_PLACE, obsda%pert(:), obsda%nobs, MPI_r_size,  MPI_SUM, MPI_COMM_e, ierr)
       obsda%pert(:) = obsda%pert(:) / real(MEMBER, r_size) ! not used
     end if
@@ -2714,7 +2814,7 @@ subroutine get_nobs_efso_mpi( nobs, nobs_local, nobs0 )
   return
 end subroutine get_nobs_efso_mpi
 !---------------------------------
-subroutine get_obsdep_efso_mpi( nobslocal, obsset, obsidx, obsqc, obsdep, obshdxf, nobslocal_qcok )
+subroutine get_obsdep_efso_mpi( nobslocal, obsset, obsidx, obsqc, obsdep, obshdxf, nobslocal_qcok, obsval2, obsdlev )
   implicit none
 
   integer, intent(in) :: nobslocal
@@ -2724,6 +2824,10 @@ subroutine get_obsdep_efso_mpi( nobslocal, obsset, obsidx, obsqc, obsdep, obshdx
   real(r_size), intent(out) :: obsdep(nobslocal)
   real(r_size), intent(out) :: obshdxf(MEMBER,nobslocal)
   integer, intent(out) :: nobslocal_qcok
+  ! additional information for HIM obs (cloud parameter)
+  real(r_size), intent(out), optional :: obsval2(nobslocal)
+  ! additional information for HIM obs (observation height derived from the weighting function) 
+  real(r_size), intent(out), optional :: obsdlev(nobslocal)
 
   character(6) :: MYRANK_D6
 
@@ -2740,8 +2844,13 @@ subroutine get_obsdep_efso_mpi( nobslocal, obsset, obsidx, obsqc, obsdep, obshdx
   if ( myrank_e == mmean_rank_e ) then
     write ( MYRANK_D6,'(I6.6)') myrank_d
     if ( LOG_OUT ) print *, trim( OBSANAL_IN_BASENAME ) // MYRANK_D6 // '.nc'
-    call get_obsdep_efso( trim( OBSANAL_IN_BASENAME ) // MYRANK_D6 // '.nc', &
-                          nobslocal, obsset, obsidx, obsqc, obsdep, obshdxf )
+    if ( present( obsval2 ) .and. present( obsdlev ) ) then
+      call get_obsdep_efso( trim( OBSANAL_IN_BASENAME ) // MYRANK_D6 // '.nc', &
+                            nobslocal, obsset, obsidx, obsqc, obsdep, obshdxf, val2=obsval2, dlev=obsdlev )
+    else
+      call get_obsdep_efso( trim( OBSANAL_IN_BASENAME ) // MYRANK_D6 // '.nc', &
+                            nobslocal, obsset, obsidx, obsqc, obsdep, obshdxf )
+    endif
 
     ! count the number of obs with qc=iqc_good
     nobslocal_qcok = 0
@@ -2756,7 +2865,13 @@ subroutine get_obsdep_efso_mpi( nobslocal, obsset, obsidx, obsqc, obsdep, obshdx
   call MPI_BCAST( obsdep, nobslocal, MPI_r_size,  mmean_rank_e, MPI_COMM_e, ierr )
   call MPI_BCAST( obshdxf, nobslocal*MEMBER, MPI_r_size, mmean_rank_e, MPI_COMM_e, ierr )
 
+  if ( present( obsval2 ) .and. present( obsdlev ) ) then
+    call MPI_BCAST( obsval2, nobslocal, MPI_r_size,  mmean_rank_e, MPI_COMM_e, ierr )
+    call MPI_BCAST( obsdlev, nobslocal, MPI_r_size,  mmean_rank_e, MPI_COMM_e, ierr )
+  endif
+
   call MPI_BCAST( nobslocal_qcok, 1, MPI_INTEGER, mmean_rank_e, MPI_COMM_e, ierr )
+
 
   return
 end subroutine get_obsdep_efso_mpi
@@ -2780,11 +2895,33 @@ subroutine monit_obs4efso_mpi(v3dg, v2dg, im, nobs, ya_local)
   real(r_size) :: rmse_dummy(nid_obs)
   logical :: monit_type_dummy(nid_obs)
 
+#ifdef RTTOV
+  real(r_size) :: v3dgh(nlevh,nlonh,nlath,nv3dd)
+  real(r_size) :: v2dgh(nlonh,nlath,nv2dd)
+
+  real(r_size) :: yobs_him(NIRB_HIM_USE,nlon,nlat)
+  real(r_size) :: yobs_him_prep(NIRB_HIM_USE,nlon,nlat)
+  integer      :: qc_him(NIRB_HIM_USE,nlon,nlat)
+  integer      :: qc_him_prep(NIRB_HIM_USE,nlon,nlat)
+#endif
+
+
   if ( LOG_OUT ) write(6,'(a)') 'Hello from monit_obs4efso_mpi'
 
   if ( im >= 1 .and. im <= MEMBER ) then
 
+#ifdef RTTOV
+    ! Prepare state variables for observation operator
+    call state_to_history(v3dg, v2dg, topo2d, v3dgh, v2dgh)
+    ! Observation operator (RTTOV) for Him
+    call Trans_XtoY_HIM_allg(v3dgh,v2dgh,yobs_him,qc_him)
+    ! preprocess for Him obs
+    call prep_Him_mpi(yobs_him,tbb_lprep=yobs_him_prep,qc_lprep=qc_him_prep,write_global=.false.)
+
+    call monit_obs(v3dg, v2dg, topo2d, nobs_dummy, bias_dummy, rmse_dummy, monit_type_dummy, .true., 2, efso=.true.,yobs_him=yobs_him_prep,qc_him=qc_him_prep)
+#else
     call monit_obs(v3dg, v2dg, topo2d, nobs_dummy, bias_dummy, rmse_dummy, monit_type_dummy, .true., 2, efso=.true.)
+#endif
     ! obsdep_oma contains obs-minus-analysis in obs space 
     if ( nobs > 0 ) then
       ya_local(im,1:nobs) = -obsdep_oma(1:nobs) ! analysis (each member) - observation
@@ -2819,5 +2956,874 @@ subroutine copy_restart4mean_and_gues()
 
   return
 end subroutine copy_restart4mean_and_gues
+
+subroutine prep_Him_mpi(tbb_l,tbb_lprep,qc_lprep,write_global,filename,tbb_l_clr)
+  implicit none
+
+  real(r_size), intent(in) :: tbb_l(NIRB_HIM_USE,nlon,nlat) ! superobs tbb (local)
+  real(r_size), intent(out), optional :: tbb_lprep(NIRB_HIM_USE,nlon,nlat) ! superobs tbb (local) after preprocess
+  integer,      intent(out), optional :: qc_lprep(NIRB_HIM_USE,nlon,nlat) ! QC flag (local) after preprocess
+
+  logical,        intent(in), optional :: write_global
+  character(256), intent(in), optional :: filename
+  real(r_size),   intent(in), optional :: tbb_l_clr(NIRB_HIM_USE,nlon,nlat) ! superobs clear tbb (local)
+
+  logical :: write_global_ = .false.
+  integer :: qc_gprep(NIRB_HIM_USE,nlong,nlatg) ! QC flag (local) after preprocess
+
+  real(r_size) :: tbb_g(NIRB_HIM_USE,nlong,nlatg) ! superobs tbb (global)
+  real(r_size) :: tbb_gprep(NIRB_HIM_USE,nlong,nlatg) ! superobs tbb (global) after preprocess
+  real(r_size) :: tbb_g_clr(NIRB_HIM_USE,nlong,nlatg) ! superobs clear tbb (global)
+
+  integer ierr
+
+  integer :: proc_i, proc_j
+  integer :: ishift, jshift
+
+  real(r_size) :: bufs2d(nlong,nlatg)
+  integer :: ch
+
+  if ( present(write_global) ) write_global_ = write_global
+
+  ! Gatther Him obs simulated in each subdomain
+  call rank_1d_2d(myrank_d, proc_i, proc_j)
+  ishift = proc_i * nlon
+  jshift = proc_j * nlat
+
+  do ch = 1, NIRB_HIM_USE
+    bufs2d(1:nlong,1:nlatg) = 0.0_r_size
+    bufs2d(1+ishift:nlon+ishift, 1+jshift:nlat+jshift) = tbb_l(ch,1:nlon,1:nlat)
+
+    call MPI_ALLREDUCE(MPI_IN_PLACE, bufs2d, nlong*nlatg, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
+    
+    tbb_g(ch,1:nlong,1:nlatg) = bufs2d(1:nlong,1:nlatg)
+  enddo
+
+  if ( present( tbb_l_clr ) ) then
+    do ch = 1, NIRB_HIM_USE
+      bufs2d(1:nlong,1:nlatg) = 0.0_r_size
+      bufs2d(1+ishift:nlon+ishift, 1+jshift:nlat+jshift) = tbb_l_clr(ch,1:nlon,1:nlat)
+  
+      call MPI_ALLREDUCE(MPI_IN_PLACE, bufs2d, nlong*nlatg, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
+      
+      tbb_g_clr(ch,1:nlong,1:nlatg) = bufs2d(1:nlong,1:nlatg)
+    enddo
+  
+  endif
+
+  call allgHim2obs_mpi(tbb_g,tbb_gprep,qc_allg_prep=qc_gprep)
+
+  if ( present( tbb_lprep) ) then
+    do ch = 1, NIRB_HIM_USE
+      if (present(qc_lprep)) then
+        qc_lprep(ch,1:nlon,1:nlat) = qc_gprep(ch,1+ishift:nlon+ishift,1+jshift:nlat+jshift)
+      endif
+
+      tbb_lprep(ch,1:nlon,1:nlat) = tbb_gprep(ch,1+ishift:nlon+ishift,1+jshift:nlat+jshift)
+    enddo
+  endif
+
+  if ( write_global_ .and. present(filename) ) then
+    if ( myrank_d == 0 ) then
+      call write_Him_nc(trim(filename)//'.nc',      real(tbb_g, kind=r_sngl) )    
+      call write_Him_nc(trim(filename)//'_prep.nc', real(tbb_gprep,kind=r_sngl) )
+      if ( HIM_MEAN_WRITE_CLEAR ) then
+        call write_Him_nc(trim(filename)//'_clr.nc',  real(tbb_g_clr, kind=r_sngl) )
+      endif
+    endif
+  endif
+
+  return
+end subroutine prep_Him_mpi
+
+subroutine read_Him_mpi(filename,obs)
+  implicit none
+
+  character(*),intent(in) :: filename
+  type(obs_info), intent(inout), optional :: obs
+
+  integer :: imax_him, jmax_him
+
+  real(r_sngl), allocatable :: tbb_org(:,:,:)
+  real(r_sngl), allocatable :: lon_him(:), lat_him(:)
+  real(r_size) :: tbb_sobs_l(NIRB_HIM_USE,nlon,nlat) ! superobs tbb (local)
+  real(r_size) :: tbb_sobs(NIRB_HIM_USE,nlong,nlatg) ! superobs tbb (global)
+  real(r_size) :: tbb_sobs_prep(NIRB_HIM_USE,nlong,nlatg) ! superobs tbb (global) after preprocess
+
+  integer ierr
+  integer :: iunit, irec
+  integer :: ch
+
+  integer :: proc_i, proc_j
+  integer :: ishift, jshift
+
+  real(r_size) :: bufs2d(nlong,nlatg)
+
+  if (myrank_d == 0) then
+    call get_dim_Him_nc(filename,imax_him,jmax_him)
+  endif
+
+  call MPI_BCAST(imax_him, 1, MPI_INTEGER, 0, MPI_COMM_d, ierr)
+  call MPI_BCAST(jmax_him, 1, MPI_INTEGER, 0, MPI_COMM_d, ierr)
+
+  allocate(tbb_org(NIRB_HIM_USE,imax_him,jmax_him))
+  allocate(lon_him(imax_him))
+  allocate(lat_him(jmax_him))
+
+  tbb_org = 0.0
+  lon_him = 0.0
+  lat_him = 0.0
+
+  if (myrank_d == 0) then
+    call read_Him_nc(filename,imax_him,jmax_him,lon_him,lat_him,tbb_org)
+  endif
+
+  call MPI_BCAST(tbb_org, NIRB_HIM_USE*imax_him*jmax_him, MPI_REAL, 0, MPI_COMM_d, ierr)
+  call MPI_BCAST(lon_him, imax_him, MPI_REAL, 0, MPI_COMM_d, ierr)
+  call MPI_BCAST(lat_him, jmax_him, MPI_REAL, 0, MPI_COMM_d, ierr)
+
+
+  if ( HIM_OBS_IDEAL ) then
+    tbb_sobs = tbb_org
+  else
+    ! Superobing
+    call sobs_Him(imax_him,jmax_him,lon_him,lat_him,tbb_org,tbb_sobs_l)
+ 
+    call rank_1d_2d(myrank_d, proc_i, proc_j)
+    ishift = proc_i * nlon
+    jshift = proc_j * nlat
+
+    do ch = 1, NIRB_HIM_USE
+      bufs2d(1:nlong,1:nlatg) = 0.0_r_size
+      bufs2d(1+ishift:nlon+ishift, 1+jshift:nlat+jshift) = tbb_sobs_l(ch,1:nlon,1:nlat)
+
+      call MPI_ALLREDUCE(MPI_IN_PLACE, bufs2d, nlong*nlatg, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
+
+      tbb_sobs(ch,1:nlong,1:nlatg) = bufs2d(1:nlong,1:nlatg)
+    enddo
+  endif
+
+  if (myrank_d == 0) then
+    ! it would be better to enable multiple processes in the following subroutine
+    call write_Him_nc( trim(HIM_OUTFILE_BASENAME)//"_sobs.nc", &
+                        real( tbb_sobs, kind=r_sngl) )
+
+    !if ( present( obs ) ) then
+    !  call write_Him_nc( trim(HIM_OUTFILE_BASENAME)//"_sobs_prep.nc", &
+    !                    real( tbb_sobs_prep, kind=r_sngl) )
+    !endif
+
+  endif
+
+  if ( present( obs ) ) then
+
+    call allgHim2obs_mpi(tbb_sobs,tbb_sobs_prep,nobs=obs%nobs,obsdat=obs%dat,obslon=obs%lon,obslat=obs%lat,obslev=obs%lev,obserr=obs%err)
+    obs%elm(:) = id_HIMIR_obs
+    obs%typ(:) = 23
+    obs%dif(:) = 0.0_r_size ! Assume 3D-LETKF for Himawari-8
+
+  endif
+
+  deallocate(tbb_org)
+  deallocate(lon_him,lat_him)
+
+  return
+end subroutine read_Him_mpi
+
+subroutine write_Him_mpi( tbb_l, tbb_clr_l, step )
+  implicit none
+
+  real, intent(in) :: tbb_l(NIRB_HIM_USE,nlon,nlat)
+  real, optional, intent(in) :: tbb_clr_l(NIRB_HIM_USE,nlon,nlat)
+!  real, optional, intent(in) :: tbb_lm(nlon,nlat,NIRB_HIM)
+!  real(r_size) :: tbb_lprep(nlon,nlat,NIRB_HIM)
+!  real(r_size) :: tbb_gprep(nlong,nlatg,NIRB_HIM)
+  integer, optional, intent(in) :: step
+
+  character(filelenmax) :: filename
+  character(4) :: foot
+
+  real :: tbb_g(NIRB_HIM_USE,nlong,nlatg)
+  real :: tbb_clr_g(NIRB_HIM_USE,nlong,nlatg)
+  real :: bufs2d(nlong,nlatg)
+
+  integer :: proc_i, proc_j
+  integer :: ishift, jshift
+  integer :: ierr
+
+  integer :: iunit, irec
+  integer :: ch
+ 
+!  if (step <= 0 .and. present(tbb_lm)) then ! called from obsope
+!    tbb_lprep = real( tbb_lm, kind=r_size )
+!  else
+!    call prep_Him_mpi( real( tbb_l, kind=r_size), tbb_lprep )
+!  endif
+
+  call rank_1d_2d(myrank_d, proc_i, proc_j)
+  ishift = proc_i * nlon
+  jshift = proc_j * nlat
+
+  do ch = 1, NIRB_HIM_USE
+    bufs2d(1:nlong,1:nlatg) = 0.0
+    bufs2d(1+ishift:nlon+ishift, 1+jshift:nlat+jshift) = tbb_l(ch,1:nlon,1:nlat)
+    call MPI_ALLREDUCE( MPI_IN_PLACE, bufs2d, nlong*nlatg, MPI_REAL, MPI_SUM, MPI_COMM_d, ierr)
+    tbb_g(ch,1:nlong,1:nlatg) = bufs2d(1:nlong,1:nlatg)
+  enddo
+
+  if ( present(tbb_clr_l) ) then
+    do ch = 1, NIRB_HIM_USE
+      bufs2d(:,:) = 0.0
+
+      bufs2d(1+ishift:nlon+ishift, 1+jshift:nlat+jshift) = real( tbb_clr_l(ch,1:nlon,1:nlat), kind=r_sngl )
+      call MPI_ALLREDUCE( MPI_IN_PLACE, bufs2d, nlong*nlatg, MPI_REAL, MPI_SUM, MPI_COMM_d, ierr)
+      tbb_clr_g(ch,1:nlong,1:nlatg) = bufs2d(1:nlong,1:nlatg)
+    enddo
+  endif
+  
+  if (myrank_d == 0) then
+    iunit = 65
+    irec = 0
+
+    if (step == 1) then
+      filename = trim(HIM_OUTFILE_BASENAME)//"_b"
+    elseif (step == 2) then
+      filename = trim(HIM_OUTFILE_BASENAME)//"_a"
+    elseif (step == -1) then
+      filename = trim(HIM_OUTFILE_BASENAME)//"_sprd"
+    elseif (step == -2) then
+      filename = trim(HIM_OUTFILE_BASENAME)//"_sprdc"
+    endif
+
+    if ( HIM_OUT_TBB_NC ) then
+      foot = ".nc"
+      call write_Him_nc( trim(filename) // trim(foot), tbb_g )
+    else
+      foot = ".dat"
+      open( unit=iunit, file=trim(filename) // trim(foot), form='unformatted', &
+            access='direct', &
+            status='unknown', recl=nlong*nlatg*4)
+      do ch = 1, NIRB_HIM_USE
+        irec = irec + 1
+        write(iunit,rec=irec) tbb_g(ch,:,:)
+      enddo
+      do ch = 1, NIRB_HIM_USE
+        irec = irec + 1
+        write(iunit,rec=irec) tbb_clr_g(ch,:,:)
+      enddo
+  
+      close(unit=iunit)
+    endif
+
+  endif ! myrank_d == 0
+
+  return
+end subroutine write_Him_mpi
+
+subroutine gather_him_mpi(tbb_l,tbb_g,output,filename)
+  implicit none
+
+  real(r_size), intent(in)  :: tbb_l(NIRB_HIM_USE,nlon,nlat)
+  real(r_size), intent(out) :: tbb_g(NIRB_HIM_USE,nlong,nlatg)
+  logical, intent(in), optional :: output
+  character(*), intent(in), optional :: filename
+
+  logical :: output_ = .false.
+  integer :: proc_i, proc_j
+  integer :: ishift, jshift
+  integer :: ierr
+
+  real(r_size) :: bufs2d(nlong,nlatg)
+  integer :: ch
+
+  if ( present(output) ) output_ = output
+
+  call rank_1d_2d(myrank_d, proc_i, proc_j)
+  ishift = proc_i * nlon
+  jshift = proc_j * nlat
+
+  do ch = 1, NIRB_HIM_USE
+    bufs2d(1:nlong,1:nlatg) = 0.0_r_size
+    bufs2d(1+ishift:nlon+ishift, 1+jshift:nlat+jshift) = tbb_l(ch,1:nlon,1:nlat)
+    call MPI_ALLREDUCE( MPI_IN_PLACE, bufs2d, nlong*nlatg, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
+    tbb_g(ch,1:nlong,1:nlatg) = bufs2d(1:nlong,1:nlatg)
+  enddo
+
+  if ( output_ ) then
+    if ( myrank_d == 0 ) then
+      call write_Him_nc(trim(filename), real(tbb_g, kind=r_sngl) )
+    endif
+  endif
+
+  return
+end subroutine gather_him_mpi
+
+subroutine allgHim2obs_mpi(tbb_allg,tbb_allg_prep,qc_allg_prep,nobs,obsdat,obslon,obslat,obslev,obserr)
+  use scale_atmos_grid_cartesC, only: &
+      CXG => ATMOS_GRID_CARTESC_CXG, &
+      CYG => ATMOS_GRID_CARTESC_CYG, &
+      DX, DY
+  use scale_atmos_grid_cartesC_index, only: &
+      IHALO, JHALO
+  use scale_mapprojection, only: &
+      MAPPROJECTION_xy2lonlat
+  use scale_const, only: &
+      CONST_D2R
+  implicit none
+
+  real(r_size), intent(in)  :: tbb_allg     (NIRB_HIM_USE,nlong,nlatg)
+  real(r_size), intent(out) :: tbb_allg_prep(NIRB_HIM_USE,nlong,nlatg)
+
+  integer, intent(out), optional :: qc_allg_prep(NIRB_HIM_USE,nlong,nlatg)
+
+  integer, intent(in), optional :: nobs
+  real(r_size), intent(out), allocatable, optional :: obsdat(:)
+  real(r_size), intent(out), allocatable, optional :: obslon(:)
+  real(r_size), intent(out), allocatable, optional :: obslat(:)
+  real(r_size), intent(out), allocatable, optional :: obslev(:)
+  real(r_size), intent(out), allocatable, optional :: obserr(:)
+
+  real(RP) :: ril_RP, rjl_RP
+  real(RP) :: lon_RP, lat_RP
+  real(RP) :: R2D_RP
+  real(r_size) :: lon, lat
+
+  integer :: i, j
+  integer :: ch
+  integer :: n
+  integer :: is, ie, js, je
+  integer :: ii, jj
+  integer :: ave_ng
+
+  integer ierr
+  integer :: proc_i, proc_j
+  integer :: ishift, jshift
+
+  tbb_allg_prep(:,:,:) = 0.0_r_size
+ 
+  call rank_1d_2d(myrank_d, proc_i, proc_j)
+  ishift = proc_i * nlon
+  jshift = proc_j * nlat
+
+  if ( present(nobs) ) then
+    allocate(obsdat(nobs))
+    allocate(obslon(nobs))
+    allocate(obslat(nobs))
+    allocate(obslev(nobs))
+    allocate(obserr(nobs))
+    
+    obsdat(:) = 0.0_r_size
+    obslon(:) = 0.0_r_size
+    obslat(:) = 0.0_r_size
+    obslev(:) = 0.0_r_size
+    obserr(:) = 0.0_r_size
+  endif
+
+
+  if (present(qc_allg_prep)) then
+    qc_allg_prep(:,:,:) = 0.0_r_size
+  endif
+
+  ave_ng = 2 * HIM_OBS_AVE_NG + 1
+
+  !omp parallel do private(i,j,ch,is,ie,js,je)
+  do j = 1+jshift, nlat+jshift
+    do i = 1+ishift, nlon+ishift
+
+      do ch = 1, NIRB_HIM_USE
+        ! define a local area
+        is = i - HIM_OBS_AVE_NG
+        ie = i + HIM_OBS_AVE_NG
+        js = j - HIM_OBS_AVE_NG
+        je = j + HIM_OBS_AVE_NG
+
+        if ( is < 1 .or. js < 1 .or. ie > nlong .or. je > nlatg ) then
+          tbb_allg_prep(ch,i,j) = -1.0_r_size
+          if (present(qc_allg_prep)) then
+            qc_allg_prep(ch,i,j) = iqc_obs_bad
+          endif
+          cycle
+        endif
+
+        select case(trim(HIM_OBS_METHOD))
+        case('SIMPLE') ! simple thinning
+          tbb_allg_prep(ch,i,j) = tbb_allg(ch,i,j)
+
+        case('AVERAGE') ! averaging adjacent grids
+          
+          tbb_allg_prep(ch,i,j) = 0.0_r_size
+          do jj = js, je
+          do ii = is, ie
+            tbb_allg_prep(ch,i,j) = tbb_allg_prep(ch,i,j) + tbb_allg(ch,ii,jj)
+          enddo ! ii
+          enddo ! jj
+          tbb_allg_prep(ch,i,j) = tbb_allg_prep(ch,i,j) / (ave_ng**2)
+
+        case('MAX')  ! Maximum in a local area
+          tbb_allg_prep(ch,i,j) = maxval(tbb_allg(ch,is:ie,js:je))
+
+        case('MIN')  ! Maximum in a local area
+          tbb_allg_prep(ch,i,j) = minval(tbb_allg(ch,is:ie,js:je))
+
+        case default
+          write(6,'(2a)') 'Invalid option for HIM_OBS_METHOD ', HIM_OBS_METHOD
+        end select
+
+        if (HIM_OBS_THIN_LEV > 1) then
+          if ((mod(i, HIM_OBS_THIN_LEV) /= 0) .or. (mod(j, HIM_OBS_THIN_LEV) /= 0)) then
+            tbb_allg_prep(ch,i,j) = abs(tbb_allg_prep(ch,i,j)) * (-1.0d10) 
+          endif
+        endif
+
+        if (present(qc_allg_prep)) then
+          qc_allg_prep(ch,i,j) = iqc_good
+
+          ! tbb_allg_prep can be negative when [HIM_OBS_METHOD == 3]:
+          ! take a difference btw two bands
+          if (tbb_allg_prep(ch,i,j) < 0.0_r_size) then
+            qc_allg_prep(ch,i,j) = iqc_obs_bad
+          endif
+        endif
+
+      enddo ! ch
+    enddo ! i
+  enddo ! j
+  !omp end parallel do
+
+  call MPI_ALLREDUCE(MPI_IN_PLACE, tbb_allg_prep, NIRB_HIM_USE*nlong*nlatg, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
+  if (present(qc_allg_prep)) then
+    call MPI_ALLREDUCE(MPI_IN_PLACE, qc_allg_prep, NIRB_HIM_USE*nlong*nlatg, MPI_INTEGER, MPI_SUM, MPI_COMM_d, ierr)
+  endif
+  if ( present(nobs) ) then
+    R2D_RP = 1.0_RP / CONST_D2R
+
+    !omp parallel do private(i,j,ch,ii,jj,ril_RP,rjl_RP,lon_RP,lat_RP,n)
+    do j = 1+jshift, nlat+jshift
+      if ( mod(j, HIM_OBS_THIN_LEV) /= 0 ) cycle
+
+      jj = int(j / HIM_OBS_THIN_LEV)
+      do i = 1+ishift, nlon+ishift
+        ii = int(i / HIM_OBS_THIN_LEV)
+     
+        if ( mod(i, HIM_OBS_THIN_LEV) /= 0 ) cycle
+
+        ril_RP = real( i+IHALO, kind=RP )
+        rjl_RP = real( j+JHALO, kind=RP )
+
+        call MAPPROJECTION_xy2lonlat( (ril_RP - 1.0_RP) * DX + CXG(1), &
+                                      (rjl_RP - 1.0_RP) * DY + CYG(1), lon_RP, lat_RP )
+        lon_RP = lon_RP * R2D_RP
+        lat_RP = lat_RP * R2D_RP
+
+        do ch = 1, NIRB_HIM_USE
+          n = NIRB_HIM_USE * ( ii - 1 + ( jj - 1 ) * int(nlong/HIM_OBS_THIN_LEV) ) + ch
+
+          obslon(n) = real( lon_RP, kind=r_size)
+          obslat(n) = real( lat_RP, kind=r_size)
+          obslev(n) = ch !HIM_IR_BAND_RTTOV_LIST(ch)
+          obserr(n) = real( OBSERR_HIM(ch), kind=r_size )
+          obsdat(n) = tbb_allg_prep(ch,i,j)
+          if ( i <= HIM_OBS_BUF_GRID .or. ( nlong - i + 1) <= HIM_OBS_BUF_GRID .or. &
+               j <= HIM_OBS_BUF_GRID .or. ( nlatg - j + 1) <= HIM_OBS_BUF_GRID  ) then
+            obsdat(n) = undef
+          endif
+        enddo ! ch
+      enddo ! i
+    enddo ! j
+    !omp end parallel do
+
+    call MPI_ALLREDUCE(MPI_IN_PLACE, obslon, nobs, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
+    call MPI_ALLREDUCE(MPI_IN_PLACE, obslat, nobs, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
+    call MPI_ALLREDUCE(MPI_IN_PLACE, obslev, nobs, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
+    call MPI_ALLREDUCE(MPI_IN_PLACE, obserr, nobs, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
+    call MPI_ALLREDUCE(MPI_IN_PLACE, obsdat, nobs, MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
+
+  endif ! if ( present(nobs) )
+
+  return
+end subroutine allgHim2obs_mpi
+
+subroutine calculate_tc_center_mpi(v2dg, mslp_min_CX, mslp_min_CY, mslp_min)
+  use scale_atmos_grid_cartesC_index, only: &
+    IHALO, JHALO
+  use scale_atmos_grid_cartesC, only: &
+    CX => ATMOS_GRID_CARTESC_CX, &
+    CY => ATMOS_GRID_CARTESC_CY
+  implicit none
+
+  real(r_size), intent(in) :: v2dg(nlonh,nlath,nv2dd)
+  real(r_size), intent(out) :: mslp_min_CX, mslp_min_CY, mslp_min
+
+  integer :: i, j
+
+  real(r_size) :: mslp_local_min
+  real(r_size), allocatable :: mslp_local_min_all(:)
+  integer :: mslp_min_rank
+
+  integer :: ierr
+
+  mslp_local_min = 2000.e2_r_size
+
+  ! calculate local minimum
+  do j = JHALO+1, JHALO+nlat
+    do i = IHALO+1, IHALO+nlon
+      if ( v2dg(i,j,iv2dd_mslp) < mslp_local_min ) then
+        mslp_local_min = v2dg(i,j,iv2dd_mslp)
+        mslp_min_CX = real( CX(i), kind=r_size )
+        mslp_min_CY = real( CY(j), kind=r_size )
+      endif
+    enddo
+  enddo
+
+  allocate( mslp_local_min_all(nprocs_d) )
+  call MPI_ALLGATHER(mslp_local_min, 1, MPI_r_size, &
+                     mslp_local_min_all, 1, MPI_r_size, MPI_COMM_d, ierr)
+
+  mslp_min_rank = minloc(mslp_local_min_all,dim=1) - 1
+  ! do i = 1, nprocs_d
+  !   write(6,'(a,i7,f6.1,i7)') 'Debug_TCmin', i-1, mslp_local_min_all(i)*0.01, mslp_min_rank
+  ! enddo
+
+  call MPI_BCAST( mslp_min_CX, 1, MPI_r_size, mslp_min_rank, MPI_COMM_d, ierr )
+  call MPI_BCAST( mslp_min_CY, 1, MPI_r_size, mslp_min_rank, MPI_COMM_d, ierr )
+  mslp_min = mslp_local_min_all(mslp_min_rank+1)
+
+
+  deallocate( mslp_local_min_all )
+
+  return
+end subroutine calculate_tc_center_mpi
+
+#ifdef RTTOV
+subroutine get_history_ensemble_mean_mpi_him( mv3dg, mv2dg, mhim2dg, cloudy_mem2dg )
+  implicit none
+
+  real(r_size), intent(out) :: mv3dg(SLOT_END-SLOT_START+1,nlevh,nlonh,nlath,nv3dd)
+  real(r_size), intent(out) :: mv2dg(SLOT_END-SLOT_START+1,nlonh,nlath,nv2dd)
+  real(r_size), intent(out) :: mhim2dg(NIRB_HIM_USE,SLOT_END-SLOT_START+1,nlon,nlat)
+  integer,      intent(out) :: cloudy_mem2dg(NIRB_HIM_USE,SLOT_END-SLOT_START+1,nlon,nlat)
+
+  real(r_size) :: v3dg(nlevh,nlonh,nlath,nv3dd)
+  real(r_size) :: v2dg(nlonh,nlath,nv2dd)
+
+  real(r_size) :: him2dg(NIRB_HIM_USE,nlon,nlat)
+
+  integer :: it, im
+  integer :: islot, islot2
+
+  integer :: iv3d, k, i, j, ch
+
+  integer :: ierr
+  integer :: iqc2d(NIRB_HIM_USE,1:nlon,1:nlat)
+
+  mv3dg(:,:,:,:,:) = 0.0_r_size
+  mv2dg(:,:,:,:)   = 0.0_r_size
+  mhim2dg(:,:,:,:) = 0.0_r_size
+
+  cloudy_mem2dg(:,:,:,:) = 0
+
+  do islot = SLOT_START, SLOT_END
+    islot2 = islot - SLOT_START + 1
+
+    do it = 1, nitmax
+      im = myrank_to_mem(it)
+      if ( im < 1 .or. im > MEMBER ) cycle
+
+      call read_ens_history_iter(it, islot, v3dg, v2dg)
+  
+      mv3dg(islot2,:,:,:,:) = mv3dg(islot2,:,:,:,:) + v3dg(:,:,:,:)
+      mv2dg(islot2,:,:,:)   = mv2dg(islot2,:,:,:)   + v2dg(:,:,:)
+
+      call Trans_XtoY_HIM_allg(v3dg,v2dg,him2dg,iqc2d)
+      mhim2dg(1:NIRB_HIM_USE,islot2,:,:) = mhim2dg(1:NIRB_HIM_USE,islot2,:,:) + him2dg(1:NIRB_HIM_USE,:,:)
+
+      do j = 1, nlat
+        do i = 1, nlon
+          do ch = 1, NIRB_HIM_USE
+            if ( him2dg(ch,i,j) < HIM_CLD_THRS(ch) ) then
+              cloudy_mem2dg(ch,islot2,i,j) = cloudy_mem2dg(ch,islot2,i,j) + 1
+            endif
+          enddo
+        enddo
+      enddo
+
+    enddo
+
+    call MPI_ALLREDUCE(MPI_IN_PLACE, mv3dg(islot2,:,:,:,:), nlevh*nlonh*nlath*nv3dd, MPI_r_size, MPI_SUM, MPI_COMM_e, ierr)
+    call MPI_ALLREDUCE(MPI_IN_PLACE, mv2dg(islot2,:,:,:),   nlonh*nlath*nv2dd,       MPI_r_size, MPI_SUM, MPI_COMM_e, ierr)
+
+    call MPI_ALLREDUCE(MPI_IN_PLACE, mhim2dg(1:NIRB_HIM_USE,islot2,1:nlon,1:nlat), NIRB_HIM_USE*nlon*nlat, MPI_r_size, MPI_SUM, MPI_COMM_e, ierr)
+
+    call MPI_ALLREDUCE(MPI_IN_PLACE, cloudy_mem2dg(1:NIRB_HIM_USE,islot2,1:nlon,1:nlat), NIRB_HIM_USE*nlon*nlat, MPI_INTEGER, MPI_SUM, MPI_COMM_e, ierr)
+
+  enddo
+
+  mv3dg(:,1:nlevh,1:nlonh,1:nlath,1:nv3dd) = mv3dg(:,1:nlevh,1:nlonh,1:nlath,1:nv3dd) / real( MEMBER, kind=r_size )
+  mv2dg(:,1:nlonh,1:nlath,1:nv2dd) = mv2dg(:,1:nlonh,1:nlath,1:nv2dd) / real( MEMBER, kind=r_size )
+
+  mhim2dg(1:NIRB_HIM_USE,:,1:nlon,1:nlat) = mhim2dg(1:NIRB_HIM_USE,:,1:nlon,1:nlat) / real( MEMBER, kind=r_size )
+
+  return
+end subroutine get_history_ensemble_mean_mpi_him
+
+subroutine get_regression_slope_him_mpi( mv3dg, mv2dg, mhim2dg, cloudy_mem2dg, slope3dg, slope2dg )
+  use scale_atmos_grid_cartesC_index, only: &
+    IHALO, JHALO, KHALO
+  implicit none
+
+  real(r_size), intent(in) :: mv3dg  (SLOT_END-SLOT_START+1,nlevh,nlonh,nlath,nv3dd)
+  real(r_size), intent(in) :: mv2dg  (SLOT_END-SLOT_START+1,nlonh,nlath,nv2dd)
+  real(r_size), intent(in) :: mhim2dg(NIRB_HIM_USE,SLOT_END-SLOT_START+1,nlon,nlat)
+
+  integer,      intent(in) :: cloudy_mem2dg(NIRB_HIM_USE,SLOT_END-SLOT_START+1,nlon,nlat)
+
+  real(r_size), intent(out) :: slope3dg (NIRB_HIM_USE,SLOT_END-SLOT_START+1,nlevh,nv3dd)
+  real(r_size), intent(out) :: slope2dg (NIRB_HIM_USE,SLOT_END-SLOT_START+1,      nv2dd)
+
+  real(r_size) :: cov3dg (NIRB_HIM_USE,SLOT_END-SLOT_START+1,nlev,nv3dd)
+  real(r_size) :: cov2dg (NIRB_HIM_USE,SLOT_END-SLOT_START+1,     nv2dd)
+  real(r_size) :: vhim0dg(NIRB_HIM_USE,SLOT_END-SLOT_START+1)
+  real(r_size) :: vv3dg(SLOT_END-SLOT_START+1,nlev,nv3dd)
+  real(r_size) :: vv2dg(SLOT_END-SLOT_START+1,     nv2dd)
+
+  real(r_size) :: v3dg(nlevh,nlonh,nlath,nv3dd)
+  real(r_size) :: v2dg(nlonh,nlath,nv2dd)
+
+  integer :: it, im
+  integer :: islot, islot2
+
+  integer :: i, j, k, ch
+  integer :: iv3d, iv2d
+
+  integer :: ierr
+
+  real(r_size) :: him2d(NIRB_HIM_USE,nlon,nlat)
+  integer      :: iqc2d(NIRB_HIM_USE,nlon,nlat)
+
+  real(r_size) :: fac2d(NIRB_HIM_USE,nlon,nlat)
+
+  character(2) :: cslot
+  character(5) :: cmem
+  character(6) :: MYRANK_D6
+
+  integer :: cnt
+  real(r_size) :: corr
+
+  do islot = SLOT_START, SLOT_END
+    islot2 = islot - SLOT_START + 1
+
+    cov3dg (1:NIRB_HIM_USE,islot2,1:nlev,1:nv3dd) = 0.0_r_size
+    cov2dg (1:NIRB_HIM_USE,islot2,       1:nv2dd) = 0.0_r_size
+
+    vhim0dg(1:NIRB_HIM_USE,islot2) = 0.0_r_size
+    vv3dg  (islot2,1:nlev,1:nv3dd) = 0.0_r_size
+    vv2dg  (islot2,       1:nv2dd) = 0.0_r_size
+
+    fac2d(1:NIRB_HIM_USE,1:nlon,1:nlat) = 0.0_r_size
+    cnt = 0
+
+    ! Set fac2d=1 if each grid is cloudy
+    do j = 1, nlat
+      do i = 1, nlon
+        do ch = 1, NIRB_HIM_USE
+          if ( cloudy_mem2dg(islot2,ch,i,j) >= HIM_ADDITIVE_Y18_MINMEM4COR ) then
+            fac2d(ch,i,j) = 1.0_r_size
+          endif
+        enddo
+        cnt = cnt + maxval(fac2d(1:NIRB_HIM_USE,i,j))
+      enddo
+    enddo
+
+    do it = 1, nitmax
+      im = myrank_to_mem(it)
+      if ( im < 1 .or. im > MEMBER ) cycle
+
+      call read_ens_history_iter(it, islot, v3dg, v2dg)
+      call Trans_XtoY_HIM_allg(v3dg,v2dg,him2d,iqc2d)
+
+      ! Get Him radiance ensemble perturbation
+      do j = 1, nlat
+        do i = 1, nlon
+          do ch = 1, NIRB_HIM_USE
+            vhim0dg(ch,islot2) = vhim0dg(ch,islot2) + fac2d(ch,i,j)*( him2d(ch,i,j) - mhim2dg(ch,islot2,i,j) )**2  
+          enddo
+        enddo
+      enddo
+
+      ! Get covariance(him,v3dg) and variance(v3dg)
+      do iv3d = 1, nv3dd
+        do j = 1, nlat
+          do i = 1, nlon
+            do k = 1, nlev
+              vv3dg  (islot2,k,iv3d) = vv3dg(islot2,k,iv3d) + &
+                                       maxval(fac2d(1:NIRB_HIM_USE,i,j))&
+                                       *( v3dg(k+KHALO,i+IHALO,j+JHALO,iv3d) - mv3dg(islot2,k+KHALO,i+IHALO,j+JHALO,iv3d) )**2
+              do ch = 1, NIRB_HIM_USE
+                cov3dg(ch,islot2,k,iv3d) = cov3dg(ch,islot2,k,iv3d) + &
+                                          fac2d(ch,i,j)*( v3dg(k+KHALO,i+IHALO,j+JHALO,iv3d) - mv3dg(islot2,k+KHALO,i+IHALO,j+JHALO,iv3d) ) &
+                                          * ( him2d(ch,i,j) - mhim2dg(ch,islot2,i,j) )  
+              enddo ! ch                          
+            enddo ! k
+          enddo ! i
+        enddo ! j
+      enddo ! iv3d
+
+      do iv2d = 1, nv2dd
+        do j = 1, nlat
+          do i = 1, nlon
+            vv2dg  (islot2,iv2d) = vv2dg(islot2,iv2d) + &
+                                      maxval(fac2d(1:NIRB_HIM_USE,i,j))&
+                                      *( v2dg(i+IHALO,j+JHALO,iv2d) - mv2dg(islot2,i+IHALO,j+JHALO,iv2d) )**2
+            do ch = 1, NIRB_HIM_USE
+              cov2dg(ch,islot2,iv2d) = cov2dg(ch,islot2,iv2d) + &
+                                        fac2d(ch,i,j)*( v2dg(i+IHALO,j+JHALO,iv2d) - mv2dg(islot2,i+IHALO,j+JHALO,iv2d) ) &
+                                        * ( him2d(ch,i,j) - mhim2dg(ch,islot2,i,j) )  
+            enddo ! ch                          
+          enddo ! i
+        enddo ! j
+      enddo ! iv2d
+
+    enddo ! it
+ 
+    if ( .not. HIM_ADDITIVE_Y18_COV_SUBDOMAIN ) then 
+      ! domain (member) accumulation
+      call MPI_ALLREDUCE( MPI_IN_PLACE, cov3dg (1:NIRB_HIM_USE,islot2,1:nlev,1:nv3dd), NIRB_HIM_USE*nlev*nv3dd,  MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
+      call MPI_ALLREDUCE( MPI_IN_PLACE, cov2dg (1:NIRB_HIM_USE,islot2,       1:nv2dd), NIRB_HIM_USE*nv2dd,       MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
+
+      call MPI_ALLREDUCE( MPI_IN_PLACE, vhim0dg(1:NIRB_HIM_USE,islot2),                NIRB_HIM_USE,             MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
+
+      call MPI_ALLREDUCE( MPI_IN_PLACE, vv3dg  (islot2,1:nlev,1:nv3dd),                nlev*nv3dd,               MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
+      call MPI_ALLREDUCE( MPI_IN_PLACE, vv2dg  (islot2,       1:nv2dd),                     nv2dd,               MPI_r_size, MPI_SUM, MPI_COMM_d, ierr)
+
+      call MPI_ALLREDUCE( MPI_IN_PLACE, cnt, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_d, ierr)
+    endif
+
+    ! ensemble accumulation 
+    !  zero for mean and mdet
+    call MPI_ALLREDUCE( MPI_IN_PLACE, cov3dg (1:NIRB_HIM_USE,islot2,1:nlev,1:nv3dd), NIRB_HIM_USE*nlev*nv3dd, MPI_r_size, MPI_SUM, MPI_COMM_e, ierr)
+    call MPI_ALLREDUCE( MPI_IN_PLACE, cov2dg (1:NIRB_HIM_USE,islot2,       1:nv2dd), NIRB_HIM_USE*nv2dd,      MPI_r_size, MPI_SUM, MPI_COMM_e, ierr)
+
+    call MPI_ALLREDUCE( MPI_IN_PLACE, vhim0dg(1:NIRB_HIM_USE,islot2),                NIRB_HIM_USE,            MPI_r_size, MPI_SUM, MPI_COMM_e, ierr)
+
+    call MPI_ALLREDUCE( MPI_IN_PLACE, vv3dg  (islot2,1:nlev,1:nv3dd),                nlev*nv3dd,              MPI_r_size, MPI_SUM, MPI_COMM_e, ierr)
+    call MPI_ALLREDUCE( MPI_IN_PLACE, vv2dg  (islot2,       1:nv2dd),                     nv2dd,              MPI_r_size, MPI_SUM, MPI_COMM_e, ierr)
+
+    cov3dg (1:NIRB_HIM_USE,islot2,1:nlev,1:nv3dd) = cov3dg (1:NIRB_HIM_USE,islot2,1:nlev,1:nv3dd) / ( cnt*MEMBER )
+    cov2dg (1:NIRB_HIM_USE,islot2,       1:nv2dd) = cov2dg (1:NIRB_HIM_USE,islot2,       1:nv2dd) / ( cnt*MEMBER )
+
+    vhim0dg(1:NIRB_HIM_USE,islot2) = vhim0dg(1:NIRB_HIM_USE,islot2) / ( cnt*MEMBER )
+   
+    vv3dg  (islot2,1:nlev,1:nv3dd) = vv3dg  (islot2,1:nlev,1:nv3dd) / ( cnt*MEMBER )
+    vv2dg  (islot2,       1:nv2dd) = vv2dg  (islot2,       1:nv2dd) / ( cnt*MEMBER )
+
+    do iv3d = 1, nv3dd
+      slope3dg(1:NIRB_HIM_USE,islot2,1:nlevh,iv3d) = 0.0_r_size
+
+      do k = 1, nlev
+        do ch = 1, NIRB_HIM_USE
+          if ( vv3dg(islot2,k,iv3d) > 0.0_r_size ) then
+            corr = cov3dg(ch,islot2,k,iv3d) / ( sqrt( vv3dg(islot2,k,iv3d) ) * sqrt( vhim0dg(ch,islot2) ) )
+            if ( abs( corr ) >= HIM_ADDITIVE_Y18_CORR_MIN ) then  
+              slope3dg(ch,islot2,k+KHALO,iv3d) = cov3dg(ch,islot2,k,iv3d) / vv3dg(islot2,k,iv3d)
+            else
+              slope3dg(ch,islot2,k+KHALO,iv3d) = 0.0_r_size
+            endif
+          else
+            slope3dg(ch,islot2,k+KHALO,iv3d) = 0.0_r_size
+          endif
+        enddo ! ch
+      enddo ! k
+    enddo
+
+    do iv2d = 1, nv2dd
+      slope2dg(1:NIRB_HIM_USE,islot2,iv2d) = 0.0_r_size
+
+      do ch = 1, NIRB_HIM_USE
+        if ( vv2dg(islot2,iv2d) > 0.0_r_size ) then
+          corr = cov2dg(ch,islot2,iv2d) / ( sqrt( vv2dg(islot2,iv2d) ) * sqrt( vhim0dg(ch,islot2) ) )
+          if ( abs( corr ) >= HIM_ADDITIVE_Y18_CORR_MIN ) then  
+            slope2dg(ch,islot2,iv2d) = cov2dg(ch,islot2,iv2d) / vv2dg(islot2,iv2d)
+          else
+            slope2dg(ch,islot2,iv2d) = 0.0_r_size
+          endif
+        else
+          slope2dg(ch,islot2,iv2d) = 0.0_r_size
+        endif
+      enddo ! ch
+    enddo
+
+
+    if ( myrank_e == mmean_rank_e ) then
+      write(cslot,'(I2.2)') islot2
+      write(cmem, '(I5.5)') HIM_ADDITIVE_Y18_MINMEM4COR 
+
+      if ( HIM_ADDITIVE_Y18_COV_SUBDOMAIN ) then
+        write ( MYRANK_D6,'(I6.6)') myrank_d
+        call write_cov_nc( trim( HIM_ADDITIVE_Y18_COV_BASENAME ) // '_slot'// cslot // '_mem' // cmem //'_rank'//MYRANK_D6//'.nc', &
+                           real( cov3dg (1:NIRB_HIM_USE,islot2,1:nlev,1:nv3dd), kind=r_sngl ), &
+                           real( cov2dg (1:NIRB_HIM_USE,islot2,       1:nv2dd), kind=r_sngl ), &
+                           real( vv3dg  (               islot2,1:nlev,1:nv3dd), kind=r_sngl ), &
+                           real( vv2dg  (               islot2,       1:nv2dd), kind=r_sngl ), &
+                           real( vhim0dg(1:NIRB_HIM_USE,islot2               ), kind=r_sngl ), &
+                           cnt )
+
+      else
+        if ( myrank_d == 0 ) then 
+          call write_cov_nc( trim( HIM_ADDITIVE_Y18_COV_BASENAME ) // '_slot'// cslot // '_mem' // cmem //'.nc', &
+                            real( cov3dg (1:NIRB_HIM_USE,islot2,1:nlev,1:nv3dd), kind=r_sngl ), &
+                            real( cov2dg (1:NIRB_HIM_USE,islot2,       1:nv2dd), kind=r_sngl ), &
+                            real( vv3dg  (               islot2,1:nlev,1:nv3dd), kind=r_sngl ), &
+                            real( vv2dg  (               islot2,       1:nv2dd), kind=r_sngl ), &
+                            real( vhim0dg(1:NIRB_HIM_USE,islot2               ), kind=r_sngl ), &
+                            cnt )
+        endif
+      endif      
+      
+    endif
+  enddo
+
+  return
+end subroutine get_regression_slope_him_mpi
+
+subroutine write_Him_cloudy_mem_mpi( cmem, slot )
+  implicit none
+
+  integer, intent(in) :: cmem(NIRB_HIM_USE,nlon,nlat)
+  integer, intent(in) :: slot
+
+  character(filelenmax) :: filename
+  character(2) :: cslot
+
+  integer :: cmem_g(NIRB_HIM_USE,nlong,nlatg)
+  integer :: bufs2d(nlong,nlatg)
+
+  integer :: proc_i, proc_j
+  integer :: ishift, jshift
+  integer :: ierr
+
+  integer :: ch
+ 
+  call rank_1d_2d(myrank_d, proc_i, proc_j)
+  ishift = proc_i * nlon
+  jshift = proc_j * nlat
+
+  do ch = 1, NIRB_HIM_USE
+    bufs2d(1:nlong,1:nlatg) = 0
+    bufs2d(1+ishift:nlon+ishift, 1+jshift:nlat+jshift) = cmem(ch,1:nlon,1:nlat)
+    call MPI_ALLREDUCE( MPI_IN_PLACE, bufs2d, nlong*nlatg, MPI_INTEGER, MPI_SUM, MPI_COMM_d, ierr)
+    cmem_g(ch,1:nlong,1:nlatg) = bufs2d(1:nlong,1:nlatg)
+  enddo
+
+  if (myrank_d == 0) then
+    write(cslot,'(I2.2)') slot
+    filename = trim(HIM_OUTFILE_BASENAME)//"_cmem_slot"//cslot//'.nc'
+    call write_Him_cloudy_mem( trim(filename), cmem_g )
+  endif
+
+  return
+end subroutine write_Him_cloudy_mem_mpi
+
+#endif
+
 !===============================================================================
 end module common_mpi_scale

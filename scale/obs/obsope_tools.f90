@@ -30,6 +30,9 @@ CONTAINS
 ! Observation operator calculation
 !-----------------------------------------------------------------------
 SUBROUTINE obsope_cal(obsda_return, nobs_extern)
+  use scale_atmos_grid_cartesC, only: &
+      CX => ATMOS_GRID_CARTESC_CX, &
+      CY => ATMOS_GRID_CARTESC_CY
   IMPLICIT NONE
 
   type(obs_da_value), optional, intent(out) :: obsda_return
@@ -79,9 +82,31 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
   character(len=4) :: nstr
   character(len=timer_name_width) :: timer_str
 
+  ! TC vital
+  logical :: use_tcvital = .false.
+  real(r_size) :: mslp_min_CX, mslp_min_CY, mslp_min
+
   ! Dupilication detection
   integer :: nn2, oidx_prev
   integer :: iof_prev
+
+  ! -- for Himawari obs --
+  real(r_size), allocatable :: yobs_him(:,:,:), plev_obs_him(:,:,:)
+  real(r_size), allocatable :: yobs_him_clr(:,:,:)
+  real(r_size), allocatable :: yobs_him_prep(:,:,:)
+  real(r_size), allocatable :: yobs_him_clr_prep(:,:,:)
+
+  integer, allocatable :: qc_him(:,:,:)
+  integer, allocatable :: qc_him_prep(:,:,:)
+  integer :: i, j, ch
+  logical :: use_him = .false.
+
+  real(r_size), allocatable :: mhim2dg     (:,:,:,:)
+  real(r_size), allocatable :: slope3dg_him(:,:,:,:)
+  real(r_size), allocatable :: slope2dg_him(:,:,:)
+  real(r_size), allocatable :: him_add2d(:,:,:)
+
+  integer,      allocatable :: cloudy_mem2dg(:,:,:,:)
 
 !-------------------------------------------------------------------------------
 
@@ -102,12 +127,6 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
     end if
   end do
 
-!  obs_set_TCX = -1
-!  obs_set_TCY = -1
-!  obs_set_TCP = -1
-!  obs_idx_TCX = -1
-!  obs_idx_TCY = -1
-!  obs_idx_TCP = -1
 
   nobs_max_per_file_sub = (nobs_max_per_file - 1) / nprocs_a + 1
   allocate (obrank_bufs(nobs_max_per_file_sub))
@@ -137,24 +156,31 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
         dspr(ip) = dspr(ip-1) + cntr(ip-1)
       end do
 
+      if ( (OBS_IN_FORMAT(iof) == obsfmt_him ) .and. (.not. use_him ) .and. ( NIRB_HIM_USE > 0 ) ) then
+        ! Himawari-8 radiance obs
+
+        use_him = .true.
+        allocate( yobs_him    (NIRB_HIM_USE,nlon,nlat) )
+        allocate( yobs_him_clr(NIRB_HIM_USE,nlon,nlat) )
+        allocate( yobs_him_prep    (NIRB_HIM_USE,nlon,nlat) )
+        allocate( yobs_him_clr_prep(NIRB_HIM_USE,nlon,nlat) )
+
+        allocate( plev_obs_him(NIRB_HIM_USE,nlon,nlat) )
+
+        allocate( qc_him     (NIRB_HIM_USE,nlon,nlat) )
+        allocate( qc_him_prep(NIRB_HIM_USE,nlon,nlat) )
+
+      endif
+
+      if ( OBS_IN_FORMAT(iof) == obsfmt_tcvital ) then
+        use_tcvital = .true.
+      endif
+
+
       obrank_bufs(:) = -1
 !$OMP PARALLEL DO PRIVATE(ibufs,n) SCHEDULE(STATIC)
       do ibufs = 1, cntr(myrank_a+1)
         n = dspr(myrank_a+1) + ibufs
-!        select case (obs(iof)%elm(n))
-!        case (id_tclon_obs)
-!          obs_set_TCX = iof
-!          obs_idx_TCX = n
-!          cycle
-!        case (id_tclat_obs)
-!          obs_set_TCY = iof
-!          obs_idx_TCY = n
-!          cycle
-!        case (id_tcmip_obs)
-!          obs_set_TCP = iof
-!          obs_idx_TCP = n
-!          cycle
-!        end select
 
         call phys2ij(obs(iof)%lon(n), obs(iof)%lat(n), ri_bufs(ibufs), rj_bufs(ibufs))
         call rij_rank(ri_bufs(ibufs), rj_bufs(ibufs), obrank_bufs(ibufs))
@@ -346,16 +372,47 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
   allocate ( v3dg (nlevh,nlonh,nlath,nv3dd) )
   allocate ( v2dg (nlonh,nlath,nv2dd) )
 
-  if ( RADAR_ADDITIVE_Y18 ) then
+  if ( RADAR_ADDITIVE_Y18 .or. HIM_ADDITIVE_Y18 ) then
     allocate ( mv3dg (SLOT_END-SLOT_START+1,nlevh,nlonh,nlath,nv3dd) )
     allocate ( mv2dg (SLOT_END-SLOT_START+1,nlonh,nlath,nv2dd) )
-    allocate ( mdbz3dg(SLOT_END-SLOT_START+1,nlev,nlon,nlat) )
 
-    allocate ( slope3dg (SLOT_END-SLOT_START+1,nlevh,nv3dd) )
+    if ( RADAR_ADDITIVE_Y18 ) then
 
-    call get_history_ensemble_mean_mpi( mv3dg, mv2dg, mdbz3dg )
+      allocate ( mdbz3dg(SLOT_END-SLOT_START+1,nlev,nlon,nlat) )
+      allocate ( slope3dg (SLOT_END-SLOT_START+1,nlevh,nv3dd) )
+
+      call get_history_ensemble_mean_mpi( mv3dg, mv2dg, mdbz3dg )
+
+#ifdef RTTOV
+    elseif( HIM_ADDITIVE_Y18 .or. HIM_OUT_CLOUDYMEM ) then
+
+      allocate( mhim2dg      (NIRB_HIM_USE,SLOT_END-SLOT_START+1,nlon,nlat) )
+      allocate( slope3dg_him (NIRB_HIM_USE,SLOT_END-SLOT_START+1,nlevh,nv3dd) )
+      allocate( slope2dg_him (NIRB_HIM_USE,SLOT_END-SLOT_START+1,      nv2dd) )
+      if ( HIM_ADDITIVE_Y18 ) then
+        allocate( him_add2d(NIRB_HIM_USE,nlon,nlat))
+      endif
+
+      allocate( cloudy_mem2dg(NIRB_HIM_USE,SLOT_END-SLOT_START+1,nlon,nlat) )
+
+      call get_history_ensemble_mean_mpi_him( mv3dg, mv2dg, mhim2dg, cloudy_mem2dg )
+
+      if ( HIM_OUT_CLOUDYMEM ) then
+        do islot = SLOT_START, SLOT_END
+          call write_Him_cloudy_mem_mpi( cloudy_mem2dg(1:NIRB_HIM_USE,islot-SLOT_START+1,1:nlon,1:nlat), islot )
+        enddo
+      endif
+#endif
+    endif
     call mpi_timer('obsope_cal:get_mean_Y18:', 2)
-    call get_regression_slope_dbz_mpi( mv3dg, mv2dg, mdbz3dg, slope3dg )
+    
+    if (RADAR_ADDITIVE_Y18 ) then
+      call get_regression_slope_dbz_mpi( mv3dg, mv2dg, mdbz3dg, slope3dg )
+    elseif(HIM_ADDITIVE_Y18 ) then
+#ifdef RTTOV
+      call get_regression_slope_him_mpi( mv3dg, mv2dg, mhim2dg, cloudy_mem2dg, slope3dg_him, slope2dg_him )
+#endif
+    endif
     call mpi_timer('obsope_cal:get_slope_Y18:', 2)
   endif
 
@@ -412,7 +469,36 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
         write (timer_str, '(A30,I4,A7,I4,A2)') 'obsope_cal:read_ens_history(t=', it, ', slot=', islot, '):'
         call mpi_timer(trim(timer_str), 2)
 
-!$omp parallel do private(nn,n,iof,ril,rjl,rk,rkz)
+        if ( use_tcvital ) then
+          call calculate_tc_center_mpi(v2dg, mslp_min_CX, mslp_min_CY, mslp_min)
+        endif
+
+#ifdef RTTOV
+        if ( use_him .or. HIM_OUT_ETBB_NC .and. NIRB_HIM_USE > 0 ) then
+
+          if ( HIM_ADDITIVE_Y18 ) then
+            call Trans_XtoY_HIM_allg(v3dg,v2dg,yobs_him,qc_him, &
+                                     yobs_clr=yobs_him_clr,     &
+                                     mwgt_plev2d=plev_obs_him,  &
+                                     mv3d=mv3dg(islot-SLOT_START+1,1:nlevh,1:nlonh,1:nlath,1:nv3dd), &
+                                     mv2d=mv2dg(islot-SLOT_START+1,        1:nlonh,1:nlath,1:nv2dd), &
+                                     slope3d=slope3dg_him(1:NIRB_HIM_USE,islot-SLOT_START+1,1:nlevh,1:nv3dd), &
+                                     slope2d=slope2dg_him(1:NIRB_HIM_USE,islot-SLOT_START+1,        1:nv2dd), &
+                                     him_add2d=him_add2d)
+          else
+            call Trans_XtoY_HIM_allg(v3dg,v2dg,yobs_him,qc_him, &
+                                     yobs_clr=yobs_him_clr,     &
+                                     mwgt_plev2d=plev_obs_him   )
+          endif
+
+          ! Him preprocess
+          call prep_Him_mpi(yobs_him,     tbb_lprep=yobs_him_prep,    qc_lprep=qc_him_prep)
+          call prep_Him_mpi(yobs_him_clr, tbb_lprep=yobs_him_clr_prep)
+
+        endif
+#endif
+
+        !$omp parallel do private(nn,n,iof,ril,rjl,rk,rkz,i,j,ch)
         do nn = n1, n2
           iof = obsda%set(nn)
           n = obsda%idx(nn)
@@ -473,11 +559,47 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
               !end if
               !!!!!!
             end if
+          case (obsfmt_tcvital)
+          !---------------------------------------------------------------------
+            select case(obs(iof)%elm(n))
+            case(id_tclon_obs)
+              obsda%val(nn) = mslp_min_CX
+            case(id_tclat_obs)
+              obsda%val(nn) = mslp_min_CY
+            case(id_tcmip_obs)
+              obsda%val(nn) = mslp_min
+            end select
+
+            obsda%qc(nn) = iqc_good
+
+          !=====================================================================
+#ifdef RTTOV
+          !=====================================================================
+          case (obsfmt_him)
+          !---------------------------------------------------------------------
+            i  = nint(ril-IHALO)
+            j  = nint(rjl-JHALO)
+            ch = nint(obs(iof)%lev(n))
+            obsda%val(nn) = yobs_him_prep(ch,i,j)
+            obsda%lev(nn) = plev_obs_him (ch,i,j)
+            obsda%qc (nn) = qc_him_prep  (ch,i,j)
+ 
+            if ( obs(iof)%dat(n) == undef .or. obs(iof)%dat(n) < 0.0_r_size ) then
+              obsda%qc(nn) = iqc_obs_bad
+            endif
+
+            obsda%val2(nn) = ( abs(yobs_him_prep(ch,i,j) - yobs_him_clr_prep(ch,i,j) )  &
+                             + abs(obs(iof)%dat(n)       - yobs_him_clr_prep(ch,i,j) ) ) * 0.5_r_size
+
+            if ( HIM_ADDITIVE_Y18 ) then
+              obsda%pert(nn) = him_add2d(ch,i,j)
+            endif
+#endif
           end select
 
 
         end do ! [ nn = n1, n2 ]
-!$omp end parallel do
+        !$omp end parallel do
  
         ! Detect duplicated observations
         !
@@ -492,6 +614,9 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
             do nn2 = n1, nn-1
               iof_prev  = obsda%set(nn2)
               oidx_prev = obsda%idx(nn2)
+
+              if ( obtypelist(obs(iof)%typ(n)) == 'H08IRB' ) cycle
+              if ( obtypelist(obs(iof)%typ(n)) == 'TCVITL' ) cycle
   
               if ( obs(iof_prev)%typ(oidx_prev) /= obs(iof)%typ(n) ) cycle
               if ( obs(iof_prev)%elm(oidx_prev) /= obs(iof)%elm(n) ) cycle
@@ -504,8 +629,6 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
                 select case (obtypelist(obs(iof)%typ(n)))
                 case ( 'PHARAD' )
                   if ( abs( obs(iof_prev)%lev(oidx_prev) - obs(iof)%lev(n) ) > DUPLICATE_MIN_Z_DIFF ) cycle
-                case ( 'H08IRB' )
-                  cycle ! do nothing
                 case default 
                   if ( abs( obs(iof_prev)%lev(oidx_prev) - obs(iof)%lev(n) ) > DUPLICATE_MIN_PRS_DIFF ) cycle
                 end select
@@ -556,7 +679,15 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
         elseif ( RADAR_ADDITIVE_Y18 ) then
           call obs_da_value_partial_reduce_iter(obsda_return, it, 1, nobs, obsda%val, obsda%qc, pert=obsda%pert)
         else
+#ifdef RTTOV
+          if ( HIM_ADDITIVE_Y18 ) then
+            call obs_da_value_partial_reduce_iter(obsda_return, it, 1, nobs, obsda%val, obsda%qc, lev=obsda%lev, val2=obsda%val2, pert=obsda%pert )
+          else
+            call obs_da_value_partial_reduce_iter(obsda_return, it, 1, nobs, obsda%val, obsda%qc, lev=obsda%lev, val2=obsda%val2 )
+          endif
+#else
           call obs_da_value_partial_reduce_iter(obsda_return, it, 1, nobs, obsda%val, obsda%qc )
+#endif
         endif
 
         write (timer_str, '(A30,I4,A2)') 'obsope_cal:partial_reduce  (t=', it, '):'
@@ -566,9 +697,27 @@ SUBROUTINE obsope_cal(obsda_return, nobs_extern)
     end if ! [ (im >= 1 .and. im <= MEMBER) .or. im == mmdetin ]
   end do ! [ it = 1, nitmax ]
 
-  if ( RADAR_ADDITIVE_Y18 ) then
-    deallocate ( mv3dg, mv2dg, mdbz3dg )
-    deallocate ( slope3dg )
+  if ( RADAR_ADDITIVE_Y18 .or. HIM_ADDITIVE_Y18 ) then
+    deallocate ( mv3dg, mv2dg )
+    if ( RADAR_ADDITIVE_Y18 ) then
+
+      deallocate ( slope3dg )
+      deallocate ( mdbz3dg )
+
+#ifdef RTTOV
+    elseif( HIM_ADDITIVE_Y18 .or. HIM_OUT_CLOUDYMEM ) then
+
+      deallocate( mhim2dg )
+      deallocate( cloudy_mem2dg )
+
+      if ( HIM_ADDITIVE_Y18 ) then
+        deallocate( slope3dg_him )
+        deallocate( slope2dg_him )
+        deallocate( him_add2d )
+      endif
+#endif
+
+    endif
   endif
 
   deallocate ( v3dg, v2dg )
@@ -784,7 +933,7 @@ end subroutine obsmake_cal
 !-------------------------------------------------------------------------------
 ! Model-to-observation simulator calculation
 !-------------------------------------------------------------------------------
-subroutine obssim_cal(v3dgh, v2dgh, v3dgsim, v2dgsim, stggrd)
+subroutine obssim_cal(v3dgh, v2dgh, v3dgsim, v2dgsim, it, stggrd)
   use scale_atmos_grid_cartesC, only: &
       CX => ATMOS_GRID_CARTESC_CX, &
       CY => ATMOS_GRID_CARTESC_CY, &
@@ -800,6 +949,7 @@ subroutine obssim_cal(v3dgh, v2dgh, v3dgsim, v2dgsim, stggrd)
   real(r_size), intent(in) :: v2dgh(nlonh,nlath,nv2dd)
   real(r_size), intent(out) :: v3dgsim(nlev,nlon,nlat,OBSSIM_NUM_3D_VARS)
   real(r_size), intent(out) :: v2dgsim(nlon,nlat,OBSSIM_NUM_2D_VARS)
+  integer, intent(in), optional :: it
   integer, intent(in), optional :: stggrd
 
   integer :: i, j, k, iv3dsim, iv2dsim
@@ -809,6 +959,12 @@ subroutine obssim_cal(v3dgh, v2dgh, v3dgsim, v2dgsim, stggrd)
   real(RP) :: lon_RP, lat_RP
   integer :: tmpqc
 
+#ifdef RTTOV
+  real(r_size) :: tbb_l(NIRB_HIM_USE,nlon,nlat)
+  real(r_size) :: tbb_g(NIRB_HIM_USE,nlong,nlatg)
+  integer      :: qc_l (NIRB_HIM_USE,nlon,nlat)
+  character(len=6) :: it6
+#endif
 !-------------------------------------------------------------------------------
 
   write (6,'(A,I6.6,A,I6.6)') 'MYRANK ', myrank, ' is processing subdomain id #', myrank_d
@@ -868,6 +1024,14 @@ subroutine obssim_cal(v3dgh, v2dgh, v3dgsim, v2dgsim, stggrd)
     end do ! [ i = 1, nlon ]
 
   end do ! [ j = 1, nlat ]
+
+#ifdef RTTOV
+  if ( OBSSIM_HIM ) then
+    call Trans_XtoY_HIM_allg(v3dgh,v2dgh,tbb_l,qc_l)
+    write(it6,'(i6.6)') (it-1)*OBSSIM_TIME_INTERVAL_SEC
+    call gather_him_mpi(tbb_l,tbb_g,output=.true.,filename=trim(OBSSIM_NC_OUT_BASENAME)//'_ftsec'//it6//'.nc')
+  endif
+#endif
 
 !-------------------------------------------------------------------------------
 
