@@ -2276,13 +2276,6 @@ SUBROUTINE read_obs(cfile,obs)
         wk(5) = real( y_RP, kind=r_sngl)
         wk(6) = real(OBSERR_TCY, kind=r_sngl)
       end if
-    CASE(id_tclat_obs)
-      call MAPPROJECTION_lonlat2xy( real(REAL(wk(2),kind=r_size)*pi/180.0_r_size, kind=RP),&
-                                    real(REAL(wk(3),kind=r_size)*pi/180.0_r_size, kind=RP),&
-                                    x_RP, y_RP )
-      wk(4) = wk(4) * 100.0 ! hPa -> Pa
-      wk(5) = real( y_RP, kind=r_sngl)
-      wk(6) = real(OBSERR_TCY, kind=r_sngl)
     END SELECT
     obs%elm(n) = NINT(wk(1))
     obs%lon(n) = REAL(wk(2),r_size)
