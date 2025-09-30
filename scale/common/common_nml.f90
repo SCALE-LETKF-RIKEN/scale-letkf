@@ -544,7 +544,7 @@ subroutine read_nml_ensemble
     stop
   endif
 
-  if (LOG_LEVEL >= 2) then
+  if (LOG_LEVEL >= 2 .or. LOG_OUT) then
     write(6, nml=PARAM_ENSEMBLE)
   end if
 
@@ -572,7 +572,7 @@ subroutine read_nml_model
     stop
   endif
 
-  if (LOG_LEVEL >= 2) then
+  if (LOG_LEVEL >= 2 .or. LOG_OUT) then
     write(6, nml=PARAM_MODEL)
   end if
 
@@ -605,7 +605,7 @@ subroutine read_nml_process
     stop
   endif
 
-  if (LOG_LEVEL >= 2) then
+  if (LOG_LEVEL >= 2 .or. LOG_OUT) then
     write(6, nml=PARAM_PROCESS)
   end if
 
@@ -661,7 +661,7 @@ subroutine read_nml_log
     stop
   endif
 
-  if (LOG_LEVEL >= 2) then
+  if (LOG_LEVEL >= 2 .or. LOG_OUT) then
     write(6, nml=PARAM_LOG)
   end if
 
@@ -725,7 +725,7 @@ subroutine read_nml_obsope
     call filename_replace_mem(HISTORY_MDET_IN_BASENAME, memf_mdet)
   end if
 
-  if (LOG_LEVEL >= 2) then
+  if (LOG_LEVEL >= 2 .or. LOG_OUT) then
     write(6, nml=PARAM_OBSOPE)
   end if
 
@@ -912,7 +912,7 @@ subroutine read_nml_letkf
     BOUNDARY_BUFFER_WIDTH = BOUNDARY_TAPER_WIDTH
   end if
 
-  if (LOG_LEVEL >= 2) then
+  if (LOG_LEVEL >= 2 .or. LOG_OUT) then
     write(6, nml=PARAM_LETKF)
   end if
 
@@ -989,7 +989,7 @@ subroutine read_nml_letkf_obs
     VERT_LOCAL_RADAR_VR = VERT_LOCAL(22) !PHARAD
   end if
 
-  if (LOG_LEVEL >= 2) then
+  if (LOG_LEVEL >= 2 .or. LOG_OUT) then
     write(6, nml=PARAM_LETKF_OBS)
   end if
 
@@ -1024,7 +1024,7 @@ subroutine read_nml_letkf_var_local
     stop
   endif
 
-  if (LOG_LEVEL >= 2) then
+  if (LOG_LEVEL >= 2 .or. LOG_OUT) then
     write(6, nml=PARAM_LETKF_VAR_LOCAL)
   end if
 
@@ -1070,7 +1070,7 @@ subroutine read_nml_letkf_monitor
     stop
   endif
 
-  if (LOG_LEVEL >= 2) then
+  if (LOG_LEVEL >= 2 .or. LOG_OUT) then
     write(6, nml=PARAM_LETKF_MONITOR)
   end if
 
@@ -1136,7 +1136,7 @@ subroutine read_nml_letkf_radar
     MIN_RADAR_REF_MEMBER_OBSRAIN = RADAR_ADDITIVE_Y18_MINMEM 
   endif
 
-  if (LOG_LEVEL >= 2) then
+  if (LOG_LEVEL >= 2 .or. LOG_OUT) then
     write(6, nml=PARAM_LETKF_RADAR)
   end if
 
@@ -1176,7 +1176,7 @@ subroutine read_nml_obs_error
     stop
   endif
 
-  if (LOG_LEVEL >= 2) then
+  if (LOG_LEVEL >= 2 .or. LOG_OUT) then
     write(6, nml=PARAM_OBS_ERROR)
   end if
 
@@ -1227,7 +1227,7 @@ subroutine read_nml_obssim
     end if
   end if
 
-  if (LOG_LEVEL >= 2) then
+  if (LOG_LEVEL >= 2 .or. LOG_OUT) then
     write(6, nml=PARAM_OBSSIM)
   end if
 
@@ -1326,7 +1326,7 @@ subroutine read_nml_letkf_him
 
   rewind(IO_FID_CONF)
   read(IO_FID_CONF,nml=PARAM_LETKF_HIM,iostat=ierr)
-  if (ierr < 0) then !--- missing
+  if (ierr < 0 .and. LOG_OUT ) then !--- missing
     write(6,*) '[Warning] /PARAM_LETKF_HIM/ is not found in namelist.'
 !    stop
   elseif (ierr > 0) then !--- fatal error
