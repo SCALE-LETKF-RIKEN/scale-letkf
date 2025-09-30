@@ -129,7 +129,7 @@ MODULE common_obs_scale
     REAL(r_size),ALLOCATABLE :: tm(:)    ! temp (mean)
     REAL(r_size),ALLOCATABLE :: pm(:)    ! pressure (mean)
     INTEGER,ALLOCATABLE :: qc(:)
-#IFDEF RTTOV
+#ifdef RTTOV
     !
     ! obsda%lev array is used only for Himawari-8 assimilation.
     ! This array saves the most sensitive height derived from transmittance outputs from RTTOV.
@@ -138,7 +138,7 @@ MODULE common_obs_scale
     real(r_size), allocatable :: lev(:) ! Him
     real(r_size), allocatable :: val2(:) ! Him sigma_o for AOEI (not CA)
     real(r_size), allocatable :: sprd(:) ! background spread
-#ENDIF
+#endif
   END TYPE obs_da_value
 
   character(obsformatlenmax), parameter :: obsfmt_prepbufr = 'PREPBUFR'
@@ -1573,11 +1573,11 @@ END SUBROUTINE itpl_3d
 !-----------------------------------------------------------------------
 ! Monitor observation departure by giving the v3dg,v2dg data
 !-----------------------------------------------------------------------
-#IFDEF RTTOV
+#ifdef RTTOV
 subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso,yobs_him,qc_him)
-#ELSE
+#else
 subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
-#ENDIF
+#endif
   use scale_prc, only: &
       PRC_myrank
   use scale_atmos_grid_cartesC_index, only: &
@@ -1597,10 +1597,10 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
   integer,intent(in) :: step
   logical, intent(in), optional :: efso
 
-#IFDEF RTTOV
+#ifdef RTTOV
   real(r_size), intent(in), optional :: yobs_him(NIRB_HIM_USE,nlon,nlat)
   integer,      intent(in), optional :: qc_him  (NIRB_HIM_USE,nlon,nlat)
-#ENDIF
+#endif
 
   REAL(r_size) :: v3dgh(nlevh,nlonh,nlath,nv3dd)
   REAL(r_size) :: v2dgh(nlonh,nlath,nv2dd)
@@ -1755,14 +1755,14 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
         end if
         !=========================================================================
       case (obsfmt_HIM )
-#IFDEF RTTOV
+#ifdef RTTOV
         !-------------------------------------------------------------------------
           if (DEPARTURE_STAT_HIM) then
             ohx(n) = yobs_him(nint(obs(iset)%lev(iidx)),nint(ril-IHALO),nint(rjl-JHALO))
             !oqc(n) = qc_him  (nint(ril-IHALO),nint(rjl-JHALO),nint(obs(iset)%lev(iidx)))
             oqc(n) = obsda_sort%qc(nn) 
           endif
-#ENDIF
+#endif
       !=========================================================================
       end select
 
@@ -1853,11 +1853,11 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
 !    monit_type(uid_obs(id_radar_prh_obs)) = .true.
   end if
 
-#IFDEF RTTOV
+#ifdef RTTOV
   if (DEPARTURE_STAT_HIM) then
     monit_type(uid_obs(id_HIMIR_obs)) = .true.
   endif
-#ENDIF RTTOV
+#endif RTTOV
 
   deallocate (oelm)
   deallocate (ohx)
@@ -2090,7 +2090,7 @@ SUBROUTINE obs_da_value_allocate(obsda,member)
     endif
   endif
 
-#IFDEF RTTOV
+#ifdef RTTOV
   allocate( obsda%lev  (obsda%nobs) )
   allocate( obsda%val2 (obsda%nobs) )
   allocate( obsda%sprd (obsda%nobs) )
@@ -2098,7 +2098,7 @@ SUBROUTINE obs_da_value_allocate(obsda,member)
   obsda%val2 = 0.0_r_size
   obsda%sprd = 0.0_r_size
 
-#ENDIF
+#endif
 
   RETURN
 END SUBROUTINE obs_da_value_allocate
@@ -2124,12 +2124,12 @@ SUBROUTINE obs_da_value_deallocate(obsda)
   IF(ALLOCATED(obsda%pert  )) DEALLOCATE(obsda%pert  )
   IF(ALLOCATED(obsda%epert )) DEALLOCATE(obsda%epert )
 
-#IFDEF RTTOV
+#ifdef RTTOV
   if ( allocated(obsda%lev  ) ) deallocate( obsda%lev  )
   if ( allocated(obsda%val2 ) ) deallocate( obsda%val2 )
   if ( allocated(obsda%sprd ) ) deallocate( obsda%sprd )
 
-#ENDIF
+#endif
 
   RETURN
 END SUBROUTINE obs_da_value_deallocate
@@ -3979,7 +3979,7 @@ subroutine get_nobs_allgHim(filename_org, nobs)
   return
 end subroutine get_nobs_allgHim
 
-#IFDEF RTTOV
+#ifdef RTTOV
 SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd,&
                                mv3d,mv2d,slope3d,slope2d,him_add2d)
   use scale_mapprojection, only: &
@@ -4292,7 +4292,7 @@ SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd,&
 
   return
 END SUBROUTINE Trans_XtoY_HIM_allg
-#ENDIF
+#endif
 
 subroutine zenith_geosat( sat_lon, lon, lat, zenith, azm )
 ! 

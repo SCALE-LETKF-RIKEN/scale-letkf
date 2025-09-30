@@ -534,7 +534,7 @@ SUBROUTINE set_letkf_obs
     enddo
     sig_b = dsqrt(sig_b / REAL(MEMBER-1,r_size))
 
-#IFDEF RTTOV
+#ifdef RTTOV
     ! AOEI
     sig_o = dsqrt(max(obs(iof)%err(iidx)**2,obsda%val(n)**2 - obsda%val2(n)**2))
 
@@ -546,7 +546,7 @@ SUBROUTINE set_letkf_obs
       ! if AOEI is not used,
       ! obsda%val2 stores the ensemble mean of CA (Okamoto 2017QJRMS)
     endif
-#ENDIF
+#endif
 
     select case (obs(iof)%elm(iidx)) !gross error
     case (id_rain_obs)
@@ -1733,11 +1733,11 @@ subroutine setup_obsda_sort(nobs_sub,nobs_g,obsda_sort,efso_flag)
         obsbufs%ensval(1:nensobs_part,n) = obsda%ensval(im_obs_1:im_obs_2,obsda%key(n))
       end if
       obsbufs%qc(n) = obsda%qc(obsda%key(n))
-#IFDEF RTTOV
+#ifdef RTTOV
       obsbufs%lev(n)  = obsda%lev(obsda%key(n))   
       obsbufs%val2(n) = obsda%val2(obsda%key(n)) 
       obsbufs%sprd(n) = obsda%sprd(obsda%key(n))  
-#ENDIF
+#endif
     end do ! [ n = 1, nobs_sub(i_after_qc) ]
 
     if ( efso_flag_) then
@@ -1771,11 +1771,11 @@ subroutine setup_obsda_sort(nobs_sub,nobs_g,obsda_sort,efso_flag)
     end if
     call MPI_ALLGATHERV(obsbufs%qc, cnts, MPI_INTEGER, obsbufr%qc, cntr, dspr, MPI_INTEGER, MPI_COMM_d, ierr)
 
-#IFDEF RTTOV
+#ifdef RTTOV
     call MPI_ALLGATHERV(obsbufs%lev,  cnts, MPI_r_size, obsbufr%lev,  cntr, dspr, MPI_r_size, MPI_COMM_d, ierr)
     call MPI_ALLGATHERV(obsbufs%val2, cnts, MPI_r_size, obsbufr%val2, cntr, dspr, MPI_r_size, MPI_COMM_d, ierr)
     call MPI_ALLGATHERV(obsbufs%sprd, cnts, MPI_r_size, obsbufr%sprd, cntr, dspr, MPI_r_size, MPI_COMM_d, ierr)
-#ENDIF
+#endif
 
     if ( efso_flag_ ) then
       call MPI_ALLGATHERV(obsbufs%qv, cnts, MPI_r_size, obsbufr%qv, cntr, dspr, MPI_r_size, MPI_COMM_d, ierr)
@@ -1835,11 +1835,11 @@ subroutine setup_obsda_sort(nobs_sub,nobs_g,obsda_sort,efso_flag)
         end if
         obsda_sort%qc(ns_ext:ne_ext) = obsbufr%qc(ns_bufr:ne_bufr)
 
-#IFDEF RTTOV
+#ifdef RTTOV
         obsda_sort%lev(ns_ext:ne_ext)  = obsbufr%lev(ns_bufr:ne_bufr)   
         obsda_sort%val2(ns_ext:ne_ext) = obsbufr%val2(ns_bufr:ne_bufr) 
         obsda_sort%sprd(ns_ext:ne_ext) = obsbufr%sprd(ns_bufr:ne_bufr)
-#ENDIF
+#endif
 
         if ( efso_flag_ ) then
           obsda_sort%qv(ns_ext:ne_ext) = obsbufr%qv(ns_bufr:ne_bufr)

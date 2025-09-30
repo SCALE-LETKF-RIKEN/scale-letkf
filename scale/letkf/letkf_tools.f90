@@ -2006,10 +2006,10 @@ subroutine obs_local_cal(ri, rj, rlev, rz, nvar, iob, ic, ndist, nrloc, nrdiag)
     nd_v = ABS(LOG(VERT_LOCAL_RAIN_BASE) - LOG(rlev)) / vert_loc_ctype(ic)  ! for rain, use VERT_LOCAL_RAIN_BASE for the base of vertical localization
   else if (obtyp == 22) then ! obtypelist(obtyp) == 'PHARAD'
     nd_v = ABS(obs(obset)%lev(obidx) - rz) / vert_loc_ctype(ic)             ! for PHARAD, use z-coordinate for vertical localization
-#IFDEF RTTOV
+#ifdef RTTOV
   else if (obtyp == 23) then ! obtypelist(obtyp) == 'HIMIRB'                ! HIM
     nd_v = abs( log( obsda_sort%lev(iob) ) - log( rlev ) ) / vert_loc_ctype(ic)   ! HIM for HIMIRB, use obsda_sort%lev(iob) for vertical localization
-#ENDIF
+#endif
   else
     nd_v = ABS(LOG(obs(obset)%lev(obidx)) - LOG(rlev)) / vert_loc_ctype(ic)
   end if
@@ -2101,7 +2101,7 @@ subroutine obs_local_cal(ri, rj, rlev, rz, nvar, iob, ic, ndist, nrloc, nrdiag)
     end if
   endif
 
-#IFDEF RTTOV
+#ifdef RTTOV
   ca = obsda_sort%val2(iob)
   if (obtyp == 23) then ! obtypelist(obtyp) == 'HIMIRB'
     ch_num = nint(obs(obset)%lev(obidx))
@@ -2125,7 +2125,7 @@ subroutine obs_local_cal(ri, rj, rlev, rz, nvar, iob, ic, ndist, nrloc, nrdiag)
       nrdiag = OBSERR_HIM(ch_num) * OBSERR_HIM(ch_num) / nrloc ! constant everywhere
     endif
   endif
-#ENDIF
+#endif
 
   return
 end subroutine obs_local_cal

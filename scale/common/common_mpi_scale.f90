@@ -1896,7 +1896,7 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
   integer :: dspr(nprocs_d)
   integer :: i, ip, ierr
 
-#IFDEF RTTOV
+#ifdef RTTOV
   real(r_size) :: v3dgh(nlevh,nlonh,nlath,nv3dd)
   real(r_size) :: v2dgh(nlonh,nlath,nv2dd)
 
@@ -1904,7 +1904,7 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
   real(r_size) :: yobs_him_clr(NIRB_HIM_USE,nlon,nlat)
   integer      :: qc_him  (NIRB_HIM_USE,nlon,nlat)
   character(256) :: filename_him 
-#ENDIF
+#endif
 
   call mpi_timer('', 2)
 
@@ -1912,7 +1912,7 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
   !       because only these processes have read topo files in 'topo2d'
   ! 
   if (myrank_e == mmean_rank_e) then
-#IFDEF RTTOV
+#ifdef RTTOV
 
     call state_to_history(v3dg, v2dg, topo2d, v3dgh, v2dgh)
 
@@ -1928,10 +1928,10 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
 
     call monit_obs(v3dg, v2dg, topo2d, nobs, bias, rmse, monit_type, .true., monit_step, efso=.false.,&
                  yobs_him=yobs_him,qc_him=qc_him)
-#ELSE
+#else
     call monit_obs(v3dg, v2dg, topo2d, nobs, bias, rmse, monit_type, .true., monit_step, efso=.false.)
 
-#ENDIF
+#endif
 
     call mpi_timer('monit_obs_mpi:monit_obs:', 2)
     do i = 1, nid_obs
