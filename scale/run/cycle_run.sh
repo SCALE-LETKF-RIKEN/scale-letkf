@@ -282,8 +282,16 @@ cat > $jobscrp << EOF
 #PJM -L "elapse=${TIME_LIMIT}"
 #PJM -g ${GROUP} 
 #PJM -S
-#PJM -L gpu=${NNODES}
 #PJM -j
+EOF
+
+if [[ $RSCGRP == *"share"* ]]; then
+  echo "#PJM -L gpu=${NNODES}" >> $jobscrp
+else
+  echo "#PJM -L node=$(($NNODES/8))" >> $jobscrp
+fi
+
+cat >> $jobscrp << EOF
 
 export LD_LIBRARY_PATH=${NETCDF_F_DIR}/lib:${NETCDF_DIR}/lib
 
@@ -296,6 +304,10 @@ module load cuda/12.6 nvmpi/24.11
 export UCX_TLS=^gdr_copy
 
 export FORT_FMT_RECL=500
+
+# export NVCOMPILER_ACC_NOTIFY=3
+# export NVCOMPILER_ACC_NOTIFY=16
+# export NVCOMPILER_ACC_TIME=1
 
 ./${job}.sh "$STIME" "$ETIME" "$MEMBERS" "$CYCLE" "$CYCLE_SKIP" "$IF_VERF" "$IF_EFSO" "$ISTEP" "$FSTEP" "$CONF_MODE" || exit \$?
 
