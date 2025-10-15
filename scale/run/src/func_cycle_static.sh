@@ -850,6 +850,11 @@ while ((time <= ETIME)); do
         if [ ! -s "${OUTDIR[$d]}/$time/gues/mgue/init_$(datetime_scale $time).pe000000.nc" ]; then
           ln -sf ${OUTDIR[$d]}/$time/anal/mean/init_*.nc ${OUTDIR[$d]}/$time/anal/mgue/
         fi
+        # make a symbolic link of gues/mean
+        if [ ! -d "${OUTDIR[$d]}/$time/gues/mean" ]; then
+          mkdir -p "${OUTDIR[$d]}/$time/gues"
+          ln -s "${OUTDIR[$d]}/$time/anal/mean" "${OUTDIR[$d]}/$time/gues/mean"
+        fi
       fi
     fi
  
