@@ -18,7 +18,7 @@ MODULE common_nml
   !----
   integer, parameter :: nv3d = 11     ! number of 3D state variables (in SCALE restart files)
   integer, parameter :: nv2d = 0      ! number of 2D state variables (in SCALE restart files)
-  integer, parameter :: nv2d_diag = 1 ! number of 2D variables diagnosed from 3D state variables 
+  integer, parameter :: nv2d_diag = 2 ! number of 2D variables diagnosed from 3D state variables 
   integer, parameter :: nid_obs = 16 ! number of variable types
   integer, parameter :: nobtype = 24 ! number of observation report types
 

@@ -137,7 +137,7 @@ program efso
       if ( myrank_e == mmean_rank_e ) then  
         if ( LOG_OUT ) write(6,'(a)') 'Read forecast from analysis ensemble mean' 
         call read_restart( trim(EFSO_FCST_FROM_ANAL_BASENAME), work3dg, work2dg)
-        call state_trans(work3dg,rotate_flag=EFSO_UV_ROTATE,ps=work2dg_diag(:,:,iv2d_diag_ps))
+        call state_trans(work3dg,rotate_flag=EFSO_UV_ROTATE,v2dg_diag=work2dg_diag)
       endif
       call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d_diag,v3dg=real(work3dg,RP),v2dg=real(work2dg_diag,RP),&
                           v3d=fcer3d,v2d=fcer2d)
@@ -146,7 +146,7 @@ program efso
       if ( myrank_e == mmean_rank_e ) then  
         if ( LOG_OUT ) write(6,'(a)') 'Read forecast from guess ensemble mean' 
         call read_restart( trim(EFSO_FCST_FROM_GUES_BASENAME), work3dg, work2dg)
-        call state_trans(work3dg,rotate_flag=EFSO_UV_ROTATE,ps=work2dg_diag(:,:,iv2d_diag_ps))
+        call state_trans(work3dg,rotate_flag=EFSO_UV_ROTATE,v2dg_diag=work2dg_diag)
       endif
       call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d_diag,v3dg=real(work3dg,RP),v2dg=real(work2dg_diag,RP),&
                           v3d=work3d,v2d=work2d_diag)
@@ -155,7 +155,7 @@ program efso
       if ( myrank_e == mmean_rank_e ) then  
         if ( LOG_OUT ) write(6,'(a)') 'Read reference (analysis ensemble mean)' 
         call read_restart( trim(EFSO_ANAL_IN_BASENAME), work3dg, work2dg)
-        call state_trans(work3dg,rotate_flag=EFSO_UV_ROTATE,ps=work2dg_diag(:,:,iv2d_diag_ps))
+        call state_trans(work3dg,rotate_flag=EFSO_UV_ROTATE,v2dg_diag=work2dg_diag)
       endif
       call scatter_grd_mpi(mmean_rank_e,nv3d,nv2d_diag,v3dg=real(work3dg,RP),v2dg=real(work2dg_diag,RP),&
                           v3d=work3d_ref,v2d=work2d_diag_ref)
@@ -166,7 +166,7 @@ program efso
       if ( myrank_e == mmean_rank_e ) then  
         if ( LOG_OUT ) write(6,'(a)') 'Read guess ensemble mean' 
         call read_restart( trim(EFSO_PREVIOUS_GUES_BASENAME), work3dg, work2dg)
-        call state_trans(work3dg,rotate_flag=EFSO_UV_ROTATE,ps=work2dg_diag(:,:,iv2d_diag_ps))
+        call state_trans(work3dg,rotate_flag=EFSO_UV_ROTATE,v2dg_diag=work2dg_diag)
       endif
       call scatter_grd_mpi(mmean_rank_e,nv3d,0,v3dg=real(work3dg,RP),&
                           v3d=gues3d)

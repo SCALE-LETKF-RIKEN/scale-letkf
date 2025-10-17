@@ -54,7 +54,8 @@ MODULE common_scale
        'QV        ', 'QC        ', 'QR        ', 'QI        ', 'QS        ', 'QG        '/)
   CHARACTER(vname_max) :: v2d_name(nv2d)
 
-  integer, parameter :: iv2d_diag_ps = 1
+  integer, parameter :: iv2d_diag_ps   = 1
+  integer, parameter :: iv2d_diag_mslp = 2
 
   ! 
   !--- 3D, 2D diagnostic variables (in SCALE history files)
@@ -1392,7 +1393,7 @@ end subroutine read_restart_trans_history
 !-------------------------------------------------------------------------------
 ! Transform the SCALE restart variables to the LETKF state variables
 !-------------------------------------------------------------------------------
-subroutine state_trans(v3dg,rotate_flag,ps)
+subroutine state_trans(v3dg,rotate_flag,v2dg_diag)
   use scale_tracer, only: TRACER_CV
   use scale_const, only: &
      Rdry   => CONST_Rdry, &
@@ -1401,8 +1402,11 @@ subroutine state_trans(v3dg,rotate_flag,ps)
      PRE00 => CONST_PRE00
   use scale_atmos_bottom, only: &
      ATMOS_BOTTOM_estimate
+  use scale_atmos_hydrostatic, only: &
+     ATMOS_HYDROSTATIC_barometric_law_mslp
   use scale_atmos_grid_cartesc_real, only: &
-     FZ => ATMOS_GRID_CARTESC_real_FZ
+     FZ3D => ATMOS_GRID_CARTESC_real_FZ, &
+     CZ3D => ATMOS_GRID_CARTESC_real_CZ
   use scale_atmos_grid_cartesC_index, only: &
      IS, IE, JS, JE, KS, KE, &
      IHALO, JHALO
@@ -1413,10 +1417,11 @@ subroutine state_trans(v3dg,rotate_flag,ps)
 
   real(RP), intent(inout) :: v3dg(nlev,nlon,nlat,nv3d)
   logical,  intent(in),  optional :: rotate_flag
-  real(RP), intent(out), optional :: ps(nlon,nlat)
-  real(RP) :: rho,pres,temp
-  real(RP) :: qdry,CVtot,Rtot,CPovCV
-  integer :: i,j,k,iv3d
+  real(RP), intent(out), optional :: v2dg_diag(nlon,nlat,nv2d_diag)
+
+  real(RP) :: rho, pres, temp
+  real(RP) :: qdry, CVtot, Rtot, CPovCV
+  integer :: i, j, k, iv3d, iv2d
 
   real(RP), allocatable :: rho_tmp(:,:,:)
   real(RP), allocatable :: dummy2d(:,:)
@@ -1429,12 +1434,12 @@ subroutine state_trans(v3dg,rotate_flag,ps)
     rotate_flag_ = rotate_flag
   end if
 
-  if ( present(ps) ) then
+  if ( present(v2dg_diag) ) then
     allocate(rho_tmp(nlev,nlon,nlat))
     allocate(dummy2d(nlon,nlat))
   endif
 
-!$OMP PARALLEL DO PRIVATE(i,j,k,iv3d,qdry,CVtot,Rtot,CPovCV,rho,pres,temp) COLLAPSE(2)
+!$omp parallel do private(i,j,k,iv3d,qdry,CVtot,Rtot,CPovCV,rho,pres,temp) collapse(2)
   do j = 1, nlat
     do i = 1, nlon
       do k = 1, nlev
@@ -1449,7 +1454,7 @@ subroutine state_trans(v3dg,rotate_flag,ps)
        CPovCV = ( CVtot + Rtot ) / CVtot
 
        rho = v3dg(k,i,j,iv3d_rho)
-       if ( present(ps) ) then
+       if ( present(v2dg_diag) ) then
          rho_tmp(k,i,j) = rho
        end if
 
@@ -1464,22 +1469,42 @@ subroutine state_trans(v3dg,rotate_flag,ps)
       enddo
     enddo
   enddo
-!$OMP END PARALLEL DO
+!$omp end parallel do
 
-  if ( present(ps) ) then
-    if ( EFSO_DIAGNOSE_PS ) then
-      call ATMOS_BOTTOM_estimate(nlev,1,nlev,nlon,1,nlon,nlat,1,nlat,          &
-                                rho_tmp,v3dg(:,:,:,iv3d_p),v3dg(:,:,:,iv3d_q),&
-                                ! dummy !surface temperature is not used to calculate surface pressure 
-                                v3dg(1,:,:,iv3d_t),                           & 
-                                FZ(KS-1:KE,IS:IE,JS:JE),dummy2d,ps )
-    else
-      ps = v3dg(1,:,:,iv3d_p)
-    endif
+  if ( present(v2dg_diag) ) then
+    do iv2d = 1, nv2d_diag
+      select case ( iv2d )
+        case( iv2d_diag_ps )
+        if ( EFSO_DIAGNOSE_PS ) then
+          call ATMOS_BOTTOM_estimate(nlev,1,nlev,nlon,1,nlon,nlat,1,nlat,      &
+                                    rho_tmp,v3dg(1:nlev,1:nlon,1:nlat,iv3d_p), &
+                                    v3dg(1:nlev,1:nlon,1:nlat,iv3d_q),         &
+                                    ! dummy !surface temperature is not used to calculate surface pressure 
+                                    v3dg(1,1:nlon,1:nlat,iv3d_t),              & 
+                                    FZ3D(KS-1:KE,IS:IE,JS:JE),dummy2d,         &
+                                    v2dg_diag(1:nlon,1:nlat,iv2d_diag_ps)) 
+        else
+          v2dg_diag(1:nlon,1:nlat,iv2d_diag_ps) = v3dg(1,1:nlon,1:nlat,iv3d_p)
+        endif
+
+      case( iv2d_diag_mslp )
+        ! calculate MSLP
+        call ATMOS_HYDROSTATIC_barometric_law_mslp(nlev,1,nlev,                       & ! [IN]
+                                                  nlon,1,nlon,                       & ! [IN]
+                                                  nlat,1,nlat,                       & ! [IN]
+                                                  v3dg(1:nlev,1:nlon,1:nlat,iv3d_p), & ! [IN]
+                                                  v3dg(1:nlev,1:nlon,1:nlat,iv3d_t), & ! [IN]
+                                                  v3dg(1:nlev,1:nlon,1:nlat,iv3d_q), & ! [IN]
+                                                  CZ3D(KS:KE,IS:IE,JS:JE),           & ! [IN]
+                                                  v2dg_diag(1:nlon,1:nlat,iv2d_diag_ps)) ! [OUT]
+      
+      end select
+    enddo ! iv2d loop
     
     deallocate(rho_tmp)
     deallocate(dummy2d)
-  endif
+
+  endif ! if ( present(v2dg_diag) )
 
   if ( rotate_flag_ ) then
     !$omp parallel do private(i,j,k,utmp,vtmp) collapse(2)

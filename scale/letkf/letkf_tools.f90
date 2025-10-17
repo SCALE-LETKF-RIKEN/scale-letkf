@@ -1025,7 +1025,7 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
   real(r_size) :: dri_adv(nij1,nlev)
   real(r_size) :: drj_adv(nij1,nlev)
 
-  ! observation sensitibity
+  ! observation sensitivity
   real(r_size), allocatable :: obsense(:,:)
   real(r_size), allocatable :: hdxf(:,:)
   real(r_size), allocatable :: hdxa_rinv(:,:)
@@ -1033,7 +1033,7 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
   real(r_size), allocatable :: nrloc(:)       ! normalized localization factor (not used)
   real(r_size), allocatable :: dep(:)
   real(r_size), allocatable :: djdy(:,:)
-  real(r_size), allocatable :: work1(:,:)
+  real(r_size) :: work1(nterm,MEMBER)
   integer, allocatable :: vobsidx_l(:)
   integer :: ij, iv3d, iv2d, ilev, m
   integer :: nob, nobsl, iterm
@@ -1047,8 +1047,6 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
 
   integer :: iof, set
 
-  integer :: nobslmax !!! public
-  integer :: nobslin  !!! private
 
   if ( LOG_OUT ) write(6,'(A)') 'Hello from das_efso'
 !  nobstotal = obsda_sort%nobs 
@@ -1091,34 +1089,16 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
     end if ! [ n_merge(ic) > 0 ]
   end do ! [ ic = 1, nctype ]
   n_merge_max = maxval(n_merge)
-  !
-  ! Determine allocation size for obs_local
-  !
-  if (maxval(MAX_NOBS_PER_GRID(:)) > 0) then
-    nobslmax = 0
-    do ic = 1, nctype
-      if (MAX_NOBS_PER_GRID(typ_ctype(ic)) > 0 .and. n_merge(ic) > 0) then
-        nobslmax = nobslmax + MAX_NOBS_PER_GRID(typ_ctype(ic))
-      end if
-    end do
-    WRITE(6,'(A,I8)') 'Max observation numbers assimilated at a grid: NOBS=',nobslmax
-  else
-    nobslmax = -1
-  end if
+
 
   allocate( djdy(nterm,nobstotal) )
   djdy = 0.0_r_size
-  !
-  ! MAIN ASSIMILATION LOOP
-  !
-  if (nobslmax /= -1) then
-    allocate( hdxf(1:nobslmax,1:MEMBER) )
-    allocate( nrdiag(1:nobslmax) )
-    allocate( nrloc(1:nobslmax)  )
-    allocate( dep(1:nobslmax)   )
-    allocate( vobsidx_l(1:nobslmax) )
-  end if
-  allocate( work1(nterm,MEMBER))
+
+  allocate( hdxf(1:nobstotal,1:MEMBER) )
+  allocate( nrdiag(1:nobstotal) )
+  allocate( nrloc(1:nobstotal)  )
+  allocate( dep(1:nobstotal)   )
+  allocate( vobsidx_l(1:nobstotal) )
 
   if ( LOG_OUT ) write(6,'(a)') 'Calculate localization advection'
 
@@ -1135,28 +1115,16 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
 
   if ( LOG_OUT ) write(6,'(a)') 'Start dj/dy computation'
 
-!$omp parallel private(ij,ilev,iv3d,iv2d,hdxf,nrdiag,nrloc,dep,nobsl,nobslin,iterm,m,nob,iob,hdxa_rinv,work1,vobsidx_l)
+!$omp parallel private(ij,ilev,iv3d,iv2d,hdxf,nrdiag,nrloc,dep,nobsl,iterm,m,nob,iob,hdxa_rinv,work1,vobsidx_l)
 !$omp do schedule(dynamic)
   do ilev = 1, nlev
     do ij = 1, nij1
 
-      if (nobslmax == -1) then
-        CALL obs_count(rig1(ij),rjg1(ij),gues3d(ij,ilev,iv3d_p),hgt1(ij,ilev),0,nobslin)
-        allocate (hdxf (1:nobslin,1:MEMBER))
-        allocate (nrdiag(1:nobslin))
-        allocate (nrloc (1:nobslin))
-        allocate (dep  (1:nobslin))
-        allocate (vobsidx_l(1:nobslin))
-      else
-        nobslin=nobslmax
-      end if
-
-      call obs_local( nobslin, rig1(ij)+dri_adv(ij,ilev), rjg1(ij)+drj_adv(ij,ilev), gues3d(ij,ilev,iv3d_p), hgt1(ij,ilev), &
+      call obs_local( nobstotal, rig1(ij)+dri_adv(ij,ilev), rjg1(ij)+drj_adv(ij,ilev), gues3d(ij,ilev,iv3d_p), hgt1(ij,ilev), &
                       0, & ! No variable localization
                       hdxf, nrdiag, nrloc, dep, nobsl, &
                       vobsidx_l=vobsidx_l ) 
-            
-
+                      
       if ( nobsl > 0 ) then
         ! Forecast error
         work1 = 0.0_r_size
@@ -1223,25 +1191,18 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
         !!! djdy: [1/2(K-1)]rho*R^(-1)*Y^a_0*(X^f_t)^T*C*(e^f_t+e^g_t)
         deallocate( hdxa_rinv )
       endif
-      if (nobslmax == -1) then
-        deallocate( hdxf )
-        deallocate( nrdiag )
-        deallocate( nrloc )
-        deallocate( dep )
-        deallocate( vobsidx_l )
-      end if
+
     enddo ! ij
   enddo   ! ilev
 !$omp end do
 !$omp end parallel
-  if (nobslmax /= -1) then
-    deallocate( hdxf )
-    deallocate( nrdiag )
-    deallocate( nrloc )
-    deallocate( dep )
-    deallocate( vobsidx_l )
-  end if
-  deallocate( work1 )
+  deallocate( hdxf )
+  deallocate( nrdiag )
+  deallocate( nrloc )
+  deallocate( dep )
+  deallocate( vobsidx_l )
+
+
   if ( LOG_OUT ) write(6,'(a)') 'Finish dj/dy computation'
 
   !

@@ -1374,7 +1374,7 @@ subroutine read_ens_mpi(v3d, v2d, v2d_diag, EFSO )
       endif
 
       if ( EFSO_ ) then
-        call state_trans(v3dg, rotate_flag=EFSO_UV_ROTATE, ps=v2dg_diag(:,:,iv2d_diag_ps))
+        call state_trans(v3dg, rotate_flag=EFSO_UV_ROTATE, v2dg_diag=v2dg_diag)
       else
         call state_trans(v3dg)
       endif
