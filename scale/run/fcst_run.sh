@@ -319,16 +319,6 @@ export FORT_FMT_RECL=500
 
 EOF
 
-  wrapper="$TMP/wrapper.sh"
-cat > $wrapper << EOF
-#!/bin/sh
-
-GPU_UUID=(\${CUDA_VISIBLE_DEVICES//,/ })
-export CUDA_VISIBLE_DEVICES=\$OMPI_COMM_WORLD_LOCAL_RANK
-exec "\$@" > "\$LOG_SCALE_LETKF.\${OMPI_COMM_WORLD_RANK:-0}" 2>&1
-EOF
-  chmod +x $wrapper
-
   echo "[$(datetime_now)] Run ${job} job on PJM"
   echo
 

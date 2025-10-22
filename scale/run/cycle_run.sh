@@ -302,6 +302,7 @@ module load nvidia/24.11
 module load cuda/12.6 nvmpi/24.11 
 
 export UCX_TLS=^gdr_copy
+# export UCX_LOG_LEVEL=error
 
 export FORT_FMT_RECL=500
 
@@ -312,16 +313,6 @@ export FORT_FMT_RECL=500
 ./${job}.sh "$STIME" "$ETIME" "$MEMBERS" "$CYCLE" "$CYCLE_SKIP" "$IF_VERF" "$IF_EFSO" "$ISTEP" "$FSTEP" "$CONF_MODE" || exit \$?
 
 EOF
-
-  wrapper="$TMP/wrapper.sh"
-cat > $wrapper << EOF
-#!/bin/sh
-
-GPU_UUID=(\${CUDA_VISIBLE_DEVICES//,/ })
-export CUDA_VISIBLE_DEVICES=\$OMPI_COMM_WORLD_LOCAL_RANK
-exec "\$@" > "\$LOG_SCALE_LETKF.\${OMPI_COMM_WORLD_RANK:-0}" 2>&1
-EOF
-  chmod +x $wrapper
 
   echo "[$(datetime_now)] Run ${job} job on PJM"
   echo

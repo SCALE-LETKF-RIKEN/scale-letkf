@@ -222,11 +222,13 @@ elif [ "$PRESET" == 'FX1000' ]; then
   fi
 
 elif [ "$PRESET" == 'Linux64-nvidia' ]; then
-  export LOG_SCALE_LETKF=$STDOUT
-  mpirun -n $((NNODES*PPN)) ./wrapper.sh ./$PROG $CONF $ARGS
+  mpirun  -n $((NNODES*PPN)) bash -lc '
+    r=${OMPI_COMM_WORLD_RANK:?}
+    exec stdbuf -oL -eL ./"'"$PROG"'" '"$CONF $ARGS"' > "'"$STDOUT"'.${r}" 2>&1
+  '
   res=$?
   if ((res != 0)); then
-    echo "[Error]     mpirun -n $((NNODES*PPN)) ./wrapper.sh ./$PROG $CONF $ARGS" >&2
+    echo "[Error]     mpirun -n $((NNODES*PPN)) ./$PROG $CONF $ARGS ${STDOUT}" >&2
     echo "        Exit code: $res" >&2
     exit $res
   fi
