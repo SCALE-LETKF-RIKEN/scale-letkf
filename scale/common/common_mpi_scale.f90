@@ -1896,9 +1896,15 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
   integer :: dspr(nprocs_d)
   integer :: i, ip, ierr
 
-#ifdef RTTOV
+  ! TC vital obs
+  real(r_size) :: mslp_min
+  real(r_size) :: mslp_min_CX
+  real(r_size) :: mslp_min_CY
+
   real(r_size) :: v3dgh(nlevh,nlonh,nlath,nv3dd)
   real(r_size) :: v2dgh(nlonh,nlath,nv2dd)
+
+#ifdef RTTOV
 
   real(r_size) :: yobs_him    (NIRB_HIM_USE,nlon,nlat)
   real(r_size) :: yobs_him_clr(NIRB_HIM_USE,nlon,nlat)
@@ -1912,9 +1918,11 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
   !       because only these processes have read topo files in 'topo2d'
   ! 
   if (myrank_e == mmean_rank_e) then
-#ifdef RTTOV
-
     call state_to_history(v3dg, v2dg, topo2d, v3dgh, v2dgh)
+
+    call calculate_tc_center_mpi(v2dgh, mslp_min_CX, mslp_min_CY, mslp_min)
+
+#ifdef RTTOV
 
     call Trans_XtoY_HIM_allg(v3dgh,v2dgh,yobs_him,qc_him,yobs_clr=yobs_him_clr)
     if ( HIM_MEAN_WRITE ) then 
@@ -1927,9 +1935,11 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
     endif
 
     call monit_obs(v3dg, v2dg, topo2d, nobs, bias, rmse, monit_type, .true., monit_step, efso=.false.,&
-                 yobs_him=yobs_him,qc_him=qc_him)
+                 yobs_him=yobs_him,qc_him=qc_him,&
+                 mslp_min=mslp_min,mslp_min_CX=mslp_min_CX,mslp_min_CY=mslp_min_CY)
 #else
-    call monit_obs(v3dg, v2dg, topo2d, nobs, bias, rmse, monit_type, .true., monit_step, efso=.false.)
+    call monit_obs(v3dg, v2dg, topo2d, nobs, bias, rmse, monit_type, .true., monit_step, efso=.false.,&
+                     mslp_min=mslp_min,mslp_min_CX=mslp_min_CX,mslp_min_CY=mslp_min_CY)
 
 #endif
 
@@ -3455,6 +3465,10 @@ subroutine calculate_tc_center_mpi(v2dg, mslp_min_CX, mslp_min_CY, mslp_min)
   real(r_size), intent(out) :: mslp_min_CX, mslp_min_CY, mslp_min
 
   integer :: i, j
+  integer :: ii, jj
+
+  integer :: ave_ng = 2
+  real(r_size) :: mslp_ave
 
   real(r_size) :: mslp_local_min
   real(r_size), allocatable :: mslp_local_min_all(:)
@@ -3464,11 +3478,24 @@ subroutine calculate_tc_center_mpi(v2dg, mslp_min_CX, mslp_min_CY, mslp_min)
 
   mslp_local_min = 2000.e2_r_size
 
+  if ( ave_ng > IHALO .or. ave_ng > JHALO ) then
+    write(6,'(a)') 'ave_ng in calculate_tc_center_mpi is too large, reset to IHALO/JHALO'
+    ave_ng = min(IHALO, JHALO)
+  endif
+
   ! calculate local minimum
   do j = JHALO+1, JHALO+nlat
     do i = IHALO+1, IHALO+nlon
-      if ( v2dg(i,j,iv2dd_mslp) < mslp_local_min ) then
-        mslp_local_min = v2dg(i,j,iv2dd_mslp)
+      mslp_ave = 0.0_r_size
+      do jj = j-ave_ng, j+ave_ng
+      do ii = i-ave_ng, i+ave_ng
+        mslp_ave = mslp_ave + v2dg(ii,jj,iv2dd_mslp)
+      enddo
+      enddo
+      mslp_ave = mslp_ave / real( (2*ave_ng+1)**2, kind=r_size )
+
+      if ( mslp_ave < mslp_local_min ) then
+        mslp_local_min = mslp_ave
         mslp_min_CX = real( CX(i), kind=r_size )
         mslp_min_CY = real( CY(j), kind=r_size )
       endif
@@ -3481,7 +3508,7 @@ subroutine calculate_tc_center_mpi(v2dg, mslp_min_CX, mslp_min_CY, mslp_min)
 
   mslp_min_rank = minloc(mslp_local_min_all,dim=1) - 1
   ! do i = 1, nprocs_d
-  !   write(6,'(a,i7,f6.1,i7)') 'Debug_TCmin', i-1, mslp_local_min_all(i)*0.01, mslp_min_rank
+  !   write(6,'(a,i6,f8.1,i7)') 'Debug_TCmin', i-1, mslp_local_min_all(i)*0.01, mslp_min_rank
   ! enddo
 
   call MPI_BCAST( mslp_min_CX, 1, MPI_r_size, mslp_min_rank, MPI_COMM_d, ierr )

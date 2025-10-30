@@ -269,6 +269,7 @@ MODULE common_nml
   logical :: DEPARTURE_STAT = .true.
   logical :: DEPARTURE_STAT_RADAR = .false.
   logical :: DEPARTURE_STAT_HIM   = .false.
+  logical :: DEPARTURE_STAT_TCV   = .false.
   real(r_size) :: DEPARTURE_STAT_T_RANGE = 0.0d0   ! time range within which observations are considered in the departure statistics.
                                                    ! 0: no limit
   logical :: DEPARTURE_STAT_ALL_PROCESSES = .true. ! print the departure statistics by all processes?
@@ -1042,6 +1043,7 @@ subroutine read_nml_letkf_monitor
     DEPARTURE_STAT, &
     DEPARTURE_STAT_RADAR, &
     DEPARTURE_STAT_HIM,   &
+    DEPARTURE_STAT_TCV,   &
     DEPARTURE_STAT_T_RANGE, &
     DEPARTURE_STAT_ALL_PROCESSES, &
     DEPARTURE_STAT_OUT_NC,        &

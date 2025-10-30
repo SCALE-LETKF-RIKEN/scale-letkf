@@ -611,6 +611,18 @@ SUBROUTINE set_letkf_obs
       if ( obs(iof)%dat(iidx) < HIM_BT_MIN ) then
         obsda%qc(n) = iqc_gross_err
       endif
+    case (id_tcmip_obs)
+      if ( abs(obsda%val(n)) > GROSS_ERROR_TCP * obs(iof)%err(iidx) ) then
+        obsda%qc(n) = iqc_gross_err
+      endif
+    case (id_tclon_obs)
+      if ( abs(obsda%val(n)) > GROSS_ERROR_TCX * obs(iof)%err(iidx) ) then
+        obsda%qc(n) = iqc_gross_err
+      endif
+    case (id_tclat_obs)
+      if ( abs(obsda%val(n)) > GROSS_ERROR_TCY * obs(iof)%err(iidx) ) then
+        obsda%qc(n) = iqc_gross_err
+      endif
     case default
       IF(ABS(obsda%val(n)) > GROSS_ERROR * obs(iof)%err(iidx)) THEN
         obsda%qc(n) = iqc_gross_err

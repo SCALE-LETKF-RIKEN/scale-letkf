@@ -1574,16 +1574,14 @@ END SUBROUTINE itpl_3d
 ! Monitor observation departure by giving the v3dg,v2dg data
 !-----------------------------------------------------------------------
 #ifdef RTTOV
-subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso,yobs_him,qc_him)
+subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso,yobs_him,qc_him,mslp_min,mslp_min_CX,mslp_min_CY)
 #else
-subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
+subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso,mslp_min,mslp_min_CX,mslp_min_CY)
 #endif
   use scale_prc, only: &
       PRC_myrank
   use scale_atmos_grid_cartesC_index, only: &
       IHALO, JHALO
- 
-
   implicit none
 
   REAL(RP),intent(in) :: v3dg(nlev,nlon,nlat,nv3d)
@@ -1601,6 +1599,11 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
   real(r_size), intent(in), optional :: yobs_him(NIRB_HIM_USE,nlon,nlat)
   integer,      intent(in), optional :: qc_him  (NIRB_HIM_USE,nlon,nlat)
 #endif
+
+  real(r_size), intent(in), optional :: mslp_min
+  real(r_size), intent(in), optional :: mslp_min_CX
+  real(r_size), intent(in), optional :: mslp_min_CY
+
 
   REAL(r_size) :: v3dgh(nlevh,nlonh,nlath,nv3dd)
   REAL(r_size) :: v2dgh(nlonh,nlath,nv2dd)
@@ -1655,10 +1658,6 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
   end if
 
   oqc = -1
-
-!  obs_idx_TCX = -1
-!  obs_idx_TCY = -1
-!  obs_idx_TCP = -1
 
 !$omp parallel do private(n,nn,iset,iidx,ril,rjl,rk,rkz,m,obsdep_mean)
   do n = 1, nnobs
@@ -1764,6 +1763,17 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
           endif
 #endif
       !=========================================================================
+      case (obsfmt_tcvital)
+        select case( obs(iset)%elm(iidx) )
+        case(id_tclon_obs)
+          ohx(n) = mslp_min_CX
+        case(id_tclat_obs)
+          ohx(n) = mslp_min_CY
+        case(id_tcmip_obs)
+          ohx(n) = mslp_min
+        end select
+        oqc(n) = iqc_good
+      !=========================================================================
       end select
 
       if (oqc(n) == iqc_good) then
@@ -1852,6 +1862,11 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
     monit_type(uid_obs(id_radar_vr_obs)) = .true.
 !    monit_type(uid_obs(id_radar_prh_obs)) = .true.
   end if
+  if ( DEPARTURE_STAT_TCV ) then
+    monit_type(uid_obs(id_tclon_obs)) = .true.
+    monit_type(uid_obs(id_tclat_obs)) = .true.
+    monit_type(uid_obs(id_tcmip_obs)) = .true.
+  endif
 
 #ifdef RTTOV
   if (DEPARTURE_STAT_HIM) then

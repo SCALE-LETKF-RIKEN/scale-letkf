@@ -1607,11 +1607,14 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
       CVdry  => CONST_CVdry, &
       PRE00 => CONST_PRE00
   use scale_tracer, only: TRACER_CV
-  use scale_atmos_grid_cartesc_real, only: &
-     FZ => ATMOS_GRID_CARTESC_real_FZ
   use scale_atmos_bottom, only: &
      ATMOS_BOTTOM_estimate
- 
+  use scale_atmos_hydrostatic, only: &
+     ATMOS_HYDROSTATIC_barometric_law_mslp
+  use scale_atmos_grid_cartesc_real, only: &
+     FZ3D => ATMOS_GRID_CARTESC_real_FZ, &
+     CZ3D => ATMOS_GRID_CARTESC_real_CZ
+
 !  use scale_atmos_saturation, only: &
 !      ATMOS_SATURATION_psat_all
 
@@ -1739,7 +1742,17 @@ subroutine state_to_history(v3dg, v2dg, topo, v3dgh, v2dgh)
                               rho_RP(KS:KE,IS:IE,JS:JE),v3dgh_RP(KS:KE,IS:IE,JS:JE,iv3d_p),v3dgh_RP(KS:KE,IS:IE,JS:JE,iv3d_q),&
                               ! dummy !surface temperature is not used to calculate surface pressure 
                               v3dgh_RP(KS,IS:IE,JS:JE,iv3d_t),                           & 
-                              FZ(KS-1:KE,IS:IE,JS:JE),dummy2d(1:nlon,1:nlat),v2dgh_RP(IS:IE,JS:JE,iv2dd_ps) )
+                              FZ3D(KS-1:KE,IS:IE,JS:JE),dummy2d(1:nlon,1:nlat),v2dgh_RP(IS:IE,JS:JE,iv2dd_ps) )
+
+  call ATMOS_HYDROSTATIC_barometric_law_mslp(nlev,1,nlev,                       & ! [IN]
+                                            nlon,1,nlon,                       & ! [IN]
+                                            nlat,1,nlat,                       & ! [IN]
+                                            v3dg(1:nlev,1:nlon,1:nlat,iv3d_p), & ! [IN]
+                                            v3dg(1:nlev,1:nlon,1:nlat,iv3d_t), & ! [IN]
+                                            v3dg(1:nlev,1:nlon,1:nlat,iv3d_q), & ! [IN]
+                                            CZ3D(KS:KE,IS:IE,JS:JE),           & ! [IN]
+                                            v2dgh_RP(IS:IE,JS:JE,iv2dd_mslp))    ! [OUT]
+
 
   ! Pad the upper and lower halo areas
   !---------------------------------------------------------
