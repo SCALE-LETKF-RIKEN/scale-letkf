@@ -16,9 +16,16 @@ copy="cp" ### tentative for Fugaku
 ######
 
 ### binary
+postfix=""
+if [ "$SCALE_QUICKDEBUG" == "T" ]; then
+  postfix="_quickdebug"
+fi
+if [ "$SCALE_USE_SINGLEFP" == "T" ]; then
+  postfix="${postfix}_single"
+fi
 
-ln -s $LETKFDIR/ensmodel/scale-rm_ens . 
-ln -s $LETKFDIR/ensmodel/scale-rm_init_ens . 
+ln -s $SCALEDIR/bin/scale-rm${postfix} ./scale-rm 
+ln -s $SCALEDIR/bin/scale-rm_init${postfix} ./scale-rm_init 
 ln -s $LETKFDIR/letkf/letkf . 
 
 ### topo and landuse

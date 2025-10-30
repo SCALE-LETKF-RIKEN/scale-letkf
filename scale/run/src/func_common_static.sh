@@ -317,9 +317,9 @@ for i in $(seq 1 $MEMBER_RUN_USE); do
   fi
 done
 
-num_members=$(echo "$MEMBERS" | wc -w)
+num_members=$MEMBER_RUN
 remainder=$(( (num_members * SCALE_NP) % (NNODES * PPN) ))
-if ! (( remainder == 0 )); then
+if ! (( remainder == 0 )) && [[ "$MODEL_NAME" != *pp* ]]; then
   echo "[Error]: The total number of members (${num_members}) multiplied by SCALE_NP (${SCALE_NP}) is not divisible by (NNODES (${NNODES}) * PPN (${PPN}))." >&2
   exit 1
 fi

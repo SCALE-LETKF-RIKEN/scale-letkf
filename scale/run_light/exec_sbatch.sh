@@ -15,10 +15,10 @@ umask 0007
 module purge
 module load  compiler/intel/2020u4 IntelMPI/2020 netcdf/4.7.4
 
-echo "scale-rm_init_ens"
-mpirun ./scale-rm_init_ens config/scale-rm_init_ens_20220101000000.conf 
-echo "scale-rm_ens"
-mpirun ./scale-rm_ens config/scale-rm_ens_20220101000000.conf 
+echo "scale-rm_init"
+mpirun ./scale-rm_init config/scale-rm_init_ens_20220101000000.conf 
+echo "scale-rm"
+mpirun ./scale-rm config/scale-rm_ens_20220101000000.conf 
 for mem in $(seq -f %04g 1 5) mean;do
   for pe in $(seq -f %06g 0 7);do
     cp ${mem}/gues/init_20220101-060000.000.pe${pe}.nc ${mem}/anal/

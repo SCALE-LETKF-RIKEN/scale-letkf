@@ -106,6 +106,9 @@ cp ${COMMON_DIR}/pdbash ${TMPROOT}/pdbash
 cp ${COMMON_DIR}/datetime ${TMPROOT}/datetime
 for i in $(seq $nsteps); do
   org=${SCALEDIR}/bin/${stepexecname[$i]}
+  if [ "$SCALE_QUICKDEBUG" == "T" ]; then
+    org=${org}_quickdebug
+  fi
   if [ "$SCALE_USE_SINGLEFP" == "T" ]; then
     org=${org}_single
   fi

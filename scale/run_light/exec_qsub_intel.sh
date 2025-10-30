@@ -25,10 +25,10 @@ export LD_LIBRARY_PATH="/home/seiya/lib:$LD_LIBRARY_PATH"
 ulimit -s unlimited
 umask 0007
 
-echo "scale-rm_init_ens"
-impijob ./scale-rm_init_ens config/scale-rm_init_ens_20220101000000.conf 
-echo "scale-rm_ens"
-impijob ./scale-rm_ens config/scale-rm_ens_20220101000000.conf 
+echo "scale-rm_init"
+impijob ./scale-rm_init config/scale-rm_init_ens_20220101000000.conf 
+echo "scale-rm"
+impijob ./scale-rm config/scale-rm_ens_20220101000000.conf 
 echo "copy restart files"
 for mem in $(seq -f %04g 1 5) mean;do
   for pe in $(seq -f %06g 0 7);do
