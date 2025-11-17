@@ -571,7 +571,7 @@ subroutine das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
     ! if the weight is zero, no analysis update is needed
     call relax_beta(rig1(ij),rjg1(ij),hgt1(ij,1),beta)
 
-    if ( beta == 0.0_r_size .or. UPDATE_2D_VARIABLES) then
+    if ( beta == 0.0_r_size .or. .not. UPDATE_2D_VARIABLES) then
       do n = 1, nv2d
         do m = 1, MEMBER
           anal2d(ij,m,n) = gues2d(ij,mmean,n) + gues2d(ij,m,n)
@@ -628,7 +628,7 @@ subroutine das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
       else
 
         if (nobslmax == -1) then
-          CALL obs_count(rig1(ij),rjg1(ij),gues3d(ij,ilev,mmean,iv3d_p),hgt1(ij,ilev),n,nobslin)
+          CALL obs_count(rig1(ij),rjg1(ij),gues3d(ij,ilev,mmean,iv3d_p),hgt1(ij,1),n,nobslin)
           allocate (hdxf (nobslin,MEMBER))
           allocate (rdiag(nobslin))
           allocate (rloc (nobslin))
