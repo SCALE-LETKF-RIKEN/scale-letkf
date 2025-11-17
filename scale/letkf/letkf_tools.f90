@@ -628,7 +628,7 @@ subroutine das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
       else
 
         if (nobslmax == -1) then
-          CALL obs_count(rig1(ij),rjg1(ij),gues3d(ij,ilev,mmean,iv3d_p),hgt1(ij,1),n,nobslin)
+          CALL obs_count(rig1(ij),rjg1(ij),gues3d(ij,1,mmean,iv3d_p),hgt1(ij,1),1,nobslin)
           allocate (hdxf (nobslin,MEMBER))
           allocate (rdiag(nobslin))
           allocate (rloc (nobslin))
