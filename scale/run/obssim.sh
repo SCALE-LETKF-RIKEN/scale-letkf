@@ -13,7 +13,6 @@
 . src/func_common_static.sh || exit $?
 #. src/func_${job}_static.sh || exit $?
 
-nsteps=6
 #===============================================================================
 
 echo "[$(datetime_now)] Start obssim $@"
@@ -177,9 +176,7 @@ export FLIB_BARRIER=HARD
 EOF
 
   if (( USE_LLIO_BIN == 1 )); then
-    for i in $(seq $nsteps) ; do
-      echo "llio_transfer ${stepexecbin[$i]}" >> $jobscrp 
-    done
+    echo "llio_transfer obssim" >> $jobscrp 
     echo "" >> $jobscrp
   fi
 
@@ -220,9 +217,8 @@ mpiexec -std-proc ${logd}/%/200r/NOUT -n $((NNODES_USE*PPN)) $TMP/obssim ${confi
 EOF
 
   if (( USE_LLIO_BIN == 1 )); then
-    for i in $(seq $nsteps) ; do
-      echo "llio_transfer --purge ${stepexecbin[$i]}" >> $jobscrp 
-    done
+    echo "llio_transfer --purge obssim" >> $jobscrp 
+    
   fi
 
   if (( USE_LLIO_DAT == 1 )); then
