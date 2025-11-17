@@ -584,162 +584,164 @@ subroutine das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
 !$omp end do
 
 ! update 2D variables 
+  if (UPDATE_2D_VARIABLES) then
 !$omp do schedule(dynamic)
-  do ij = 1, nij1
+    do ij = 1, nij1
 
-    do n = 1, nv2d
+      do n = 1, nv2d
 
-      n2nc = var_local_n2nc(nv3d+n)
-      n2n = var_local_n2n(nv3d+n)
+        n2nc = var_local_n2nc(nv3d+n)
+        n2n = var_local_n2n(nv3d+n)
 
-      if (RELAX_TO_INFLATED_PRIOR) then
-        parm = work2d(ij,n)
-      else
-        parm = 1.0_r_size
-      end if
-
-      ! calculate mean and perturbation weights
-      if (trans_done(n2nc)) then
-        ! if weights already computed for other variables can be re-used(no variable localization), do not need to compute again
-        if (n2n <= nv3d) then
-          if (INFL_MUL_ADAPTIVE) then
-            work2d(ij,n) = work3d(ij,1,n2n)
-          end if
-          if (NOBS_OUT) then
-            work2dn(:,ij,n) = work3dn(:,ij,1,n2n)
-          end if
+        if (RELAX_TO_INFLATED_PRIOR) then
+          parm = work2d(ij,n)
         else
-          if (INFL_MUL_ADAPTIVE) then
-            work2d(ij,n) = work2d(ij,n2n-nv3d)
-          end if
-          if (NOBS_OUT) then
-            work2dn(:,ij,n) = work2dn(:,ij,n2n-nv3d)
-          end if
+          parm = 1.0_r_size
         end if
 
-      else
+        ! calculate mean and perturbation weights
+        if (trans_done(n2nc)) then
+          ! if weights already computed for other variables can be re-used(no variable localization), do not need to compute again
+          if (n2n <= nv3d) then
+            if (INFL_MUL_ADAPTIVE) then
+              work2d(ij,n) = work3d(ij,1,n2n)
+            end if
+            if (NOBS_OUT) then
+              work2dn(:,ij,n) = work3dn(:,ij,1,n2n)
+            end if
+          else
+            if (INFL_MUL_ADAPTIVE) then
+              work2d(ij,n) = work2d(ij,n2n-nv3d)
+            end if
+            if (NOBS_OUT) then
+              work2dn(:,ij,n) = work2dn(:,ij,n2n-nv3d)
+            end if
+          end if
 
-        if (nobslmax == -1) then
-          CALL obs_count(rig1(ij),rjg1(ij),gues3d(ij,ilev,mmean,iv3d_p),hgt1(ij,ilev),n,nobslin)
-          allocate (hdxf (nobslin,MEMBER))
-          allocate (rdiag(nobslin))
-          allocate (rloc (nobslin))
-          allocate (dep  (nobslin))
-          allocate (depd (nobslin))
         else
-          nobslin=nobslmax
-        end if
 
-        ! compute weights with localized observations
-        call obs_local(nobslin,rig1(ij),rjg1(ij),gues3d(ij,1,mmean,iv3d_p),hgt1(ij,1),nv3d+n,hdxf,rdiag,rloc,dep,nobsl,depd=depd,nobsl_t=nobsl_t,cutd_t=cutd_t,srch_q0=search_q0(:,nv3d+1,ij,1))
+          if (nobslmax == -1) then
+            CALL obs_count(rig1(ij),rjg1(ij),gues3d(ij,ilev,mmean,iv3d_p),hgt1(ij,ilev),n,nobslin)
+            allocate (hdxf (nobslin,MEMBER))
+            allocate (rdiag(nobslin))
+            allocate (rloc (nobslin))
+            allocate (dep  (nobslin))
+            allocate (depd (nobslin))
+          else
+            nobslin=nobslmax
+          end if
 
-        call letkf_core(MEMBER,nobslin,nobsl,hdxf,rdiag,rloc,dep,work2d(ij,n), & 
-                        trans(:,:,n2nc),transm=transm(:,n2nc),pao=pa(:,:,n2nc), & 
-                        rdiag_wloc=.true.,infl_update=INFL_MUL_ADAPTIVE, &     
-                        depd=depd,transmd=transmd(:,n2nc))                     
-                        
-        trans_done(n2nc) = .true.                                                  
-        if (NOBS_OUT) then                                                          
-          work2dn(:,ij,n) = real(sum(nobsl_t,dim=1),r_size)        !!! NOBS: sum over all variables for each report type
+          ! compute weights with localized observations
+          call obs_local(nobslin,rig1(ij),rjg1(ij),gues3d(ij,1,mmean,iv3d_p),hgt1(ij,1),nv3d+n,hdxf,rdiag,rloc,dep,nobsl,depd=depd,nobsl_t=nobsl_t,cutd_t=cutd_t,srch_q0=search_q0(:,nv3d+1,ij,1))
+
+          call letkf_core(MEMBER,nobslin,nobsl,hdxf,rdiag,rloc,dep,work2d(ij,n), & 
+                          trans(:,:,n2nc),transm=transm(:,n2nc),pao=pa(:,:,n2nc), & 
+                          rdiag_wloc=.true.,infl_update=INFL_MUL_ADAPTIVE, &     
+                          depd=depd,transmd=transmd(:,n2nc))                     
+                          
+          trans_done(n2nc) = .true.                                                  
+          if (NOBS_OUT) then                                                          
+            work2dn(:,ij,n) = real(sum(nobsl_t,dim=1),r_size)        !!! NOBS: sum over all variables for each report type
+          end if                                                                     
+
+        endif
+
+        if ( DO_ANALYSIS4EFSO ) then
+          if ( INFL_MUL == 1.0_r_size ) then
+            ! Copy the weights from LETKF to EFSO if no multiplicative inflation
+            trans_efso(:,:) = trans(:,:,n2nc)
+          else
+            ! Run LETKF without multiplicative inflation
+            infl_dummy = 1.0_r_size
+            call letkf_core(MEMBER,nobslin,nobsl,hdxf,rdiag,rloc,dep,infl_dummy, & 
+                            trans_efso(:,:), &
+                            rdiag_wloc=.true.,infl_update=.false.)         
+          
+          endif 
+        endif ! [ DO_ANALYSIS4EFSO = T ]
+
+        ! relaxation via LETKF weight
+        if (RELAX_ALPHA /= 0.0_r_size) then                                         
+          ! RTPP method (Zhang et al. 2004)
+          call weight_RTPP(trans(:,:,n2nc),parm,transrlx)                          
+        else if ( RELAX_ALPHA_SPREAD /= 0.0_r_size ) then                           
+          ! RTPS method (Whitaker and Hamill 2012)
+          if (RELAX_SPREAD_OUT) then                                                
+            call weight_RTPS(trans(:,:,n2nc),pa(:,:,n2nc),gues2d(ij,:,n), &        
+                              parm,transrlx,work2da(ij,n))                          
+          else                                                                     
+            call weight_RTPS(trans(:,:,n2nc),pa(:,:,n2nc),gues2d(ij,:,n), &        
+                              parm,transrlx,tmpinfl)                                
+          end if                                                                   
+        else  
+          ! No relaxation                                                                     
+          transrlx = trans(:,:,n2nc)                                               
         end if                                                                     
 
-      endif
+        ! total weight matrix
+        do m = 1, MEMBER                                                              
+          do k = 1, MEMBER                                                            
+            transrlx(k,m) = (transrlx(k,m) + transm(k,n2nc)) * beta                
+          end do                                                                   
+          transrlx(m,m) = transrlx(m,m) + (1.0_r_size-beta)                             
+        end do                                                                     
 
-      if ( DO_ANALYSIS4EFSO ) then
-        if ( INFL_MUL == 1.0_r_size ) then
-          ! Copy the weights from LETKF to EFSO if no multiplicative inflation
-          trans_efso(:,:) = trans(:,:,n2nc)
-        else
-          ! Run LETKF without multiplicative inflation
-          infl_dummy = 1.0_r_size
-          call letkf_core(MEMBER,nobslin,nobsl,hdxf,rdiag,rloc,dep,infl_dummy, & 
-                          trans_efso(:,:), &
-                          rdiag_wloc=.true.,infl_update=.false.)         
-        
-        endif 
-      endif ! [ DO_ANALYSIS4EFSO = T ]
-
-      ! relaxation via LETKF weight
-      if (RELAX_ALPHA /= 0.0_r_size) then                                         
-        ! RTPP method (Zhang et al. 2004)
-        call weight_RTPP(trans(:,:,n2nc),parm,transrlx)                          
-      else if ( RELAX_ALPHA_SPREAD /= 0.0_r_size ) then                           
-        ! RTPS method (Whitaker and Hamill 2012)
-        if (RELAX_SPREAD_OUT) then                                                
-          call weight_RTPS(trans(:,:,n2nc),pa(:,:,n2nc),gues2d(ij,:,n), &        
-                            parm,transrlx,work2da(ij,n))                          
-        else                                                                     
-          call weight_RTPS(trans(:,:,n2nc),pa(:,:,n2nc),gues2d(ij,:,n), &        
-                            parm,transrlx,tmpinfl)                                
-        end if                                                                   
-      else  
-        ! No relaxation                                                                     
-        transrlx = trans(:,:,n2nc)                                               
-      end if                                                                     
-
-      ! total weight matrix
-      do m = 1, MEMBER                                                              
-        do k = 1, MEMBER                                                            
-          transrlx(k,m) = (transrlx(k,m) + transm(k,n2nc)) * beta                
-        end do                                                                   
-        transrlx(m,m) = transrlx(m,m) + (1.0_r_size-beta)                             
-      end do                                                                     
-
-      ! analysis update of members
-      do m = 1, MEMBER
-        anal2d(ij,m,n) = gues2d(ij,mmean,n)                                      
-        do k = 1, MEMBER
-          anal2d(ij,m,n) = anal2d(ij,m,n) &                                      
-                          + gues2d(ij,k,n) * transrlx(k,m)                        
-        end do
-      end do
-
-      ! analysis update of deterministic run
-      if (DET_RUN) then                                                          
-        anal2d(ij,mmdet,n) = 0.0_r_size                                              
-        do k = 1, MEMBER                                                            
-          anal2d(ij,mmdet,n) = anal2d(ij,mmdet,n) &                              
-                              + gues2d(ij,k,n) * transmd(k,n2nc)                 
-        end do                                                                   
-        anal2d(ij,mmdet,n) = gues2d(ij,mmdet,n) &                                
-                            + anal2d(ij,mmdet,n) * beta                          
-      end if                                                                     
-
-
-      if ( DO_ANALYSIS4EFSO ) then
-        ! total weight matrix for EFSO's analysis 
-        do m = 1, MEMBER                                                                  
-          do k = 1, MEMBER                                                              
-            transrlx_efso(k,m) = ( trans_efso(k,m) + transm(k,n2nc) ) * beta                   
-          end do                                                                       
-          transrlx_efso(m,m) = transrlx_efso(m,m) + ( 1.0_r_size - beta )                                 
-        end do               
-
-        ! analysis update of EFSO's analysis members 
+        ! analysis update of members
         do m = 1, MEMBER
-          anal2d_efso(ij,m,n) = gues2d(ij,mmean,n)                                
+          anal2d(ij,m,n) = gues2d(ij,mmean,n)                                      
           do k = 1, MEMBER
-            anal2d_efso(ij,m,n) = anal2d_efso(ij,m,n) &                                
-                                + gues2d(ij,k,n) * transrlx_efso(k,m)                 
-          end do  
+            anal2d(ij,m,n) = anal2d(ij,m,n) &                                      
+                            + gues2d(ij,k,n) * transrlx(k,m)                        
+          end do
         end do
-        if ( DET_RUN ) then
-          anal2d_efso(ij,mmdet,n) = anal2d(ij,mmdet,n)
+
+        ! analysis update of deterministic run
+        if (DET_RUN) then                                                          
+          anal2d(ij,mmdet,n) = 0.0_r_size                                              
+          do k = 1, MEMBER                                                            
+            anal2d(ij,mmdet,n) = anal2d(ij,mmdet,n) &                              
+                                + gues2d(ij,k,n) * transmd(k,n2nc)                 
+          end do                                                                   
+          anal2d(ij,mmdet,n) = gues2d(ij,mmdet,n) &                                
+                              + anal2d(ij,mmdet,n) * beta                          
+        end if                                                                     
+
+
+        if ( DO_ANALYSIS4EFSO ) then
+          ! total weight matrix for EFSO's analysis 
+          do m = 1, MEMBER                                                                  
+            do k = 1, MEMBER                                                              
+              transrlx_efso(k,m) = ( trans_efso(k,m) + transm(k,n2nc) ) * beta                   
+            end do                                                                       
+            transrlx_efso(m,m) = transrlx_efso(m,m) + ( 1.0_r_size - beta )                                 
+          end do               
+
+          ! analysis update of EFSO's analysis members 
+          do m = 1, MEMBER
+            anal2d_efso(ij,m,n) = gues2d(ij,mmean,n)                                
+            do k = 1, MEMBER
+              anal2d_efso(ij,m,n) = anal2d_efso(ij,m,n) &                                
+                                  + gues2d(ij,k,n) * transrlx_efso(k,m)                 
+            end do  
+          end do
+          if ( DET_RUN ) then
+            anal2d_efso(ij,mmdet,n) = anal2d(ij,mmdet,n)
+          end if
+
+        endif ! [ DO_ANALYSIS4EFSO = T ]
+
+        if (nobslmax == -1) then
+          if (allocated(hdxf)) deallocate (hdxf)
+          if (allocated(rdiag)) deallocate (rdiag)
+          if (allocated(rloc)) deallocate (rloc)
+          if (allocated(dep)) deallocate (dep) 
+          if (allocated(depd)) deallocate (depd)
         end if
 
-      endif ! [ DO_ANALYSIS4EFSO = T ]
-
-      if (nobslmax == -1) then
-        if (allocated(hdxf)) deallocate (hdxf)
-        if (allocated(rdiag)) deallocate (rdiag)
-        if (allocated(rloc)) deallocate (rloc)
-        if (allocated(dep)) deallocate (dep) 
-        if (allocated(depd)) deallocate (depd)
-      end if
-
-    end do ! [ n=1,nv2d ]
-  end do ! [ ij=1,nij1 ]
+      end do ! [ n=1,nv2d ]
+    end do ! [ ij=1,nij1 ]
 !$omp end do
+  end if ! [ UPDATE_2D_VARIABLES ]
 
   if (nobslmax /= -1) then
     if (allocated(hdxf)) deallocate (hdxf)

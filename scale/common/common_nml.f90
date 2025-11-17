@@ -191,6 +191,7 @@ MODULE common_nml
   logical :: USE_HISTORY_WO_SFC_IDEAL = .false. ! Use history files without surface variables (ideal cases)
                                                 !  (some history variables at the surface are approximated by the lowest model variables)
 
+  logical :: UPDATE_2D_VARIABLES = .false. ! Update 2D variables during LETKF analysis
 
   !*** for backward compatibility ***
   real(r_size) :: COV_INFL_MUL = 1.0d0
@@ -814,6 +815,7 @@ subroutine read_nml_letkf
     FILL_BY_ZERO_MISSING_VARIABLES, &
     REJECT_ADPSFC_EXCEPT_PS, &
     USE_HISTORY_WO_SFC_IDEAL, &
+    UPDATE_2D_VARIABLES, &
     !*** for backward compatibility ***
     COV_INFL_MUL, &
     MIN_INFL_MUL, &
