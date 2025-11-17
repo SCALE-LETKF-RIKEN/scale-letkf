@@ -49,9 +49,20 @@ MODULE common_scale
   INTEGER,PARAMETER :: iv3d_qi=9   !
   INTEGER,PARAMETER :: iv3d_qs=10  !
   INTEGER,PARAMETER :: iv3d_qg=11  !
+  integer, parameter :: iv3d_nc = 12 ! number concentration (cloud)
+  integer, parameter :: iv3d_nr = 13 ! number concentration (rain)
+  integer, parameter :: iv3d_ni = 14 ! number concentration (ice)
+  integer, parameter :: iv3d_ns = 15 ! number concentration (snow)
+  integer, parameter :: iv3d_ng = 16 ! number concentration (graupel)
   CHARACTER(vname_max),PARAMETER :: v3d_name(nv3d) = &
+#ifdef SN14
+     (/'DENS      ', 'MOMX      ', 'MOMY      ', 'MOMZ      ', 'RHOT      ', &
+       'QV        ', 'QC        ', 'QR        ', 'QI        ', 'QS        ', 'QG        ', &
+       'NC        ', 'NR        ', 'NI        ', 'NS        ', 'NG        '/)
+#else
      (/'DENS      ', 'MOMX      ', 'MOMY      ', 'MOMZ      ', 'RHOT      ', &
        'QV        ', 'QC        ', 'QR        ', 'QI        ', 'QS        ', 'QG        '/)
+#endif
   CHARACTER(vname_max) :: v2d_name(nv2d)
 
   integer, parameter :: iv2d_diag_ps   = 1
@@ -1445,7 +1456,7 @@ subroutine state_trans(v3dg,rotate_flag,v2dg_diag)
       do k = 1, nlev
        qdry  = 1.0d0
        CVtot = 0.0d0
-       do iv3d = iv3d_q, nv3d ! loop over all moisture variables
+       do iv3d = iv3d_q, iv3d_qg ! loop over all moisture variables
          qdry  = qdry - v3dg(k,i,j,iv3d)
          CVtot = CVtot + v3dg(k,i,j,iv3d) * TRACER_CV(iv3d-iv3d_q+1)
        enddo
@@ -1547,8 +1558,12 @@ subroutine state_trans_inv(v3dg)
     if (POSITIVE_DEFINITE_Q .and. iv3d == iv3d_q) then
       v3dg(:,:,:,iv3d) = max(v3dg(:,:,:,iv3d), 0.0_RP)
     else if (POSITIVE_DEFINITE_QHYD .and. &
-             (iv3d == iv3d_qc .or. iv3d == iv3d_qr .or. iv3d == iv3d_qi .or. iv3d == iv3d_qs .or. iv3d == iv3d_qg)) then
-      v3dg(:,:,:,iv3d) = max(v3dg(:,:,:,iv3d), 0.0_RP)
+#ifndef SN14
+             (iv3d >= iv3d_qc .and. iv3d <= iv3d_qg)) then
+#else
+             (iv3d >= iv3d_qc .and. iv3d <= iv3d_ng)) then
+#endif
+              v3dg(:,:,:,iv3d) = max(v3dg(:,:,:,iv3d), 0.0_RP)
     end if
   end do
 
@@ -1558,7 +1573,7 @@ subroutine state_trans_inv(v3dg)
       do k = 1, nlev
        qdry  = 1.0d0
        CVtot = 0.0d0
-       do iv3d = iv3d_q, nv3d ! loop over all moisture variables
+       do iv3d = iv3d_q, iv3d_qg ! loop over all moisture variables
          qdry  = qdry - v3dg(k,i,j,iv3d)
          CVtot = CVtot + v3dg(k,i,j,iv3d) * TRACER_CV(iv3d-iv3d_q+1)
        enddo

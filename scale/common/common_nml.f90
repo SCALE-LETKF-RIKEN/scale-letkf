@@ -16,7 +16,11 @@ MODULE common_nml
   public
 
   !----
+#ifdef SN14
+  integer, parameter :: nv3d = 16     ! number of 3D state variables (in SCALE restart files)
+#else
   integer, parameter :: nv3d = 11     ! number of 3D state variables (in SCALE restart files)
+#endif
   integer, parameter :: nv2d = 0      ! number of 2D state variables (in SCALE restart files)
   integer, parameter :: nv2d_diag = 2 ! number of 2D variables diagnosed from 3D state variables 
   integer, parameter :: nid_obs = 16 ! number of variable types
@@ -186,6 +190,7 @@ MODULE common_nml
 
   logical :: USE_HISTORY_WO_SFC_IDEAL = .false. ! Use history files without surface variables (ideal cases)
                                                 !  (some history variables at the surface are approximated by the lowest model variables)
+
 
   !*** for backward compatibility ***
   real(r_size) :: COV_INFL_MUL = 1.0d0

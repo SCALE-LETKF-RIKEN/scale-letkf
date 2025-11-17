@@ -61,3 +61,7 @@ else
   common_mtx = common_mtx_lapack
   KEVD_LIB = 
 endif
+
+ifeq ($(SN14),T)
+  FOPTS     += -DSN14
+endif
