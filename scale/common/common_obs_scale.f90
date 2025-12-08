@@ -176,10 +176,10 @@ MODULE common_obs_scale
   real(r_size), allocatable, save :: obsdep_oma(:) ! 
   real(r_size), allocatable, save :: obsdep_sprd(:) ! 
   real(r_size), allocatable, save :: obsdep_omb_emean(:) ! 
- #ifdef RTTOV
+#ifdef RTTOV
   real(r_size), allocatable, save :: obsdep_val2(:) ! cloud amount (CA) of Okamoto et al. (2014) 
   real(r_size), allocatable, save :: obsdep_dlev(:) ! peak of the weightning function 
- #endif
+#endif
 
   REAL(r_size),SAVE :: MIN_RADAR_REF
   REAL(r_size),SAVE :: RADAR_REF_THRES
@@ -1872,7 +1872,7 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso,
   if (DEPARTURE_STAT_HIM) then
     monit_type(uid_obs(id_HIMIR_obs)) = .true.
   endif
-#endif RTTOV
+#endif /* RTTOV */
 
   deallocate (oelm)
   deallocate (ohx)
@@ -2213,7 +2213,7 @@ SUBROUTINE get_nobs(cfile,nrec,nn)
 
     READ(iunit,IOSTAT=ios) wk
     IF(ios /= 0) THEN
-      WRITE(6,'(3A,I)') '[Error]',cfile,': Reading error ', ios
+      WRITE(6,'(3A,I10)') '[Error]',cfile,': Reading error ', ios
       STOP
     ELSE 
       IF (real(int(wk(1)),r_size) /= wk(1)) THEN
@@ -2529,7 +2529,7 @@ SUBROUTINE get_nobs_radar(cfile,nn,radarlon,radarlat,radarz)
     IF(ios /= 0) THEN
 !      WRITE(6,'(3A)') '[Warning]',cfile,': Reading error -- skipped'
 !      RETURN
-      WRITE(6,'(3A,I)') '[Error]',cfile,': Reading error', ios
+      WRITE(6,'(3A,I10)') '[Error]',cfile,': Reading error', ios
       STOP
      ELSEIF ( tmp < 0.0_r_size .or. tmp > 360.0_r_size ) THEN
         WRITE(6,'(3A,E10.4)') '[Error]',cfile,': Invalid observation value radarlon = ', tmp

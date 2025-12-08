@@ -1545,10 +1545,10 @@ subroutine state_trans_inv(v3dg)
 
   do iv3d = 1, nv3d
     if (POSITIVE_DEFINITE_Q .and. iv3d == iv3d_q) then
-      v3dg(:,:,:,iv3d) = max(v3dg(:,:,:,iv3d), 0.0d0)
+      v3dg(:,:,:,iv3d) = max(v3dg(:,:,:,iv3d), 0.0_RP)
     else if (POSITIVE_DEFINITE_QHYD .and. &
              (iv3d == iv3d_qc .or. iv3d == iv3d_qr .or. iv3d == iv3d_qi .or. iv3d == iv3d_qs .or. iv3d == iv3d_qg)) then
-      v3dg(:,:,:,iv3d) = max(v3dg(:,:,:,iv3d), 0.0d0)
+      v3dg(:,:,:,iv3d) = max(v3dg(:,:,:,iv3d), 0.0_RP)
     end if
   end do
 
@@ -2266,7 +2266,7 @@ subroutine copy_scale_file(filename_in, filename_out)
   write (filesuffix(4:9),'(I6.6)') PRC_myrank
 
   if ( LOG_LEVEL >= 3 .and. LOG_OUT ) then
-    write(6,'(a,x,a,x,a,x,a)') 'Copying ', trim(filename_in)//filesuffix, ' to ', trim(filename_out)//filesuffix
+    write(6,'(a,1x,a,1x,a,1x,a)') 'Copying ', trim(filename_in)//filesuffix, ' to ', trim(filename_out)//filesuffix
   endif
 
   call execute_command_line("cp " // trim(filename_in) // filesuffix // " " // trim(filename_out) // filesuffix, exitstat=status)

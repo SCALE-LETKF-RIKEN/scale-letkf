@@ -1554,7 +1554,7 @@ subroutine write_ens_mpi(v3d, v2d, monit_step, v3d_efso, v2d_efso)
 
         call copy_scale_file(filename, filename_efso)
         if ( LOG_OUT ) then
-          write(6,'(a,x,a)') 'write file for EFSO ', trim( filename_efso )
+          write(6,'(a,1x,a)') 'write file for EFSO ', trim( filename_efso )
         endif
         call write_restart(filename_efso, v3dg_efso, v2dg_efso)
 
