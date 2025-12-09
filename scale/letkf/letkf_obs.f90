@@ -839,7 +839,7 @@ SUBROUTINE set_letkf_obs
   end if
 
   if ( OBSNUM_OUT_NC .and. myrank_e == mmean_rank_e ) then
-    if ( myrank_d == 0 ) then
+    if ( myrank_d == 0 .and. nctype > 0 ) then
       call write_obsnum_nc( trim( OBSNUM_OUT_NC_BASENAME )//'.nc', nctype, typ_ctype, elm_u_ctype, &
                           obsgrd(1:nctype)%tot_g(i_before_qc), obsgrd(1:nctype)%tot_g(i_after_qc), &
                           nobs_g(i_before_qc), nobs_g(i_after_qc) )

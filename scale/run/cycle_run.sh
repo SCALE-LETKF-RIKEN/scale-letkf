@@ -406,14 +406,21 @@ EOF
   res=$?
 
 # direct
-elif [ "$PRESET" = 'Linux' ]; then
+elif [ "$PRESET" = 'Linux' ] || [ "$PRESET" = 'Linux64-gnu-ompi' ]; then
 
-  echo "[$(datetime_now)] Run ${job} job on PJM"
+  echo "[$(datetime_now)] Run ${job} job on directly"
   echo
 
   cd $TMPS
-
-  ./${job}.sh "$STIME" "$ETIME" "$ISTEP" "$FSTEP" "$CONF_MODE" &> run_progress || exit $?
+cat >> $jobscrp << EOF
+#!/bin/sh
+./${job}.sh "$STIME" "$ETIME" "$MEMBERS" "$CYCLE" "$CYCLE_SKIP" "$IF_VERF" "$IF_EFSO" "$ISTEP" "$FSTEP" "$CONF_MODE" &> run_progress || exit $?
+EOF
+  chmod +x $jobscrp
+  $jobscrp
+  res=$?
+  # Set job id (8 digit) with timestamp
+  jobid=$(date +%m%d%H%M)
 
 else
   echo "PRESET '$PRESET' is not supported."

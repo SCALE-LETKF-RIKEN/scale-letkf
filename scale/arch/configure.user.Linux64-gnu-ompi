@@ -30,7 +30,7 @@ SINGLE_EVP = F
 
 FOPTS_SCALE = $(FFLAGS)
 
-FOPTS     = $(FOPTS_SCALE)
+FOPTS     = $(FOPTS_SCALE) -ffpe-summary=invalid,zero,overflow
 
 FOPTS_EXE  = $(FOPTS)
 

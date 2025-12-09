@@ -2016,7 +2016,7 @@ subroutine monit_obs_mpi(v3dg, v2dg, monit_step)
 #endif
       end if
 
-      if (myrank_d == 0) then
+      if ( myrank_d == 0 .and. obsdep_g_nobs > 0 ) then
         if ( OBSDEP_OUT_NC ) then
           if ( LOG_OUT ) write (6,'(A,I6.6,2A)') 'MYRANK ', myrank,' is writing an obsda file ', trim(OBSDEP_OUT_BASENAME)//'.nc'
           call write_obs_dep_nc( trim(OBSDEP_OUT_BASENAME)//'.nc', &

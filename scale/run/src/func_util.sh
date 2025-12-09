@@ -158,8 +158,7 @@ progdir=$(dirname $PROG)
 
 if [ "$SCALE_SYS" == 'Linux64-gnu-ompi' ] ; then
   
-#  mpirun --mca btl openib,sm,self --bind-to core $PROG $CONF $STDOUT $ARGS
-  mpirun --mca btl tcp,vader,self --bind-to core $PROG $CONF $STDOUT $ARGS
+  mpirun -n $((NNODES*PPN)) --mca btl tcp,vader,self --bind-to core --output-filename ${STDOUT}:nocopy --merge-stderr-to-stdout $PROG $CONF $ARGS >&2
   if ((res != 0)); then
     echo "[Error] mpirun $PROG $CONF $STDOUT $ARGS" >&2
     echo "        Exit code: $res" >&2
@@ -992,6 +991,11 @@ for p in ${JOB_LOG_TYPES}; do
     cp -f $JOB_DIR/${JOB_LOG_PREFIX}.${p}${JOB_ID} $OUTDIR/exp/${JOB_ID}_${JOBNAME}_${STIME}/job.${p}
   fi
 done
+
+# copy run_progress if exists
+if [ -f "$JOB_DIR/run_progress" ]; then
+  cp -f $JOB_DIR/run_progress $OUTDIR/exp/${JOB_ID}_${JOBNAME}_${STIME}/run_progress
+fi
 
 ( cd $SCRP_DIR && git log -1 --format="SCALE-LETKF version %h (%ai)" > $OUTDIR/exp/${JOB_ID}_${JOBNAME}_${STIME}/version )
 ( cd $SCALEDIR/scale-rm && git log -1 --format="SCALE       version %h (%ai)" >> $OUTDIR/exp/${JOB_ID}_${JOBNAME}_${STIME}/version )

@@ -739,18 +739,14 @@ while ((time <= ETIME)); do
       RESTART_OUT_PATH[$d]=${OUTDIR[$d]}/${time}/anal
       BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time/bdy
 
-      CONSTDB_PATH=$SCALEDIR/scale-rm/test/data
+      # CONSTDB_PATH=$SCALEDIR/scale-rm/test/data
+      CONSTDB_PATH=$TMPROOT_CONSTDB/dat
 
-      if [ $PRESET = 'FUGAKU' ] || [ $PRESET = 'FX1000' ] || [ $PRESET = 'Linux64-nvidia' ]; then
-
-        CONSTDB_PATH=$TMPROOT_CONSTDB/dat
-
-        if (( BDY_LLIO_TMP == 1 )) ; then
-          if ((BDY_ENS ==1));then
-            BOUNDARY_PATH[$d]=/local/$time/bdy
-          else
-            BOUNDARY_PATH[$d]=/share/$time/bdy
-          fi
+      if (( BDY_LLIO_TMP == 1 )) ; then
+        if ((BDY_ENS ==1));then
+          BOUNDARY_PATH[$d]=/local/$time/bdy
+        else
+          BOUNDARY_PATH[$d]=/share/$time/bdy
         fi
 
       fi
@@ -827,16 +823,14 @@ while ((time <= ETIME)); do
 
       BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time/bdy
 
-      CONSTDB_PATH=$SCALEDIR/scale-rm/test/data
-      if [ $PRESET = 'FUGAKU' ] || [ $PRESET = 'FX1000' ] || [ $PRESET = 'Linux64-nvidia' ]; then
+      # CONSTDB_PATH=$SCALEDIR/scale-rm/test/data
 
-        CONSTDB_PATH=$TMPROOT_CONSTDB/dat
-        if (( BDY_LLIO_TMP == 1 )) ; then
-          if ((BDY_ENS ==1));then
-            BOUNDARY_PATH[$d]=/local/$time/bdy
-          else
-            BOUNDARY_PATH[$d]=/share/$time/bdy
-          fi
+      CONSTDB_PATH=$TMPROOT_CONSTDB/dat
+      if (( BDY_LLIO_TMP == 1 )) ; then
+        if ((BDY_ENS ==1));then
+          BOUNDARY_PATH[$d]=/local/$time/bdy
+        else
+          BOUNDARY_PATH[$d]=/share/$time/bdy
         fi
 
       fi
