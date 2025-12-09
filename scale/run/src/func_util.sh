@@ -224,13 +224,14 @@ elif [ "$PRESET" == 'FX1000' ]; then
   fi
 
 elif [ "$PRESET" == 'Linux64-nvidia' ]; then
-  mpirun  -n ${NUM_PROC4EXEC} bash -lc '
-    r=${OMPI_COMM_WORLD_RANK:?}
-    exec stdbuf -oL -eL ./"'"$PROG"'" '"$CONF $ARGS"' > "'"$STDOUT"'.${r}" 2>&1
-  '
+  mpirun -np ${NUM_PROC4EXEC}  --output-filename ${STDOUT}:nocopy --merge-stderr-to-stdout $PROG $CONF $ARGS >&2
+  # mpirun  -n ${NUM_PROC4EXEC} bash -lc '
+  #   r=${OMPI_COMM_WORLD_RANK:?}
+  #   exec stdbuf -oL -eL ./"'"$PROG"'" '"$CONF $ARGS"' > "'"$STDOUT"'.${r}" 2>&1
+  # '
   res=$?
   if ((res != 0)); then
-    echo "[Error]     mpirun -n ${NUM_PROC4EXEC} ./$PROG $CONF $ARGS ${STDOUT}" >&2
+    echo "[Error]       mpirun -np ${NUM_PROC4EXEC}  --output-filename ${STDOUT}:nocopy --merge-stderr-to-stdout $PROG $CONF $ARGS" >&2
     echo "        Exit code: $res" >&2
     exit $res
   fi
