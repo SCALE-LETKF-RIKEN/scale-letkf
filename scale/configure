@@ -33,9 +33,14 @@ ifeq ($(LETKF_DEBUG),T)
 FOPTS     += -DLETKF_DEBUG
 endif
 
-ifeq ($(H08),T)
-FOPTS     += -DH08
-FOPTS_SCALE += -DH08
+ifeq ($(RTTOV),T)
+FOPTS     += -DRTTOV
+FOPTS_SCALE += -DRTTOV
+RT_LDFLAGS = -L$(DIR_RTTOV)/lib  -lrttov13_brdf_atlas -lrttov13_emis_atlas -lrttov13_other -lrttov13_parallel -lrttov13_coef_io -lrttov13_hdf -lrttov13_main -lhdf5_hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5
+RT_INCLUDE = -I$(DIR_RTTOV)/mod -I$(DIR_RTTOV)/include
+else
+RT_LDFLAGS =
+RT_INCLUDE = 
 endif
 
 TOSHIBA_OPT =
@@ -55,4 +60,8 @@ ifeq ($(USE_MTX_KEVD),T)
 else
   common_mtx = common_mtx_lapack
   KEVD_LIB = 
+endif
+
+ifeq ($(SN14),T)
+  FOPTS     += -DSN14
 endif

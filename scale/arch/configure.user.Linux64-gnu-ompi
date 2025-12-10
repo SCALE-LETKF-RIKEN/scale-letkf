@@ -14,8 +14,8 @@ ENABLE_SAITAMA_MPW = F
 # Libraries
 #-----------------
 
-#LAPACK_LIB = -I/usr/local/include -llapack -lblas
-LAPACK_LIB = $(SCALE_MATHLIB_LIBS)
+LAPACK_LIB = -I/usr/local/include -llapack -lblas
+# LAPACK_LIB = $(SCALE_MATHLIB_LIBS)
 
 # NCEP_BUFR_LIB is available from https://github.com/NOAA-EMC/NCEPLIBS
 #NCEPBUFR_LIB   = /mnt/humet-hdd01/honda/work/NCEPLIBS-bufr/lib64
@@ -30,7 +30,7 @@ SINGLE_EVP = F
 
 FOPTS_SCALE = $(FFLAGS)
 
-FOPTS     = $(FOPTS_SCALE)
+FOPTS     = $(FOPTS_SCALE) -ffpe-summary=invalid,zero,overflow
 
 FOPTS_EXE  = $(FOPTS)
 

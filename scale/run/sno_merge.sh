@@ -10,11 +10,11 @@ PLEV=F
 INPUT_FROM_SNOW=F
 INPUT_SNOW_NP=16
 
-ALLVAR=F
-SINGLE_VAR=T
+ALLVAR=T
+SINGLE_VAR=F
 
 tint=21600 # [second]
-tstart='2018-07-05 0:10:00'
+tstart='2000-01-01 0:00:00'
 tend=$tstart
 
 . ./config.main
@@ -23,17 +23,20 @@ RUNDIR="${TMP}_sno"
 
 SCALEDIR="$(cd "$(pwd)/../../.." && pwd)"  
 
-TYPE=fcst
-TYPE=anal
+#TYPE=anal
 #TYPE=gues
-TYPE=hist
+#TYPE=hist
+
+TYPE=fcst
+SNO_BASENAME_IN="history"
+SNO_BASENAME_OUT="history"
 
 ## Which domain do you want to convert?
 #DOM=2 
 
 # Output file (X & Y process number) for each member
-NP_OFILE_X=1
-NP_OFILE_Y=1
+NP_OFILE_X=6
+NP_OFILE_Y=8
 
 if [ "$INPUT_FROM_SNOW" == "T" ] ; then
   NP_OFILE_X=1
@@ -127,14 +130,17 @@ while (($(date -ud "$time" '+%s') <= $(date -ud "$tend" '+%s'))); do # time loop
   do 
     cnt=$((${cnt} + 1))
     echo $mem
+ 
+    SNO_PATH_IN=${OUTDIR}/${DTIME}/${TYPE}/${mem} 
   
-    SNO_BASENAME_IN="${OUTDIR}/${DTIME}/${TYPE}/${mem}/history"
-  
-    SNO_BASENAME_OUT="history"
-  
-    if [ "$TYPE" != "fcst" ] && [ "$TYPE" != "hist" ]  ; then
-      SNO_BASENAME_OUT="$TYPE"
-      SNO_BASENAME_IN="${OUTDIR}/${DTIME}/${TYPE}/${mem}/init_${SCALE_TIME}"
+    if [ -z "$SNO_BASENAME_IN" ] || [ -z "$SNO_BASENAME_OUT" ]; then
+      if [ "$TYPE" == "fcst" ] || [ "$TYPE" == "hist" ]  ; then
+        SNO_BASENAME_OUT="history"
+        SNO_BASENAME_IN="history"
+      else
+        SNO_BASENAME_OUT="$TYPE"
+        SNO_BASENAME_IN="init_${SCALE_TIME}"
+      fi
     fi
   
     if [ "$ALLVAR" != "T" ] && [ "$SINGLE_VAR" == "T" ]; then
@@ -143,7 +149,7 @@ while (($(date -ud "$time" '+%s') <= $(date -ud "$tend" '+%s'))); do # time loop
     
   
     if [ "$INPUT_FROM_SNOW" == "T" ] ; then
-      SNO_BASENAME_IN=${OUTDIR}/${DTIME}/${TYPE}_sno_np$(printf %05d ${INPUT_SNOW_NP})/${mem}/${SNO_BASENAME_OUT}
+      SNO_PATH_IN=${OUTDIR}/${DTIME}/${TYPE}_sno_np$(printf %05d ${INPUT_SNOW_NP})/${mem}
     fi
   
     if [ "$GRADS" == "T" ] ; then
@@ -154,7 +160,8 @@ while (($(date -ud "$time" '+%s') <= $(date -ud "$tend" '+%s'))); do # time loop
   
     if (( TOPO > 0 )) ; then
       SNO_OUTPUT_PATH=${OUTDIR}/const/topo_sno_np$(printf %05d ${NP_OFILE})
-      SNO_BASENAME_IN="${OUTDIR}/const/topo/topo"
+      SNO_PATH_IN=${OUTDIR}/const/topo
+      SNO_BASENAME_IN="topo"
       SNO_BASENAME_OUT="topo"
     fi
   
@@ -173,7 +180,7 @@ cat << EOF >> $conf
  IO_LOG_NML_SUPPRESS = .true.,
 /
 &PARAM_SNO
- basename_in  = "${SNO_BASENAME_IN}",
+ basename_in  = "${SNO_PATH_IN}/${SNO_BASENAME_IN}",
  basename_out  = "${SNO_BASENAME_OUT}",
  dirpath_out = "${SNO_OUTPUT_PATH}",
  vars         = ${VARS},

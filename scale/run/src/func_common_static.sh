@@ -292,10 +292,41 @@ local MEMBER_RUN="$1"
 local it
 local conf_file
 
+if [[ "$MODEL_NAME" == *pp* ]]; then
+  MEMBER_RUN_USE=1
+else
+  MEMBER_RUN_USE=$MEMBER_RUN
+fi
+
 if [ "$JOBTYPE" = 'cycle' ]; then
   CONF_FILES_SEQNUM='.false.'
-else
+else # forecast
   CONF_FILES_SEQNUM='.true.'
+fi
+
+# prepare configuration file list
+CONF_LIST=""
+for i in $(seq 1 $MEMBER_RUN_USE); do
+  printf -v num "%04d" "$i"
+  # item="'${num}/${CONF_NAME}.d01_${time}.conf'"
+  item="'${CONF_NAME}.d01_${time}.conf'"
+  if [ -z "$CONF_LIST" ]; then
+    CONF_LIST="$item"
+  else
+    CONF_LIST="$CONF_LIST, $item"
+  fi
+done
+
+num_members=$MEMBER_RUN
+remainder=$(( (num_members * SCALE_NP) % (NNODES * PPN) ))
+if ! (( remainder == 0 )) && [[ "$MODEL_NAME" != *pp* ]]; then
+  echo "[Error]: The total number of members (${num_members}) multiplied by SCALE_NP (${SCALE_NP}) is not divisible by (NNODES (${NNODES}) * PPN (${PPN}))." >&2
+  exit 1
+fi
+if [[ "$MODEL_NAME" == *pp* ]]; then
+  NUM_ITERATION_BULK=1
+else
+  NUM_ITERATION_BULK=$(( ( num_members * SCALE_NP ) / (NNODES*PPN ) ))
 fi
 
 DET_RUN_TF='.false.'
@@ -313,8 +344,8 @@ conf_file="${MODEL_NAME}_${time}.conf"
 echo "  $conf_file"
 cat $SCRP_DIR/config.nml.ensmodel | \
     sed -e "/!--MEMBER--/a MEMBER = $MEMBER," \
-        -e "/!--MEMBER_RUN--/a MEMBER_RUN = $MEMBER_RUN," \
-        -e "/!--CONF_FILES--/a CONF_FILES = \"${CONF_NAME}.d<domain>_${time}.conf\"," \
+        -e "/!--MEMBER_RUN--/a MEMBER_RUN = $MEMBER_RUN_USE," \
+        -e "/!--CONF_FILES--/a CONF_FILES = $CONF_LIST," \
         -e "/!--CONF_FILES_SEQNUM--/a CONF_FILES_SEQNUM = $CONF_FILES_SEQNUM," \
         -e "/!--DET_RUN--/a DET_RUN = $DET_RUN_TF," \
         -e "/!--EFSO_RUN--/a EFSO_RUN = $EFSO_RUN_TF," \
@@ -322,6 +353,8 @@ cat $SCRP_DIR/config.nml.ensmodel | \
         -e "/!--MEM_NODES--/a MEM_NODES = $mem_nodes," \
         -e "/!--NUM_DOMAIN--/a NUM_DOMAIN = $DOMNUM," \
         -e "/!--PRC_DOMAINS--/a PRC_DOMAINS = $PRC_DOMAINS_LIST" \
+        -e "/!--NUM_BULKJOB--/a NUM_BULKJOB = $MEMBER_RUN," \
+        -e "/!--NUM_ITERATION_BULK--/a NUM_ITERATION_BULK = $NUM_ITERATION_BULK," \
     > $TMP/config/${conf_file}
 
 #-------------------------------------------------------------------------------

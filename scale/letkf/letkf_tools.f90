@@ -144,8 +144,7 @@ subroutine das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
   var_local(:,6) = VAR_LOCAL_TC(:)
   var_local(:,7) = VAR_LOCAL_RADAR_REF(:)
   var_local(:,8) = VAR_LOCAL_RADAR_VR(:)
-!  var_local(:,9) = VAR_LOCAL_H08(:)
-
+  var_local(:,9) = VAR_LOCAL_HIM(:)
   var_local_n2nc_max = 1
   var_local_n2nc(1) = 1
   var_local_n2n(1) = 1
@@ -355,16 +354,6 @@ subroutine das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
             anal3d(ij,ilev,mmdet,n) = gues3d(ij,ilev,mmdet,n)
           end if
         end do
-        if (ilev == 1) then
-          do n = 1, nv2d
-            do m = 1, MEMBER
-              anal2d(ij,m,n) = gues2d(ij,mmean,n) + gues2d(ij,m,n)
-            end do
-            if (DET_RUN) then
-              anal2d(ij,mmdet,n) = gues2d(ij,mmdet,n)
-            end if
-          end do
-        end if
 
         if ( DO_ANALYSIS4EFSO ) then
           do n = 1, nv3d
@@ -375,16 +364,6 @@ subroutine das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
               anal3d_efso(ij,ilev,mmdet,n) = gues3d(ij,ilev,mmdet,n)
             end if  
           end do
-          if (ilev == 1) then
-            do n = 1, nv2d
-              do m = 1, MEMBER
-                anal2d_efso(ij,m,n) = gues2d(ij,mmean,n) + gues2d(ij,m,n)
-              end do
-              if (DET_RUN) then
-                anal2d_efso(ij,mmdet,n) = gues2d(ij,mmdet,n)
-              end if  
-            end do
-          end if
         endif ! DO_ANALYSIS4EFSO
 
         cycle
@@ -588,6 +567,34 @@ subroutine das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
 !$omp do schedule(dynamic)
   do ij = 1, nij1
 
+    ! weight parameter based on grid locations (not for covariance inflation purpose)
+    ! if the weight is zero, no analysis update is needed
+    call relax_beta(rig1(ij),rjg1(ij),hgt1(ij,1),beta)
+
+    if ( beta == 0.0_r_size .or. .not. UPDATE_2D_VARIABLES) then
+      do n = 1, nv2d
+        do m = 1, MEMBER
+          anal2d(ij,m,n) = gues2d(ij,mmean,n) + gues2d(ij,m,n)
+        end do
+        if (DET_RUN) then
+          anal2d(ij,mmdet,n) = gues2d(ij,mmdet,n)
+        end if
+      end do
+
+      if ( DO_ANALYSIS4EFSO ) then
+        do n = 1, nv2d
+          do m = 1, MEMBER
+            anal2d_efso(ij,m,n) = gues2d(ij,mmean,n) + gues2d(ij,m,n)
+          end do
+          if (DET_RUN) then
+            anal2d_efso(ij,mmdet,n) = gues2d(ij,mmdet,n)
+          end if  
+        end do
+      endif ! DO_ANALYSIS4EFSO
+
+      cycle
+    end if
+
     do n = 1, nv2d
 
       n2nc = var_local_n2nc(nv3d+n)
@@ -621,7 +628,7 @@ subroutine das_letkf(gues3d,gues2d,anal3d,anal2d,anal3d_efso,anal2d_efso)
       else
 
         if (nobslmax == -1) then
-          CALL obs_count(rig1(ij),rjg1(ij),gues3d(ij,ilev,mmean,iv3d_p),hgt1(ij,ilev),n,nobslin)
+          CALL obs_count(rig1(ij),rjg1(ij),gues3d(ij,1,mmean,iv3d_p),hgt1(ij,1),1,nobslin)
           allocate (hdxf (nobslin,MEMBER))
           allocate (rdiag(nobslin))
           allocate (rloc (nobslin))
@@ -1026,7 +1033,7 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
   real(r_size) :: dri_adv(nij1,nlev)
   real(r_size) :: drj_adv(nij1,nlev)
 
-  ! observation sensitibity
+  ! observation sensitivity
   real(r_size), allocatable :: obsense(:,:)
   real(r_size), allocatable :: hdxf(:,:)
   real(r_size), allocatable :: hdxa_rinv(:,:)
@@ -1034,7 +1041,7 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
   real(r_size), allocatable :: nrloc(:)       ! normalized localization factor (not used)
   real(r_size), allocatable :: dep(:)
   real(r_size), allocatable :: djdy(:,:)
-  real(r_size), allocatable :: work1(:,:)
+  real(r_size) :: work1(nterm,MEMBER)
   integer, allocatable :: vobsidx_l(:)
   integer :: ij, iv3d, iv2d, ilev, m
   integer :: nob, nobsl, iterm
@@ -1044,11 +1051,10 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
   integer :: iob
 
   integer, allocatable :: obs_g_qc (:)
+  real(r_size), allocatable :: obs_g_val2(:)
 
   integer :: iof, set
 
-  integer :: nobslmax !!! public
-  integer :: nobslin  !!! private
 
   if ( LOG_OUT ) write(6,'(A)') 'Hello from das_efso'
 !  nobstotal = obsda_sort%nobs 
@@ -1091,34 +1097,16 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
     end if ! [ n_merge(ic) > 0 ]
   end do ! [ ic = 1, nctype ]
   n_merge_max = maxval(n_merge)
-  !
-  ! Determine allocation size for obs_local
-  !
-  if (maxval(MAX_NOBS_PER_GRID(:)) > 0) then
-    nobslmax = 0
-    do ic = 1, nctype
-      if (MAX_NOBS_PER_GRID(typ_ctype(ic)) > 0 .and. n_merge(ic) > 0) then
-        nobslmax = nobslmax + MAX_NOBS_PER_GRID(typ_ctype(ic))
-      end if
-    end do
-    WRITE(6,'(A,I8)') 'Max observation numbers assimilated at a grid: NOBS=',nobslmax
-  else
-    nobslmax = -1
-  end if
+
 
   allocate( djdy(nterm,nobstotal) )
   djdy = 0.0_r_size
-  !
-  ! MAIN ASSIMILATION LOOP
-  !
-  if (nobslmax /= -1) then
-    allocate( hdxf(1:nobslmax,1:MEMBER) )
-    allocate( nrdiag(1:nobslmax) )
-    allocate( nrloc(1:nobslmax)  )
-    allocate( dep(1:nobslmax)   )
-    allocate( vobsidx_l(1:nobslmax) )
-  end if
-  allocate( work1(nterm,MEMBER))
+
+  allocate( hdxf(1:nobstotal,1:MEMBER) )
+  allocate( nrdiag(1:nobstotal) )
+  allocate( nrloc(1:nobstotal)  )
+  allocate( dep(1:nobstotal)   )
+  allocate( vobsidx_l(1:nobstotal) )
 
   if ( LOG_OUT ) write(6,'(a)') 'Calculate localization advection'
 
@@ -1135,28 +1123,16 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
 
   if ( LOG_OUT ) write(6,'(a)') 'Start dj/dy computation'
 
-!$omp parallel private(ij,ilev,iv3d,iv2d,hdxf,nrdiag,nrloc,dep,nobsl,nobslin,iterm,m,nob,iob,hdxa_rinv,work1,vobsidx_l)
+!$omp parallel private(ij,ilev,iv3d,iv2d,hdxf,nrdiag,nrloc,dep,nobsl,iterm,m,nob,iob,hdxa_rinv,work1,vobsidx_l)
 !$omp do schedule(dynamic)
   do ilev = 1, nlev
     do ij = 1, nij1
 
-      if (nobslmax == -1) then
-        CALL obs_count(rig1(ij),rjg1(ij),gues3d(ij,ilev,iv3d_p),hgt1(ij,ilev),0,nobslin)
-        allocate (hdxf (1:nobslin,1:MEMBER))
-        allocate (nrdiag(1:nobslin))
-        allocate (nrloc (1:nobslin))
-        allocate (dep  (1:nobslin))
-        allocate (vobsidx_l(1:nobslin))
-      else
-        nobslin=nobslmax
-      end if
-
-      call obs_local( nobslin, rig1(ij)+dri_adv(ij,ilev), rjg1(ij)+drj_adv(ij,ilev), gues3d(ij,ilev,iv3d_p), hgt1(ij,ilev), &
+      call obs_local( nobstotal, rig1(ij)+dri_adv(ij,ilev), rjg1(ij)+drj_adv(ij,ilev), gues3d(ij,ilev,iv3d_p), hgt1(ij,ilev), &
                       0, & ! No variable localization
                       hdxf, nrdiag, nrloc, dep, nobsl, &
                       vobsidx_l=vobsidx_l ) 
-            
-
+                      
       if ( nobsl > 0 ) then
         ! Forecast error
         work1 = 0.0_r_size
@@ -1223,25 +1199,18 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
         !!! djdy: [1/2(K-1)]rho*R^(-1)*Y^a_0*(X^f_t)^T*C*(e^f_t+e^g_t)
         deallocate( hdxa_rinv )
       endif
-      if (nobslmax == -1) then
-        deallocate( hdxf )
-        deallocate( nrdiag )
-        deallocate( nrloc )
-        deallocate( dep )
-        deallocate( vobsidx_l )
-      end if
+
     enddo ! ij
   enddo   ! ilev
 !$omp end do
 !$omp end parallel
-  if (nobslmax /= -1) then
-    deallocate( hdxf )
-    deallocate( nrdiag )
-    deallocate( nrloc )
-    deallocate( dep )
-    deallocate( vobsidx_l )
-  end if
-  deallocate( work1 )
+  deallocate( hdxf )
+  deallocate( nrdiag )
+  deallocate( nrloc )
+  deallocate( dep )
+  deallocate( vobsidx_l )
+
+
   if ( LOG_OUT ) write(6,'(a)') 'Finish dj/dy computation'
 
   !
@@ -1274,6 +1243,13 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
 
     obs_g_qc  = 1
 
+#ifdef RTTOV
+    if ( OBS_IN_FORMAT(iof) == obsfmt_HIM ) then
+      allocate( obs_g_val2(obs(iof)%nobs) )
+      obs_g_val2 = 0.0_r_size
+    endif
+#endif
+
     call init_obsense( obs(iof)%nobs )
     if ( LOG_OUT ) write(6,'(a,i6)') 'init_obsense for file index', iof
 
@@ -1287,6 +1263,12 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
         iob = obsda_sort%idx(nob) ! global index for obsevations
         obsense_global(:,iob) = obsense(:,nob)
         obs_g_qc (iob) = obsda_sort%qc (nob)
+#ifdef RTTOV
+        if ( OBS_IN_FORMAT(iof) == obsfmt_HIM ) then
+          obs_g_val2(iob) = obsda_sort%val2(nob)
+        endif
+#endif
+
       end do
 !$omp end do
 !$omp end parallel
@@ -1299,13 +1281,21 @@ subroutine das_efso(gues3d,fcst3d,fcst2d,fcer3d,fcer2d,uwind_a,vwind_a,total_imp
     ! Pick up minimum values (MPI_MIN) because the default value was set to 1 (bad obs).
     call MPI_ALLREDUCE( MPI_IN_PLACE, obs_g_qc,  obs(iof)%nobs, MPI_INTEGER, MPI_MIN, MPI_COMM_a, ierr )
 
+    if ( allocated( obs_g_val2 ) ) then
+      call MPI_ALLREDUCE( MPI_IN_PLACE, obs_g_val2,  obs(iof)%nobs, MPI_r_size, MPI_MAX, MPI_COMM_a, ierr )
+    endif
+
     if ( LOG_OUT ) write(6,'(a)') 'Finish MPI comm for obsense_global, QC, and total_impact'
 
     ! write out observation sensitivity
     if ( myrank_a == 0 ) then
       if ( LOG_OUT ) write(6,'(a)') 'Write obsense_global'
-      
-      call write_efso_nc(trim( EFSO_OUTPUT_NC_BASENAME ) // '_' // trim(OBS_IN_FORMAT(iof)) // '.nc', obs(iof)%nobs, iof, obs_g_qc, obsense_global, total_impact )
+      if ( allocated(obs_g_val2 ) ) then
+        call write_efso_nc(trim( EFSO_OUTPUT_NC_BASENAME ) // '_' // trim(OBS_IN_FORMAT(iof)) // '.nc', obs(iof)%nobs, iof, obs_g_qc, obsense_global, total_impact, val2=obs_g_val2 )
+      else
+        call write_efso_nc(trim( EFSO_OUTPUT_NC_BASENAME ) // '_' // trim(OBS_IN_FORMAT(iof)) // '.nc', obs(iof)%nobs, iof, obs_g_qc, obsense_global, total_impact )
+      endif
+
       call print_obsense(obs(iof)%nobs, iof, obs_g_qc, obsense_global, total_impact, print_dry=.true. )
       call print_obsense(obs(iof)%nobs, iof, obs_g_qc, obsense_global, total_impact, print_dry=.false. )
     endif
@@ -1932,6 +1922,11 @@ subroutine obs_local_cal(ri, rj, rlev, rz, nvar, iob, ic, ndist, nrloc, nrdiag)
   real(r_size) :: nd_h, nd_v ! normalized horizontal/vertical distances
 
   integer :: di, dj, dk
+  integer :: ch_num
+
+#ifdef RTTOV
+  real(r_size) :: ca ! cloud parameter
+#endif
 
   nrloc = 1.0_r_size
   nrdiag = -1.0_r_size
@@ -1980,6 +1975,12 @@ subroutine obs_local_cal(ri, rj, rlev, rz, nvar, iob, ic, ndist, nrloc, nrdiag)
     nd_v = ABS(LOG(VERT_LOCAL_RAIN_BASE) - LOG(rlev)) / vert_loc_ctype(ic)  ! for rain, use VERT_LOCAL_RAIN_BASE for the base of vertical localization
   else if (obtyp == 22) then ! obtypelist(obtyp) == 'PHARAD'
     nd_v = ABS(obs(obset)%lev(obidx) - rz) / vert_loc_ctype(ic)             ! for PHARAD, use z-coordinate for vertical localization
+  else if ( obtypelist(obtyp) == 'TCVITL' ) then
+    nd_v = 0.0_r_size  ! for TCVITL, no vertical localization
+#ifdef RTTOV
+  else if (obtyp == 23) then ! obtypelist(obtyp) == 'HIMIRB'                ! HIM
+    nd_v = abs( log( obsda_sort%lev(iob) ) - log( rlev ) ) / vert_loc_ctype(ic)   ! HIM for HIMIRB, use obsda_sort%lev(iob) for vertical localization
+#endif
   else
     nd_v = ABS(LOG(obs(obset)%lev(obidx)) - LOG(rlev)) / vert_loc_ctype(ic)
   end if
@@ -2071,9 +2072,31 @@ subroutine obs_local_cal(ri, rj, rlev, rz, nvar, iob, ic, ndist, nrloc, nrdiag)
     end if
   endif
 
-  ! if ( obtyp == 1 .and. nrdiag < 0.0000001_r_size ) then
-  !   write(6,'(a,4e10.2,i7)') 'Debug obs_local_cal', nrdiag, obs(obset)%err(obidx), hori_loc_ctype(ic), vert_loc_ctype(ic), obs(obset)%elm(obidx)
-  ! endif
+#ifdef RTTOV
+  ca = obsda_sort%val2(iob)
+  if (obtyp == 23) then ! obtypelist(obtyp) == 'HIMIRB'
+    ch_num = nint(obs(obset)%lev(obidx))
+    if ( HIM_AOEI .and. INFL_ADD == 0.0d0 ) then 
+    ! obs%err: sigma_ot/true (not inflated) obs error 
+    ! obsda%val: O–B (innovation)
+    ! obsda%val2: sigma_o (inflated obs error)
+    ! nrdiag = max(obs(obset)%err(obidx)**2, obsda_sort%val(iob)**2 - obsda_sort%val2(iob)**2)**2 / nrloc 
+      nrdiag = obsda_sort%val2(iob)**2 / nrloc 
+
+    elseif ( HIM_CLDERR_SIMPLE ) then ! simple cloud-dependent obs err (Honda et al. 2017MWR)
+      if( ca > HIM_CA_THRES )then
+        nrdiag = HIM_CLDERR_CLOUD(ch_num) * HIM_CLDERR_CLOUD(ch_num) / nrloc
+      else
+        nrdiag = HIM_CLDERR_CLEAR(ch_num) * HIM_CLDERR_CLEAR(ch_num) / nrloc
+      endif
+      !if (LOG_LEVEL > 3) then
+      !  write(6,'(a,2f6.1,i3)')'Debug, HIMIRB obs error for HIM_CLDERR_SIMPLE: ', obsda_sort%val2(iob), HIM_CLDERR_CLOUD(ch_num), ch_num
+      !endif
+    else
+      nrdiag = OBSERR_HIM(ch_num) * OBSERR_HIM(ch_num) / nrloc ! constant everywhere
+    endif
+  endif
+#endif
 
   return
 end subroutine obs_local_cal

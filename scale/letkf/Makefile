@@ -19,13 +19,17 @@ COMMON_OBJS = $(COMMON_DIR)/SFMT.o           \
               $(COMMON_DIR)/common_mpi_scale.o \
               $(COMMON_DIR)/common_nml.o
 
+ifeq ($(RTTOV),T)
+COMMON_OBJS    += $(COMMON_DIR)/common_scale_rttov13.o 
+endif
+
 OBS_DIR = ../obs
 
 OBS_OBJS = $(OBS_DIR)/obsope_tools.o
 
-INCS    = $(SCALE_INC) $(NETCDF_INC)
+INCS    = $(SCALE_INC) $(NETCDF_INC) $(RT_INCLUDE)
 
-LIBS    = $(SCALE_LIB) $(NETCDF_LIB) $(LAPACK_LIB) $(KEVD_LIB)
+LIBS    = $(SCALE_LIB) $(NETCDF_LIB) $(LAPACK_LIB) $(KEVD_LIB) $(RT_LDFLAGS)
 
 
 .PHONY:	all clean FORCE

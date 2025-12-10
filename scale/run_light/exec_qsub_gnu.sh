@@ -35,10 +35,10 @@ umask 0007
 #mpicommand="mpirun --mca btl openib,sm,self --bind-to core"
 mpicommand="mpirun --mca btl tcp,vader,self --bind-to core"
 
-echo "scale-rm_init_ens" 
- $mpicommand ./scale-rm_init_ens config/scale-rm_init_ens_20220101000000.conf 
-echo "scale-rm_ens"
- $mpicommand ./scale-rm_ens config/scale-rm_ens_20220101000000.conf 
+echo "scale-rm_init" 
+ $mpicommand ./scale-rm_init config/scale-rm_init_ens_20220101000000.conf 
+echo "scale-rm"
+ $mpicommand ./scale-rm config/scale-rm_ens_20220101000000.conf 
 echo "copy restart files"
 for mem in $(seq -f %04g 1 5) mean;do
   for pe in $(seq -f %06g 0 7);do

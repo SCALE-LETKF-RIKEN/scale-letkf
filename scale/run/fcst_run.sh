@@ -289,8 +289,16 @@ cat > $jobscrp << EOF
 #PJM -L "elapse=${TIME_LIMIT}"
 #PJM -g ${GROUP} 
 #PJM -S
-#PJM -L gpu=${NNODES}
 #PJM -j
+EOF
+
+if [[ $RSCGRP == *"share"* ]]; then
+  echo "#PJM -L gpu=${NNODES}" >> $jobscrp
+else
+  echo "#PJM -L node=$(($NNODES/8))" >> $jobscrp
+fi
+
+cat >> $jobscrp << EOF
 
 export LD_LIBRARY_PATH=${NETCDF_F_DIR}/lib:${NETCDF_DIR}/lib
 
@@ -304,22 +312,12 @@ export UCX_TLS=^gdr_copy
 
 export FORT_FMT_RECL=500
 # export NVCOMPILER_ACC_NOTIFY=31
-# export NVCOMPILER_ACC_NOTIFY=16
+# export NVCOMPILER_ACC_NOTIFY=3
 # export NVCOMPILER_ACC_TIME=1
 
 ./${job}.sh "$STIME" "$ETIME" "$MEMBERS" "$CYCLE" "$CYCLE_SKIP" "$IF_VERF" "$IF_EFSO" "$ISTEP" "$FSTEP" "$CONF_MODE" || exit \$?
 
 EOF
-
-  wrapper="$TMP/wrapper.sh"
-cat > $wrapper << EOF
-#!/bin/sh
-
-GPU_UUID=(\${CUDA_VISIBLE_DEVICES//,/ })
-export CUDA_VISIBLE_DEVICES=\$OMPI_COMM_WORLD_LOCAL_RANK
-exec "\$@" > "\$LOG_SCALE_LETKF.\${OMPI_COMM_WORLD_RANK:-0}" 2>&1
-EOF
-  chmod +x $wrapper
 
   echo "[$(datetime_now)] Run ${job} job on PJM"
   echo
@@ -417,15 +415,21 @@ EOF
   job_end_check_torque $jobid
   res=$?
 # direct
-elif [ "$PRESET" = 'Linux' ]; then
+elif [ "$PRESET" = 'Linux' ] || [ "$PRESET" = 'Linux64-gnu-ompi' ]; then
 
-  echo "[$(datetime_now)] Run ${job} job on PJM"
+  echo "[$(datetime_now)] Run ${job} job directly"
   echo
 
   cd $TMPS
-
+cat >> $jobscrp << EOF
+#!/bin/sh
 ./${job}.sh "$STIME" "$ETIME" "$MEMBERS" "$CYCLE" "$CYCLE_SKIP" "$IF_VERF" "$IF_EFSO" "$ISTEP" "$FSTEP" "$CONF_MODE" &> run_progress || exit $?
-
+EOF
+  chmod +x $jobscrp
+  $jobscrp
+  res=$?
+  # Set job id (8 digit) with timestamp
+  jobid=$(date +%m%d%H%M)
 else
   echo "PRESET '$PRESET' is not supported."
   exit 1

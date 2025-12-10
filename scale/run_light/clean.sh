@@ -7,7 +7,7 @@ mydir=$(pwd)
 myname="$(basename "$0")"
 
 ### binary
-rm ./scale-rm_ens ./scale-rm_init_ens ./letkf  
+rm ./scale-rm ./scale-rm_init ./letkf  
 
 ### topo and landuse
 rm -r ./const 

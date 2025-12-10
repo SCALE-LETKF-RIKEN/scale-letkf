@@ -104,9 +104,16 @@ else # DISK_MODE=0 : no staging
 
 cp ${COMMON_DIR}/pdbash ${TMPROOT}/pdbash
 cp ${COMMON_DIR}/datetime ${TMPROOT}/datetime
-cp ${ENSMODEL_DIR}/scale-rm_pp_ens ${TMPROOT}/scale-rm_pp_ens
-cp ${ENSMODEL_DIR}/scale-rm_init_ens ${TMPROOT}/scale-rm_init_ens
-cp ${ENSMODEL_DIR}/scale-rm_ens ${TMPROOT}/scale-rm_ens
+for i in $(seq $nsteps); do
+  org=${SCALEDIR}/bin/${stepexecname[$i]}
+  if [ "$SCALE_QUICKDEBUG" == "T" ]; then
+    org=${org}_quickdebug
+  fi
+  if [ "$SCALE_USE_SINGLEFP" == "T" ]; then
+    org=${org}_single
+  fi
+  cp ${org} $TMPROOT/${stepexecname[$i]}
+done
 
 #-------------------------------------------------------------------------------
 # database
@@ -501,7 +508,7 @@ done
 if [ "$TOPO_FORMAT" = "GTOPO30" ] || [ "$TOPO_FORMAT" = "DEM50M" ] || [ "$LANDUSE_FORMAT" = "GLCCv2" ] || [ "$LANDUSE_FORMAT" = "LU100M" ] ; then
   mkdir -p $OUTDIR/const/topo
   mkdir -p $OUTDIR/const/landuse
-  config_file_scale_launcher fcst fcst_scale-rm_pp_ens "f<member>/pp" 1
+  config_file_scale_launcher fcst fcst_scale-rm_pp "pp" 1
   OFFLINE_PARENT_BASENAME=
   DOMAIN_CATALOGUE_OUTPUT=".true."
 
@@ -564,8 +571,8 @@ if [ "$TOPO_FORMAT" = "GTOPO30" ] || [ "$TOPO_FORMAT" = "DEM50M" ] || [ "$LANDUS
                -e "/!--DOMAIN_CATALOGUE_FNAME--/a DOMAIN_CATALOGUE_FNAME = \"${OUTDIR}/const/log/latlon_domain_catalogue.txt\"," \
                -e "/!--DOMAIN_CATALOGUE_OUTPUT--/a DOMAIN_CATALOGUE_OUTPUT = ${DOMAIN_CATALOGUE_OUTPUT}," \
           )"
-   mkdir -p $TMP/f$(printf $MEMBER_FMT 1)
-   conf_file="$TMP/f$(printf $MEMBER_FMT 1)/pp.d01_${STIME}.conf"
+   mkdir -p $TMP/$(printf $MEMBER_FMT 1)
+   conf_file="$TMP/$(printf $MEMBER_FMT 1)/pp.d01_${STIME}.conf"
    echo "$conf" > ${conf_file}
 
 #   for q in $(seq ${SCALE_NP[1]}); do
@@ -610,7 +617,7 @@ while ((time_s <= ETIME)); do
     #---------------------------------------------------------------------------
 
     time=$time_s
-    config_file_scale_launcher fcst fcst_scale-rm_init_ens "f<member>/init" $((m_run_onecycle*rcycle))
+    config_file_scale_launcher fcst fcst_scale-rm_init "init" $((m_run_onecycle*rcycle))
 
     #---------------------------------------------------------------------------
     # scale_init (each member)
@@ -668,6 +675,17 @@ while ((time_s <= ETIME)); do
 
 
       fi # [ ((time <= ETIME)) ]
+
+      if (( MAKEINIT_RANDOM_BBL == 1 )) && (( BDY_ENS==1 )); then
+        echo "Make initial condition for random BBL" >&2
+        if [[ "${MEMBERS}" == *mean* ]]; then
+          echo "[Error] MAKEINIT_RANDOM_BBL cannot be run with mean" >&2
+          exit 1
+        fi
+
+        python3 ${SCRP_DIR}/init_perturb/locate_bubble_random.py -e ${MEMBER} -cx ${BBL_CX} -cy ${BBL_CY} -stdx ${STD_X} -stdy ${STD_Y} -nml ${TMPROOT}/fxxxx/init.d01_${time}.conf -npz ${OUTDIR}/npz
+      fi
+
     done # [ c in $(seq $CYCLE) ]
 
   fi # [ BDY_FORMAT != 0 ]
@@ -677,7 +695,7 @@ while ((time_s <= ETIME)); do
   #-----------------------------------------------------------------------------
 
   time=$time_s
-  config_file_scale_launcher fcst fcst_scale-rm_ens "f<member>/run" $((fmember*rcycle))
+  config_file_scale_launcher fcst fcst_scale-rm "run" $((fmember*rcycle))
 
   #-----------------------------------------------------------------------------
   # scale (each member)
@@ -703,10 +721,8 @@ while ((time_s <= ETIME)); do
     RESTART_IN_PATH[$d]=${INDIR[$d]}/$time/anal
     RESTART_OUT_PATH[$d]=${OUTDIR[$d]}/$time/fcst
     BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time/bdy
-    CONSTDB_PATH=$SCALEDIR/scale-rm/test/data
-    if [ $PRESET = 'FUGAKU' ] || [ $PRESET = 'FX1000' ] || [ $PRESET = 'Linux64-nvidia' ]; then
-      CONSTDB_PATH=$TMPROOT_CONSTDB/dat
-    fi
+    # CONSTDB_PATH=$SCALEDIR/scale-rm/test/data
+    CONSTDB_PATH=$TMPROOT_CONSTDB/dat
   fi
 
   if [ $PRESET = 'FUGAKU' ] && (( BDY_LLIO_TMP == 1 )) && (( BDY_ENS == 1 )); then
@@ -831,8 +847,8 @@ m=$1
               #  sed -e "/!--MAKE_BOUNDARY--/a MAKE_BOUNDARY = .false.,")"
               #------
             fi
-            mkdir -p $TMP/f$(printf $MEMBER_FMT $m)
-            conf_file="$TMP/f$(printf $MEMBER_FMT $m)/init.d${dfmt}_${time_s}.conf"
+            mkdir -p $TMP/$(printf $MEMBER_FMT $m)
+            conf_file="$TMP/$(printf $MEMBER_FMT $m)/init.d${dfmt}_${time_s}.conf"
             #echo "  $conf_file"
             echo "$conf" > ${conf_file}
 
@@ -937,9 +953,9 @@ m=$1
         conf="$(echo "$conf" | \
             sed -e "/!--ATMOS_BOUNDARY_IN_BASENAME--/a ATMOS_BOUNDARY_IN_BASENAME = \"${BOUNDARY_PATH[$d]}/${mem_bdy}/boundary\"," )"
           fi
-          mkdir -p $CONFIG_DIR/f$(printf $MEMBER_FMT $m)
-          mkdir -p $TMP/f$(printf $MEMBER_FMT $m)
-          conf_file="$TMP/f$(printf $MEMBER_FMT $m)/run.d${dfmt}_${time_s}.conf"
+          mkdir -p $CONFIG_DIR/$(printf $MEMBER_FMT $m)
+          mkdir -p $TMP/$(printf $MEMBER_FMT $m)
+          conf_file="$TMP/$(printf $MEMBER_FMT $m)/run.d${dfmt}_${time_s}.conf"
           #echo "  $conf_file"
           echo "$conf" > ${conf_file}
 
@@ -992,13 +1008,13 @@ setting () {
 nsteps=3
 stepname[1]='Run SCALE pp'
 stepexecdir[1]="$TMPRUN/scale_pp"
-stepexecname[1]="scale-rm_pp_ens"
+stepexecname[1]="scale-rm_pp"
 stepname[2]='Run SCALE init'
 stepexecdir[2]="$TMPRUN/scale_init"
-stepexecname[2]="scale-rm_init_ens"
+stepexecname[2]="scale-rm_init"
 stepname[3]='Run ensemble forecasts'
 stepexecdir[3]="$TMPRUN/scale"
-stepexecname[3]="scale-rm_ens"
+stepexecname[3]="scale-rm"
 #stepname[4]='Run verification'
 #stepexecdir[4]="$TMPRUN/verify"
 #stepexecname[4]="verify"
@@ -1012,6 +1028,7 @@ else
     stepexecbin[$i]="./${stepexecname[$i]}"
   done
 fi
+
 
 #-------------------------------------------------------------------------------
 # usage help string
@@ -1108,6 +1125,16 @@ else
   done
   MEMBERS="$tmpstr"
 fi
+
+# Add redundant members to make the total number of members divisible by (NNODES * PPN) / SCALE_NP
+num_members=$(echo "$MEMBERS" | wc -w)
+remainder=$(( (num_members * SCALE_NP) % (NNODES * PPN) ))
+if ! (( remainder == 0 )); then
+  num_repert_mem=$(( ( NNODES*PPN - remainder ) / SCALE_NP ))
+  MEMBERS=$MEMBERS" $(printf "$MEMBER_FMT " $(seq $num_repert_mem))"
+  echo "[Info]: MEMBERS is extended to: $MEMBERS" >&2
+fi
+
 CYCLE=${CYCLE:-0}
 CYCLE_SKIP=${CYCLE_SKIP:-1}
 IF_VERF=${IF_VERF:-0}

@@ -64,6 +64,35 @@ for m in $(seq $MEMBER); do
   mkdir -p $TMP/${name_m[$m]}
 done
 
+# make links for mean and mdet members
+ln -s $TMP/mean $TMP/$(printf $MEMBER_FMT $((MEMBER+1)))
+if (( DET_RUN == 1 )); then
+  ln -s $TMP/mdet $TMP/$(printf $MEMBER_FMT $((MEMBER+2)))
+fi
+if (( EFSO_RUN == 1 )); then
+  if (( DET_RUN == 1 )); then
+    ln -s $TMP/mgue $TMP/$(printf $MEMBER_FMT $((MEMBER+3)))
+  else
+    ln -s $TMP/mgue $TMP/$(printf $MEMBER_FMT $((MEMBER+2)))
+  fi
+fi
+
+
+# Add redundant members to make the total number of members divisible by (NNODES * PPN) / SCALE_NP
+num_members=$mtot
+remainder=$(( (num_members * SCALE_NP) % (NNODES * PPN) ))
+mtot_bulk=$mtot
+if ! (( remainder == 0 )); then
+  num_repert_mem=$(( ( NNODES*PPN - remainder ) / SCALE_NP ))
+  mtot_bulk=$(( mtot + num_repert_mem ))
+  for m in $(seq $((mtot+1)) $mtot_bulk); do
+    m_ref=$(( m - mtot ))
+    ln -s $TMP/$(printf $MEMBER_FMT $m_ref) $TMP/$(printf $MEMBER_FMT $m)
+  done
+  echo "[Info]: mtot is extended to: $mtot_bulk" >&2
+fi
+
+
 totalnp=$((PPN*NNODES))
 SCALE_NP_TOTAL=0
 for d in `seq $DOMNUM`; do
@@ -116,10 +145,17 @@ else # DISK_MODE=0 : no staging
 
 cp ${COMMON_DIR}/pdbash ${TMPROOT}/pdbash
 cp ${COMMON_DIR}/datetime ${TMPROOT}/datetime
-cp ${ENSMODEL_DIR}/scale-rm_pp_ens ${TMPROOT}/scale-rm_pp_ens
-cp ${ENSMODEL_DIR}/scale-rm_init_ens ${TMPROOT}/scale-rm_init_ens
-cp ${ENSMODEL_DIR}/scale-rm_ens ${TMPROOT}/scale-rm_ens
- 
+for i in $(seq 3); do
+  org=${SCALEDIR}/bin/${stepexecname[$i]}
+  if [ "$SCALE_QUICKDEBUG" == "T" ]; then
+    org=${org}_quickdebug
+  fi
+  if [ "$SCALE_USE_SINGLEFP" == "T" ]; then
+    org=${org}_single
+  fi
+  cp ${org} $TMPROOT/${stepexecname[$i]}
+done
+
 cp ${OBSUTIL_DIR}/obsope ${TMPROOT}/obsope
 if (( PAWR_DECODE == 1 )) ;then
   cp ${OBSUTIL_DIR}/dec_pawr ${TMPROOT}/dec_pawr
@@ -139,6 +175,12 @@ cp -r ${SCALEDIR}/data/lightning ${TMPROOT}/dat/lightning
 if [ "${SOUNDING}" != "" ] ; then
   cp ${SOUNDING} ${TMPROOT}/dat/
 fi
+
+  if [ -n "${RTTOV_COEF_PATH}" ] && [ -n "${RTTOV_COEF_FILE}" ] ; then
+    mkdir -p ${TMPROOT}/dat/rttov
+    cp -r ${RTTOV_COEF_PATH}/${RTTOV_COEF_FILE} ${TMPROOT}/dat/rttov/
+    cp -r ${RTTOV_COEF_PATH}/${RTTOV_COEF_FILE_CLD} ${TMPROOT}/dat/rttov/
+  fi
 
 fi ### DISK_MODE >= 1
 
@@ -576,7 +618,7 @@ if [ "$TOPO_FORMAT" = "GTOPO30" ] || [ "$TOPO_FORMAT" = "DEM50M" ] || [ "$LANDUS
   mkdir -p $OUTDIR/const/topo
   mkdir -p $OUTDIR/const/landuse
   time=$STIME
-  config_file_scale_launcher cycle scale-rm_pp_ens "f<member>/pp" 1
+  config_file_scale_launcher cycle scale-rm_pp "pp" 1
   OFFLINE_PARENT_BASENAME=
 
   if ((BDY_FORMAT == 1)); then
@@ -638,8 +680,8 @@ if [ "$TOPO_FORMAT" = "GTOPO30" ] || [ "$TOPO_FORMAT" = "DEM50M" ] || [ "$LANDUS
                -e "/!--OFFLINE_PARENT_PRC_NUM_X--/a OFFLINE_PARENT_PRC_NUM_X = ${DATA_BDY_SCALE_PRC_NUM_X}," \
                -e "/!--OFFLINE_PARENT_PRC_NUM_Y--/a OFFLINE_PARENT_PRC_NUM_Y = ${DATA_BDY_SCALE_PRC_NUM_Y}," \
           )"
-   mkdir -p $TMP/f$(printf $MEMBER_FMT 1)
-   conf_file="$TMP/f$(printf $MEMBER_FMT 1)/pp.d01_${STIME}.conf"
+   mkdir -p $TMP/$(printf $MEMBER_FMT 1)
+   conf_file="$TMP/$(printf $MEMBER_FMT 1)/pp.d01_${STIME}.conf"
    echo "$conf" > ${conf_file}
 
 #   for q in $(seq ${SCALE_NP[1]}); do
@@ -702,11 +744,11 @@ while ((time <= ETIME)); do
     #---------------------------------------------------------------------------
 
     if ((BDY_ENS == 1)); then
-      config_file_scale_launcher cycle scale-rm_init_ens "<member>/init" $mtot
+      config_file_scale_launcher cycle scale-rm_init "init" $mtot_bulk
     elif ((DISK_MODE <= 2)); then # shared run directory: only run one member per cycle
-      config_file_scale_launcher cycle scale-rm_init_ens "<member>/init" 1
+      config_file_scale_launcher cycle scale-rm_init "init" 1
     else # local run directory: run multiple members as needed
-      config_file_scale_launcher cycle scale-rm_init_ens "<member>/init" $((repeat_mems <= mtot ? repeat_mems : mtot))
+      config_file_scale_launcher cycle scale-rm_init "init" $((repeat_mems <= mtot ? repeat_mems : mtot))
     fi
 
     #---------------------------------------------------------------------------
@@ -733,18 +775,14 @@ while ((time <= ETIME)); do
       RESTART_OUT_PATH[$d]=${OUTDIR[$d]}/${time}/anal
       BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time/bdy
 
-      CONSTDB_PATH=$SCALEDIR/scale-rm/test/data
+      # CONSTDB_PATH=$SCALEDIR/scale-rm/test/data
+      CONSTDB_PATH=$TMPROOT_CONSTDB/dat
 
-      if [ $PRESET = 'FUGAKU' ] || [ $PRESET = 'FX1000' ] || [ $PRESET = 'Linux64-nvidia' ]; then
-
-        CONSTDB_PATH=$TMPROOT_CONSTDB/dat
-
-        if (( BDY_LLIO_TMP == 1 )) ; then
-          if ((BDY_ENS ==1));then
-            BOUNDARY_PATH[$d]=/local/$time/bdy
-          else
-            BOUNDARY_PATH[$d]=/share/$time/bdy
-          fi
+      if (( BDY_LLIO_TMP == 1 )) ; then
+        if ((BDY_ENS ==1));then
+          BOUNDARY_PATH[$d]=/local/$time/bdy
+        else
+          BOUNDARY_PATH[$d]=/share/$time/bdy
         fi
 
       fi
@@ -771,9 +809,9 @@ while ((time <= ETIME)); do
   # scale (launcher)
   #-----------------------------------------------------------------------------
 
-  config_file_scale_launcher cycle scale-rm_ens "<member>/run" $mtot
+  config_file_scale_launcher cycle scale-rm "run" $mtot_bulk
   if (( EFSO_RUN == 1 && DO_ANALYSIS4EFSO == 1 )); then
-    config_file_scale_launcher cycle efso_scale-rm_ens "<member>/efso_run" $mtot
+    config_file_scale_launcher cycle efso_scale-rm "efso_run" $mtot_bulk
   fi
 
   #-----------------------------------------------------------------------------
@@ -821,16 +859,14 @@ while ((time <= ETIME)); do
 
       BOUNDARY_PATH[$d]=${OUTDIR[$d]}/$time/bdy
 
-      CONSTDB_PATH=$SCALEDIR/scale-rm/test/data
-      if [ $PRESET = 'FUGAKU' ] || [ $PRESET = 'FX1000' ] || [ $PRESET = 'Linux64-nvidia' ]; then
+      # CONSTDB_PATH=$SCALEDIR/scale-rm/test/data
 
-        CONSTDB_PATH=$TMPROOT_CONSTDB/dat
-        if (( BDY_LLIO_TMP == 1 )) ; then
-          if ((BDY_ENS ==1));then
-            BOUNDARY_PATH[$d]=/local/$time/bdy
-          else
-            BOUNDARY_PATH[$d]=/share/$time/bdy
-          fi
+      CONSTDB_PATH=$TMPROOT_CONSTDB/dat
+      if (( BDY_LLIO_TMP == 1 )) ; then
+        if ((BDY_ENS ==1));then
+          BOUNDARY_PATH[$d]=/local/$time/bdy
+        else
+          BOUNDARY_PATH[$d]=/share/$time/bdy
         fi
 
       fi
@@ -843,6 +879,11 @@ while ((time <= ETIME)); do
         # check RESTART_IN_PATH[$d]/mgue exits or not
         if [ ! -s "${OUTDIR[$d]}/$time/gues/mgue/init_$(datetime_scale $time).pe000000.nc" ]; then
           ln -sf ${OUTDIR[$d]}/$time/anal/mean/init_*.nc ${OUTDIR[$d]}/$time/anal/mgue/
+        fi
+        # make a symbolic link of gues/mean
+        if [ ! -d "${OUTDIR[$d]}/$time/gues/mean" ]; then
+          mkdir -p "${OUTDIR[$d]}/$time/gues"
+          ln -s "${OUTDIR[$d]}/$time/anal/mean" "${OUTDIR[$d]}/$time/gues/mean"
         fi
       fi
     fi
@@ -964,6 +1005,7 @@ while ((time <= ETIME)); do
     rm -rf ${OUTDIR[$d]}/$atime/log/efso
     mkdir -p ${OUTDIR[$d]}/$atime/log/letkf
     mkdir -p ${OUTDIR[$d]}/$atime/log/efso
+    mkdir -p ${OUTDIR[$d]}/$atime/obs
 
     OBSDEP_OUT_TF=".false."
     OBSDEP_OUT_NC_TF=".false."
@@ -1072,6 +1114,13 @@ while ((time <= ETIME)); do
             -e "/!--INFL_MUL_OUT_BASENAME--/a INFL_MUL_OUT_BASENAME = \"infl.d${dfmt}_$(datetime_scale $atime)\"," \
             -e "/!--RELAX_SPREAD_OUT--/a RELAX_SPREAD_OUT = ${RTPS_INFL_OUT_TF}," \
             -e "/!--RELAX_SPREAD_OUT_BASENAME--/a RELAX_SPREAD_OUT_BASENAME = \"rtpsinfl.d${dfmt}_$(datetime_scale $atime)\"," \
+            -e "/!--HIM_OUTFILE_BASENAME--/a HIM_OUTFILE_BASENAME =  \"${OUTDIR[$d]}/$atime/obs/Him_${atime}\"," \
+            -e "/!--HIM_RTTOV_THREADS--/a HIM_RTTOV_THREADS = ${THREADS}," \
+            -e "/!--HIM_NOWDATE--/a HIM_NOWDATE = ${atime:0:4}, ${atime:4:2}, ${atime:6:2}, ${atime:8:2}, ${atime:10:2}, ${atime:12:2}," \
+            -e "/!--HIM_ADDITIVE_Y18_COV_BASENAME--/a HIM_ADDITIVE_Y18_COV_BASENAME =  \"${OUTDIR[$d]}/$atime/obs/cov_Y18_him_${atime}\"," \
+            -e "/!--RTTOV_COEF_PATH--/a RTTOV_COEF_PATH = \"${TMPROOT}/dat/rttov\"," \
+            -e "/!--RTTOV_COEF_FILE--/a RTTOV_COEF_FILE = \"${RTTOV_COEF_FILE##*/}\"," \
+            -e "/!--RTTOV_COEF_FILE_CLD--/a RTTOV_COEF_FILE_CLD = \"${RTTOV_COEF_FILE_CLD##*/}\"," \
             -e "/!--NOBS_OUT--/a NOBS_OUT = ${NOBS_OUT_TF}," \
             -e "/!--NOBS_OUT_BASENAME--/a NOBS_OUT_BASENAME = \"nobs.d${dfmt}_$(datetime_scale $atime)\"," \
             -e "/!--IO_LOG_BASENAME--/a IO_LOG_BASENAME =  \"${OUTDIR[$d]}/$atime/log/letkf/${name_m[$m]}_LOG\"," \
@@ -1431,13 +1480,13 @@ setting () {
 nsteps=6
 stepname[1]='Run SCALE pp'
 stepexecdir[1]="$TMPRUN/scale_pp"
-stepexecname[1]="scale-rm_pp_ens"
+stepexecname[1]="scale-rm_pp"
 stepname[2]='Run SCALE init'
 stepexecdir[2]="$TMPRUN/scale_init"
-stepexecname[2]="scale-rm_init_ens"
+stepexecname[2]="scale-rm_init"
 stepname[3]='Run ensemble forecasts'
 stepexecdir[3]="$TMPRUN/scale"
-stepexecname[3]="scale-rm_ens"
+stepexecname[3]="scale-rm"
 if (( OBSOPE_RUN == 0 )) && (( PAWR_DECODE == 1 )) ; then
 stepname[4]='Run PAWR decoder'
 stepexecdir[4]="$TMPRUN/dec_pawr"
@@ -1460,9 +1509,9 @@ stepexecdir[6]="$TMPRUN/efso"
 stepexecname[6]="efso"
 
 if [ PRESET == "FUGAKU" ] && (( USE_LLIO_BIN == 1 )); then
-  stepexecbin[1]="$TMP/scale-rm_pp_ens"
-  stepexecbin[2]="$TMP/scale-rm_init_ens"
-  stepexecbin[3]="$TMP/scale-rm_ens"
+  stepexecbin[1]="$TMP/scale-rm_pp"
+  stepexecbin[2]="$TMP/scale-rm_init"
+  stepexecbin[3]="$TMP/scale-rm"
   if (( OBSOPE_RUN == 0 )) && (( PAWR_DECODE == 1 )) ; then
     stepexecbin[4]="$DIR/obs/dec_pawr"
   else

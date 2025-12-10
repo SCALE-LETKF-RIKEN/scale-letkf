@@ -41,8 +41,7 @@ MODULE common_obs_scale
   IMPLICIT NONE
   PUBLIC
 
-  INTEGER,PARAMETER :: nid_obs_varlocal=8
-!  INTEGER,PARAMETER :: nid_obs_varlocal=9 !H08
+  INTEGER,PARAMETER :: nid_obs_varlocal=9 
 !
 ! conventional observations
 !
@@ -68,22 +67,21 @@ MODULE common_obs_scale
   INTEGER,PARAMETER :: id_radar_vr_obs=4002
   INTEGER,PARAMETER :: id_radar_prh_obs=4003
 !
-! Himawari-8 (H08) observations
+! Himawari-8/9 observations
 !
-  INTEGER,PARAMETER :: id_H08IR_obs=8800
+  INTEGER,PARAMETER :: id_HIMIR_obs=8800
 
   INTEGER,PARAMETER :: elem_uid(nid_obs)= &
      (/id_u_obs, id_v_obs, id_t_obs, id_tv_obs, id_q_obs, id_rh_obs, &
        id_ps_obs, id_rain_obs, id_radar_ref_obs, id_radar_ref_zero_obs, id_radar_vr_obs, id_radar_prh_obs, &
-       id_H08IR_obs, id_tclon_obs, id_tclat_obs, id_tcmip_obs/)
+       id_HIMIR_obs, id_tclon_obs, id_tclat_obs, id_tcmip_obs/)
 
   CHARACTER(3),PARAMETER :: obelmlist(nid_obs)= &
      (/'  U', '  V', '  T', ' Tv', '  Q', ' RH', ' PS', 'PRC', 'REF', 'RE0', ' Vr', 'PRH',&
-       'H08', 'TCX', 'TCY', 'TCP'/)
+       'HIM', 'TCX', 'TCY', 'TCP'/)
 
   CHARACTER(3),PARAMETER :: obelmlist_varlocal(nid_obs_varlocal)= &
-     (/'WND', '  T', 'MOI', ' PS', 'PRC', 'TCV', 'REF', ' Vr'/)
-!     (/'WND', '  T', 'MOI', ' PS', 'PRC', 'TCV', 'REF', ' Vr', 'H08'/)
+     (/'WND', '  T', 'MOI', ' PS', 'PRC', 'TCV', 'REF', ' Vr', 'HIM'/)
 
   ! Parameter 'nobtype' is set in common_nml.f90
   CHARACTER(6),PARAMETER :: obtypelist(nobtype)= &
@@ -91,7 +89,7 @@ MODULE common_obs_scale
        'VADWND', 'SATEMP', 'ADPSFC', 'SFCSHP', 'SFCBOG', &
        'SPSSMI', 'SYNDAT', 'ERS1DA', 'GOESND', 'QKSWND', &
        'MSONET', 'GPSIPW', 'RASSDA', 'WDSATR', 'ASCATW', &
-       'TMPAPR', 'PHARAD', 'H08IRB', 'TCVITL'/) ! H08
+       'TMPAPR', 'PHARAD', 'HIMIRB', 'TCVITL'/) 
 
   INTEGER,PARAMETER :: max_obs_info_meta = 3 ! maximum array size for type(obs_info)%meta
 
@@ -131,15 +129,26 @@ MODULE common_obs_scale
     REAL(r_size),ALLOCATABLE :: tm(:)    ! temp (mean)
     REAL(r_size),ALLOCATABLE :: pm(:)    ! pressure (mean)
     INTEGER,ALLOCATABLE :: qc(:)
+#ifdef RTTOV
+    !
+    ! obsda%lev array is used only for Himawari-8 assimilation.
+    ! This array saves the most sensitive height derived from transmittance outputs from RTTOV.
+    ! For Himawari-8 assimilation, LETKF uses obsda%lev instead of obs%lev.
+    ! 
+    real(r_size), allocatable :: lev(:) ! Him
+    real(r_size), allocatable :: val2(:) ! Him sigma_o for AOEI (not CA)
+    real(r_size), allocatable :: sprd(:) ! background spread
+#endif
   END TYPE obs_da_value
 
   character(obsformatlenmax), parameter :: obsfmt_prepbufr = 'PREPBUFR'
   character(obsformatlenmax), parameter :: obsfmt_radar    = 'RADAR'
-  character(obsformatlenmax), parameter :: obsfmt_h08      = 'HIMAWARI8'
+  character(obsformatlenmax), parameter :: obsfmt_HIM      = 'HIMAWARI'
   character(obsformatlenmax), parameter :: obsfmt_radar_nc = 'RADAR-NC'
+  character(obsformatlenmax), parameter :: obsfmt_tcvital  = 'TCVITAL'
 !  integer, parameter :: nobsformats = 3
 !  character(obsformatlenmax), parameter :: obsformat(nobsformats) = &
-!    (/obsfmt_prepbufr, obsfmt_radar, obsfmt_h08/)
+!    (/obsfmt_prepbufr, obsfmt_radar, obsfmt_HIM/)
 
   INTEGER,PARAMETER :: iqc_good=0
   INTEGER,PARAMETER :: iqc_gross_err=5
@@ -167,6 +176,10 @@ MODULE common_obs_scale
   real(r_size), allocatable, save :: obsdep_oma(:) ! 
   real(r_size), allocatable, save :: obsdep_sprd(:) ! 
   real(r_size), allocatable, save :: obsdep_omb_emean(:) ! 
+#ifdef RTTOV
+  real(r_size), allocatable, save :: obsdep_val2(:) ! cloud amount (CA) of Okamoto et al. (2014) 
+  real(r_size), allocatable, save :: obsdep_dlev(:) ! peak of the weightning function 
+#endif
 
   REAL(r_size),SAVE :: MIN_RADAR_REF
   REAL(r_size),SAVE :: RADAR_REF_THRES
@@ -206,8 +219,8 @@ function uid_obs(id_obs)
     uid_obs = 11
   case(id_radar_prh_obs)
     uid_obs = 12
-  case(id_h08ir_obs) ! H08
-    uid_obs = 13     ! H08
+  case(id_HIMir_obs) 
+    uid_obs = 13     
   case(id_tclon_obs)
     uid_obs = 14
   case(id_tclat_obs)
@@ -243,8 +256,8 @@ function uid_obs_varlocal(id_obs)
     uid_obs_varlocal = 7
   case(id_radar_vr_obs)
     uid_obs_varlocal = 8
-  case(id_h08ir_obs)      ! H08
-    uid_obs_varlocal = 9  ! H08
+  case(id_HIMir_obs)      ! HIM
+    uid_obs_varlocal = 9  ! HIM
   case default
     uid_obs_varlocal = -1 ! error
   end select
@@ -1560,10 +1573,15 @@ END SUBROUTINE itpl_3d
 !-----------------------------------------------------------------------
 ! Monitor observation departure by giving the v3dg,v2dg data
 !-----------------------------------------------------------------------
-subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
+#ifdef RTTOV
+subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso,yobs_him,qc_him,mslp_min,mslp_min_CX,mslp_min_CY)
+#else
+subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso,mslp_min,mslp_min_CX,mslp_min_CY)
+#endif
   use scale_prc, only: &
       PRC_myrank
-
+  use scale_atmos_grid_cartesC_index, only: &
+      IHALO, JHALO
   implicit none
 
   REAL(RP),intent(in) :: v3dg(nlev,nlon,nlat,nv3d)
@@ -1576,6 +1594,16 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
   logical,intent(in) :: use_key
   integer,intent(in) :: step
   logical, intent(in), optional :: efso
+
+#ifdef RTTOV
+  real(r_size), intent(in), optional :: yobs_him(NIRB_HIM_USE,nlon,nlat)
+  integer,      intent(in), optional :: qc_him  (NIRB_HIM_USE,nlon,nlat)
+#endif
+
+  real(r_size), intent(in), optional :: mslp_min
+  real(r_size), intent(in), optional :: mslp_min_CX
+  real(r_size), intent(in), optional :: mslp_min_CY
+
 
   REAL(r_size) :: v3dgh(nlevh,nlonh,nlath,nv3dd)
   REAL(r_size) :: v2dgh(nlonh,nlath,nv2dd)
@@ -1623,13 +1651,13 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
     if ( .not. allocated( obsdep_oma  ) ) allocate( obsdep_oma(obsdep_nobs) )
     if ( .not. allocated( obsdep_sprd ) ) allocate( obsdep_sprd(obsdep_nobs ))
     if ( .not. allocated( obsdep_omb_emean) ) allocate( obsdep_omb_emean(obsdep_nobs) )
+#ifdef RTTOV
+    if ( .not. allocated( obsdep_val2 ) ) allocate( obsdep_val2(obsdep_nobs ))
+    if ( .not. allocated( obsdep_dlev ) ) allocate( obsdep_dlev(obsdep_nobs ))
+#endif
   end if
 
   oqc = -1
-
-!  obs_idx_TCX = -1
-!  obs_idx_TCY = -1
-!  obs_idx_TCP = -1
 
 !$omp parallel do private(n,nn,iset,iidx,ril,rjl,rk,rkz,m,obsdep_mean)
   do n = 1, nnobs
@@ -1724,6 +1752,27 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
             if (oqc(n) == iqc_ref_low) oqc(n) = iqc_good ! when process the observation operator, we don't care if reflectivity is too small
           end if
         end if
+        !=========================================================================
+      case (obsfmt_HIM )
+#ifdef RTTOV
+        !-------------------------------------------------------------------------
+          if (DEPARTURE_STAT_HIM) then
+            ohx(n) = yobs_him(nint(obs(iset)%lev(iidx)),nint(ril-IHALO),nint(rjl-JHALO))
+            !oqc(n) = qc_him  (nint(ril-IHALO),nint(rjl-JHALO),nint(obs(iset)%lev(iidx)))
+            oqc(n) = obsda_sort%qc(nn) 
+          endif
+#endif
+      !=========================================================================
+      case (obsfmt_tcvital)
+        select case( obs(iset)%elm(iidx) )
+        case(id_tclon_obs)
+          ohx(n) = mslp_min_CX
+        case(id_tclat_obs)
+          ohx(n) = mslp_min_CY
+        case(id_tcmip_obs)
+          ohx(n) = mslp_min
+        end select
+        oqc(n) = iqc_good
       !=========================================================================
       end select
 
@@ -1762,6 +1811,10 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
       enddo
       obsdep_sprd(n) = sqrt( obsdep_sprd(n) / ( MEMBER - 1 ) )
 
+#ifdef RTTOV
+      obsdep_val2(n) = obsda_sort%val2(nn)
+      obsdep_dlev(n) = obsda_sort%lev (nn)
+#endif
       if (LOG_LEVEL >= 3) then
         write (6, '(2I6,2F8.2,4F12.4,I3)') &
               obs(iset)%elm(iidx), &
@@ -1809,6 +1862,17 @@ subroutine monit_obs(v3dg,v2dg,topo,nobs,bias,rmse,monit_type,use_key,step,efso)
     monit_type(uid_obs(id_radar_vr_obs)) = .true.
 !    monit_type(uid_obs(id_radar_prh_obs)) = .true.
   end if
+  if ( DEPARTURE_STAT_TCV ) then
+    monit_type(uid_obs(id_tclon_obs)) = .true.
+    monit_type(uid_obs(id_tclat_obs)) = .true.
+    monit_type(uid_obs(id_tcmip_obs)) = .true.
+  endif
+
+#ifdef RTTOV
+  if (DEPARTURE_STAT_HIM) then
+    monit_type(uid_obs(id_HIMIR_obs)) = .true.
+  endif
+#endif /* RTTOV */
 
   deallocate (oelm)
   deallocate (ohx)
@@ -2032,7 +2096,7 @@ SUBROUTINE obs_da_value_allocate(obsda,member)
     end if
   end if
 
-  if ( RADAR_ADDITIVE_Y18 ) then
+  if ( RADAR_ADDITIVE_Y18 .or. HIM_ADDITIVE_Y18 ) then
     allocate( obsda%pert (obsda%nobs) )
     obsda%pert = 0.0_r_size
     if (member > 0) then
@@ -2040,6 +2104,16 @@ SUBROUTINE obs_da_value_allocate(obsda,member)
       obsda%epert = 0.0_r_size
     endif
   endif
+
+#ifdef RTTOV
+  allocate( obsda%lev  (obsda%nobs) )
+  allocate( obsda%val2 (obsda%nobs) )
+  allocate( obsda%sprd (obsda%nobs) )
+  obsda%lev  = 0.0_r_size
+  obsda%val2 = 0.0_r_size
+  obsda%sprd = 0.0_r_size
+
+#endif
 
   RETURN
 END SUBROUTINE obs_da_value_allocate
@@ -2064,6 +2138,13 @@ SUBROUTINE obs_da_value_deallocate(obsda)
   IF(ALLOCATED(obsda%qv    )) DEALLOCATE(obsda%qv    )
   IF(ALLOCATED(obsda%pert  )) DEALLOCATE(obsda%pert  )
   IF(ALLOCATED(obsda%epert )) DEALLOCATE(obsda%epert )
+
+#ifdef RTTOV
+  if ( allocated(obsda%lev  ) ) deallocate( obsda%lev  )
+  if ( allocated(obsda%val2 ) ) deallocate( obsda%val2 )
+  if ( allocated(obsda%sprd ) ) deallocate( obsda%sprd )
+
+#endif
 
   RETURN
 END SUBROUTINE obs_da_value_deallocate
@@ -2132,7 +2213,7 @@ SUBROUTINE get_nobs(cfile,nrec,nn)
 
     READ(iunit,IOSTAT=ios) wk
     IF(ios /= 0) THEN
-      WRITE(6,'(3A,I)') '[Error]',cfile,': Reading error ', ios
+      WRITE(6,'(3A,I10)') '[Error]',cfile,': Reading error ', ios
       STOP
     ELSE 
       IF (real(int(wk(1)),r_size) /= wk(1)) THEN
@@ -2198,20 +2279,18 @@ SUBROUTINE read_obs(cfile,obs)
       wk(4) = wk(4) * 100.0 ! hPa -> Pa
       wk(5) = wk(5) * 100.0 ! hPa -> Pa
       wk(6) = real(OBSERR_TCP,kind=r_sngl)
-    CASE(id_tclon_obs)
+    CASE(id_tclon_obs, id_tclat_obs)
       call MAPPROJECTION_lonlat2xy( real(REAL(wk(2),kind=r_size)*pi/180.0_r_size, kind=RP),&
                                     real(REAL(wk(3),kind=r_size)*pi/180.0_r_size, kind=RP),&
                                     x_RP, y_RP )
       wk(4) = wk(4) * 100.0 ! hPa -> Pa
-      wk(5) = real(x_RP, kind=r_sngl)
-      wk(6) = real(OBSERR_TCX, kind=r_sngl)
-    CASE(id_tclat_obs)
-      call MAPPROJECTION_lonlat2xy( real(REAL(wk(2),kind=r_size)*pi/180.0_r_size, kind=RP),&
-                                    real(REAL(wk(3),kind=r_size)*pi/180.0_r_size, kind=RP),&
-                                    x_RP, y_RP )
-      wk(4) = wk(4) * 100.0 ! hPa -> Pa
-      wk(5) = real( y_RP, kind=r_sngl)
-      wk(6) = real(OBSERR_TCY, kind=r_sngl)
+      if (NINT(wk(1)) == id_tclon_obs) then
+        wk(5) = real( x_RP, kind=r_sngl)
+        wk(6) = real(OBSERR_TCX, kind=r_sngl)
+      else
+        wk(5) = real( y_RP, kind=r_sngl)
+        wk(6) = real(OBSERR_TCY, kind=r_sngl)
+      end if
     END SELECT
     obs%elm(n) = NINT(wk(1))
     obs%lon(n) = REAL(wk(2),r_size)
@@ -2450,7 +2529,7 @@ SUBROUTINE get_nobs_radar(cfile,nn,radarlon,radarlat,radarz)
     IF(ios /= 0) THEN
 !      WRITE(6,'(3A)') '[Warning]',cfile,': Reading error -- skipped'
 !      RETURN
-      WRITE(6,'(3A,I)') '[Error]',cfile,': Reading error', ios
+      WRITE(6,'(3A,I10)') '[Error]',cfile,': Reading error', ios
       STOP
      ELSEIF ( tmp < 0.0_r_size .or. tmp > 360.0_r_size ) THEN
         WRITE(6,'(3A,E10.4)') '[Error]',cfile,': Invalid observation value radarlon = ', tmp
@@ -2615,7 +2694,7 @@ subroutine read_obs_all(obs)
 
   do iof = 1, OBS_IN_NUM
     inquire (file=trim(OBS_IN_NAME(iof)), exist=ex)
-    if (.not. ex) then
+    if ( .not. ex .and. OBS_IN_FORMAT(iof) /= obsfmt_HIM ) then
       write(6,*) '[Warning] FILE ',trim(OBS_IN_NAME(iof)),' NOT FOUND'
 
 
@@ -2627,12 +2706,14 @@ subroutine read_obs_all(obs)
     end if
 
     select case (OBS_IN_FORMAT(iof))
-    case (obsfmt_prepbufr)
+    case (obsfmt_prepbufr, obsfmt_tcvital)
       call get_nobs(trim(OBS_IN_NAME(iof)),8,obs(iof)%nobs)
     case (obsfmt_radar)
       call get_nobs_radar(trim(OBS_IN_NAME(iof)), obs(iof)%nobs, obs(iof)%meta(1), obs(iof)%meta(2), obs(iof)%meta(3))
     case (obsfmt_radar_nc)
       call get_nobs_radar_nc(trim(OBS_IN_NAME(iof)), obs(iof)%nobs, obs(iof)%meta(1), obs(iof)%meta(2), obs(iof)%meta(3))
+    case (obsfmt_HIM)
+      call get_nobs_allgHim(trim(OBS_IN_NAME(iof)), obs(iof)%nobs) 
     case default
       write(6,*) '[Error] Unsupported observation file format!'
       stop
@@ -2645,7 +2726,7 @@ subroutine read_obs_all(obs)
     call obs_info_allocate(obs(iof), extended=.true.)
 
     select case (OBS_IN_FORMAT(iof))
-    case (obsfmt_prepbufr)
+    case (obsfmt_prepbufr, obsfmt_tcvital)
       call read_obs(trim(OBS_IN_NAME(iof)),obs(iof))
     case (obsfmt_radar)
       call read_obs_radar(trim(OBS_IN_NAME(iof)),obs(iof))
@@ -2691,9 +2772,13 @@ subroutine write_obs_all(obs, missing, file_suffix)
   return
 end subroutine write_obs_all
 
-subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, sprd, nrank, cnt_rank )
+subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, sprd, nrank, cnt_rank, val2 )
   use netcdf
   use common_ncio
+  use scale_atmos_grid_cartesC, only: &
+    DX, DY, &
+    CXG => ATMOS_GRID_CARTESC_CXG, &
+    CYG => ATMOS_GRID_CARTESC_CYG
   implicit none
 
   character(len=*), intent(in) :: filename
@@ -2707,6 +2792,7 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
   real(r_size), intent(in) :: sprd(nobs)
   integer, intent(in) :: nrank
   integer, intent(in) :: cnt_rank(nrank)
+  real(r_size), optional, intent(in) :: val2(nobs)
 
   integer :: ncid
   integer :: dimid, dimid_rank
@@ -2715,8 +2801,10 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
   integer :: lev_varid, dat_varid, qc_varid
   integer :: dif_varid, err_varid
   integer :: omb_varid, oma_varid, omb_em_varid, sprd_varid
+  integer :: val2_varid
   integer :: typ_varid
   integer :: dim_rank_varid, nobs_varid
+  integer :: x_varid, y_varid
 
   character(len=*), parameter :: DIM_NAME = "number"
   character(len=*), parameter :: ELM_NAME = "elm"
@@ -2734,6 +2822,7 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
   character(len=*), parameter :: TYP_NAME = "typ"
   character(len=*), parameter :: DIM_MEM_NAME = "member"
   character(len=*), parameter :: NOBS_NAME = "nobs_rank"
+  character(len=*), parameter :: VAL2_NAME = "val2"
 
   character(len=*), parameter :: ELM_LONGNAME = "observation id"
   character(len=*), parameter :: LON_LONGNAME = "longitude"
@@ -2749,6 +2838,12 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
   character(len=*), parameter :: SPRD_LONGNAME = "ensemble spread in observation space"
   character(len=*), parameter :: TYP_LONGNAME = "observation platform type"
   character(len=*), parameter :: NOBS_LONGNAME = "number of assimilated observations in each rank"
+  character(len=*), parameter :: VAL2_LONGNAME = "cloud amount parameter"
+
+  character(len=*), parameter :: X_NAME = "x"
+  character(len=*), parameter :: Y_NAME = "y"
+  character(len=*), parameter :: X_LONGNAME = "x (m)"
+  character(len=*), parameter :: Y_LONGNAME = "y (m)"
 
   integer :: nobs_l(nobs), rank_l(nrank)
   integer :: n
@@ -2760,6 +2855,7 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
   integer :: typ_l(nobs)
   real(r_sngl) :: omb_l(nobs), oma_l(nobs)
   real(r_sngl) :: omb_em_l(nobs), sprd_l(nobs)
+  real(r_sngl) :: x_l(nobs), y_l(nobs), val2_l(nobs)
 
 
   do n = 1, nobs
@@ -2778,6 +2874,15 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
     oma_l(n) = real( oma(n), r_sngl )
     omb_em_l(n) = real( omb_em(n), r_sngl )
     sprd_l(n) = real( sprd(n), r_sngl )
+
+    if ( OBSDEP_OUT_XY ) then
+      x_l(n) = real( ( obs(set(n))%ri(idx(n)) - 1 ) *DX + CXG(1), r_sngl )
+      y_l(n) = real( ( obs(set(n))%rj(idx(n)) - 1 ) *DY + CYG(1), r_sngl )
+    endif
+
+    if ( present( val2 ) ) then
+      val2_l(n) = real( val2(n), r_sngl )
+    endif
   enddo
 
   do n = 1, nrank
@@ -2806,6 +2911,11 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
   call ncio_check( nf90_def_var(ncid, ERR_NAME, NF90_REAL, dimid, err_varid) )
   call ncio_check( nf90_def_var(ncid, TYP_NAME, NF90_INT,  dimid, typ_varid) )
 
+  if ( OBSDEP_OUT_XY ) then
+    call ncio_check( nf90_def_var(ncid, X_NAME, NF90_REAL, dimid, x_varid) )
+    call ncio_check( nf90_def_var(ncid, Y_NAME, NF90_REAL, dimid, y_varid) )
+  endif
+
   call ncio_check( nf90_def_var(ncid, OMB_NAME, NF90_REAL, dimid, omb_varid) )
   call ncio_check( nf90_def_var(ncid, OMA_NAME, NF90_REAL, dimid, oma_varid) )
   call ncio_check( nf90_def_var(ncid, OMB_EM_NAME, NF90_REAL, dimid, omb_em_varid) )
@@ -2823,11 +2933,21 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
   call ncio_check( nf90_put_att(ncid, err_varid, "long_name", ERR_LONGNAME ) )
   call ncio_check( nf90_put_att(ncid, typ_varid, "long_name", TYP_LONGNAME ) )
 
+  if ( OBSDEP_OUT_XY ) then
+    call ncio_check( nf90_put_att(ncid, x_varid, "long_name", X_LONGNAME ) )
+    call ncio_check( nf90_put_att(ncid, y_varid, "long_name", Y_LONGNAME ) )
+  endif  
+
   call ncio_check( nf90_put_att(ncid, omb_varid, "long_name", OMB_LONGNAME ) )
   call ncio_check( nf90_put_att(ncid, oma_varid, "long_name", OMA_LONGNAME ) )
   call ncio_check( nf90_put_att(ncid, omb_em_varid, "long_name", OMB_EM_LONGNAME ) )
   call ncio_check( nf90_put_att(ncid, sprd_varid, "long_name", SPRD_LONGNAME ) )
   call ncio_check( nf90_put_att(ncid, nobs_varid, "long_name", NOBS_LONGNAME ) )
+
+  if ( present( val2 ) ) then
+    call ncio_check( nf90_def_var(ncid, VAL2_NAME, NF90_REAL, dimid, val2_varid) )
+    call ncio_check( nf90_put_att(ncid, val2_varid, "long_name", VAL2_LONGNAME ) )
+  endif
 
   ! Add global attribute
   call ncio_check( nf90_put_att(ncid, NF90_GLOBAL, "total rank for SCALE (nprocs_d)", nrank ) )
@@ -2870,6 +2990,18 @@ subroutine write_obs_dep_nc( filename, nobs, set, idx, qc, omb, oma, omb_em, spr
 
   call ncio_check( nf90_put_var(ncid, nobs_varid, cnt_rank, start=(/1/), &
                    count=(/nrank/) ) )
+
+  if ( OBSDEP_OUT_XY ) then
+    call ncio_check( nf90_put_var(ncid, x_varid, x_l, start=(/1/), &
+                     count=(/nobs/) ) )
+    call ncio_check( nf90_put_var(ncid, y_varid, y_l, start=(/1/), &
+                     count=(/nobs/) ) )
+  endif
+  
+  if ( present( val2 ) ) then
+    call ncio_check( nf90_put_var(ncid, val2_varid, val2_l, start=(/1/), &
+                     count=(/nobs/) ) )
+  endif
 
   ! Close the file. 
   call ncio_check( nf90_close(ncid) )
@@ -3283,6 +3415,8 @@ subroutine write_obs_anal_rank_nc( filename, ya )
   integer :: omb_varid, ombem_varid
   integer :: ya_varid
   integer :: typ_varid
+  integer :: val2_varid
+  integer :: dlev_varid
 
   character(len=*), parameter :: DIM_NAME = "number"
   character(len=*), parameter :: DIM_NAME_MEM = "member"
@@ -3300,6 +3434,8 @@ subroutine write_obs_anal_rank_nc( filename, ya )
   character(len=*), parameter :: TYP_NAME = "typ"
   character(len=*), parameter :: OMB_NAME = "omb"
   character(len=*), parameter :: OMBEM_NAME = "omb_emean"
+  character(len=*), parameter :: VAL2_NAME = "val2"
+  character(len=*), parameter :: DLEV_NAME = "dlev"
 
   character(len=*), parameter :: ELM_LONGNAME = "observation id"
   character(len=*), parameter :: SET_LONGNAME = "observation set"
@@ -3315,6 +3451,8 @@ subroutine write_obs_anal_rank_nc( filename, ya )
   character(len=*), parameter :: TYP_LONGNAME = "observation platform type"
   character(len=*), parameter :: OMB_LONGNAME = "observation-minus-background"
   character(len=*), parameter :: OMBEM_LONGNAME = "observation-minus-background-ensemble-mean"
+  character(len=*), parameter :: VAL2_LONGNAME  = "value 2 (cloud parameter, CA) for Him DA"
+  character(len=*), parameter :: DLEV_LONGNAME  = "obsda lev (derived from the weightning function) for Him DA"
 
   integer :: nobs_l(obsdep_nobs)
   integer :: mem_l(MEMBER)
@@ -3331,6 +3469,10 @@ subroutine write_obs_anal_rank_nc( filename, ya )
   real(r_sngl) :: omb_l(obsdep_nobs)
   real(r_sngl) :: omb_emean_l(obsdep_nobs)
   integer :: typ_l(obsdep_nobs)
+#ifdef RTTOV
+  real(r_sngl) :: val2_l(obsdep_nobs)
+  real(r_sngl) :: dlev_l(obsdep_nobs)
+#endif
 
   do n = 1, obsdep_nobs
     nobs_l(n) = n
@@ -3355,6 +3497,13 @@ subroutine write_obs_anal_rank_nc( filename, ya )
     ya_l(1:MEMBER,n) = real( ya(1:MEMBER,n), r_sngl )
 
     typ_l(n) = int( obs(obsdep_set(n))%typ(obsdep_idx(n)) )
+
+#ifdef RTTOV
+    val2_l(n) = real( obsdep_val2(n), r_sngl )
+
+    dlev_l(n) = real( obsdep_dlev(n),  r_sngl )
+#endif
+
   enddo
 
   do n = 1, MEMBER
@@ -3409,6 +3558,14 @@ subroutine write_obs_anal_rank_nc( filename, ya )
 
   call ncio_check( nf90_put_att(ncid, ya_varid, "long_name", YA_LONGNAME ) )
 
+#ifdef RTTOV
+  call ncio_check( nf90_def_var(ncid, VAL2_NAME, NF90_REAL, dimid, val2_varid) )
+  call ncio_check( nf90_put_att(ncid, val2_varid, "long_name", VAL2_LONGNAME ) )
+
+  call ncio_check( nf90_def_var(ncid, DLEV_NAME, NF90_REAL, dimid, dlev_varid) )
+  call ncio_check( nf90_put_att(ncid, dlev_varid, "long_name", DLEV_LONGNAME ) )
+#endif
+
   ! End define mode.
   call ncio_check( nf90_enddef(ncid) )
 
@@ -3446,6 +3603,13 @@ subroutine write_obs_anal_rank_nc( filename, ya )
 
   call ncio_check( nf90_put_var(ncid, ya_varid, ya_l, start=(/1,1/), &
                    count=(/MEMBER,obsdep_nobs/) ) )
+
+#ifdef RTTOV
+  call ncio_check( nf90_put_var(ncid, val2_varid, val2_l, start=(/1/), &
+                   count=(/obsdep_nobs/) ) )
+  call ncio_check( nf90_put_var(ncid, dlev_varid, dlev_l, start=(/1/), &
+                   count=(/obsdep_nobs/) ) )
+#endif
 
   ! Close the file. 
   call ncio_check( nf90_close(ncid) )
@@ -3486,7 +3650,7 @@ subroutine get_nobs_efso( cfile, nrank, cnt_rank )
   return
 end subroutine get_nobs_efso
 !---------------------------
-subroutine get_obsdep_efso( cfile, nobs_local, set, idx, qc, dep, ya )
+subroutine get_obsdep_efso( cfile, nobs_local, set, idx, qc, dep, ya, val2, dlev )
   use netcdf
   use common_ncio
   implicit none
@@ -3499,12 +3663,16 @@ subroutine get_obsdep_efso( cfile, nobs_local, set, idx, qc, dep, ya )
   integer, intent(out) :: qc(nobs_local)
   real(r_size), intent(out) :: dep(nobs_local)
   real(r_size), intent(out) :: ya(MEMBER,nobs_local)
+  real(r_size), intent(out), optional :: val2(nobs_local)
+  real(r_size), intent(out), optional :: dlev(nobs_local)
   integer :: ncid
 
   integer :: varid_set, varid_idx
   integer :: varid_dep
   integer :: varid_ya
   integer :: varid_qc
+  integer :: varid_val2
+  integer :: varid_dlev
 
   ! Open the file. 
   call ncio_check( nf90_open( trim( cfile ), nf90_nowrite, ncid ) )
@@ -3515,6 +3683,12 @@ subroutine get_obsdep_efso( cfile, nobs_local, set, idx, qc, dep, ya )
   call ncio_check( nf90_inq_varid( ncid, "omb_emean", varid_dep ) )
   call ncio_check( nf90_inq_varid( ncid, "ya", varid_ya ) )
   call ncio_check( nf90_inq_varid( ncid, "qc", varid_qc ) )
+  if ( present(val2) ) then
+    call ncio_check( nf90_inq_varid( ncid, "val2", varid_val2 ) )
+  endif
+  if ( present(dlev) ) then
+    call ncio_check( nf90_inq_varid( ncid, "dlev", varid_dlev ) )
+  endif
 
   ! Read variables
   call ncio_check( nf90_get_var( ncid, varid_set, set, &
@@ -3531,12 +3705,689 @@ subroutine get_obsdep_efso( cfile, nobs_local, set, idx, qc, dep, ya )
 
   call ncio_check( nf90_get_var( ncid, varid_ya, ya, &
                    start=(/1,1/), count=(/MEMBER,nobs_local/) ) )
+                   
+  if ( present(val2) ) then
+    call ncio_check( nf90_get_var( ncid, varid_val2, val2, &
+                     start=(/1/), count=(/nobs_local/) ) )
+  endif
+
+  if ( present(dlev) ) then
+    call ncio_check( nf90_get_var( ncid, varid_dlev, dlev, &
+                     start=(/1/), count=(/nobs_local/) ) )
+  endif
 
   ! Close the file. 
   call ncio_check( nf90_close(ncid) )
 
   return
 end subroutine get_obsdep_efso
+
+subroutine get_dim_Him_nc(filename_org,imax_him,jmax_him)
+  use netcdf
+  use common_ncio
+  implicit none
+
+  character(*),intent(in) :: filename_org
+
+  integer :: ncid, varid
+  integer,intent(out) :: imax_him, jmax_him
+
+  integer :: pos
+  character(len=2) :: band2
+  character(len=255) :: filename
+
+  filename = trim(filename_org)
+  write(band2,'(I2.2)') HIM_IR_BAND_RTTOV_LIST(1)
+  call str_replace(filename, '<band>', band2, pos)
+
+  call ncio_open(trim(filename), NF90_NOWRITE, ncid)
+
+  if ( HIM_OBS_IDEAL ) then
+    call ncio_read_dim(ncid,'x',imax_him)
+    call ncio_read_dim(ncid,'y',jmax_him)
+  else
+    call ncio_read_dim(ncid,'longitude',imax_him)
+    call ncio_read_dim(ncid,'latitude',jmax_him)
+  endif
+
+  call ncio_close(ncid)
+
+  return
+end subroutine get_dim_Him_nc
+
+subroutine read_Him_nc(filename_org,imax_him,jmax_him,lon_him,lat_him,tbb3d)
+  use netcdf
+  use common_ncio
+  implicit none
+
+  character(*),intent(in) :: filename_org
+  integer,intent(in) :: imax_him, jmax_him
+  real(r_sngl),intent(out) :: lon_him(imax_him)
+  real(r_sngl),intent(out) :: lat_him(jmax_him)
+  real(r_sngl),intent(out) :: tbb3d(NIRB_HIM_USE,imax_him,jmax_him)
+
+  real(r_sngl) :: tbb2d(imax_him,jmax_him)
+  integer :: ncid, varid
+  integer :: ch
+  character(len=255) :: filename
+  integer :: pos
+  character(2) :: band2
+
+  real(r_sngl), allocatable :: random2d(:,:)
+  integer :: i, j
+
+  logical :: lat_reverse = .false.
+
+  if ( HIM_OBS_IDEAL ) then
+    allocate( random2d(imax_him,jmax_him) )
+  endif 
+
+  do ch = 1, NIRB_HIM_USE
+    filename = trim(filename_org)
+    write(band2,'(I2.2)') HIM_IR_BAND_RTTOV_LIST(ch)
+    call str_replace(filename, '<band>', band2, pos)
+
+    call ncio_open(trim(filename), NF90_NOWRITE, ncid)
+
+    if ( ch == 1 ) then
+      ! Read lon/lat
+
+      if ( HIM_OBS_IDEAL ) then 
+        lon_him(:) = 0.0_r_sngl ! dummy
+        lat_him(:) = 0.0_r_sngl ! dummy
+      else
+        call ncio_check(nf90_inq_varid(ncid, 'longitude', varid))
+        call ncio_check(nf90_get_var(ncid, varid, lon_him, &
+                                    start = (/ 1 /), count = (/ imax_him /)))
+      
+        call ncio_check(nf90_inq_varid(ncid, 'latitude', varid))
+        call ncio_check(nf90_get_var(ncid, varid, lat_him, &
+                                    start = (/ 1 /), count = (/ jmax_him /)))
+
+        if ( lat_him(1) > lat_him(jmax_him) ) then
+          ! reverse lat
+          lat_him = lat_him(jmax_him:1:-1)
+          lat_reverse = .true.
+        endif
+
+      endif
+    endif
+  
+    call ncio_check(nf90_inq_varid(ncid, 'tbb', varid))
+    call ncio_check(nf90_get_var(ncid, varid, tbb2d, &
+                                 start = (/ 1, 1/), count = (/ imax_him, jmax_him/)))
+
+    if ( lat_reverse ) then
+      tbb2d(1:imax_him,1:jmax_him) = tbb2d(1:imax_him,jmax_him:1:-1)
+    endif
+
+    if ( HIM_OBS_IDEAL ) then
+      call ncio_check(nf90_inq_varid(ncid, 'random', varid))
+      call ncio_check(nf90_get_var(ncid, varid, random2d, &
+                                   start = (/ 1, 1/), count = (/ imax_him, jmax_him/)))
+
+      if ( lat_reverse ) then
+        random2d(1:imax_him,1:jmax_him) = random2d(1:imax_him,jmax_him:1:-1)
+      endif
+
+      !$omp parallel do private(i,j)
+      do j = 1, jmax_him
+        do i = 1, imax_him
+          tbb2d(i,j) = tbb2d(i,j) + random2d(i,j)*HIM_OBS_IDEAL_STD
+        enddo
+      enddo
+      !$omp end parallel do
+
+    endif
+   
+    call ncio_close(ncid)
+    tbb3d(ch,:,:) = tbb2d(:,:)
+    !write(6,'(2a)')'Read him B', band2
+  enddo
+
+  return
+end subroutine read_Him_nc
+
+subroutine sobs_Him(imax_him,jmax_him,lon_him,lat_him,tbb_org,tbb_sobs)
+  use scale_atmos_grid_cartesC, only: &
+      CX => ATMOS_GRID_CARTESC_CX, &
+      CY => ATMOS_GRID_CARTESC_CY, &
+      DX, DY
+  use scale_atmos_grid_cartesC_index, only: &
+      IHALO, JHALO
+  use scale_mapprojection, only: &
+      MAPPROJECTION_xy2lonlat
+  implicit none
+
+  integer, intent(in) :: imax_him, jmax_him
+
+  real(r_sngl), intent(in) :: lon_him(imax_him)
+  real(r_sngl), intent(in) :: lat_him(jmax_him)
+  real(r_sngl), intent(in) :: tbb_org(NIRB_HIM_USE,imax_him,jmax_him)
+
+  real(r_size), intent(out) :: tbb_sobs(NIRB_HIM_USE,nlon,nlat)
+
+  real(RP) :: ri_RP, rj_RP
+  real(r_size) :: lon2d(nlon,nlat), lat2d(nlon,nlat)
+  real(RP) :: lon_RP, lat_RP
+
+  integer :: i, j, ch, ii, jj
+  integer :: is, ie, js, je
+  integer, parameter :: dix = 1
+  integer, parameter :: diy = 1
+  
+  real(r_size) :: weight2d(dix*2+1,diy*2+1)
+  real(r_size) :: dist
+  real(r_size) :: rig, rjg
+  real(r_size) :: rig_him, rjg_him
+
+  integer :: i_him, j_him
+  
+  ! Assumte that Himawari-8 obs is based on a uniform lat-lon coordinate
+  !
+  
+  tbb_sobs = 0.0_r_size
+
+  do j = 1, nlat
+  do i = 1, nlon
+
+    ri_RP = real( i + IHALO, RP )
+    rj_RP = real( j + JHALO, RP )
+    call MAPPROJECTION_xy2lonlat( (ri_RP-1.0_RP) * DX + CX(1), &
+                                  (rj_RP-1.0_RP) * DY + CY(1),&
+                                  lon_RP, lat_RP )
+    lon2d(i,j) = real( lon_RP, kind=r_size ) * rad2deg
+    lat2d(i,j) = real( lat_RP, kind=r_size ) * rad2deg
+
+    call phys2ij_Him(imax_him,jmax_him,lon_him,lat_him,lon2d(i,j),lat2d(i,j),i_him,j_him)
+
+
+    is = max(i_him - dix,1)
+    ie = min(i_him + dix, imax_him)
+
+    js = max(j_him - diy,1)
+    je = min(j_him + diy, jmax_him)
+
+    call phys2ij(lon2d(i,j),lat2d(i,j),rig,rjg)
+
+    weight2d = 0.0_r_size
+    do jj = js, je
+    do ii = is, ie
+      ! get global grid indices for Him obs
+      call phys2ij(lon_him(ii)*deg2rad,lat_him(jj)*deg2rad,rig_him,rjg_him)
+
+      ! distance between Him obs on its original coordinate and SCALE grids
+      dist = sqrt( ( ( rig - rig_him ) * DX )**2 + ( ( rjg - rjg_him ) * DY )**2 )
+
+      weight2d(ii-is+1,jj-js+1) = dist
+
+    enddo
+    enddo
+
+    do ch = 1, NIRB_HIM_USE
+      tbb_sobs(ch,i,j) = sum(tbb_org(ch,is:ie,js:je) * weight2d(:,:)) / sum(weight2d)
+    enddo
+  
+  enddo ! i
+  enddo ! j
+
+  return
+end subroutine sobs_Him
+
+subroutine phys2ij_Him(imax_him,jmax_him,lon_him,lat_him,rlon,rlat,ig,jg)
+  implicit none
+
+  integer, intent(in) :: imax_him, jmax_him
+  real(r_sngl),intent(in) :: lon_him(imax_him)
+  real(r_sngl),intent(in) :: lat_him(jmax_him)
+  real(r_size),intent(in) :: rlon
+  real(r_size),intent(in) :: rlat
+  integer,intent(out) :: ig
+  integer,intent(out) :: jg
+
+  real(r_sngl) :: dlon_him, dlat_him
+
+!
+! rlon,rlat -> ri,rj in Himawari 8 
+!
+
+  dlon_him = (maxval(lon_him) - minval(lon_him)) / real(imax_him-1,kind=r_sngl)
+  dlat_him = (maxval(lat_him) - minval(lat_him)) / real(jmax_him-1,kind=r_sngl)
+
+  ig = nint((rlon - minval(lon_him)) / dlon_him) + 1
+  jg = nint((rlat - minval(lat_him)) / dlat_him) + 1
+
+  if(ig > imax_him .or. ig < 1)then
+    ig = -1
+  endif
+  if(jg > jmax_him .or. jg < 1)then
+    jg = -1
+  endif
+
+  return
+end subroutine phys2ij_Him
+
+subroutine get_nobs_allgHim(filename_org, nobs)
+  implicit none
+
+  character(*),intent(in) :: filename_org
+  integer, intent(out) :: nobs
+  integer :: i, j
+
+  integer :: pos
+  character(len=2) :: band2
+  character(len=255) :: filename
+  logical :: stat
+
+  ! check if the file exists
+  filename = trim(filename_org)
+  write(band2,'(I2.2)') HIM_IR_BAND_RTTOV_LIST(1)
+  call str_replace(filename, '<band>', band2, pos)
+
+  inquire(file=trim(filename),exist=stat)
+  if ( .not. stat ) then
+    nobs = 0
+  else
+    nobs = int( nlong / HIM_OBS_THIN_LEV ) * int( nlatg / HIM_OBS_THIN_LEV ) * NIRB_HIM_USE
+  endif
+
+  return
+end subroutine get_nobs_allgHim
+
+#ifdef RTTOV
+SUBROUTINE Trans_XtoY_HIM_allg(v3d,v2d,yobs,qc,yobs_clr,mwgt_plev2d,stggrd,&
+                               mv3d,mv2d,slope3d,slope2d,him_add2d)
+  use scale_mapprojection, only: &
+      MAPPROJECTION_xy2lonlat
+  use common_scale_rttov13, only: &
+      rttov13_fwd_ir
+  use scale_atmos_grid_cartesC_index, only: &
+      KHALO, IHALO, JHALO, &
+      KS, KE, KA, KMAX
+  use scale_atmos_grid_cartesC, only: &
+      CZ  => ATMOS_GRID_CARTESC_CZ, &
+      FZ  => ATMOS_GRID_CARTESC_FZ, &
+      CX => ATMOS_GRID_CARTESC_CX, &
+      CY => ATMOS_GRID_CARTESC_CY, &
+      DX, DY
+  use scale_const, only: &
+      CONST_D2R
+
+  implicit none
+  integer :: np, ch
+
+  real(r_size), intent(in) :: v3d(nlevh,nlonh,nlath,nv3dd)
+  real(r_size), intent(in) :: v2d(nlonh,nlath,nv2dd)
+  real(r_size), intent(out) :: yobs(NIRB_HIM_USE,nlon,nlat)
+  integer, intent(out) :: qc(NIRB_HIM_USE,nlon,nlat)
+
+  real(r_size), intent(out), optional :: yobs_clr(NIRB_HIM_USE,nlon,nlat)
+  real(r_size), intent(out), optional :: mwgt_plev2d(NIRB_HIM_USE,nlon,nlat)
+  integer, intent(in), optional :: stggrd
+
+  real(r_size), intent(in),  optional :: mv3d(nlevh,nlonh,nlath,nv3dd)
+  real(r_size), intent(in),  optional :: mv2d(      nlonh,nlath,nv2dd)
+
+  real(r_size), intent(in),  optional :: slope3d(NIRB_HIM_USE,nlevh,nv3dd)
+  real(r_size), intent(in),  optional :: slope2d(NIRB_HIM_USE,      nv2dd)
+
+  real(r_size), intent(out), optional :: him_add2d(NIRB_HIM_USE,nlon,nlat)
+
+  REAL(r_size) :: rotc(1,1,2)
+  REAL(RP) :: rotc_RP(1,1,2)
+
+  INTEGER :: stggrd_ = 0
+
+! -- 2D (nlevh,nbtobs) or 1D (nbtobs) profiles for RTTOV --  
+  REAL(r_size) :: prs2d(nlev,nlon*nlat)
+  REAL(r_size) :: tk2d(nlev,nlon*nlat)
+  REAL(r_size) :: qv2d(nlev,nlon*nlat)
+  real(r_size) :: qliq2d(nlev,nlon*nlat)
+  real(r_size) :: qice2d(nlev,nlon*nlat)
+
+  real(r_size) :: tsfc1d(nlon*nlat)
+  real(r_size) :: qsfc1d(nlon*nlat)
+  real(r_size) :: psfc1d(nlon*nlat)
+  real(r_size) :: usfc1d(nlon*nlat)
+  real(r_size) :: vsfc1d(nlon*nlat)
+  real(r_size) :: lon1d(nlon*nlat)
+  real(r_size) :: lat1d(nlon*nlat)
+  real(RP) :: lon_tmp_RP(1,1)
+  real(RP) :: lat_tmp_RP(1,1)
+  real(r_size) :: topo1d(nlon*nlat)
+  real(r_size) :: lsmask1d(nlon*nlat)
+  real(r_size) :: zenith1d(nlon*nlat) ! predictor for bias correction
+  real(r_size) :: azm
+
+! -- brightness temp from RTTOV
+  REAL(r_size) :: btall_out(NIRB_HIM_USE,nlon*nlat) ! NOTE: RTTOV always calculates all (10) channels!!
+  REAL(r_size) :: btclr_out(NIRB_HIM_USE,nlon*nlat) ! NOTE: RTTOV always calculates all (10) channels!!
+! -- cloud top height
+  REAL(r_size) :: ctop_out1d(nlon*nlat) 
+
+  real(r_size) :: mwgt_plev1d(NIRB_HIM_USE,nlon*nlat)
+
+  REAL(r_size) :: utmp, vtmp ! U10m & V10m tmp for rotation
+  real(r_size) :: lon_tmp(1,1), lat_tmp(1,1)
+  real(r_size), parameter :: btmax = 400.0_r_size
+  real(r_size), parameter :: btmin = 100.0_r_size
+
+  real(r_size) :: blon, blat ! lat/lon at the domain center
+  integer :: k
+
+  integer :: i, j
+  real(RP) :: ri_RP, rj_RP
+
+  integer :: nps, npe, it
+
+  integer :: iv3d, iv2d
+  real(r_size), allocatable :: pert1d(:)
+  real(r_size) :: pert
+
+  integer :: kmin_y18, kmax_y18
+  
+!  write(6,'(a)') 'Hello from Trans_XtoY_HIM_allg'
+
+  if (present(stggrd)) stggrd_ = stggrd
+
+! -- make profile arrays for RTTOV --
+  do j = 1, nlat
+  do i = 1, nlon
+    np = (j - 1) * nlon + i
+
+    ri_RP = real( i + IHALO, kind=RP )
+    rj_RP = real( j + JHALO, kind=RP )
+    call MAPPROJECTION_xy2lonlat( (ri_RP-1.0_RP) * DX + CX(1), &
+                                  (rj_RP-1.0_RP) * DY + CY(1),&
+                                  lon_tmp_RP(1,1), lat_tmp_RP(1,1) )
+
+    lon1d(np) = real( lon_tmp_RP(1,1), kind=r_size ) * rad2deg
+    lat1d(np) = real( lat_tmp_RP(1,1), kind=r_size ) * rad2deg
+
+    if ( HIM_RTTOV_SZ_IDEAL ) then
+      zenith1d(np) = 0.0_r_size
+    else
+      call zenith_geosat( HIM_LON, lon1d(np), lat1d(np), zenith1d(np), azm )
+    endif
+    tsfc1d(np) = v2d(i+IHALO,j+JHALO,iv2dd_skint)
+    qsfc1d(np) = v2d(i+IHALO,j+JHALO,iv2dd_q2m)
+    topo1d(np) = v2d(i+IHALO,j+JHALO,iv2dd_topo)
+
+    !
+    ! Definition of lsmask is different btw SCALE & RTTOV
+    ! 
+    ! SCALE lsmask:1 (land)
+    !              0 (ocean)
+    ! RTTOV lsmask:0 (land)
+    !              1 (ocean)
+    !
+    if ( v2d(i+IHALO,j+JHALO,iv2dd_lsmask) > 0.5_r_size ) then
+      lsmask1d(np) = 0 ! land in RTTOV
+    else
+      lsmask1d(np) = 1 ! ocean in RTTOV
+    endif
+
+    psfc1d(np) = v2d(i+IHALO,j+JHALO,iv2dd_ps)
+
+    ! assume not staggerd grid
+    utmp = v2d(i+IHALO,j+JHALO,iv2dd_u10m)
+    vtmp = v2d(i+IHALO,j+JHALO,iv2dd_v10m)
+    usfc1d(np) = utmp
+    vsfc1d(np) = vtmp
+
+    do k = 1, KMAX
+      prs2d(k,np) = v3d(KHALO+KMAX-k+1,i+IHALO,j+JHALO,iv3dd_p)
+      tk2d(k,np)  = v3d(KHALO+KMAX-k+1,i+IHALO,j+JHALO,iv3dd_t)
+      qv2d(k,np)  = v3d(KHALO+KMAX-k+1,i+IHALO,j+JHALO,iv3dd_q)
+      qliq2d(k,np) = v3d(KHALO+KMAX-k+1,i+IHALO,j+JHALO,iv3dd_qc)
+      qice2d(k,np) = v3d(KHALO+KMAX-k+1,i+IHALO,j+JHALO,iv3dd_qi) & 
+                   + v3d(KHALO+KMAX-k+1,i+IHALO,j+JHALO,iv3dd_qs) &
+                   + v3d(KHALO+KMAX-k+1,i+IHALO,j+JHALO,iv3dd_qg)  
+
+    enddo
+
+  enddo ! i
+  enddo ! j
+
+!
+! -- NOTE: The channel number for RTTOV is always 10, because it should be the same
+!          with that in Himawari-8 RTTOV coef files.
+!
+!        : Satellite zenith angles are computed within SCALE_RTTOV_fwd using (lon,lat).
+!
+
+  do it = 1, HIM_RTTOV_ITMAX
+    nps = int( nlon*nlat / HIM_RTTOV_ITMAX ) * ( it - 1) + 1
+    npe = int( nlon*nlat / HIM_RTTOV_ITMAX ) * it
+  
+    if ( it == HIM_RTTOV_ITMAX ) npe = max( npe, nlon*nlat )
+
+    CALL rttov13_fwd_ir(NIRB_HIM_USE, & ! num of channels
+                         nlev,& ! num of levels
+                         npe-nps+1, & ! num of profs
+                         prs2d (1:nlev,nps:npe),& ! (Pa)
+                         tk2d  (1:nlev,nps:npe),& ! (K)
+                         qv2d  (1:nlev,nps:npe),& ! (kg/kg)
+                         qliq2d(1:nlev,nps:npe),& ! (kg/kg)
+                         qice2d(1:nlev,nps:npe),& ! (kg/kg)
+                         tsfc1d(nps:npe),& ! (K)
+                         qsfc1d(nps:npe),& ! (kg/kg)
+                         psfc1d(nps:npe),& ! (Pa)
+                         usfc1d(nps:npe),& ! (m/s)
+                         vsfc1d(nps:npe),& ! (m/s)
+                         topo1d(nps:npe),& ! (m)
+                         lon1d(nps:npe),& ! (deg)
+                         lat1d(nps:npe),& ! (deg)
+                         lsmask1d(nps:npe),& ! (0-1)
+                         zenith1d(nps:npe), & ! (deg) 
+                         btall_out(1:NIRB_HIM_USE,nps:npe),& ! (K)
+                         btclr_out(1:NIRB_HIM_USE,nps:npe),& ! (K)
+                         mwgt_plev1d(1:NIRB_HIM_USE,nps:npe),& ! (Pa)
+                         ctop_out1d(nps:npe))
+  enddo ! it
+
+!
+! -- btall_out is substituted into yobs
+!
+
+  do j = 1, nlat
+  do i = 1, nlon
+    np = (j - 1) * nlon + i
+
+    do ch = 1, NIRB_HIM_USE
+      qc(ch,i,j) = iqc_good
+      yobs(ch,i,j) = btall_out(ch,np)
+   
+      ! QC
+      if(HIM_REJECT_LAND .and. v2d(i+IHALO,j+JHALO,iv2dd_lsmask) > 0.5_r_size )then
+        qc(ch,i,j) = iqc_obs_bad
+      endif
+
+      if(yobs(ch,i,j) > btmax .or. yobs(ch,i,j) < btmin .or. yobs(ch,i,j) /= yobs(ch,i,j))then
+        qc(ch,i,j) = iqc_obs_bad
+      endif
+
+    enddo ! ch
+
+  enddo ! i
+  enddo ! j
+
+  if ( present(yobs_clr) ) then
+    do j = 1, nlat
+      do i = 1, nlon
+        np = (j - 1) * nlon + i
+    
+        do ch = 1, NIRB_HIM_USE
+          yobs_clr(ch,i,j) = btclr_out(ch,np)
+        enddo    
+      enddo ! i
+    enddo ! j
+  endif
+
+  if ( present(mwgt_plev2d) ) then
+    if( HIM_VLOCAL_CTOP ) then
+      do j = 1, nlat
+        do i = 1, nlon
+          np = (j - 1) * nlon + i
+          do ch = 1, NIRB_HIM_USE  
+            if ( (ctop_out1d(np) > 0.0d0) .and. (ctop_out1d(np) < mwgt_plev1d(ch,np)) .and. &
+                 (mwgt_plev1d(ch,np)>HIM_LIMIT_LEV) ) then
+              mwgt_plev1d(ch,np) = (ctop_out1d(np) + mwgt_plev1d(ch,np))*0.5_r_size
+            endif
+          enddo
+        enddo
+      enddo
+    endif ! HIM_VLOCAL_CTOP
+
+    do j = 1, nlat
+      do i = 1, nlon
+        np = (j - 1) * nlon + i
+        do ch = 1, NIRB_HIM_USE
+          mwgt_plev2d(ch,i,j) = mwgt_plev1d(ch,np)
+        enddo    
+      enddo ! i
+    enddo ! j
+  endif  ! present(mwgt_plev2d)
+
+  if ( HIM_ADDITIVE_Y18 ) then
+    if ( present(him_add2d) ) then
+      him_add2d(1:NIRB_HIM_USE,1:nlon,1:nlat) = 0.0_r_size
+      allocate( pert1d(1:nlevh) )
+
+      kmin_y18 = 1
+      kmax_y18 = nlev
+      do k = 2, nlev - 1
+        if ( kmin_y18 == 1    .and. CZ(k+KHALO) > HIM_ADDITIVE_Y18_ZMIN ) then
+          kmin_y18 = k - 1
+        endif
+        if ( kmax_y18 == nlev .and. CZ(k+KHALO) > HIM_ADDITIVE_Y18_ZMAX ) then
+          kmax_y18 = k - 1
+        endif
+      enddo
+
+      do iv3d = 1, nv3dd
+        if ( ( iv3d == iv3dd_u .and. HIM_ADDITIVE_Y18_USE_U ) .or. &
+             ( iv3d == iv3dd_v .and. HIM_ADDITIVE_Y18_USE_V ) .or. & 
+             ( iv3d == iv3dd_w .and. HIM_ADDITIVE_Y18_USE_W ) .or. & 
+             ( iv3d == iv3dd_t .and. HIM_ADDITIVE_Y18_USE_t ) .or. & 
+             ( iv3d == iv3dd_p .and. HIM_ADDITIVE_Y18_USE_P ) .or. & 
+             ( iv3d == iv3dd_q .and. HIM_ADDITIVE_Y18_USE_Q ) ) then
+          do j = 1, nlat
+            do i = 1, nlon
+              pert1d = v3d(1:nlevh,i+IHALO,j+JHALO,iv3d) - mv3d(1:nlevh,i+IHALO,j+JHALO,iv3d)
+              do ch = 1, NIRB_HIM_USE
+                do k = kmin_y18, kmax_y18
+                  him_add2d(ch,i,j) = him_add2d(ch,i,j) + pert1d(KHALO+k) * slope3d(ch,KHALO+k,iv3d)
+                enddo ! k
+              enddo ! ch
+            enddo ! i
+          enddo ! j
+        endif
+      enddo ! iv3d
+
+      do iv2d = 1, nv2dd
+        if ( ( iv2d == iv2dd_ps   .and. HIM_ADDITIVE_Y18_USE_SFC_PRES ) .or. &
+             ( iv2d == iv2dd_pw   .and. HIM_ADDITIVE_Y18_USE_PW       ) .or. &
+             ( iv2d == iv2dd_rain .and. HIM_ADDITIVE_Y18_USE_PREC     ) ) then
+          do j = 1, nlat
+            do i = 1, nlon
+              pert = v2d(i+IHALO,j+JHALO,iv2d) - mv2d(i+IHALO,j+JHALO,iv2d)
+              do ch = 1, NIRB_HIM_USE
+                him_add2d(ch,i,j) = him_add2d(ch,i,j) + pert * slope2d(ch,iv2d)
+              enddo ! ch
+            enddo ! i
+          enddo ! j
+        endif
+      enddo ! iv2d
+
+      deallocate( pert1d )
+
+    endif
+  endif
+
+  return
+END SUBROUTINE Trans_XtoY_HIM_allg
+#endif
+
+subroutine zenith_geosat( sat_lon, lon, lat, zenith, azm )
+! 
+! Compute geostatinoary-satelitte zenith angle from lat/lon information
+!
+! -- Note: Computation of the zenith angle in each obs point (P) is based on the
+!          LRIT/HRIT Global Specification.
+!          http://www.cgms-info.org/documents/pdf_cgms_03.pdf
+! 
+  use scale_const, only: &
+      Deg2Rad => CONST_D2R, &
+      PI => CONST_PI
+
+  implicit none
+
+  real(r_size), intent(in) :: sat_lon ! (deg) longitude of Himawari-8 satellite
+  real(r_size), intent(in) :: lon, lat ! (deg) 
+  real(r_size), intent(out) :: zenith ! satellite zenith angle (deg)
+  real(r_size), intent(out) :: azm ! satellite azimuth angle (deg)
+
+  real(r_dble) :: rlon, rlat, rsat_lon ! (rad)
+
+  ! satellite coordinate vector components
+  ! (0,0,0) is the Earth center
+  real(r_dble) :: r_ps1, r_ps2, r_ps3 ! From P to satellite
+  real(r_dble) :: r_ep1, r_ep2, r_ep3 ! From the Earth center to P
+  real(r_dble) :: r_ps_we ! West=>East vector component of r_ps
+  real(r_dble) :: r_ps_sn ! South=>North vector component of r_ps
+
+  real(r_dble), parameter :: h = 42164.0d3 ! (m) ! distance btw the Earth center & satellite
+  real(r_dble) :: r_e ! the rength of r_e
+  real(r_dble), parameter :: r_pol = 6356.5838d3 ! a polar radius of Earth (m)
+  real(r_dble), parameter :: r_eq = 6378.1690d3 ! an equator radius of Earth (m)
+  real(r_dble) :: zenith_d
+  real(r_dble) :: azm_d
+
+  ! lon/lat (deg) => lon/lat(rad)
+  rlon = real( lon, kind=r_dble ) * real( Deg2Rad, kind=r_dble )
+  rlat = datan( ( r_pol / r_eq )**2 * dtan( real( lat, kind=r_dble ) * real( Deg2Rad, kind=r_dble ) ) ) 
+  rsat_lon = real( sat_lon, kind=r_dble ) * real( Deg2Rad, kind=r_dble )
+
+  ! From P to satellite 
+  r_e = r_pol / dsqrt( 1.0d0 - (r_eq**2 - r_pol**2) / (r_eq**2) * dcos(rlat)**2 )
+  r_ps1 = -r_e * dcos( rlat ) * dcos( rlon ) + h * dcos( rsat_lon )
+  r_ps2 = -r_e * dcos( rlat ) * dsin( rlon ) + h * dsin( rsat_lon )
+  r_ps3 = -r_e * dsin( rlat ) 
+
+  ! From the Earth center to P
+  r_ep1 = r_e * dcos( rlat ) * dcos( rlon )
+  r_ep2 = r_e * dcos( rlat ) * dsin( rlon )
+  r_ep3 = r_e * dsin( rlat )
+
+  ! Inner product btw r_ep & r_sp
+  zenith_d = ( r_ep1 * r_ps1 + r_ep2 * r_ps2 + r_ep3 * r_ps3 )
+  zenith_d = zenith_d / ( dsqrt( r_ep1**2 + r_ep2**2 + r_ep3**2 ) * &
+                          dsqrt( r_ps1**2 + r_ps2**2 + r_ps3**2) )
+
+  ! Get satellite zenith angle (deg)
+  zenith = real( dacos( zenith_d ) / real( Deg2Rad, kind=r_dble ), kind=r_size )
+
+  !
+  r_ps_we = -r_ps1 * dsin( rlon ) + r_ps2 * dcos( rlon )
+  r_ps_sn =  r_ps3 * dcos( rlat )
+
+  ! Inner product btw r_ps projected on the NSWE plain at P & 
+  ! the unit vector pointing N at P on the same plain
+  !
+  ! N: 0deg, E: +90deg
+  if ( r_ps_sn >= 0.0d0) then 
+    azm_d = datan( r_ps_we / r_ps_sn ) / real( Deg2Rad, kind=r_dble ) ! (deg)
+  else
+    azm_d = datan( r_ps_we / abs(r_ps_sn) ) / real( Deg2Rad, kind=r_dble ) ! (deg)
+    azm_d = 180.0d0 - azm_d
+  endif
+
+  azm = real( azm_d, kind=r_size )
+ 
+  return
+end subroutine zenith_geosat
+
 !---------------------------
 
 END MODULE common_obs_scale

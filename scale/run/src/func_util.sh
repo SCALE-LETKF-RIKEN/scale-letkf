@@ -149,6 +149,7 @@ local NODEFILE="$1"; shift
 local PROG="$1"; shift
 local CONF="$1"; shift
 local STDOUT="$1"; shift
+local NUM_PROC4EXEC="$1"; shift
 local ARGS="$@"
 
 progbase=$(basename $PROG)
@@ -158,8 +159,7 @@ progdir=$(dirname $PROG)
 
 if [ "$SCALE_SYS" == 'Linux64-gnu-ompi' ] ; then
   
-#  mpirun --mca btl openib,sm,self --bind-to core $PROG $CONF $STDOUT $ARGS
-  mpirun --mca btl tcp,vader,self --bind-to core $PROG $CONF $STDOUT $ARGS
+  mpirun -n $((NNODES*PPN)) --mca btl tcp,vader,self --bind-to core --output-filename ${STDOUT}:nocopy --merge-stderr-to-stdout $PROG $CONF $ARGS >&2
   if ((res != 0)); then
     echo "[Error] mpirun $PROG $CONF $STDOUT $ARGS" >&2
     echo "        Exit code: $res" >&2
@@ -182,7 +182,8 @@ elif [ "$MPI_TYPE" == 'sgimpt' ]; then
 
 elif [ "$MPI_TYPE" == 'openmpi' ]; then
 
-  NNP=$(cat ${NODEFILE_DIR}/${NODEFILE} | wc -l)
+  NNP=$NUM_PROC4EXEC
+  # NNP=$(cat ${NODEFILE_DIR}/${NODEFILE} | wc -l)
 
   $MPIRUN -np $NNP -hostfile ${NODEFILE_DIR}/${NODEFILE} $PROG $CONF $STDOUT $ARGS
   res=$?
@@ -204,30 +205,33 @@ elif [ "$MPI_TYPE" == 'impi' ] ; then
 
 elif [ "$PRESET" == 'FUGAKU' ]; then
 
-  mpiexec -std-proc $STDOUT -n $((NNODES*PPN)) $PROG $CONF $ARGS
+  mpiexec -std-proc $STDOUT -n ${NUM_PROC4EXEC} $PROG $CONF $ARGS
   res=$?
   if ((res != 0)); then
-    echo "[Error] mpiexec  -std-proc $STDOUT -n $((NNODES*PPN)) $PROG $CONF $ARGS" >&2
+    echo "[Error] mpiexec  -std-proc $STDOUT -n ${NUM_PROC4EXEC} $PROG $CONF $ARGS" >&2
     echo "        Exit code: $res" >&2
     exit $res
   fi
 
 elif [ "$PRESET" == 'FX1000' ]; then
 
-  mpiexec -std-proc $STDOUT -n $((NNODES*PPN)) $PROG $CONF $ARGS
+  mpiexec -std-proc $STDOUT -n ${NUM_PROC4EXEC} $PROG $CONF $ARGS
   res=$?
   if ((res != 0)); then
-    echo "[Error] mpiexec  -std-proc $STDOUT -n $((NNODES*PPN)) $PROG $CONF $ARGS" >&2
+    echo "[Error] mpiexec  -std-proc $STDOUT -n ${NUM_PROC4EXEC} $PROG $CONF $ARGS" >&2
     echo "        Exit code: $res" >&2
     exit $res
   fi
 
 elif [ "$PRESET" == 'Linux64-nvidia' ]; then
-  export LOG_SCALE_LETKF=$STDOUT
-  mpirun -n $((NNODES*PPN)) ./wrapper.sh ./$PROG $CONF $ARGS
+  mpirun -np ${NUM_PROC4EXEC}  --output-filename ${STDOUT}:nocopy --merge-stderr-to-stdout $PROG $CONF $ARGS >&2
+  # mpirun  -n ${NUM_PROC4EXEC} bash -lc '
+  #   r=${OMPI_COMM_WORLD_RANK:?}
+  #   exec stdbuf -oL -eL ./"'"$PROG"'" '"$CONF $ARGS"' > "'"$STDOUT"'.${r}" 2>&1
+  # '
   res=$?
   if ((res != 0)); then
-    echo "[Error]     mpirun -n $((NNODES*PPN)) ./wrapper.sh ./$PROG $CONF $ARGS" >&2
+    echo "[Error]       mpirun -np ${NUM_PROC4EXEC}  --output-filename ${STDOUT}:nocopy --merge-stderr-to-stdout $PROG $CONF $ARGS" >&2
     echo "        Exit code: $res" >&2
     exit $res
   fi
@@ -992,6 +996,11 @@ for p in ${JOB_LOG_TYPES}; do
     cp -f $JOB_DIR/${JOB_LOG_PREFIX}.${p}${JOB_ID} $OUTDIR/exp/${JOB_ID}_${JOBNAME}_${STIME}/job.${p}
   fi
 done
+
+# copy run_progress if exists
+if [ -f "$JOB_DIR/run_progress" ]; then
+  cp -f $JOB_DIR/run_progress $OUTDIR/exp/${JOB_ID}_${JOBNAME}_${STIME}/run_progress
+fi
 
 ( cd $SCRP_DIR && git log -1 --format="SCALE-LETKF version %h (%ai)" > $OUTDIR/exp/${JOB_ID}_${JOBNAME}_${STIME}/version )
 ( cd $SCALEDIR/scale-rm && git log -1 --format="SCALE       version %h (%ai)" >> $OUTDIR/exp/${JOB_ID}_${JOBNAME}_${STIME}/version )

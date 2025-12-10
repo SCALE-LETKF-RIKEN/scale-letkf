@@ -371,30 +371,31 @@ while ((time <= ETIME)); do
         logd=${logd}/%/200r
       fi
 
-#      logd=/worktmp
-      for it in $(seq $nit); do
-        echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: start" >&2
+      NUM_PROC4EXEC=$((NNODES*PPN))
+      if (( s == 1 )); then
+        NUM_PROC4EXEC=$SCALE_NP
+      fi
+      echo "[$(datetime_now)] ${time}: ${stepname[$s]}: start" >&2
 
-        mpirunf ${nodestr} ${stepexecbin[$s]} $TMPROOT/config/${stepexecname[$s]}_${conf_time}.conf ${logd}/NOUT_${conf_time} || exit $?
-        if [ "$PRESET" = 'FUGAKU' ] ; then
-          mpiexec_cnt=$((mpiexec_cnt+1))
-          grep 'finished successfully' ${logd_org}/0/NOUT_${conf_time}.${mpiexec_cnt}.0 >/dev/null || exit 1 
-        fi
+      mpirunf ${nodestr} ${stepexecbin[$s]} $TMPROOT/config/${stepexecname[$s]}_${conf_time}.conf ${logd}/NOUT_${conf_time} ${NUM_PROC4EXEC} || exit $?
+      if [ "$PRESET" = 'FUGAKU' ] ; then
+        mpiexec_cnt=$((mpiexec_cnt+1))
+        grep 'finished successfully' ${logd_org}/0/NOUT_${conf_time}.${mpiexec_cnt}.0 >/dev/null || exit 1 
+      fi
 
-        if (( EFSO_RUN == 1 )); then
-          if (( DO_ANALYSIS4EFSO == 1 && s == 3 && time > STIME )); then
-            # Run additional ensemble forecast for EFSO
-            # Initial conditions are obtained by LETKF w/o inflation
-            mpirunf ${nodestr} ${stepexecbin[$s]} $TMPROOT/config/efso_${stepexecname[$s]}_${conf_time}.conf ${logd}/NOUT_${conf_time}_EFSO || exit $?
-            if [ "$PRESET" = 'FUGAKU' ] ; then
-              mpiexec_cnt=$((mpiexec_cnt+1))
-              grep 'finished successfully' ${logd_org}/0/NOUT_${conf_time}_EFSO.${mpiexec_cnt}.0 >/dev/null || exit 1 
-            fi
+      if (( EFSO_RUN == 1 )); then
+        if (( DO_ANALYSIS4EFSO == 1 && s == 3 && time > STIME )); then
+          # Run additional ensemble forecast for EFSO
+          # Initial conditions are obtained by LETKF w/o inflation
+          mpirunf ${nodestr} ${stepexecbin[$s]} $TMPROOT/config/efso_${stepexecname[$s]}_${conf_time}.conf ${logd}/NOUT_${conf_time}_EFSO ${NUM_PROC4EXEC} || exit $?
+          if [ "$PRESET" = 'FUGAKU' ] ; then
+            mpiexec_cnt=$((mpiexec_cnt+1))
+            grep 'finished successfully' ${logd_org}/0/NOUT_${conf_time}_EFSO.${mpiexec_cnt}.0 >/dev/null || exit 1 
           fi
         fi
+      fi
 
-        echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: end" >&2
-      done
+      echo "[$(datetime_now)] ${time}: ${stepname[$s]}: end" >&2
 
       if [ "$PRESET" = 'FUGAKU' ] ; then
         if (( s == 5 && HIST_LLIO_TMP == 1)) ; then

@@ -273,13 +273,14 @@ while ((time <= ETIME)); do
         logd=${logd}/%/200r
       fi
 
-      for it in $(seq $nit); do
-        echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: start" >&2
+      echo "[$(datetime_now)] ${time}: ${stepname[$s]}: start" >&2
+      NUM_PROC4EXEC=$((NNODES*PPN))
+      if (( s == 1 )); then
+        NUM_PROC4EXEC=$SCALE_NP
+      fi
+      mpirunf ${nodestr} ${stepexecname[$s]} $TMPROOT/config/fcst_${stepexecname[$s]}_${stimes[1]}.conf ${logd}/${stepexecname[$s]}.NOUT_${stimes[1]} ${NUM_PROC4EXEC} || exit $?
 
-        mpirunf ${nodestr} ${stepexecname[$s]} $TMPROOT/config/fcst_${stepexecname[$s]}_${stimes[1]}.conf ${logd}/${stepexecname[$s]}.NOUT_${stimes[1]} || exit $?
-
-        echo "[$(datetime_now)] ${time}: ${stepname[$s]}: $it: end" >&2
-      done
+      echo "[$(datetime_now)] ${time}: ${stepname[$s]}: end" >&2
 
       if [ "$PRESET" = 'FUGAKU' ] ; then
         if (( s == 3 && BDY_LLIO_TMP == 1 && BDY_ENS == 1 )) ; then
